@@ -16,34 +16,43 @@ let wssInstance = null;
 const channelClients = new Map(); // channelName -> Set of WebSocket clients
 
 const httpServer = http.createServer((req, res) => {
-  let filePath = req.url;
-  if (filePath === '/' || filePath === '' || filePath === '/tts-obs') { // Allow /tts-obs path
-    filePath = '/index.html';
-  }
-  const fullPath = path.join(PUBLIC_DIR, filePath.substring(filePath.startsWith('/tts-obs') ? '/tts-obs'.length : 0)); // Adjust for /tts-obs
+    let requestedUrl = req.url;
 
-  const ext = path.extname(fullPath);
-  let contentType = 'text/html';
-  switch (ext) {
-    case '.js':
-      contentType = 'application/javascript';
-      break;
-    case '.css':
-      contentType = 'text/css';
-      break;
-    // Add more types if needed
-  }
-
-  fs.readFile(fullPath, (err, data) => {
-    if (err) {
-      logger.warn(`Web server: 404 Not Found - ${req.url} (resolved to ${fullPath})`);
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('404 Not Found');
-      return;
+    // Ignore common browser requests for icons to prevent 404 spam in logs
+    if (requestedUrl === '/favicon.ico' || requestedUrl === '/apple-touch-icon.png' || requestedUrl === '/apple-touch-icon-precomposed.png') {
+        res.writeHead(204, { 'Content-Type': 'image/x-icon' }); // 204 No Content
+        res.end();
+        return;
     }
-    res.writeHead(200, { 'Content-Type': contentType });
-    res.end(data);
-  });
+
+    let filePath = requestedUrl;
+    if (filePath === '/' || filePath === '' || filePath === '/tts-obs') { // Allow /tts-obs path
+        filePath = '/index.html';
+    }
+    const fullPath = path.join(PUBLIC_DIR, filePath.substring(filePath.startsWith('/tts-obs') ? '/tts-obs'.length : 0)); // Adjust for /tts-obs
+
+    const ext = path.extname(fullPath);
+    let contentType = 'text/html';
+    switch (ext) {
+        case '.js':
+            contentType = 'application/javascript';
+            break;
+        case '.css':
+            contentType = 'text/css';
+            break;
+        // Add more types if needed
+    }
+
+    fs.readFile(fullPath, (err, data) => {
+        if (err) {
+            logger.warn(`Web server: 404 Not Found - ${req.url} (resolved to ${fullPath})`);
+            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.end('404 Not Found');
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(data);
+    });
 });
 
 export function initializeWebServer() {

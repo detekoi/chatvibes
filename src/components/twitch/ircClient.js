@@ -1,6 +1,7 @@
 // src/components/twitch/ircClient.js
 import tmi from 'tmi.js';
 import logger from '../../lib/logger.js';
+import config from '../../config/index.js';
 import { getValidIrcToken, refreshIrcToken } from './ircAuthHelper.js';
 
 let client = null;

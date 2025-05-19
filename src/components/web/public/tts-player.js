@@ -2,62 +2,97 @@ const audioPlayer = document.getElementById('ttsAudioPlayer');
 const audioQueue = [];
 let isPlaying = false;
 
-// TODO: Get channel name from query param or a config endpoint from the server
-// For Cloud Run, the instance URL will be fixed, but if it's multi-tenant later, this needs to be dynamic
-const wsUrl = `wss://${window.location.host}`; // Adjust if server runs on different path/port
-const ws = new WebSocket(wsUrl);
+// Determine WebSocket protocol based on current page protocol
+const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+// Construct URL using current host (hostname and port)
+// The channel needs to be passed as a query parameter in the OBS source URL
+// e.g., http://localhost:8080/?channel=yourstreamername
+const queryParams = new URLSearchParams(window.location.search);
+const channelName = queryParams.get('channel');
 
-ws.onopen = () => {
-    console.log('TTS WebSocket connected');
-    // Optional: Send a message to identify this client (e.g., with channel name)
-    // ws.send(JSON.stringify({ type: 'register', channel: 'theStreamersChannel' }));
-};
+let wsUrl;
+if (channelName) {
+    wsUrl = `${wsProtocol}//${window.location.host}/?channel=${channelName}`; // Keep channel in WS URL for server
+} else {
+    // Fallback or error if channel name is not provided in OBS source URL
+    console.error("Channel name not provided in query parameters! WebSocket cannot connect properly.");
+    // Potentially display an error on the page or try a default if that makes sense for your setup
+    // For now, we'll let it try to connect without it, but the server might reject.
+    wsUrl = `${wsProtocol}//${window.location.host}/`;
+}
 
-ws.onmessage = (event) => {
-    try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'playAudio' && data.url) {
-            console.log('Received audio URL:', data.url);
-            audioQueue.push(data.url);
-            playNextInQueue();
-        } else if (data.type === 'stopAudio') { // Matches !tts stop command
-            console.log('Received stop command');
-            audioPlayer.pause();
-            audioPlayer.currentTime = 0;
-            audioQueue.length = 0; // Clear the queue
-            isPlaying = false;
-        }
-    } catch (e) {
-        // If direct URL is sent (not JSON)
-        const audioUrl = event.data;
-         if (typeof audioUrl === 'string' && audioUrl.startsWith('https://')) {
-            console.log('Received direct audio URL:', audioUrl);
-            audioQueue.push(audioUrl);
-            playNextInQueue();
-        } else if (audioUrl === 'STOP_CURRENT_AUDIO'){
-            console.log('Received stop current audio command');
-            audioPlayer.pause();
-            audioPlayer.currentTime = 0;
-            // Don't clear queue here, only stop current
-            isPlaying = false; // This will allow next in queue if processQueue() continues
-            // If processQueue has a delay, this might interrupt and play next quickly.
-            // To truly stop and wait for !tts resume, server needs to manage queue state.
-            // For `!tts stop`, it stops the current and processQueue continues.
-            // If `!tts pause` is also active, then processQueue won't send next.
-        } else {
-            console.error('Received invalid WebSocket message:', event.data);
-        }
+console.log(`TTS WebSocket attempting to connect to: ${wsUrl}`);
+let ws = null;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_DELAY_MS = 3000;
+
+function connectWebSocket() {
+    if (!channelName && wsProtocol === 'ws:') { // Only show alert for local dev if channel is missing
+        alert("OBS Browser Source URL needs '?channel=yourchannelname' at the end for ChatVibes TTS to work!");
+    } else if (!channelName) {
+         console.error("CRITICAL: OBS Browser Source URL is missing '?channel=yourchannelname'. TTS will not function for a specific channel.");
     }
-};
 
-ws.onclose = () => {
-    console.log('TTS WebSocket disconnected. Attempting to reconnect...');
-    // Implement reconnection logic if needed, e.g., exponential backoff
-    setTimeout(() => { window.location.reload(); }, 5000); // Simple reload
-};
-ws.onerror = (error) => {
-    console.error('TTS WebSocket error:', error);
-};
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+        console.log('TTS WebSocket connected successfully.');
+        reconnectAttempts = 0; // Reset on successful connection
+        // Optional: Send a registration message with the channel name if the server expects it
+        // ws.send(JSON.stringify({ type: 'register', channel: channelName }));
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('TTS WebSocket received data:', data); // Log all received data
+
+            if (data.type === 'playAudio' && data.url) {
+                audioQueue.push(data.url);
+                playNextInQueue();
+            } else if (data.type === 'stopAudio') {
+                console.log('TTS WebSocket received stopAudio command');
+                stopAllAudio();
+            } else if (data.type === 'registered') {
+                console.log(`TTS WebSocket registered for channel: ${data.channel}. Message: ${data.message}`);
+            }
+        } catch (e) {
+            // This might be a direct URL string if your server doesn't always send JSON
+            if (typeof event.data === 'string') {
+                if (event.data.startsWith('https://') || event.data.startsWith('http://')) { // Check for http too for local testing
+                    console.log('TTS WebSocket received direct audio URL:', event.data);
+                    audioQueue.push(event.data);
+                    playNextInQueue();
+                } else if (event.data === 'STOP_CURRENT_AUDIO') {
+                    console.log('TTS WebSocket received STOP_CURRENT_AUDIO command');
+                    stopCurrentAudio(); // More specific stop
+                } else {
+                     console.warn('TTS WebSocket received non-JSON message:', event.data);
+                }
+            } else {
+                console.error('TTS WebSocket received unparseable message:', event.data, e);
+            }
+        }
+    };
+
+    ws.onclose = (event) => {
+        console.log(`TTS WebSocket disconnected. Code: ${event.code}, Reason: "${event.reason}". Attempting to reconnect... (Attempt ${reconnectAttempts + 1})`);
+        ws = null; // Clear the instance
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++;
+            setTimeout(connectWebSocket, RECONNECT_DELAY_MS * reconnectAttempts); // Exponential backoff-like delay
+        } else {
+            console.error(`TTS WebSocket: Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Please check server and refresh OBS source.`);
+        }
+    };
+
+    ws.onerror = (error) => {
+        // This event usually fires before onclose when a connection fails
+        console.error('TTS WebSocket error:', error);
+        // onclose will handle reconnection logic
+    };
+}
 
 function playNextInQueue() {
     if (isPlaying || audioQueue.length === 0) {
@@ -65,24 +100,46 @@ function playNextInQueue() {
     }
     isPlaying = true;
     const audioUrl = audioQueue.shift();
+    console.log('TTS Player: Attempting to play:', audioUrl);
     audioPlayer.src = audioUrl;
     audioPlayer.play()
-        .then(() => console.log('Playing:', audioUrl))
+        .then(() => console.log('TTS Player: Playback started for:', audioUrl))
         .catch(e => {
-            console.error('Error playing audio:', e);
+            console.error('TTS Player: Error playing audio:', audioUrl, e);
             isPlaying = false;
             playNextInQueue(); // Try next if error
         });
 }
 
 audioPlayer.onended = () => {
-    console.log('Audio finished playing');
+    console.log('TTS Player: Audio finished playing.');
     isPlaying = false;
     playNextInQueue();
 };
 
 audioPlayer.onerror = (e) => {
-    console.error('Audio player error:', e);
+    console.error('TTS Player: <audio> element error:', e);
     isPlaying = false;
-    playNextInQueue(); // Try next in queue if current one errors
+    playNextInQueue();
 };
+
+function stopCurrentAudio() {
+    console.log('TTS Player: Stopping current audio.');
+    audioPlayer.pause();
+    audioPlayer.currentTime = 0; // Reset time
+    audioPlayer.src = ""; // Clear source
+    isPlaying = false;
+    // Note: This doesn't clear the audioQueue, allowing a 'resume' or next item to play.
+}
+
+function stopAllAudio() { // For !tts clear or full stop
+    console.log('TTS Player: Stopping all audio and clearing queue.');
+    audioPlayer.pause();
+    audioPlayer.currentTime = 0;
+    audioPlayer.src = "";
+    isPlaying = false;
+    audioQueue.length = 0; // Clear the queue
+}
+
+// Initial connection attempt
+connectWebSocket();

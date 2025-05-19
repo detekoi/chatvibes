@@ -11,26 +11,28 @@ export default {
     execute: async (context) => {
         const { channel, user, args } = context;
         const channelNameNoHash = channel.substring(1);
-        const commandAction = context.command; // The actual command used e.g., 'on', 'off'
+        const actionTriggered = context.command; // This will be 'on', 'off', 'enable', or 'disable'
 
-        let enable = false;
-        if (['on', 'enable'].includes(commandAction)) {
-            enable = true;
-        } else if (['off', 'disable'].includes(commandAction)) {
-            enable = false;
+        let enableTTS;
+        if (["on", "enable"].includes(actionTriggered)) {
+            enableTTS = true;
+        } else if (["off", "disable"].includes(actionTriggered)) {
+            enableTTS = false;
         } else {
-            // Should not happen if routing is correct, but as a fallback
-            enqueueMessage(channel, `@${user['display-name']}, Invalid action. Use on/off/enable/disable.`);
+            // This case should ideally not be reached if routing in tts.js is correct
+            logger.error(`toggleEngine called with unexpected action: ${actionTriggered}`);
+            enqueueMessage(channel, `@${user['display-name']}, Internal error processing command '${actionTriggered}'.`);
             return;
         }
 
-        const success = await setTtsState(channelNameNoHash, 'engineEnabled', enable);
+        const success = await setTtsState(channelNameNoHash, 'engineEnabled', enableTTS);
 
         if (success) {
-            enqueueMessage(channel, `@${user['display-name']}, TTS engine has been ${enable ? 'ENABLED' : 'DISABLED'}.`);
-            logger.info(`ChatVibes [${channelNameNoHash}]: TTS engine ${enable ? 'enabled' : 'disabled'} by ${user.username}.`);
+            const statusMessage = `TTS engine has been ${enableTTS ? 'ENABLED' : 'DISABLED'}.`;
+            enqueueMessage(channel, `@${user['display-name']}, ${statusMessage}`);
+            logger.info(`ChatVibes [${channelNameNoHash}]: ${statusMessage} by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `@${user['display-name']}, Could not change TTS engine state.`);
+            enqueueMessage(channel, `@${user['display-name']}, Could not change TTS engine state at this time.`);
         }
     },
 };
