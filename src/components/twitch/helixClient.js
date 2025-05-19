@@ -1,6 +1,6 @@
 import axios from 'axios';
-import logger from '../../../lib/logger.js';
-import config from '../../../config/index.js';
+import logger from '../../lib/logger.js';
+import config from '../../config/index.js';
 import { getAppAccessToken, clearCachedAppAccessToken } from './auth.js'; // Import both functions
 
 const TWITCH_HELIX_URL = 'https://api.twitch.tv/helix';

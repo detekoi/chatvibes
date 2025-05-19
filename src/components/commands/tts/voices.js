@@ -1,5 +1,6 @@
-// Example in a command handler (e.g., src/components/commands/tts/voices.js)
-import { getAvailableVoices } from '../../tts/ttsService.js'; // Adjust path as needed
+// src/components/commands/tts/voices.js
+import logger from '../../../lib/logger.js';
+import { getAvailableVoices } from '../../tts/ttsService.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
 
 export default {

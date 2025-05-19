@@ -1,13 +1,13 @@
 // src/components/commands/tts/ignoreUser.js
-import { addIgnoredUser, removeIgnoredUser, getIgnoredUsers, getTtsState } from '../../tts/ttsState.js';
+import { addIgnoredUser, removeIgnoredUser, getTtsState } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
-import { helixClient } from '../../twitch/helixClient.js'; // Assume getHelixClient() is available
+import { getHelixClient, getUsersByLogin } from '../../twitch/helixClient.js';
+import logger from '../../../lib/logger.js';
 
 async function userExists(username) {
     if (!username) return false;
     try {
-        const client = getHelixClient(); // from ChatSage
-        const users = await client.getUsersByLogin([username.toLowerCase()]);
+        const users = await getUsersByLogin([username.toLowerCase()]);
         return users && users.length > 0;
     } catch (e) {
         logger.error({ err: e }, `Error checking if user ${username} exists.`);

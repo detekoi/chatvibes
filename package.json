@@ -5,38 +5,39 @@
     "main": "src/bot.js",
     "type": "module",
     "scripts": {
-      "start": "node src/bot.js",
-      "dev": "node --watch src/bot.js",
-      "lint": "eslint .",
-      "test": "jest",
-      "test:voices": "node testVoices.js"
+        "start": "node src/bot.js",
+        "dev": "node --watch src/bot.js",
+        "lint": "eslint .",
+        "test": "jest",
+        "test:voices": "node testVoices.js"
     },
     "keywords": [
-      "twitch",
-      "tts",
-      "chatbot",
-      "replicate",
-      "chatvibes"
+        "twitch",
+        "tts",
+        "chatbot",
+        "replicate",
+        "chatvibes"
     ],
     "author": "Henry Manes",
     "license": "SEE LICENSE IN LICENSE.md",
     "dependencies": {
-      "@google-cloud/firestore": "^7.0.0",
-      "@google-cloud/secret-manager": "^5.0.0",
-      "axios": "^1.6.0",
-      "dotenv": "^16.3.1",
-      "http": "0.0.1-security",
-      "pino": "^8.15.0",
-      "pino-pretty": "^10.2.0",
-      "replicate": "^0.29.0",
-      "tmi.js": "^1.8.5",
-      "ws": "^8.13.0"
+        "@google-cloud/firestore": "^7.0.0",
+        "@google-cloud/secret-manager": "^5.0.0",
+        "axios": "^1.6.0",
+        "dotenv": "^16.3.1",
+        "express": "^5.1.0",
+        "http": "0.0.1-security",
+        "pino": "^8.15.0",
+        "pino-pretty": "^10.2.0",
+        "replicate": "^0.29.0",
+        "tmi.js": "^1.8.5",
+        "ws": "^8.13.0"
     },
     "devDependencies": {
-      "eslint": "^8.50.0",
-      "jest": "^29.7.0"
+        "eslint": "^8.50.0",
+        "jest": "^29.7.0"
     },
     "engines": {
-      "node": ">=18.0.0"
+        "node": ">=18.0.0"
     }
 }

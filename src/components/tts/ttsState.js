@@ -112,8 +112,7 @@ export async function setTtsState(channelName, key, value) {
         return false;
     }
 }
-// ... other setter functions for ignoredUsers, etc.
-// Example:
+// Functions for managing ignored users
 export async function addIgnoredUser(channelName, username) {
     const lowerUser = username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
@@ -129,7 +128,31 @@ export async function addIgnoredUser(channelName, username) {
         }
         channelConfigsCache.set(channelName, config);
         return true;
-    } catch (error) { /* ... */ return false; }
+    } catch (error) { 
+        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to add user to TTS ignore list in Firestore.');
+        return false; 
+    }
+}
+
+export async function removeIgnoredUser(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.update({
+            ignoredUsers: FieldValue.arrayRemove(lowerUser),
+            updatedAt: FieldValue.serverTimestamp()
+        });
+        // Update cache
+        const config = await getTtsState(channelName); // Fetches or gets from cache
+        if (config.ignoredUsers) {
+            config.ignoredUsers = config.ignoredUsers.filter(user => user !== lowerUser);
+        }
+        channelConfigsCache.set(channelName, config);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to remove user from TTS ignore list in Firestore.');
+        return false;
+    }
 }
 
 // Get user-specific emotion preference

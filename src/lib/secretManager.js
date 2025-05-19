@@ -68,4 +68,26 @@ async function getSecretValue(secretResourceName) {
     }
 }
 
-export { initializeSecretManager, getSecretValue, getSecretManagerClient };
+async function addSecretVersion(secretResourceName, value) {
+    if (!secretResourceName) {
+        logger.error('ChatVibes: addSecretVersion called with empty secretResourceName.');
+        return null;
+    }
+    const smClient = getSecretManagerClient();
+    try {
+        // Remove /versions/... if present to get the parent secret resource
+        const parent = secretResourceName.replace(/\/versions\/.*$/, '');
+        logger.info(`ChatVibes: Adding new secret version to: ${parent}`);
+        const [version] = await smClient.addSecretVersion({
+            parent,
+            payload: { data: Buffer.from(value, 'utf8') }
+        });
+        logger.info(`ChatVibes: New secret version added: ${version.name}`);
+        return version;
+    } catch (error) {
+        logger.error({ err: error, secretName: secretResourceName }, 'ChatVibes: Failed to add new secret version.');
+        return null;
+    }
+}
+
+export { initializeSecretManager, getSecretValue, getSecretManagerClient, addSecretVersion };

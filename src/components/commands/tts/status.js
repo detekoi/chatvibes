@@ -1,6 +1,6 @@
 // src/components/commands/tts/status.js
-// import { getTtsState } from '../../tts/ttsState.js';
-// import { enqueueMessage } from '../../../lib/ircSender.js'; // Correct path for ChatSage structure
+import { getTtsState } from '../../tts/ttsState.js';
+import { enqueueMessage } from '../../../lib/ircSender.js';
 
 export default {
     name: 'status',
@@ -16,7 +16,7 @@ export default {
 
 
         const statusMsg = `TTS Status for #${channelNameNoHash}: Engine ${ttsState.engineEnabled ? 'Enabled' : 'Disabled'}. Mode: ${ttsState.mode}. Queue: ${cq.queue.length} pending, Paused: ${cq.isPaused}. Voice: ${ttsState.voiceId}.`;
-        // await ircClient.say(channel, `@${user['display-name']} ${statusMsg}`);
+        // await ircClient.say(channel, `@${user['display-name']} ${statusMsg}`); // Using enqueueMessage instead
         enqueueMessage(channel, `@${user['display-name']} ${statusMsg}`);
     },
 };

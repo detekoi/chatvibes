@@ -31,12 +31,17 @@ async function fetchNewAppAccessToken() {
             return null;
         }
 
-        const response = await axios.post(TOKEN_URL, null, {
-            params: {
-                client_id: clientId,
-                client_secret: clientSecret,
-                grant_type: 'client_credentials',
+        // Create form data parameters for request body
+        const params = new URLSearchParams();
+        params.append('client_id', clientId);
+        params.append('client_secret', clientSecret);
+        params.append('grant_type', 'client_credentials');
+        
+        const response = await axios.post(TOKEN_URL, params, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
+            timeout: 10000,
         });
 
         if (response.data && response.data.access_token && response.data.expires_in) {

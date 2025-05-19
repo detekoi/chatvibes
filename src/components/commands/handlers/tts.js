@@ -1,7 +1,41 @@
 // src/components/commands/handlers/tts.js
 import logger from '../../../lib/logger.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
-import ttsSubCommands from '../tts/index.js'; // Assuming your tts commands are in ../tts/index.js
+// Import individual TTS command handlers
+import status from '../tts/status.js';
+import voices from '../tts/voices.js';
+import pauseResume from '../tts/pauseResume.js';
+import clear from '../tts/clear.js';
+import stop from '../tts/stop.js';
+import modeCmd from '../tts/mode.js';
+import listCommands from '../tts/listCommands.js';
+import toggleEngine from '../tts/toggleEngine.js';
+import ignoreUser from '../tts/ignoreUser.js';
+import listIgnored from '../tts/listIgnored.js';
+import toggleEvents from '../tts/toggleEvents.js';
+import emotionCmd from '../tts/emotion.js';
+import say from '../tts/say.js';
+
+// Create subcommands object
+const ttsSubCommands = {
+    status,
+    voices,
+    pause: pauseResume,
+    resume: pauseResume,
+    clear,
+    stop,
+    mode: modeCmd,
+    commands: listCommands,
+    off: toggleEngine,
+    disable: toggleEngine,
+    on: toggleEngine,
+    enable: toggleEngine,
+    ignore: ignoreUser,
+    ignored: listIgnored,
+    events: toggleEvents,
+    emotion: emotionCmd,
+    say
+};
 
 // Helper to check permissions (can be centralized)
 function hasPermission(userTags, channelName, requiredPermission) {

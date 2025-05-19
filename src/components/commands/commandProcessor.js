@@ -4,8 +4,6 @@ import config from '../../config/index.js';
 import commandHandlers from './handlers/index.js';
 // We might need access to the IRC client to send command responses
 import { getIrcClient } from '../twitch/ircClient.js';
-// We might need context for some commands
-import { getContextManager } from '../context/contextManager.js';
 
 
 const COMMAND_PREFIX = '!'; // Define the prefix for commands
@@ -126,7 +124,6 @@ async function processMessage(channelName, tags, message) {
             args: args,
             message: message,
             ircClient: getIrcClient(),       // Provide access to send messages
-            contextManager: getContextManager(), // Provide access to state if needed
             logger: logger                   // Provide logger instance
         };
         // Execute the command's handler function
