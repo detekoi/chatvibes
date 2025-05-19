@@ -9,7 +9,6 @@ let isSending = false;
 const IRC_SEND_INTERVAL_MS = 1100; // As per Twitch rate limits (20 msgs / 30 secs for normal users, 100 for mods)
 const MAX_IRC_MESSAGE_LENGTH = 480; // Twitch IRC message limit is 500 chars, leave some buffer.
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function _processMessageQueue() {
     if (isSending || messageQueue.length === 0) {
