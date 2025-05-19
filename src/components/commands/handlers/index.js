@@ -1,4 +1,5 @@
 // src/components/commands/tts/index.js
+import ttsBaseCommand from './tts.js';
 import status from './status.js';
 import voices from './voices.js';
 import pauseResume from './pauseResume.js';
@@ -12,7 +13,8 @@ import listIgnored from './listIgnored.js';
 import toggleEvents from './toggleEvents.js';
 import emotionCmd from './emotion.js';
 
-export default {
+const commandHandlers = {
+    tts: ttsBaseCommand,
     status,
     voices,
     pause: pauseResume, // Assuming pauseResume handles both
@@ -30,3 +32,5 @@ export default {
     events: toggleEvents,
     emotion: emotionCmd, 
 };
+
+export default commandHandlers;

@@ -1,4 +1,15 @@
 {
-  "name": "tts-twitch",
-  "type": "module"
-}
+    "name": "chatvibes-tts", 
+    "version": "1.0.0",
+    "description": "A Twitch TTS bot that reads chat aloud.",
+    "main": "src/bot.js",
+    "type": "module",
+    "scripts": {
+      "start": "node src/bot.js",
+      "dev": "node --watch src/bot.js",
+      "lint": "eslint .", 
+      "test": "jest"     
+    },
+    "author": "Henry Manes",
+    "license": "SEE LICENSE IN LICENSE.md"
+  }

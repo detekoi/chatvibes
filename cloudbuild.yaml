@@ -1,0 +1,32 @@
+steps:
+# Build the container image
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/906125386407/twitch-tts-app:$COMMIT_SHA', '.']
+# Push the container image to Container Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'gcr.io/906125386407/twitch-tts-app:$COMMIT_SHA']
+# Deploy container image to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'run'
+    - 'deploy'
+    - 'twitch-tts-app' # Your Cloud Run service name
+    - '--image'
+    - 'gcr.io/906125386407/twitch-tts-app:$COMMIT_SHA'
+    - '--region'
+    - 'your-region' # e.g., us-central1
+    - '--platform'
+    - 'managed'
+    - '--allow-unauthenticated' # If the OBS page needs to be public, or secure it
+    - '--set-secrets'
+    - |
+      TWITCH_BOT_USERNAME=projects/your-project/secrets/TWITCH_BOT_USERNAME:latest,
+      TWITCH_CHANNELS=projects/your-project/secrets/TWITCH_CHANNELS:latest,
+      REPLICATE_API_KEY=projects/your-project/secrets/REPLICATE_API_KEY:latest,
+      TWITCH_CLIENT_ID=projects/your-project/secrets/TWITCH_CLIENT_ID:latest,
+      TWITCH_CLIENT_SECRET=projects/your-project/secrets/TWITCH_CLIENT_SECRET:latest,
+      TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=projects/your-project/secrets/TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME:latest
+    # Ensure PORT env var is set if your app listens on a specific port (Cloud Run injects PORT=8080 by default)
+images:
+- 'gcr.io/906125386407/twitch-tts-app:$COMMIT_SHA'
