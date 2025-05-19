@@ -1,32 +1,30 @@
+substitutions:
+  _PROJECT_ID: "906125386407"
+  _REGION: "us-central1"
+
 steps:
-# Build the container image
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/906125386407/twitch-tts-app:$COMMIT_SHA', '.']
-# Push the container image to Container Registry
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'gcr.io/906125386407/twitch-tts-app:$COMMIT_SHA']
-# Deploy container image to Cloud Run
+  args: ['build', '-t', 'gcr.io/${_PROJECT_ID}/twitch-tts-app:$COMMIT_SHA', '.']
+# … etc …
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: gcloud
   args:
     - 'run'
     - 'deploy'
-    - 'twitch-tts-app' # Your Cloud Run service name
+    - 'twitch-tts-app'
     - '--image'
-    - 'gcr.io/906125386407/twitch-tts-app:$COMMIT_SHA'
+    - 'gcr.io/${_PROJECT_ID}/twitch-tts-app:$COMMIT_SHA'
     - '--region'
-    - 'your-region' # e.g., us-central1
+    - '${_REGION}'
     - '--platform'
     - 'managed'
-    - '--allow-unauthenticated' # If the OBS page needs to be public, or secure it
+    - '--allow-unauthenticated'
     - '--set-secrets'
     - |
-      TWITCH_BOT_USERNAME=projects/your-project/secrets/TWITCH_BOT_USERNAME:latest,
-      TWITCH_CHANNELS=projects/your-project/secrets/TWITCH_CHANNELS:latest,
-      REPLICATE_API_KEY=projects/your-project/secrets/REPLICATE_API_KEY:latest,
-      TWITCH_CLIENT_ID=projects/your-project/secrets/TWITCH_CLIENT_ID:latest,
-      TWITCH_CLIENT_SECRET=projects/your-project/secrets/TWITCH_CLIENT_SECRET:latest,
-      TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=projects/your-project/secrets/TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME:latest
-    # Ensure PORT env var is set if your app listens on a specific port (Cloud Run injects PORT=8080 by default)
+      TWITCH_BOT_USERNAME=projects/${_PROJECT_ID}/secrets/twitch-bot-username/versions/latest,
+      REPLICATE_API_TOKEN=projects/${_PROJECT_ID}/secrets/replicate-api-token/versions/latest,
+      TWITCH_CLIENT_ID=projects/${_PROJECT_ID}/secrets/twitch-client-id/versions/latest,
+      TWITCH_CLIENT_SECRET=projects/${_PROJECT_ID}/secrets/twitch-client-secret/versions/latest,
+      TWITCH_BOT_REFRESH_TOKEN=projects/${_PROJECT_ID}/secrets/twitch-bot-refresh-token/versions/latest
 images:
-- 'gcr.io/906125386407/twitch-tts-app:$COMMIT_SHA'
+- 'gcr.io/${_PROJECT_ID}/twitch-tts-app:$COMMIT_SHA'
