@@ -7,7 +7,7 @@ import { sendAudioToChannel } from '../web/server.js'; // To send audio URL to w
 const channelQueues = new Map(); // channelName -> { queue: [], isPaused: false, isProcessing: false, ... }
 const MAX_QUEUE_LENGTH = 50; // Per channel
 
-function _getOrCreateChannelQueue(channelName) {
+export function getOrCreateChannelQueue(channelName) {
     if (!channelQueues.has(channelName)) {
         channelQueues.set(channelName, {
             queue: [],
@@ -28,7 +28,7 @@ export async function enqueue(channelName, eventData) {
         return;
     }
 
-    const cq = _getOrCreateChannelQueue(channelName);
+    const cq = getOrCreateChannelQueue(channelName);
     if (cq.queue.length >= MAX_QUEUE_LENGTH) {
         logger.warn(`[${channelName}] TTS queue full. Dropping message from ${user}.`);
         return;
@@ -64,7 +64,7 @@ export async function enqueue(channelName, eventData) {
 }
 
 export async function processQueue(channelName) {
-    const cq = _getOrCreateChannelQueue(channelName);
+    const cq = getOrCreateChannelQueue(channelName);
     if (cq.isProcessing || cq.isPaused || cq.queue.length === 0) {
         return;
     }
@@ -93,27 +93,27 @@ export async function processQueue(channelName) {
 }
 
 export async function pauseQueue(channelName) {
-    const cq = _getOrCreateChannelQueue(channelName);
+    const cq = getOrCreateChannelQueue(channelName);
     cq.isPaused = true;
     logger.info(`[${channelName}] TTS queue paused.`);
 }
 
 export async function resumeQueue(channelName) {
-    const cq = _getOrCreateChannelQueue(channelName);
+    const cq = getOrCreateChannelQueue(channelName);
     cq.isPaused = false;
     logger.info(`[${channelName}] TTS queue resumed.`);
     processQueue(channelName); // Attempt to process if items are in queue
 }
 
 export async function clearQueue(channelName) {
-    const cq = _getOrCreateChannelQueue(channelName);
+    const cq = getOrCreateChannelQueue(channelName);
     cq.queue = [];
     logger.info(`[${channelName}] TTS queue cleared.`);
     // If something is speaking, should we stop it? Command `!tts stop` handles that.
 }
 
 export async function stopCurrentSpeech(channelName) {
-    const cq = _getOrCreateChannelQueue(channelName);
+    const cq = getOrCreateChannelQueue(channelName);
     logger.info(`[${channelName}] Attempting to stop current speech: ${cq.currentSpeechUrl}`);
     if (cq.currentSpeechUrl) {
         // How to actually stop?
