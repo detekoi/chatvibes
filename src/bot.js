@@ -27,29 +27,52 @@ import { initializeChannelManager, getActiveManagedChannels, syncManagedChannels
 let ircClientInstance = null;
 let channelChangeListener = null;
 const CHANNEL_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+let isShuttingDown = false;
 
 async function gracefulShutdown(signal) {
+    if (isShuttingDown) {
+        logger.warn(`ChatVibes: Shutdown already in progress. Signal ${signal} received again. Please wait or force quit if necessary.`);
+        return;
+    }
+    isShuttingDown = true;
     logger.info(`ChatVibes: Received ${signal}. Starting graceful shutdown...`);
     const shutdownTasks = [];
 
+    // Stop the web server
     if (global.healthServer) {
+        logger.info('ChatVibes: Closing web server...');
         shutdownTasks.push(
-            new Promise((resolve) => {
-                global.healthServer.close(() => {
-                    logger.info('ChatVibes: Web server (for OBS) closed.');
-                    resolve();
+            new Promise((resolve, reject) => {
+                global.healthServer.close((err) => {
+                    if (err) {
+                        logger.error({ err }, 'ChatVibes: Error closing web server.');
+                        reject(err);
+                    } else {
+                        logger.info('ChatVibes: Web server closed.');
+                        resolve();
+                    }
                 });
+                setTimeout(() => {
+                    logger.warn('ChatVibes: Web server close timed out. Forcing resolution.');
+                    resolve();
+                }, 3000).unref();
             })
         );
+    } else {
+        logger.warn('ChatVibes: Web server (global.healthServer) not found during shutdown.');
     }
-    if (channelChangeListener) {
+
+    if (channelChangeListener && typeof channelChangeListener === 'function') {
         try {
-            logger.info('ChatVibes: Cleaning up channel change listener...');
+            logger.info('ChatVibes: Cleaning up Firestore channel change listener...');
             channelChangeListener();
             channelChangeListener = null;
+            logger.info('ChatVibes: Firestore channel change listener cleaned up.');
         } catch (error) {
-            logger.error({ err: error }, 'ChatVibes: Error cleaning up channel change listener.');
+            logger.error({ err: error }, 'ChatVibes: Error cleaning up Firestore channel change listener.');
         }
+    } else {
+        logger.info('ChatVibes: No active Firestore channel change listener to clean up.');
     }
 
     clearMessageQueue();
@@ -59,21 +82,24 @@ async function gracefulShutdown(signal) {
     try {
         localIrcClient = ircClientInstance || getIrcClient();
     } catch (e) {
-        logger.warn('ChatVibes: IRC client not initialized during shutdown, skipping disconnect.');
+        logger.warn('ChatVibes: IRC client not available during shutdown, skipping disconnect step.');
     }
 
     if (localIrcClient && typeof localIrcClient.readyState === 'function' && localIrcClient.readyState() === 'OPEN') {
         logger.info('ChatVibes: Disconnecting from Twitch IRC...');
         shutdownTasks.push(
-            localIrcClient.disconnect().then(() => {
-                logger.info('ChatVibes: Disconnected from Twitch IRC.');
-            }).catch(err => {
-                logger.error({ err }, 'ChatVibes: Error during IRC disconnect.');
-            })
+            localIrcClient.disconnect()
+                .then(() => { logger.info('ChatVibes: Disconnected from Twitch IRC.'); })
+                .catch(err => { logger.error({ err }, 'ChatVibes: Error during IRC disconnect.'); })
         );
+    } else if (localIrcClient) {
+        logger.info('ChatVibes: IRC client was not in OPEN state, no explicit disconnect sent.');
     }
+
+    logger.info(`ChatVibes: Waiting for ${shutdownTasks.length} shutdown tasks to complete...`);
     await Promise.allSettled(shutdownTasks);
-    logger.info('ChatVibes: Shutdown complete.');
+
+    logger.info('ChatVibes: Graceful shutdown sequence complete. Exiting process.');
     process.exit(0);
 }
 
@@ -199,22 +225,33 @@ async function main() {
         ircClientInstance.on('message', async (channel, tags, message, self) => {
             if (self) return;
 
-            const channelNameNoHash = channel.substring(1);
+            const channelNameNoHash = channel.substring(1).toLowerCase();
+            const username = tags.username?.toLowerCase();
 
-            // Pass to command processor (handles !tts commands)
+            // 1. Process Bot Commands (like !tts)
             const commandWasProcessed = await processCommand(channelNameNoHash, tags, message);
 
+            // 2. If not a command, and TTS mode is 'all', enqueue for TTS
             if (!commandWasProcessed) {
                 const ttsConfig = await getTtsState(channelNameNoHash);
-                const isIgnoredUser = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(tags.username?.toLowerCase());
+                const isIgnoredUser = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
 
                 if (ttsConfig.engineEnabled && ttsConfig.mode === 'all' && !isIgnoredUser) {
-                    logger.debug(`ChatVibes [${channelNameNoHash}]: Mode ALL - Enqueuing message from ${tags.username} for TTS.`);
+                    logger.debug(`ChatVibes [${channelNameNoHash}]: Mode ALL - Enqueuing message from ${username} for TTS: "${message.substring(0,30)}..."`);
                     await ttsQueue.enqueue(channelNameNoHash, {
                         text: message,
-                        user: tags.username,
+                        user: username,
                         type: 'chat',
                     });
+                } else {
+                    logger.debug({
+                        channel: channelNameNoHash,
+                        user: username,
+                        engineEnabled: ttsConfig.engineEnabled,
+                        mode: ttsConfig.mode,
+                        isIgnored: isIgnoredUser,
+                        messageWasCommand: commandWasProcessed
+                    }, "ChatVibes: Message not enqueued for TTS in 'all' mode.");
                 }
             }
         });
