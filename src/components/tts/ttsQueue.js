@@ -1,7 +1,7 @@
 // src/components/tts/ttsQueue.js
 import logger from '../../lib/logger.js';
 import { generateSpeech } from './ttsService.js';
-import { getTtsState, getChannelTtsConfig, getUserEmotionPreference } from './ttsState.js'; // For voice, mode settings and user emotion
+import { getTtsState, getChannelTtsConfig, getUserEmotionPreference, getUserVoicePreference } from './ttsState.js'; // For voice, mode settings and user emotion
 import { sendAudioToChannel } from '../web/server.js'; // To send audio URL to web page
 
 const channelQueues = new Map(); // channelName -> { queue: [], isPaused: false, isProcessing: false, ... }
@@ -37,26 +37,28 @@ export async function enqueue(channelName, eventData) {
     // Get channel-wide TTS config (voice, speed, default emotion etc.)
     const channelConfig = await getChannelTtsConfig(channelName);
     let userEmotion = null;
+    let userVoice = null;
+
     if (user) { // Only fetch user preference if a user is associated with the event
         userEmotion = await getUserEmotionPreference(channelName, user);
+        userVoice = await getUserVoicePreference(channelName, user);
     }
 
     const finalVoiceOptions = {
-        voiceId: channelConfig.voiceId || 'Friendly_Person',
+        voiceId: userVoice || channelConfig.voiceId || 'Friendly_Person',
         speed: channelConfig.speed || 1.0,
         volume: channelConfig.volume || 1.0,
         pitch: channelConfig.pitch || 0,
-        // Prioritize user's emotion, then channel's default emotion, then 'auto'
         emotion: userEmotion || channelConfig.emotion || 'auto',
         englishNormalization: channelConfig.englishNormalization !== undefined ? channelConfig.englishNormalization : true,
         sampleRate: channelConfig.sampleRate || 32000,
         bitrate: channelConfig.bitrate || 128000,
         channel: channelConfig.channel || 'mono',
         languageBoost: channelConfig.languageBoost || 'English',
-        ...voiceOptions // Event-specific overrides (e.g., from a !tts say command with options)
+        ...voiceOptions
     };
     
-    logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: Emotion='${finalVoiceOptions.emotion}' (User: ${userEmotion}, Channel: ${channelConfig.emotion})`);
+    logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: VoiceID='${finalVoiceOptions.voiceId}' (User: ${userVoice}, Channel: ${channelConfig.voiceId}), Emotion='${finalVoiceOptions.emotion}' (User: ${userEmotion}, Channel: ${channelConfig.emotion})`);
 
     cq.queue.push({ type, text, user, voiceConfig: finalVoiceOptions, timestamp: new Date() });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0,20)}..." Queue size: ${cq.queue.length}`);

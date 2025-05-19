@@ -4,6 +4,7 @@ import { enqueueMessage } from '../../../lib/ircSender.js';
 // Import individual TTS command handlers
 import status from '../tts/status.js';
 import voices from '../tts/voices.js';
+import voice from '../tts/voice.js';
 import pauseResume from '../tts/pauseResume.js';
 import clear from '../tts/clear.js';
 import stop from '../tts/stop.js';
@@ -26,6 +27,7 @@ const ttsSubCommands = {
     stop,
     mode: modeCmd,
     commands: listCommands,
+    help: listCommands,
     off: toggleEngine,
     disable: toggleEngine,
     on: toggleEngine,
@@ -34,7 +36,8 @@ const ttsSubCommands = {
     ignored: listIgnored,
     events: toggleEvents,
     emotion: emotionCmd,
-    say
+    say,
+    voice,
 };
 
 // Helper to check permissions (can be centralized)
@@ -51,7 +54,7 @@ function hasPermission(userTags, channelName, requiredPermission) {
 
 export default {
     name: 'tts',
-    description: 'Controls the Text-to-Speech functionality. Use !tts help for subcommands.',
+    description: 'Controls the Text-to-Speech functionality. Use !tts commands for a link to all subcommands.',
     usage: '!tts <subcommand> [options]',
     permission: 'everyone', // Base command is for everyone, subcommands have their own permissions
     execute: async (context) => {
@@ -62,9 +65,11 @@ export default {
             // Direct call to listCommands handler if no args
             const helpHandler = ttsSubCommands['commands'];
             if (helpHandler && typeof helpHandler.execute === 'function') {
-                await helpHandler.execute(context);
+                // Pass context with command: 'commands' and args: []
+                const helpContext = { ...context, command: 'commands', args: [] };
+                await helpHandler.execute(helpContext);
             } else {
-                enqueueMessage(channel, `@${user['display-name']}, Please specify a TTS subcommand. Try !tts commands.`);
+                enqueueMessage(channel, `@${user['display-name']}, For command info, see: https://detekoi.github.io/chatvibesdocs.html#commands`);
             }
             return;
         }
@@ -74,7 +79,7 @@ export default {
         let effectiveSubCommandName = subCommandNameFromArgs;
 
         if (!actualSubCommandHandler || typeof actualSubCommandHandler.execute !== 'function') {
-            enqueueMessage(channel, `@${user['display-name']}, Unknown TTS subcommand '${subCommandNameFromArgs}'. Try !tts commands.`);
+            enqueueMessage(channel, `@${user['display-name']}, Unknown TTS subcommand '${subCommandNameFromArgs}'. For commands, see: https://detekoi.github.io/chatvibesdocs.html#commands`);
             logger.debug(`Unknown TTS subcommand: ${subCommandNameFromArgs} for user ${user.username} in ${channel}`);
             return;
         }

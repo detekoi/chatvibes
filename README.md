@@ -2,6 +2,13 @@
 
 ChatVibes is a Twitch bot that reads chat messages and events aloud using Text-to-Speech (TTS), controllable via chat commands. It's designed to be deployed on Google Cloud Run and integrates with OBS via a browser source for audio playback.
 
+## Documentation
+
+For a complete list of available commands and voices, visit the documentation:
+* [Commands Documentation](https://detekoi.github.io/chatvibesdocs.html#commands)
+* [Voices Documentation](https://detekoi.github.io/chatvibesdocs.html#voices)
+
+
 ## Features
 
 * Reads Twitch chat messages aloud.
@@ -175,6 +182,14 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
     * `!tts emotion reset`
     * `!tts emotion` (displays current personal preference)
 
+**`!tts voice <voice_id|reset>`**
+* **Description:** Allows a user to set their preferred voice for messages they trigger that are spoken by TTS. Use `reset` to revert to the channel's default voice. Use `!tts voices` to get a link to the available voice IDs.
+* **Permission:** Everyone (for their own preference)
+* **Usage:**
+    * `!tts voice Friendly_Person`
+    * `!tts voice reset`
+    * `!tts voice` (displays current personal preference)
+
 **`!tts ignore add <username>`**
 * **Description:** Adds the specified Twitch user to the TTS ignore list for the channel. Messages from this user will not be spoken, even in 'all' mode.
 * **Permission:** Moderator
@@ -204,8 +219,8 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
 
 *(These commands may require corresponding setters in `ttsState.js` and getters in `ttsQueue.js` if not fully implemented yet for channel-wide defaults)*
 
-**`!tts voice <voice_id>`** (Conceptual - for setting channel default voice)
-* **Description:** Sets the default TTS voice for the channel. Use `!tts voices` to see available types (the exact IDs are numerous).
+**`!tts voice <voice_id>`** (Moderator Only - Conceptual for setting *channel default* voice)
+* **Description:** Sets the default TTS voice for the *channel*. Use `!tts voices` to see available types/get a link to IDs.
 * **Permission:** Moderator
 * **Usage:** `!tts voice Friendly_Person` (Use a valid Voice ID from the `minimax/speech-02-turbo` model)
 

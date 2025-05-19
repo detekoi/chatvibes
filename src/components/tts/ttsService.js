@@ -3,7 +3,7 @@ import Replicate from 'replicate';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 
-const replicate = new Replicate({ auth: config.tts.replicateApiKey });
+const replicate = new Replicate({ auth: config.tts.replicateApiToken });
 const REPLICATE_MODEL = config.tts.replicateModel;
 
 let cachedVoiceList = null;
@@ -52,71 +52,109 @@ async function _fetchAndParseVoiceList() {
     try {
         const res = await fetch(url);
         if (!res.ok) {
-          throw new Error(`Failed to load voice list: ${res.status} ${res.statusText}`);
+            throw new Error(`Failed to load voice list: ${res.status} ${res.statusText}`);
         }
 
         const raw = await res.text();
         const lines = raw.split('\n');
+        let allFoundVoiceIds = new Set(); // Use a Set to avoid duplicates
 
-        const header = '## MiniMax TTS Voice List';
-        const startIdx = lines.findIndex(line => line.trim() === header);
-        if (startIdx === -1) {
-          logger.warn('Voice-list header not found in llms.txt. Unable to parse voices.');
-          return []; // Return empty if header not found
+        // --- 1. Parse System Voice IDs from "Model inputs" section ---
+        const voiceIdInputHeader = '- voice_id:';
+        const voiceIdInputLineIndex = lines.findIndex(line => line.trim().startsWith(voiceIdInputHeader));
+
+        if (voiceIdInputLineIndex !== -1) {
+            const lineContent = lines[voiceIdInputLineIndex];
+            // Extract text between "system voice IDs: " and " (string)"
+            const systemVoicesMatch = lineContent.match(/system voice IDs:\s*([^)]+)\s*\(/i);
+            if (systemVoicesMatch && systemVoicesMatch[1]) {
+                const systemVoiceChunk = systemVoicesMatch[1];
+                systemVoiceChunk.split(',')
+                    .map(v => v.trim())
+                    .filter(v => v) // Remove any empty strings
+                    .forEach(vId => allFoundVoiceIds.add(vId));
+                logger.debug(`Found ${allFoundVoiceIds.size} system voice IDs from input line.`);
+            } else {
+                logger.warn('Could not parse system voice IDs from the voice_id input line.');
+            }
+        } else {
+            logger.warn('"voice_id" input line not found. Cannot parse system voices from there.');
         }
 
-        const voiceIds = [];
-        for (let i = startIdx + 1; i < lines.length; i++) {
-          const trimmed = lines[i].trim();
-          if (trimmed.startsWith('- ')) {
-            voiceIds.push(trimmed.slice(2).trim()); // strip "- " and any trailing space
-          } else if (trimmed === '') {
-            continue; // skip blank lines
-          } else if (trimmed.startsWith('#')) { // Stop if another header or comment section starts
-            break;
-          } else if (trimmed && !trimmed.startsWith('-')) { // Stop on any other non-bullet, non-empty line
-            break;
-          }
+        // --- 2. Parse Main Voice List ---
+        const mainListHeaderString = '> ## MiniMax TTS Voice List'; // Corrected header
+        const mainListStartIndex = lines.findIndex(line => line.trim() === mainListHeaderString);
+
+        if (mainListStartIndex === -1) {
+            logger.warn(`Main voice list header "[${mainListHeaderString}]" not found. Only system voices (if any) will be available.`);
+            // Optional: Log a sample if the main header is not found, similar to previous debugging
+        } else {
+            logger.info(`Found main voice list header at line index: ${mainListStartIndex}`);
+            for (let i = mainListStartIndex + 1; i < lines.length; i++) {
+                const trimmed = lines[i].trim();
+                if (trimmed.startsWith('> - ')) { // Lines now start with "> - "
+                    allFoundVoiceIds.add(trimmed.substring(4).trim()); // Strip "> - "
+                } else if (trimmed.startsWith('- ')) { // Fallback for lines just starting with "- "
+                     allFoundVoiceIds.add(trimmed.substring(2).trim());
+                } else if (trimmed === '' || trimmed === '>') { // Skip blank lines or lines with only ">"
+                    continue;
+                } else if (trimmed.startsWith('#') || trimmed.startsWith('> #')) { // Stop if another header section starts
+                    break;
+                } else if (trimmed && !trimmed.startsWith('-') && !trimmed.startsWith('> -')) {
+                    // If it's not empty, not a comment, and not a voice item, break.
+                    // This condition might need adjustment if the file format between sections is noisy.
+                    // logger.debug(`Stopping main list parsing at non-voice line: "${trimmed}"`);
+                    // break; // Commenting this out as it might be too aggressive. Let it run through.
+                }
+            }
         }
 
-        if (voiceIds.length === 0) {
-            logger.warn('No voice IDs found after the header in llms.txt.');
+        if (allFoundVoiceIds.size === 0) {
+            logger.warn('No voice IDs found after parsing both sections in llms.txt.');
+            cachedVoiceList = []; // Ensure it's an empty array
             return [];
         }
 
-        cachedVoiceList = voiceIds.map(id => {
-          const name = id
-            .replace(/[_-]/g, ' ')
-            .replace(/\b\w/g, chr => chr.toUpperCase());
+        // Convert Set to the desired array of objects format
+        cachedVoiceList = Array.from(allFoundVoiceIds).map(id => {
+            const name = id
+                .replace(/[_-]/g, ' ')
+                .replace(/\b\w/g, chr => chr.toUpperCase());
 
-          const langPartMatch = id.match(/^([a-zA-Z\s\(\)]+?)(?:_|$)/);
-          const language = langPartMatch && langPartMatch[1] ? langPartMatch[1].replace(/\s\($/, '(') : 'Unknown';
+            // Attempt to extract language for system voices (simple heuristic)
+            // For the main list, the format is "Language_Name" or "Language (Variant)_Name"
+            let language = 'Unknown';
+            if (id.includes('_')) {
+                const parts = id.split('_');
+                if (parts.length > 1 && /^[A-Z]/.test(parts[0])) { // If first part starts with uppercase, likely language
+                    language = parts[0].replace(/\s\($/, '('); // Handle cases like "Chinese (Mandarin)"
+                }
+            } else if (id.toLowerCase().includes('english')) language = 'English';
+            else if (id.toLowerCase().includes('chinese')) language = 'Chinese';
+            else if (id.toLowerCase().includes('japanese')) language = 'Japanese';
+            else if (id.toLowerCase().includes('korean')) language = 'Korean';
+            else if (id.toLowerCase().includes('spanish')) language = 'Spanish';
+            else if (id.toLowerCase().includes('portuguese')) language = 'Portuguese';
+            // Add more language heuristics if needed for system voices
 
-
-          return {
-            id,
-            name,
-            language,
-            type: 'Pre-trained' // As per your parsing logic
-          };
+            return {
+                id,
+                name,
+                language, // This will be more accurate for the main list items.
+                type: 'Pre-trained'
+            };
         });
+
         lastVoiceListFetchTime = Date.now();
-        logger.info(`Successfully fetched and parsed ${cachedVoiceList.length} voices.`);
+        logger.info(`Successfully fetched and parsed ${cachedVoiceList.length} unique voices in total.`);
         return cachedVoiceList;
 
     } catch (error) {
         logger.error({ err: error }, 'Failed to fetch or parse voice list from Replicate.');
-        // In case of error, don't wipe a potentially stale cache if it exists
         return cachedVoiceList || []; // Return existing cache or empty array
     }
 }
 
-/**
- * Retrieves the available voice list, using a cached version if available and not stale.
- * This is the primary function other components should use to get the voice list.
- * @param {boolean} forceRefresh - If true, bypasses cache and fetches fresh list.
- * @returns {Promise<Array<{id: string, name: string, language: string, type: string}>>}
- */
 export async function getAvailableVoices(forceRefresh = false) {
     const now = Date.now();
     if (forceRefresh || !cachedVoiceList || (now - lastVoiceListFetchTime > VOICE_LIST_CACHE_DURATION)) {

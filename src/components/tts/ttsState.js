@@ -2,6 +2,7 @@
 import { Firestore, FieldValue } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 import { DEFAULT_TTS_SETTINGS, VALID_EMOTIONS } from './ttsConstants.js'; // Import VALID_EMOTIONS
+import { getAvailableVoices } from './ttsService.js'; // For validating voice IDs
 
 let db;
 const TTS_CONFIG_COLLECTION = 'ttsChannelConfigs';
@@ -233,6 +234,86 @@ export async function clearUserEmotionPreference(channelName, username) {
             return true; // Considered success as the end state is "no preference"
         }
         logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS emotion preference in Firestore.');
+        return false;
+    }
+}
+
+// --- NEW FUNCTIONS FOR VOICE PREFERENCE ---
+export async function getUserVoicePreference(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const channelConfig = await getTtsState(channelName);
+    return channelConfig.userPreferences?.[lowerUser]?.voiceId || null;
+}
+
+export async function setUserVoicePreference(channelName, username, voiceId) {
+    const availableVoices = await getAvailableVoices();
+    const isValidVoice = availableVoices.some(v => v.id === voiceId);
+
+    if (!isValidVoice) {
+        logger.warn(`[${channelName}] Attempt to set invalid voice_id '${voiceId}' for user ${username}.`);
+        return false;
+    }
+
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        // Using mergeFields to precisely update only the voiceId for the specific user
+        await docRef.set({
+            userPreferences: {
+                [lowerUser]: {
+                    voiceId: voiceId
+                }
+            },
+            updatedAt: FieldValue.serverTimestamp()
+        }, { mergeFields: [`userPreferences.${lowerUser}.voiceId`, 'updatedAt'] });
+
+        logger.info(`[${channelName}] User TTS voice preference updated for ${lowerUser}: ${voiceId}`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
+        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
+        currentConfig.userPreferences[lowerUser].voiceId = voiceId;
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, user: lowerUser, voiceId }, 'Failed to set user TTS voice preference in Firestore.');
+        return false;
+    }
+}
+
+export async function clearUserVoicePreference(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const fieldPath = `userPreferences.${lowerUser}.voiceId`;
+
+    try {
+        await docRef.update({
+            [fieldPath]: FieldValue.delete(),
+            updatedAt: FieldValue.serverTimestamp()
+        });
+        logger.info(`[${channelName}] Cleared user TTS voice preference for ${lowerUser}.`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
+            delete currentConfig.userPreferences[lowerUser].voiceId;
+            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
+                delete currentConfig.userPreferences[lowerUser];
+            }
+        }
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        if (error.code === 5) { // Firestore: NOT_FOUND (field doesn't exist)
+            logger.debug(`[${channelName}] No specific voice preference to clear for user ${lowerUser}.`);
+            const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+            if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
+                delete currentConfig.userPreferences[lowerUser].voiceId;
+                if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
+                    delete currentConfig.userPreferences[lowerUser];
+                }
+            }
+            channelConfigsCache.set(channelName, currentConfig);
+            return true;
+        }
+        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS voice preference in Firestore.');
         return false;
     }
 }
