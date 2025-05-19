@@ -3,6 +3,7 @@ import logger from '../../../lib/logger.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
 // Import individual TTS command handlers
 import status from '../tts/status.js';
+import defaultVoice from '../tts/defaultVoice.js';
 import voices from '../tts/voices.js';
 import voice from '../tts/voice.js';
 import pauseResume from '../tts/pauseResume.js';
@@ -21,6 +22,7 @@ import say from '../tts/say.js';
 const ttsSubCommands = {
     status,
     voices,
+    defaultvoice: defaultVoice,
     pause: pauseResume,
     resume: pauseResume,
     clear,

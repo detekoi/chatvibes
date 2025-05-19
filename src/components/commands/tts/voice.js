@@ -40,25 +40,29 @@ export default {
         // This allows for voice IDs containing spaces, which are then compared against the fetched voice list.
         // The Replicate model's voice_id values sometimes contain spaces or are underscore_separated.
         // The getAvailableVoices() function in ttsService.js should provide IDs in the exact format required by the API.
-        const requestedVoiceId = args.join(' '); // Rejoin arguments with spaces
+        const requestedVoiceIdInput = args.join(' '); // User's input, e.g., "friendly_person"
 
-        const availableVoices = await getAvailableVoices();
-        // Ensure exact match against the available voice IDs
-        const isValidVoice = availableVoices.some(v => v.id === requestedVoiceId);
+        const availableVoices = await getAvailableVoices(); // This returns [{ id: 'Friendly_Person', name: 'Friendly Person', ... }, ... ]
 
-        if (!isValidVoice) {
+        // Find the voice with a case-insensitive match
+        const matchedVoice = availableVoices.find(v => v.id.toLowerCase() === requestedVoiceIdInput.toLowerCase());
+
+        if (!matchedVoice) {
             // CORRECTED DOCUMENTATION LINK
             const voicesCmdDocLink = 'https://detekoi.github.io/chatvibesdocs.html#voices';
-            enqueueMessage(channel, `@${displayName}, Invalid voice ID '${requestedVoiceId}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`);
-            logger.warn(`[${channelNameNoHash}] User ${username} attempted to set invalid voice: ${requestedVoiceId}`);
+            enqueueMessage(channel, `@${displayName}, Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`);
+            logger.warn(`[${channelNameNoHash}] User ${username} attempted to set invalid voice: ${requestedVoiceIdInput}`);
             return;
         }
 
-        const success = await setUserVoicePreference(channelNameNoHash, username, requestedVoiceId);
+        // Use the correctly cased ID from the available voices list for storing
+        const validVoiceIdToStore = matchedVoice.id;
+
+        const success = await setUserVoicePreference(channelNameNoHash, username, validVoiceIdToStore);
         if (success) {
-            enqueueMessage(channel, `@${displayName}, Your TTS voice has been set to: ${requestedVoiceId}.`);
+            enqueueMessage(channel, `@${displayName}, Your TTS voice has been set to: ${validVoiceIdToStore}.`);
         } else {
-            enqueueMessage(channel, `@${displayName}, Could not set your TTS voice to ${requestedVoiceId} at this time.`);
+            enqueueMessage(channel, `@${displayName}, Could not set your TTS voice to ${requestedVoiceIdInput} at this time.`);
         }
     },
 };
