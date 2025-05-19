@@ -1,7 +1,7 @@
 // src/components/tts/ttsQueue.js
 import logger from '../../lib/logger.js';
 import { generateSpeech } from './ttsService.js';
-import { getTtsState, getChannelTtsConfig } from './ttsState.js'; // For voice, mode settings
+import { getTtsState, getChannelTtsConfig, getUserEmotionPreference } from './ttsState.js'; // For voice, mode settings and user emotion
 import { sendAudioToChannel } from '../web/server.js'; // To send audio URL to web page
 
 const channelQueues = new Map(); // channelName -> { queue: [], isPaused: false, isProcessing: false, ... }
@@ -22,8 +22,11 @@ function _getOrCreateChannelQueue(channelName) {
 
 export async function enqueue(channelName, eventData) {
     const { text, user, type = 'chat', voiceOptions = {} } = eventData;
-    const ttsStatus = await getTtsState(channelName);
-    if (!ttsStatus.engineEnabled) return; // Engine disabled
+    const ttsStatus = await getTtsState(channelName); // Full state for engineEnabled check
+    if (!ttsStatus.engineEnabled) {
+        logger.debug(`[${channelName}] TTS engine disabled, dropping message from ${user}.`);
+        return;
+    }
 
     const cq = _getOrCreateChannelQueue(channelName);
     if (cq.queue.length >= MAX_QUEUE_LENGTH) {
@@ -31,18 +34,33 @@ export async function enqueue(channelName, eventData) {
         return;
     }
 
-    // Get channel-specific or default voice config
+    // Get channel-wide TTS config (voice, speed, default emotion etc.)
     const channelConfig = await getChannelTtsConfig(channelName);
+    let userEmotion = null;
+    if (user) { // Only fetch user preference if a user is associated with the event
+        userEmotion = await getUserEmotionPreference(channelName, user);
+    }
+
     const finalVoiceOptions = {
         voiceId: channelConfig.voiceId || 'Friendly_Person',
         speed: channelConfig.speed || 1.0,
-        // ... other defaults from channelConfig or ttsConstants
-        ...voiceOptions // User/command specific overrides
+        volume: channelConfig.volume || 1.0,
+        pitch: channelConfig.pitch || 0,
+        // Prioritize user's emotion, then channel's default emotion, then 'auto'
+        emotion: userEmotion || channelConfig.emotion || 'auto',
+        englishNormalization: channelConfig.englishNormalization !== undefined ? channelConfig.englishNormalization : true,
+        sampleRate: channelConfig.sampleRate || 32000,
+        bitrate: channelConfig.bitrate || 128000,
+        channel: channelConfig.channel || 'mono',
+        languageBoost: channelConfig.languageBoost || 'English',
+        ...voiceOptions // Event-specific overrides (e.g., from a !tts say command with options)
     };
+    
+    logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: Emotion='${finalVoiceOptions.emotion}' (User: ${userEmotion}, Channel: ${channelConfig.emotion})`);
 
     cq.queue.push({ type, text, user, voiceConfig: finalVoiceOptions, timestamp: new Date() });
-    logger.debug(`[${channelName}] Enqueued TTS for ${user}: "${text.substring(0,20)}..." Queue size: ${cq.queue.length}`);
-    processQueue(channelName); // Attempt to process if not already doing so
+    logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0,20)}..." Queue size: ${cq.queue.length}`);
+    processQueue(channelName);
 }
 
 export async function processQueue(channelName) {
@@ -52,31 +70,23 @@ export async function processQueue(channelName) {
     }
     cq.isProcessing = true;
 
-    const event = cq.queue.shift(); // Get first event
-    logger.info(`[${channelName}] Processing TTS for ${event.user}: "${event.text.substring(0,20)}..."`);
+    const event = cq.queue.shift();
+    logger.info(`[${channelName}] Processing TTS for ${event.user || 'event'} with emotion ${event.voiceConfig.emotion}: "${event.text.substring(0,20)}..."`);
 
     try {
+        // generateSpeech will use event.voiceConfig which includes the emotion
         const audioUrl = await generateSpeech(event.text, event.voiceConfig.voiceId, event.voiceConfig);
         if (audioUrl) {
             cq.currentSpeechUrl = audioUrl;
-            sendAudioToChannel(channelName, audioUrl); // Send to WebSocket
-            // Wait for audio to finish? This is tricky.
-            // The browser source will play it. We need a way to know when it's done.
-            // Option 1: Estimate duration based on text length/speed.
-            // Option 2: Client (browser source) sends a "finishedPlaying" event back via WebSocket.
-            // For now, let's assume a simple delay or fire-and-forget for the next item.
-            // A more robust solution would involve the client signaling completion.
+            sendAudioToChannel(channelName, audioUrl);
             logger.info(`[${channelName}] Sent audio URL to web: ${audioUrl}`);
         }
     } catch (error) {
-        logger.error({ err: error, channel: channelName }, 'Error processing TTS event');
+        logger.error({ err: error, channel: channelName }, 'Error processing TTS event in queue');
     } finally {
         cq.currentSpeechUrl = null;
         cq.isProcessing = false;
-        // Process next item if queue is not empty and not paused
         if (!cq.isPaused && cq.queue.length > 0) {
-            // Add a small delay before processing next to avoid API hammering
-            // and to give current audio a chance to start playing.
             setTimeout(() => processQueue(channelName), 500);
         }
     }

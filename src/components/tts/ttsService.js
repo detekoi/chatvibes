@@ -3,8 +3,8 @@ import Replicate from 'replicate';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 
-const replicate = new Replicate({ auth: config.replicateApiKey }); // Ensure config.replicateApiKey is defined
-const MODEL_NAME = "minimax/speech-02-turbo"; // IMPORTANT: Pin this to a specific version hash from Replicate
+const replicate = new Replicate({ auth: config.tts.replicateApiKey });
+const REPLICATE_MODEL = config.tts.replicateModel;
 
 let cachedVoiceList = null;
 let lastVoiceListFetchTime = 0;
@@ -17,7 +17,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     speed: options.speed ?? 1.0,
     volume: options.volume ?? 1.0,
     pitch: options.pitch ?? 0,
-    emotion: options.emotion ?? 'neutral',
+    emotion: options.emotion ?? config.tts?.defaultEmotion ?? 'auto',
     english_normalization: options.englishNormalization ?? true,
     sample_rate: options.sampleRate ?? 32000,
     bitrate: options.bitrate ?? 128000,
@@ -26,19 +26,18 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     ...options
   };
 
-  logger.debug({ input }, 'Sending TTS request to Replicate');
+  logger.debug({ input, model: REPLICATE_MODEL }, 'Sending TTS request to Replicate');
   try {
-    const output = await replicate.run(MODEL_NAME, { input });
-    // The output from this model is directly the URL string.
+    const output = await replicate.run(REPLICATE_MODEL, { input });
     if (typeof output === 'string' && output.startsWith('https://')) {
         logger.info({ outputUrl: output }, 'TTS audio generated successfully');
         return output;
     } else {
-        logger.error({ outputReceived: output }, 'Replicate returned unexpected output format.');
+        logger.error({ outputReceived: output, model: REPLICATE_MODEL }, 'Replicate returned unexpected output format.');
         throw new Error('Replicate API returned an unexpected output format.');
     }
   } catch (error) {
-    logger.error({ err: error, text }, 'Replicate API error in generateSpeech');
+    logger.error({ err: error, text, model: REPLICATE_MODEL }, 'Replicate API error in generateSpeech');
     throw new Error('Failed to generate speech via Replicate API.');
   }
 }
