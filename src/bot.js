@@ -1,10 +1,10 @@
 // src/bot.js
-import config from './config/index.js';
-import logger from './lib/logger.js';
+import config from '../config/index.js';
+import logger from '../lib/logger.js';
 import http from 'http';
 
 // Core Twitch & Cloud
-import { initializeSecretManager } from './lib/secretManager.js';
+import { initializeSecretManager } from '../lib/secretManager.js';
 import { createIrcClient, connectIrcClient, getIrcClient } from './components/twitch/ircClient.js';
 // **** HELIX CLIENT IS STILL USEFUL ****
 import { initializeHelixClient, getHelixClient } from './components/twitch/helixClient.js';
@@ -18,7 +18,7 @@ import { initializeWebServer } from './components/web/server.js';
 
 // Command Processing
 import { initializeCommandProcessor, processMessage as processCommand } from './components/commands/commandProcessor.js';
-import { initializeIrcSender, enqueueMessage, clearMessageQueue } from './lib/ircSender.js';
+import { initializeIrcSender, enqueueMessage, clearMessageQueue } from '../lib/ircSender.js';
 
 // Channel Management
 import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges } from './components/twitch/channelManager.js';
