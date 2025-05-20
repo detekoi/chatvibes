@@ -22,6 +22,7 @@ import listIgnored from '../tts/listIgnored.js';
 import toggleEvents from '../tts/toggleEvents.js';
 import emotionCmd from '../tts/emotion.js';
 import say from '../tts/say.js';
+import { hasPermission } from '../commandProcessor.js'; // Import the centralized function
 
 // Create subcommands object
 const ttsSubCommands = {
@@ -52,18 +53,6 @@ const ttsSubCommands = {
     say,
 };
 
-// Helper to check permissions (can be centralized)
-function hasPermission(userTags, channelName, requiredPermission) {
-    if (requiredPermission === 'everyone') return true;
-    const isBroadcaster = userTags.badges?.broadcaster === '1' || userTags.username === channelName;
-    if (isBroadcaster) return true; // Broadcaster can do anything
-    if (requiredPermission === 'moderator') {
-        return userTags.mod === '1';
-    }
-    // Add other permission levels if needed
-    return false;
-}
-
 export default {
     name: 'tts',
     description: 'Controls the Text-to-Speech functionality. Use !tts commands for a link to all subcommands.',
@@ -71,7 +60,7 @@ export default {
     permission: 'everyone', // Base command is for everyone, subcommands have their own permissions
     execute: async (context) => {
         const { channel, user, args, ircClient } = context;
-        const channelNameNoHash = channel.substring(1);
+        const channelNameNoHash = channel.substring(1).toLowerCase(); // Ensure lowercase
 
         if (args.length === 0) {
             // Direct call to listCommands handler if no args
@@ -96,10 +85,14 @@ export default {
             return;
         }
 
-        // Permission check for the specific subcommand
-        if (!hasPermission(user, channelNameNoHash, actualSubCommandHandler.permission || 'moderator')) {
+        // Permission check for the specific subcommand using the imported hasPermission
+        // The 'user' object is context.user (tmi.js tags)
+        // channelNameNoHash is already without '#' and now ensured lowercase
+        // actualSubCommandHandler.permission is the required permission string
+        const requiredSubCommandPermission = actualSubCommandHandler.permission || 'moderator'; // Default to moderator if not specified
+        if (!hasPermission(requiredSubCommandPermission, user, channelNameNoHash)) {
             enqueueMessage(channel, `@${user['display-name']}, You don't have permission for '!tts ${effectiveSubCommandName}'.`);
-            logger.warn(`Permission denied for user ${user.username} on command !tts ${effectiveSubCommandName} in ${channel}. Required: ${actualSubCommandHandler.permission || 'moderator'}`);
+            logger.warn(`Permission denied for user ${user.username} on command !tts ${effectiveSubCommandName} in ${channel}. Required: ${requiredSubCommandPermission}`);
             return;
         }
 
