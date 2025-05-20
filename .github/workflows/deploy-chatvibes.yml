@@ -1,0 +1,98 @@
+name: Deploy ChatVibes TTS to Cloud Run
+
+on:
+  push:
+    branches:
+      - main # Or your default deployment branch
+    paths-ignore:
+      - 'README.md'
+      - 'README-*.md'
+      - 'LICENSE.md'
+      - 'CLAUDE.md'
+      - 'gemini/**' # Assuming 'gemini/' folder is for local LLM interaction
+      - '.vscode/**'
+      - '.idea/**'
+
+env:
+  GCP_PROJECT_ID: 'chatvibestts'
+  GCP_PROJECT_NUMBER: '906125386407'
+  GCP_REGION: 'us-central1'
+  CLOUD_RUN_SERVICE_NAME: 'chatvibes-tts-service' # As per your README
+  CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT: 'twitch-sa@chatvibestts.iam.gserviceaccount.com' # SA for the CR instance
+
+  # --- Application Environment Variables ---
+  # These will be set directly in the Cloud Run service
+  NODE_ENV: 'production'
+  LOG_LEVEL: 'info'
+  PINO_PRETTY_LOGGING: 'false'
+  TWITCH_BOT_USERNAME: 'ChatVibesBot'
+  GOOGLE_CLOUD_PROJECT_ENV: 'chatvibestts' # Explicitly set for the application
+  # Full path to the secret containing the bot's refresh token
+  TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH: 'projects/906125386407/secrets/twitch-bot-refresh-token/versions/latest'
+  REPLICATE_TTS_MODEL_NAME: 'minimax/speech-02-turbo' # Default from your config
+  # Optional TTS defaults (can be omitted if app defaults are fine)
+  # TTS_DEFAULT_VOICE_ID: 'Friendly_Person'
+  # TTS_DEFAULT_EMOTION: 'auto'
+  # TTS_DEFAULT_PITCH: '0'
+  # TTS_DEFAULT_SPEED: '1.0'
+
+  # --- Secret Manager Secret Names (short names, latest version assumed) ---
+  # These names will be used in --set-secrets to map them to environment variables
+  TWITCH_CLIENT_ID_SECRET: 'twitch-client-id'
+  TWITCH_CLIENT_SECRET_SECRET: 'twitch-client-secret'
+  REPLICATE_API_TOKEN_SECRET: 'replicate-api-token'
+  TWITCH_CHANNELS_SECRET: 'chatvibes-initial-channels' # For initial channels
+
+jobs:
+  deploy:
+    name: Build and Deploy ChatVibes TTS
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write' # Required for Workload Identity Federation
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: 'projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/githubactions/providers/githubactions-provider' 
+          service_account: 'github-actions-deployer@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com' 
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        run: |
+          gcloud run deploy ${{ env.CLOUD_RUN_SERVICE_NAME }} \
+            --source . \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --service-account ${{ env.CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }} \
+            --set-env-vars="^:^NODE_ENV=${{ env.NODE_ENV }}:LOG_LEVEL=${{ env.LOG_LEVEL }}:PINO_PRETTY_LOGGING=${{ env.PINO_PRETTY_LOGGING }}:TWITCH_BOT_USERNAME=${{ env.TWITCH_BOT_USERNAME }}:GOOGLE_CLOUD_PROJECT=${{ env.GOOGLE_CLOUD_PROJECT_ENV }}:TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=${{ env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH }}:REPLICATE_TTS_MODEL_NAME=${{ env.REPLICATE_TTS_MODEL_NAME }}" \
+            --set-secrets="\
+            TWITCH_CLIENT_ID=${{ env.TWITCH_CLIENT_ID_SECRET }}:latest,\
+            TWITCH_CLIENT_SECRET=${{ env.TWITCH_CLIENT_SECRET_SECRET }}:latest,\
+            REPLICATE_API_TOKEN=${{ env.REPLICATE_API_TOKEN_SECRET }}:latest,\
+            TWITCH_CHANNELS=${{ env.TWITCH_CHANNELS_SECRET }}:latest" \
+            --labels="managed-by=github-actions,repository=${{ github.repository }},commit-sha=${{ github.sha }}" \
+            --format="get(status.url)"
+        env:
+          # Make GitHub Actions secrets available to this step if needed for other gcloud commands,
+          # though for --set-secrets, gcloud uses the secret names from Secret Manager directly.
+          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Example
+          # YOUR_SPECIFIC_SECRET: ${{ secrets.YOUR_SPECIFIC_SECRET }} # Example
+          CLOUDSDK_CORE_DISABLE_PROMPTS: 1
+
+      - name: Show Deployment URL
+        run: |
+          echo "Deployed to Cloud Run: ${{ steps.deploy.outputs.url }}"
