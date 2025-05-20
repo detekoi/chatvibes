@@ -26,7 +26,7 @@ For a complete list of available commands and voices, visit the documentation:
 
 1.  **Node.js:** Version 18.x or later recommended.
 2.  **npm:** Comes with Node.js.
-3.  **Twitch Account for the Bot:** It's highly recommended to create a dedicated Twitch account for ChatVibes (e.g., "ChatVibesBot").
+3.  **Twitch Account for the Bot:** It's highly recommended to create a dedicated Twitch account for ChatVibes. (Centralized Cloud service coming soon.)
 4.  **Twitch Application:**
     * Register a new application on the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
     * Set the "OAuth Redirect URLs" to something like `http://localhost:3000/auth/twitch/callback` (even if not used by this specific TTS bot directly, it's good practice for Twitch apps).
@@ -34,7 +34,7 @@ For a complete list of available commands and voices, visit the documentation:
 5.  **Replicate API Token:**
     * Sign up at [Replicate.com](https://replicate.com/).
     * Get your API token from your [account page](https://replicate.com/account/api-tokens).
-6.  **Google Cloud Project:**
+6.  **Google Cloud Project:** (for perpetual uptime)
     * A Google Cloud Platform project.
     * Enabled APIs: Cloud Firestore API, Secret Manager API, Cloud Run API, Cloud Build API.
     * Firestore database created in Native mode.
@@ -97,13 +97,15 @@ For a complete list of available commands and voices, visit the documentation:
     * Ensure the port (`8080`) matches what ChatVibes is running on.
 3.  Set Width and Height as needed (e.g., 300x100, can be small as it's audio-only).
 4.  **Important:** After adding the source, right-click it in OBS, select "Interact". A window will pop up showing the page. If you see a button like "Click to Enable TTS Audio", click it once to allow the browser to play audio. This is required due to browser autoplay policies.
+5.  **Audio Setup:** In the Audio Mixer section of OBS, click the three dots (⋮) next to the browser source's audio track, select "Advanced Audio Properties", and set "Audio Monitoring" to "Monitor and Output". This allows the streamer to hear the TTS audio.
 
 
 ## Command Documentation
 
-All TTS commands are prefixed with `!tts`. For example, `!tts status`.
+All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also documented here: [https://detekoi.github.io/chatvibesdocs.html#commands](https://detekoi.github.io/chatvibesdocs.html#commands)
 
----
+<details>
+<summary>Click to expand command documentation</summary>
 
 ### General Commands
 
@@ -280,7 +282,7 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
 * **Permission:** Moderator
 * **Usage:** `!tts say Welcome everyone to the stream!`
 
----
+</details>
 
 ## Deployment to Google Cloud Run
 
