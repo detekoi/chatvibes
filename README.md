@@ -168,13 +168,15 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 * **Usage:** `!tts resume`
 
 **`!tts clear`**
-* **Description:** Clears all pending messages and events from the TTS queue. Does not stop audio currently playing.
+* **Description:** Clears all *pending* messages and events from the TTS queue. This command does **not** stop audio that is currently playing or being generated.
 * **Permission:** Moderator
 * **Usage:** `!tts clear`
 
 **`!tts stop`**
-* **Description:** If TTS is currently speaking an audio clip, this command will stop only that currently playing audio. The queue will continue processing the next item if not paused.
-* **Permission:** Moderator
+* **Description:** Stops the currently playing or generating TTS audio.
+    * Any user can stop a message if it was triggered by their own chat message.
+    * Moderators and the broadcaster can stop any TTS audio, regardless of who initiated it.
+* **Permission:** Everyone (behavior is conditional based on who initiated the speech and who is stopping it)
 * **Usage:** `!tts stop`
 
 ---

@@ -49,9 +49,9 @@ export TWITCH_CHANNELS=yourchannel
   - `!tts voices` - List available voices
   - `!tts emotion <emotion>` - Set speech emotion (auto, neutral, happy, sad, etc.)
   - `!tts ignore add/del <username>` - Manage ignored users
-  - `!tts stop` - Stop current audio and clear queue
   - `!tts pause/resume` - Pause/resume the TTS queue
-  - `!tts clear` - Clear the TTS queue
+  - `!tts stop` - Stops current audio. Users can stop their own messages; mods can stop any.
+  - `!tts clear` - Clears the pending TTS queue (does not stop current audio).
   - `!tts lang <language>` - Set your preferred language boost.
   - `!tts defaultlanguage <language>` - (Mod) Set channel's default language boost.
 
