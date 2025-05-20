@@ -209,13 +209,17 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
     * `!tts speed` (displays current personal preference)
 
 **`!tts ignore add <username>`**
-* **Description:** Adds the specified Twitch user to the TTS ignore list for the channel. Messages from this user will not be spoken.
-* **Permission:** Moderator
-* **Usage:** `!tts ignore add SomeUser`
+* **Description:**
+    * **For any user:** Allows you to add *yourself* to the TTS ignore list for the channel. Your messages will not be spoken.
+    * **For Moderators/Broadcaster:** Allows you to add *any specified Twitch user* to the TTS ignore list for the channel. Messages from this user will not be spoken.
+* **Permission:** Everyone (to add themselves), Moderator (to add others)
+* **Usage:**
+    * `!tts ignore add yourusername` (if you want to ignore yourself)
+    * `!tts ignore add SomeOtherUser` (if you are a mod/broadcaster)
 
 **`!tts ignore del <username>`** (Aliases: `delete`, `rem`, `remove`)
 * **Description:** Removes the specified Twitch user from the TTS ignore list.
-* **Permission:** Moderator
+* **Permission:** Moderator only. (Users cannot remove themselves from the ignore list using this command; a mod must do it.)
 * **Usage:** `!tts ignore del SomeUser`
 
 **`!tts ignored`**
