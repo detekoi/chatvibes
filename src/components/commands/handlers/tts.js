@@ -4,8 +4,13 @@ import { enqueueMessage } from '../../../lib/ircSender.js';
 // Import individual TTS command handlers
 import status from '../tts/status.js';
 import defaultVoice from '../tts/defaultVoice.js';
+import defaultPitch from '../tts/defaultPitch.js';
+import defaultSpeed from '../tts/defaultSpeed.js';
+import defaultEmotion from '../tts/defaultEmotion.js';
 import voices from '../tts/voices.js';
 import voice from '../tts/voice.js';
+import pitch from '../tts/pitch.js';
+import speed from '../tts/speed.js';
 import pauseResume from '../tts/pauseResume.js';
 import clear from '../tts/clear.js';
 import stop from '../tts/stop.js';
@@ -23,6 +28,13 @@ const ttsSubCommands = {
     status,
     voices,
     defaultvoice: defaultVoice,
+    defaultpitch: defaultPitch,
+    defaultspeed: defaultSpeed,
+    defaultemotion: defaultEmotion,
+    voice,
+    pitch,
+    speed,
+    emotion: emotionCmd,
     pause: pauseResume,
     resume: pauseResume,
     clear,
@@ -37,9 +49,7 @@ const ttsSubCommands = {
     ignore: ignoreUser,
     ignored: listIgnored,
     events: toggleEvents,
-    emotion: emotionCmd,
     say,
-    voice,
 };
 
 // Helper to check permissions (can be centralized)

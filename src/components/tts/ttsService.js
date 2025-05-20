@@ -2,6 +2,7 @@
 import Replicate from 'replicate';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
+import { TTS_SPEED_DEFAULT, TTS_PITCH_DEFAULT } from './ttsConstants.js';
 
 const replicate = new Replicate({ auth: config.tts.replicateApiToken });
 const REPLICATE_MODEL = config.tts.replicateModel;
@@ -14,9 +15,9 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
   const input = {
     text,
     voice_id: voiceId,
-    speed: options.speed ?? 1.0,
+    speed: options.speed ?? TTS_SPEED_DEFAULT,
     volume: options.volume ?? 1.0,
-    pitch: options.pitch ?? 0,
+    pitch: options.pitch ?? TTS_PITCH_DEFAULT,
     emotion: options.emotion ?? config.tts?.defaultEmotion ?? 'auto',
     english_normalization: options.englishNormalization ?? true,
     sample_rate: options.sampleRate ?? 32000,

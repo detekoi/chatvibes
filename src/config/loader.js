@@ -41,9 +41,11 @@ function loadConfig() {
         tts: {
             defaultVoiceId: process.env.TTS_DEFAULT_VOICE_ID || 'Friendly_Person',
             defaultEmotion: process.env.TTS_DEFAULT_EMOTION || 'auto',
+            defaultPitch: parseInt(process.env.TTS_DEFAULT_PITCH, 10) || 0, 
+            defaultSpeed: parseFloat(process.env.TTS_DEFAULT_SPEED) || 1.0, 
             replicateApiToken: process.env.REPLICATE_API_TOKEN,
             replicateModel: process.env.REPLICATE_TTS_MODEL_NAME || "minimax/speech-02-turbo"
-        },
+            },
         app: {
             logLevel: process.env.LOG_LEVEL || 'info',
             prettyLog: process.env.PINO_PRETTY_LOGGING === 'true',

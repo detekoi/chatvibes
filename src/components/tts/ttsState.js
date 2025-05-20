@@ -1,22 +1,20 @@
 // src/components/tts/ttsState.js
 import { Firestore, FieldValue } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
-import { DEFAULT_TTS_SETTINGS, VALID_EMOTIONS } from './ttsConstants.js'; // Import VALID_EMOTIONS
+import {
+    DEFAULT_TTS_SETTINGS,
+    VALID_EMOTIONS,
+    TTS_PITCH_MIN,
+    TTS_PITCH_MAX,
+    TTS_PITCH_DEFAULT,
+    TTS_SPEED_MIN,
+    TTS_SPEED_MAX,
+    TTS_SPEED_DEFAULT
+} from './ttsConstants.js';
 import { getAvailableVoices } from './ttsService.js'; // For validating voice IDs
 
 let db;
 const TTS_CONFIG_COLLECTION = 'ttsChannelConfigs';
-const DEFAULT_TTS_CONFIG = { /* loaded from ttsConstants.js */
-    engineEnabled: true,
-    mode: 'command', // 'all' or 'command'
-    voiceId: 'Friendly_Person',
-    speed: 1.0,
-    volume: 1.0,
-    pitch: 0,
-    emotion: 'neutral',
-    speakEvents: true,
-    ignoredUsers: []
-};
 
 // In-memory cache of channel configs
 const channelConfigsCache = new Map();
@@ -314,6 +312,162 @@ export async function clearUserVoicePreference(channelName, username) {
             return true;
         }
         logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS voice preference in Firestore.');
+        return false;
+    }
+}
+
+// --- Functions for Channel-wide Default Pitch ---
+export async function setChannelDefaultPitch(channelName, pitch) {
+    const parsedPitch = parseInt(pitch, 10);
+    if (isNaN(parsedPitch) || parsedPitch < TTS_PITCH_MIN || parsedPitch > TTS_PITCH_MAX) {
+        logger.warn(`[${channelName}] Attempt to set invalid default pitch: ${pitch}. Must be integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`);
+        return false;
+    }
+    return setTtsState(channelName, 'pitch', parsedPitch);
+}
+
+export async function resetChannelDefaultPitch(channelName) {
+    return setTtsState(channelName, 'pitch', TTS_PITCH_DEFAULT);
+}
+
+// --- Functions for Channel-wide Default Speed ---
+export async function setChannelDefaultSpeed(channelName, speed) {
+    const parsedSpeed = parseFloat(speed);
+    if (isNaN(parsedSpeed) || parsedSpeed < TTS_SPEED_MIN || parsedSpeed > TTS_SPEED_MAX) {
+        logger.warn(`[${channelName}] Attempt to set invalid default speed: ${speed}. Must be number between ${TTS_SPEED_MIN} and ${TTS_SPEED_MAX}.`);
+        return false;
+    }
+    return setTtsState(channelName, 'speed', parsedSpeed);
+}
+
+export async function resetChannelDefaultSpeed(channelName) {
+    return setTtsState(channelName, 'speed', TTS_SPEED_DEFAULT);
+}
+
+// --- Functions for Channel-wide Default Emotion ---
+export async function setChannelDefaultEmotion(channelName, emotion) {
+    if (!VALID_EMOTIONS.includes(emotion.toLowerCase())) {
+        logger.warn(`[${channelName}] Attempt to set invalid default emotion: ${emotion}.`);
+        return false;
+    }
+    return setTtsState(channelName, 'emotion', emotion.toLowerCase());
+}
+
+export async function resetChannelDefaultEmotion(channelName) {
+    const systemDefaultEmotion = DEFAULT_TTS_SETTINGS.emotion || 'auto';
+    return setTtsState(channelName, 'emotion', systemDefaultEmotion);
+}
+
+// --- Functions for User-specific Pitch Preference ---
+export async function getUserPitchPreference(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const channelConfig = await getTtsState(channelName);
+    return channelConfig.userPreferences?.[lowerUser]?.pitch ?? null;
+}
+
+export async function setUserPitchPreference(channelName, username, pitch) {
+    const parsedPitch = parseInt(pitch, 10);
+    if (isNaN(parsedPitch) || parsedPitch < TTS_PITCH_MIN || parsedPitch > TTS_PITCH_MAX) {
+        logger.warn(`[${channelName}] Attempt to set invalid pitch preference '${pitch}' for user ${username}.`);
+        return false;
+    }
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.set({
+            userPreferences: { [lowerUser]: { pitch: parsedPitch } },
+            updatedAt: FieldValue.serverTimestamp()
+        }, { mergeFields: [`userPreferences.${lowerUser}.pitch`, 'updatedAt'] });
+
+        logger.info(`[${channelName}] User TTS pitch preference updated for ${lowerUser}: ${parsedPitch}`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
+        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
+        currentConfig.userPreferences[lowerUser].pitch = parsedPitch;
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, user: lowerUser, pitch: parsedPitch }, 'Failed to set user TTS pitch preference in Firestore.');
+        return false;
+    }
+}
+
+export async function clearUserPitchPreference(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const fieldPath = `userPreferences.${lowerUser}.pitch`;
+    try {
+        await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+        logger.info(`[${channelName}] Cleared user TTS pitch preference for ${lowerUser}.`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
+            delete currentConfig.userPreferences[lowerUser].pitch;
+            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
+                delete currentConfig.userPreferences[lowerUser];
+            }
+        }
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        if (error.code === 5) { return true; }
+        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS pitch preference.');
+        return false;
+    }
+}
+
+// --- Functions for User-specific Speed Preference ---
+export async function getUserSpeedPreference(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const channelConfig = await getTtsState(channelName);
+    return channelConfig.userPreferences?.[lowerUser]?.speed ?? null;
+}
+
+export async function setUserSpeedPreference(channelName, username, speed) {
+    const parsedSpeed = parseFloat(speed);
+    if (isNaN(parsedSpeed) || parsedSpeed < TTS_SPEED_MIN || parsedSpeed > TTS_SPEED_MAX) {
+        logger.warn(`[${channelName}] Attempt to set invalid speed preference '${speed}' for user ${username}.`);
+        return false;
+    }
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.set({
+            userPreferences: { [lowerUser]: { speed: parsedSpeed } },
+            updatedAt: FieldValue.serverTimestamp()
+        }, { mergeFields: [`userPreferences.${lowerUser}.speed`, 'updatedAt'] });
+
+        logger.info(`[${channelName}] User TTS speed preference updated for ${lowerUser}: ${parsedSpeed}`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
+        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
+        currentConfig.userPreferences[lowerUser].speed = parsedSpeed;
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, user: lowerUser, speed: parsedSpeed }, 'Failed to set user TTS speed preference in Firestore.');
+        return false;
+    }
+}
+
+export async function clearUserSpeedPreference(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const fieldPath = `userPreferences.${lowerUser}.speed`;
+    try {
+        await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+        logger.info(`[${channelName}] Cleared user TTS speed preference for ${lowerUser}.`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
+            delete currentConfig.userPreferences[lowerUser].speed;
+            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
+                delete currentConfig.userPreferences[lowerUser];
+            }
+        }
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        if (error.code === 5) { return true; }
+        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS speed preference.');
         return false;
     }
 }

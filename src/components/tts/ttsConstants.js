@@ -1,22 +1,34 @@
 // src/components/tts/ttsConstants.js
-import config from '../../config/index.js'; // Import the main config
+import config from '../../config/index.js'; 
 
 export const DEFAULT_TTS_SETTINGS = {
     engineEnabled: true,
-    mode: 'command', // 'all' or 'command' (speak all messages or only on command)
-    voiceId: config.tts?.defaultVoiceId || 'Friendly_Person', // Use from global config
-    speed: 1.0,
+    mode: 'command',
+    voiceId: config.tts?.defaultVoiceId || 'Friendly_Person',
+    speed: config.tts?.defaultSpeed || 1.0, 
     volume: 1.0,
-    pitch: 0,
-    emotion: config.tts?.defaultEmotion || 'auto', // Use from global config
+    pitch: config.tts?.defaultPitch || 0, 
+    emotion: config.tts?.defaultEmotion || 'auto',
     englishNormalization: true,
     sampleRate: 32000,
     bitrate: 128000,
     channel: 'mono',
     languageBoost: 'English',
     speakEvents: true,
+    // It's good practice to initialize userPreferences and ignoredUsers in default settings
+    // userPreferences: {}, // Will be handled by ttsState.js if it needs to be part of base default
+    // ignoredUsers: []      // Will be handled by ttsState.js
 };
+
 
 export const VALID_EMOTIONS = [
     "auto", "neutral", "happy", "sad", "angry", "fearful", "disgusted", "surprised"
 ];
+
+export const TTS_PITCH_MIN = -12;
+export const TTS_PITCH_MAX = 12;
+export const TTS_PITCH_DEFAULT = 0;
+
+export const TTS_SPEED_MIN = 0.5;
+export const TTS_SPEED_MAX = 2.0;
+export const TTS_SPEED_DEFAULT = 1.0;
