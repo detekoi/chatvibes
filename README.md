@@ -98,6 +98,7 @@ For a complete list of available commands and voices, visit the documentation:
 3.  Set Width and Height as needed (e.g., 300x100, can be small as it's audio-only).
 4.  **Important:** After adding the source, right-click it in OBS, select "Interact". A window will pop up showing the page. If you see a button like "Click to Enable TTS Audio", click it once to allow the browser to play audio. This is required due to browser autoplay policies.
 
+
 ## Command Documentation
 
 All TTS commands are prefixed with `!tts`. For example, `!tts status`.
@@ -107,17 +108,17 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
 ### General Commands
 
 **`!tts status`**
-* **Description:** Gets the current status of the TTS application for the channel, including whether the engine is enabled, the current mode, queue length, and selected voice.
+* **Description:** Gets the current status of the TTS application for the channel, including whether the engine is enabled, the current mode, queue length, and default voice, pitch, speed, and emotion settings.
 * **Permission:** Everyone
 * **Usage:** `!tts status`
 
 **`!tts voices`**
-* **Description:** Shows how many voices are available and a summary by language or type. The full list is too long for chat.
+* **Description:** Provides a link to the documentation section for available TTS voices.
 * **Permission:** Everyone
 * **Usage:** `!tts voices`
 
-**`!tts commands`**
-* **Description:** Lists all available `!tts` subcommands.
+**`!tts commands`** (Alias: `!tts help`)
+* **Description:** Provides a link to the full list of `!tts` subcommands.
 * **Permission:** Everyone
 * **Usage:** `!tts commands`
 
@@ -173,36 +174,53 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
 
 ### User & Event Preferences
 
-**`!tts emotion <emotion_name|reset|auto>`**
-* **Description:** Allows a user to set their preferred emotion for messages they trigger that are spoken by TTS. If reset or auto, uses the channel's default emotion (or the TTS model's auto-detection).
-    * Valid emotions (from Replicate minimax/speech-02-turbo model): `auto`, `neutral`, `happy`, `sad`, `angry`, `fearful`, `disgusted`, `surprised`.
-* **Permission:** Everyone (for their own preference)
-* **Usage:**
-    * `!tts emotion happy`
-    * `!tts emotion reset`
-    * `!tts emotion` (displays current personal preference)
-
 **`!tts voice <voice_id|reset>`**
-* **Description:** Allows a user to set their preferred voice for messages they trigger that are spoken by TTS. Use `reset` to revert to the channel's default voice. Use `!tts voices` to get a link to the available voice IDs.
+* **Description:** Allows a user to set their preferred voice for messages they trigger. Use `reset` to revert to the channel's default voice. Use `!tts voices` to get a link to available voice IDs.
 * **Permission:** Everyone (for their own preference)
 * **Usage:**
     * `!tts voice Friendly_Person`
     * `!tts voice reset`
     * `!tts voice` (displays current personal preference)
 
+**`!tts emotion <emotion_name|reset|auto>`**
+* **Description:** Allows a user to set their preferred emotion for their messages. Valid emotions: `auto`, `neutral`, `happy`, `sad`, `angry`, `fearful`, `disgusted`, `surprised`. Use `reset` or `auto` for the channel default.
+* **Permission:** Everyone (for their own preference)
+* **Usage:**
+    * `!tts emotion happy`
+    * `!tts emotion reset`
+    * `!tts emotion` (displays current personal preference)
+
+**`!tts pitch <value|reset>`**
+* **Description:** Sets your personal TTS pitch. Value must be an integer between -12 and 12 (0 is normal). Use `reset` for the channel default.
+* **Permission:** Everyone (for their own preference)
+* **Usage:**
+    * `!tts pitch 2`
+    * `!tts pitch -3`
+    * `!tts pitch reset`
+    * `!tts pitch` (displays current personal preference)
+
+**`!tts speed <value|reset>`**
+* **Description:** Sets your personal TTS speed. Value must be a number between 0.5 and 2.0 (1.0 is normal). Use `reset` for the channel default.
+* **Permission:** Everyone (for their own preference)
+* **Usage:**
+    * `!tts speed 1.2`
+    * `!tts speed 0.8`
+    * `!tts speed reset`
+    * `!tts speed` (displays current personal preference)
+
 **`!tts ignore add <username>`**
-* **Description:** Adds the specified Twitch user to the TTS ignore list for the channel. Messages from this user will not be spoken, even in 'all' mode.
+* **Description:** Adds the specified Twitch user to the TTS ignore list for the channel. Messages from this user will not be spoken.
 * **Permission:** Moderator
 * **Usage:** `!tts ignore add SomeUser`
 
-**`!tts ignore del <username>`** (Alias: `!tts ignore delete <username>`, `!tts ignore rem <username>`, `!tts ignore remove <username>`)
+**`!tts ignore del <username>`** (Aliases: `delete`, `rem`, `remove`)
 * **Description:** Removes the specified Twitch user from the TTS ignore list.
 * **Permission:** Moderator
 * **Usage:** `!tts ignore del SomeUser`
 
 **`!tts ignored`**
 * **Description:** Lists all users currently on the TTS ignore list for the channel.
-* **Permission:** Moderator (or Everyone, depending on configuration choice)
+* **Permission:** Moderator
 * **Usage:** `!tts ignored`
 
 **`!tts events [on|off]`**
@@ -215,32 +233,46 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
 
 ---
 
-### Voice Configuration (Moderator Only)
+### Channel-Wide Default Configuration (Moderator Only)
 
 **`!tts defaultvoice <voice_id|reset>`**
-* **Description:** Sets the default TTS voice for the *channel*. Use `reset` to revert to the system default. Use `!tts voices` to see available types/get a link to IDs.
+* **Description:** Sets the default TTS voice for the *channel*. Use `reset` to revert to the system default. Use `!tts voices` for a link to voice IDs.
 * **Permission:** Moderator
-* **Usage:** `!tts defaultvoice Friendly_Person` (Use a valid Voice ID from the `minimax/speech-02-turbo` model)
-* **Note:** This sets the *channel-wide* default voice. Individual users can still set their own preferred voice with `!tts voice <voice_id>`.
+* **Usage:**
+    * `!tts defaultvoice Friendly_Person`
+    * `!tts defaultvoice reset`
+    * `!tts defaultvoice` (displays current channel default)
 
-**`!tts speed <0.5-2.0>`** (Conceptual - for setting channel default speed)
-* **Description:** Sets the default speech speed for the channel. (1.0 is normal).
+**`!tts defaultemotion <emotion_name|reset>`**
+* **Description:** Sets the default TTS emotion for the *channel*. Valid emotions: `auto`, `neutral`, `happy`, `sad`, `angry`, `fearful`, `disgusted`, `surprised`. Use `reset` for system default (`auto`).
 * **Permission:** Moderator
-* **Usage:** `!tts speed 1.2`
+* **Usage:**
+    * `!tts defaultemotion happy`
+    * `!tts defaultemotion reset`
+    * `!tts defaultemotion` (displays current channel default)
 
-**`!tts pitch <-12-12>`** (Conceptual - for setting channel default pitch)
-* **Description:** Sets the default speech pitch for the channel. (0 is normal).
+**`!tts defaultpitch <value|reset>`**
+* **Description:** Sets the default TTS pitch for the *channel*. Value must be an integer between -12 and 12 (0 is normal). Use `reset` for system default (0).
 * **Permission:** Moderator
-* **Usage:** `!tts pitch 2`
+* **Usage:**
+    * `!tts defaultpitch 2`
+    * `!tts defaultpitch reset`
+    * `!tts defaultpitch` (displays current channel default)
 
-*(Other parameters like volume, default emotion for the channel, etc., can be added similarly.)*
+**`!tts defaultspeed <value|reset>`**
+* **Description:** Sets the default TTS speed for the *channel*. Value must be a number between 0.5 and 2.0 (1.0 is normal). Use `reset` for system default (1.0).
+* **Permission:** Moderator
+* **Usage:**
+    * `!tts defaultspeed 1.2`
+    * `!tts defaultspeed reset`
+    * `!tts defaultspeed` (displays current channel default)
 
 ---
 
 ### Direct TTS (Moderator Only - for testing/announcements)
 
 **`!tts say <message>`**
-* **Description:** Immediately enqueues the provided message for TTS, regardless of the current mode. Useful for direct announcements or testing.
+* **Description:** Immediately enqueues the provided message for TTS, regardless of the current mode. Uses the requesting user's preferences or channel defaults for voice, pitch, speed, and emotion.
 * **Permission:** Moderator
 * **Usage:** `!tts say Welcome everyone to the stream!`
 
