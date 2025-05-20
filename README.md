@@ -215,14 +215,13 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
 
 ---
 
-### Voice Configuration (Moderator Only - Example, can be expanded)
+### Voice Configuration (Moderator Only)
 
-*(These commands may require corresponding setters in `ttsState.js` and getters in `ttsQueue.js` if not fully implemented yet for channel-wide defaults)*
-
-**`!tts voice <voice_id>`** (Moderator Only - Conceptual for setting *channel default* voice)
-* **Description:** Sets the default TTS voice for the *channel*. Use `!tts voices` to see available types/get a link to IDs.
+**`!tts defaultvoice <voice_id|reset>`**
+* **Description:** Sets the default TTS voice for the *channel*. Use `reset` to revert to the system default. Use `!tts voices` to see available types/get a link to IDs.
 * **Permission:** Moderator
-* **Usage:** `!tts voice Friendly_Person` (Use a valid Voice ID from the `minimax/speech-02-turbo` model)
+* **Usage:** `!tts defaultvoice Friendly_Person` (Use a valid Voice ID from the `minimax/speech-02-turbo` model)
+* **Note:** This sets the *channel-wide* default voice. Individual users can still set their own preferred voice with `!tts voice <voice_id>`.
 
 **`!tts speed <0.5-2.0>`** (Conceptual - for setting channel default speed)
 * **Description:** Sets the default speech speed for the channel. (1.0 is normal).
