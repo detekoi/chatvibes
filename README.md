@@ -15,7 +15,7 @@ For a complete list of available commands and voices, visit the documentation:
 * Announces Twitch events (subscriptions, cheers, raids, etc.).
 * Controllable via chat commands for enabling/disabling, managing the queue, changing voice settings, and more.
 * Customizable voices and speech parameters via Replicate API (minimax/speech-02-turbo model).
-* Per-user emotion preference for TTS.
+* Per-user voice, emotion, pitch and speed preferences for TTS.
 * Ignores specified users.
 * Audio playback through an OBS browser source.
 * Designed for Google Cloud Run deployment.
@@ -305,10 +305,6 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`.
     ```
     * Replace placeholders with your actual values.
     * Ensure the Cloud Run service account has "Cloud Datastore User" and "Secret Manager Secret Accessor" roles.
-
-## Contributing
-
-(Details on how to contribute, coding standards, etc. - if applicable)
 
 ## License
 
