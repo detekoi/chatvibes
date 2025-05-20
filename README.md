@@ -26,7 +26,7 @@ For a complete list of available commands and voices, visit the documentation:
 
 1.  **Node.js:** Version 18.x or later recommended.
 2.  **npm:** Comes with Node.js.
-3.  **Twitch Account for the Bot:** It's highly recommended to create a dedicated Twitch account for ChatVibes. (Centralized Cloud service coming soon.)
+3.  **Twitch Account for the Bot:** It's highly recommended to create a dedicated Twitch account for ChatVibes. (Centralized cloud service coming soon.)
 4.  **Twitch Application:**
     * Register a new application on the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
     * Set the "OAuth Redirect URLs" to something like `http://localhost:3000/auth/twitch/callback` (even if not used by this specific TTS bot directly, it's good practice for Twitch apps).
@@ -105,7 +105,7 @@ For a complete list of available commands and voices, visit the documentation:
 All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also documented here: [https://detekoi.github.io/chatvibesdocs.html#commands](https://detekoi.github.io/chatvibesdocs.html#commands)
 
 <details>
-<summary>Click to expand command documentation</summary>
+<summary>Click to expand command documentation.</summary>
 
 ### General Commands
 
@@ -118,6 +118,11 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 * **Description:** Provides a link to the documentation section for available TTS voices.
 * **Permission:** Everyone
 * **Usage:** `!tts voices`
+
+**`!tts languageslist`**
+* **Description:** Provides a list or link to available language boost options.
+* **Permission:** Everyone
+* **Usage:** `!tts languageslist`
 
 **`!tts commands`** (Alias: `!tts help`)
 * **Description:** Provides a link to the full list of `!tts` subcommands.
@@ -210,6 +215,15 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
     * `!tts speed reset`
     * `!tts speed` (displays current personal preference)
 
+**`!tts language <language_name|auto|reset>`** (Alias: `!tts lang`)
+* **Description:** Sets your preferred language boost for TTS. Affects how speech is interpreted and generated for your messages. Use `auto`, `none`, or `reset` to use the channel's default. See `!tts languageslist` for available options.
+* **Permission:** Everyone
+* **Usage:**
+    * `!tts language English`
+    * `!tts language Japanese`
+    * `!tts lang reset`
+    * `!tts language` (displays current personal preference)
+
 **`!tts ignore add <username>`**
 * **Description:**
     * **For any user:** Allows you to add *yourself* to the TTS ignore list for the channel. Your messages will not be spoken.
@@ -272,6 +286,14 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
     * `!tts defaultspeed 1.2`
     * `!tts defaultspeed reset`
     * `!tts defaultspeed` (displays current channel default)
+
+**`!tts defaultlanguage <language_name|reset>`**
+* **Description:** Sets the default TTS language boost for the *channel*. Use `reset` to revert to the system default (usually 'Automatic' or 'None'). See `!tts languageslist` for options.
+* **Permission:** Moderator
+* **Usage:**
+    * `!tts defaultlanguage English`
+    * `!tts defaultlanguage reset`
+    * `!tts defaultlanguage` (displays current channel default)
 
 ---
 

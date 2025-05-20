@@ -7,9 +7,11 @@ import {
     getUserEmotionPreference,
     getUserVoicePreference,
     getUserPitchPreference,
-    getUserSpeedPreference
+    getUserSpeedPreference,
+    getUserLanguagePreference
 } from './ttsState.js'; // For voice, mode settings and user emotion
 import { sendAudioToChannel } from '../web/server.js'; // To send audio URL to web page
+import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Added for the new defaultLanguageBoost
 
 const channelQueues = new Map(); // channelName -> { queue: [], isPaused: false, isProcessing: false, ... }
 const MAX_QUEUE_LENGTH = 50; // Per channel
@@ -41,35 +43,39 @@ export async function enqueue(channelName, eventData) {
         return;
     }
 
-    const channelConfig = await getChannelTtsConfig(channelName); // This fetches { voiceId, speed, pitch, emotion, ... }
+    const channelConfig = await getChannelTtsConfig(channelName); // Fetches { voiceId, speed, pitch, emotion, languageBoost ... }
     let userEmotion = null;
     let userVoice = null;
     let userPitch = null;
     let userSpeed = null;
+    let userLanguage = null;
 
     if (user) {
         userEmotion = await getUserEmotionPreference(channelName, user);
         userVoice = await getUserVoicePreference(channelName, user);
         userPitch = await getUserPitchPreference(channelName, user);
         userSpeed = await getUserSpeedPreference(channelName, user);
+        userLanguage = await getUserLanguagePreference(channelName, user);
     }
 
-    // Prioritize user preference, then channel default, then system/constant default
     const finalVoiceOptions = {
         voiceId: userVoice || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId,
         speed: userSpeed ?? channelConfig.speed ?? DEFAULT_TTS_SETTINGS.speed,
         pitch: userPitch ?? channelConfig.pitch ?? DEFAULT_TTS_SETTINGS.pitch,
         emotion: userEmotion || channelConfig.emotion || DEFAULT_TTS_SETTINGS.emotion,
+        languageBoost: userLanguage || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
         volume: channelConfig.volume || DEFAULT_TTS_SETTINGS.volume,
         englishNormalization: channelConfig.englishNormalization !== undefined ? channelConfig.englishNormalization : DEFAULT_TTS_SETTINGS.englishNormalization,
         sampleRate: channelConfig.sampleRate || DEFAULT_TTS_SETTINGS.sampleRate,
         bitrate: channelConfig.bitrate || DEFAULT_TTS_SETTINGS.bitrate,
         channel: channelConfig.channel || DEFAULT_TTS_SETTINGS.channel,
-        languageBoost: channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
         ...voiceOptions
     };
-    
-    logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: VoiceID='${finalVoiceOptions.voiceId}', Emotion='${finalVoiceOptions.emotion}', Speed=${finalVoiceOptions.speed}, Pitch=${finalVoiceOptions.pitch}`);
+    if (voiceOptions.languageBoost) {
+        finalVoiceOptions.languageBoost = voiceOptions.languageBoost;
+    }
+
+    logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: VoiceID='${finalVoiceOptions.voiceId}', Emotion='${finalVoiceOptions.emotion}', Speed=${finalVoiceOptions.speed}, Pitch=${finalVoiceOptions.pitch}, LanguageBoost='${finalVoiceOptions.languageBoost}'`);
 
     cq.queue.push({ type, text, user, voiceConfig: finalVoiceOptions, timestamp: new Date() });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0,20)}..." Queue size: ${cq.queue.length}`);

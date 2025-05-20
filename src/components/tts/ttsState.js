@@ -4,6 +4,7 @@ import logger from '../../lib/logger.js';
 import {
     DEFAULT_TTS_SETTINGS,
     VALID_EMOTIONS,
+    VALID_LANGUAGE_BOOSTS,
     TTS_PITCH_MIN,
     TTS_PITCH_MAX,
     TTS_PITCH_DEFAULT,
@@ -94,7 +95,7 @@ export async function getChannelTtsConfig(channelName) {
     const fullState = await getTtsState(channelName);
     // Extract only TTS parameters
     const { voiceId, speed, volume, pitch, emotion, englishNormalization, sampleRate, bitrate, channel, languageBoost } = fullState;
-    return { voiceId, speed, volume, pitch, emotion, englishNormalization, sampleRate, bitrate, channel, languageBoost };
+    return { voiceId, speed, volume, pitch, emotion, languageBoost, englishNormalization, sampleRate, bitrate, channel };
 }
 
 export async function setTtsState(channelName, key, value) {
@@ -468,6 +469,97 @@ export async function clearUserSpeedPreference(channelName, username) {
     } catch (error) {
         if (error.code === 5) { return true; }
         logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS speed preference.');
+        return false;
+    }
+}
+
+// --- Functions for Channel-wide Default Language ---
+export async function setChannelDefaultLanguage(channelName, language) {
+    const langKey = language.charAt(0).toUpperCase() + language.slice(1).toLowerCase();
+    if (!VALID_LANGUAGE_BOOSTS.includes(langKey) && langKey !== "None" && langKey !== "Automatic") {
+        const foundLang = VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === language.toLowerCase());
+        if (!foundLang) {
+            logger.warn(`[${channelName}] Attempt to set invalid default language: ${language}.`);
+            return false;
+        }
+        language = foundLang;
+    } else if (VALID_LANGUAGE_BOOSTS.includes(langKey)) {
+        language = langKey;
+    }
+    if (!VALID_LANGUAGE_BOOSTS.includes(language)) {
+        logger.warn(`[${channelName}] Attempt to set invalid default language: ${language}.`);
+        return false;
+    }
+    return setTtsState(channelName, 'languageBoost', language);
+}
+
+export async function resetChannelDefaultLanguage(channelName) {
+    const systemDefaultLanguage = DEFAULT_TTS_SETTINGS.languageBoost || 'Automatic';
+    return setTtsState(channelName, 'languageBoost', systemDefaultLanguage);
+}
+
+// --- Functions for User-specific Language Preference ---
+export async function getUserLanguagePreference(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const channelConfig = await getTtsState(channelName);
+    return channelConfig.userPreferences?.[lowerUser]?.languageBoost || null;
+}
+
+export async function setUserLanguagePreference(channelName, username, language) {
+    const langKey = language.charAt(0).toUpperCase() + language.slice(1).toLowerCase();
+    if (!VALID_LANGUAGE_BOOSTS.includes(langKey) && langKey !== "None" && langKey !== "Automatic") {
+        const foundLang = VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === language.toLowerCase());
+        if (!foundLang) {
+            logger.warn(`[${channelName}] Attempt to set invalid language preference '${language}' for user ${username}.`);
+            return false;
+        }
+        language = foundLang;
+    } else if (VALID_LANGUAGE_BOOSTS.includes(langKey)) {
+        language = langKey;
+    }
+    if (!VALID_LANGUAGE_BOOSTS.includes(language)) {
+        logger.warn(`[${channelName}] Attempt to set invalid language preference '${language}' for user ${username}.`);
+        return false;
+    }
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.set({
+            userPreferences: { [lowerUser]: { languageBoost: language } },
+            updatedAt: FieldValue.serverTimestamp()
+        }, { mergeFields: [`userPreferences.${lowerUser}.languageBoost`, 'updatedAt'] });
+        logger.info(`[${channelName}] User TTS language preference updated for ${lowerUser}: ${language}`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
+        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
+        currentConfig.userPreferences[lowerUser].languageBoost = language;
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, user: lowerUser, language: language }, 'Failed to set user TTS language preference in Firestore.');
+        return false;
+    }
+}
+
+export async function clearUserLanguagePreference(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const fieldPath = `userPreferences.${lowerUser}.languageBoost`;
+    try {
+        await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+        logger.info(`[${channelName}] Cleared user TTS language preference for ${lowerUser}.`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
+            delete currentConfig.userPreferences[lowerUser].languageBoost;
+            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
+                delete currentConfig.userPreferences[lowerUser];
+            }
+        }
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        if (error.code === 5) { return true; }
+        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS language preference.');
         return false;
     }
 }

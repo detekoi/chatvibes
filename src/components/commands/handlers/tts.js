@@ -7,6 +7,9 @@ import defaultVoice from '../tts/defaultVoice.js';
 import defaultPitch from '../tts/defaultPitch.js';
 import defaultSpeed from '../tts/defaultSpeed.js';
 import defaultEmotion from '../tts/defaultEmotion.js';
+import defaultLanguage from '../tts/defaultLanguage.js';
+import language from '../tts/language.js';
+import languageslist from '../tts/languageslist.js';
 import voices from '../tts/voices.js';
 import voice from '../tts/voice.js';
 import pitch from '../tts/pitch.js';
@@ -23,7 +26,6 @@ import toggleEvents from '../tts/toggleEvents.js';
 import emotionCmd from '../tts/emotion.js';
 import say from '../tts/say.js';
 import { hasPermission } from '../commandProcessor.js'; // Import the centralized function
-
 // Create subcommands object
 const ttsSubCommands = {
     status,
@@ -32,6 +34,9 @@ const ttsSubCommands = {
     defaultpitch: defaultPitch,
     defaultspeed: defaultSpeed,
     defaultemotion: defaultEmotion,
+    defaultlanguage: defaultLanguage,
+    language,
+    languageslist,
     voice,
     pitch,
     speed,

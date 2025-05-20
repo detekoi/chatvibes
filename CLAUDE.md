@@ -40,7 +40,8 @@ export TWITCH_CHANNELS=yourchannel
 
 - **Voice Customization**: Choose from multiple TTS voices
 - **Emotion Control**: Set different emotions for speech
-- **Per-user Settings**: Configure voice settings per user
+- **Language Boost**: Enhance recognition for specific languages.
+- **Per-user Settings**: Configure voice, emotion, and language settings per user
 - **Chat Commands**:
   - `!tts status` - View current TTS configuration
   - `!tts on/off` - Enable/disable TTS
@@ -51,6 +52,9 @@ export TWITCH_CHANNELS=yourchannel
   - `!tts stop` - Stop current audio and clear queue
   - `!tts pause/resume` - Pause/resume the TTS queue
   - `!tts clear` - Clear the TTS queue
+  - `!tts lang <language>` - Set your preferred language boost.
+  - `!tts defaultlanguage <language>` - (Mod) Set channel's default language boost.
+
 
 ## Key Files
 
@@ -69,5 +73,6 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
 - Mode (all chat or command only)
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings
+- Language boost setting (New)
 - List of ignored users
-- User-specific preferences
+- User-specific preferences (including language)
