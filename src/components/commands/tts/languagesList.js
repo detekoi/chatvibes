@@ -1,4 +1,4 @@
-// src/components/commands/tts/languageslist.js
+// src/components/commands/tts/languagesList.js
 import { enqueueMessage } from '../../../lib/ircSender.js';
 
 export default {

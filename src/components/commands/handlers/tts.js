@@ -9,7 +9,7 @@ import defaultSpeed from '../tts/defaultSpeed.js';
 import defaultEmotion from '../tts/defaultEmotion.js';
 import defaultLanguage from '../tts/defaultLanguage.js';
 import language from '../tts/language.js';
-import languageslist from '../tts/languageslist.js';
+import languageslist from '../tts/languagesList.js';
 import voices from '../tts/voices.js';
 import voice from '../tts/voice.js';
 import pitch from '../tts/pitch.js';
