@@ -84,8 +84,7 @@ jobs:
             TWITCH_CLIENT_SECRET=${{ env.TWITCH_CLIENT_SECRET_SECRET }}:latest,\
             REPLICATE_API_TOKEN=${{ env.REPLICATE_API_TOKEN_SECRET }}:latest,\
             TWITCH_CHANNELS=${{ env.TWITCH_CHANNELS_SECRET }}:latest" \
-            --labels="managed-by=github-actions,repository=${{ github.repository }},commit-sha=${{ github.sha }}" \
-            --format="get(status.url)"
+            --labels="managed-by=github-actions,repository=${{ github.repository_owner }}_${{ github.event.repository.name }},commit-sha=${{ github.sha }}" \            --format="get(status.url)"
         env:
           # Make GitHub Actions secrets available to this step if needed for other gcloud commands,
           # though for --set-secrets, gcloud uses the secret names from Secret Manager directly.
