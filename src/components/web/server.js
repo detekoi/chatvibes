@@ -2,7 +2,7 @@
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { fileURLToPath } from 'url';
 import logger from '../../lib/logger.js'; // Path: src/lib/logger.js
 
