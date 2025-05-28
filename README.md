@@ -2,12 +2,16 @@
 
 ChatVibes is a Twitch bot that reads chat messages and events aloud using Text-to-Speech (TTS), controllable via chat commands. It's designed to be deployed on Google Cloud Run and integrates with OBS via a browser source for audio playback.
 
+**[Add ChatVibes to your Twitch channel →](https://chatvibestts.web.app/)**
+
+[![License](https://img.shields.io/badge/License-BSD%202--Clause-blue.svg)](LICENSE.md) 
+
 ## Documentation
 
 For a complete list of available commands and voices, visit the documentation:
 * [Commands Documentation](https://detekoi.github.io/chatvibesdocs.html#commands)
 * [Voices Documentation](https://detekoi.github.io/chatvibesdocs.html#voices)
-
+* [Language Support Documentation](https://detekoi.github.io/chatvibesdocs.html#language-boost)
 
 ## Features
 
@@ -20,7 +24,37 @@ For a complete list of available commands and voices, visit the documentation:
 * Audio playback through an OBS browser source.
 * Designed for Google Cloud Run deployment.
 
-## Setup
+## Adding ChatVibes to Your Channel & Setup
+
+Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from their channel and configure it for their streaming software using the web interface:
+
+1.  **Visit the ChatVibes Management Portal**:
+    * Go to [ChatVibes Management Portal](https://chatvibestts.web.app/) (Make sure this is your correct deployed URL)
+    * Click on "Login with Twitch"
+
+2.  **Authorize the Application**:
+    * You'll be redirected to Twitch to authorize ChatVibes to access necessary information.
+    * Review and grant the required permissions. This process is secure and uses Twitch's official OAuth flow.
+
+3.  **Manage the Bot & Access Setup Instructions**:
+    * Once logged in, you'll see your dashboard.
+    * Use the "Add Bot to My Channel" button to have ChatVibes join your channel.
+    * If you wish to remove it, use the "Remove Bot from My Channel" button.
+    * On the dashboard, you will also find **OBS Setup Instructions** which include your unique TTS URL for adding ChatVibes audio to your stream.
+
+4.  **Bot Joining Time & Configuration**:
+    * After adding the bot, it should join your Twitch channel within a few minutes.
+    * For the TTS to function, you **must** add the provided TTS URL (from the OBS Setup Instructions on your dashboard) as a Browser Source in your streaming software (OBS, Streamlabs, etc.) and ensure audio monitoring is correctly configured as per the instructions.
+    * If the bot doesn't seem to be active or responding to TTS triggers after setup, first double-check your OBS browser source and audio settings. Then, try removing and re-adding the bot via the dashboard.
+    * Granting the bot moderator status (`/mod YourChatVibesBotName`) can sometimes help it avoid chat filters or rate limits, though it's not always required for basic TTS functionality. (Replace `YourChatVibesBotName` with your bot's actual Twitch username).
+
+5.  **How TTS is Triggered**:
+    * ChatVibes TTS is typically triggered by specific events you configure (e.g., channel point redemptions, specific commands like `!say <message>`, donations, subscriptions, etc., depending on the bot's features).
+    * Please refer to the main ChatVibes bot configuration documentation for details on setting up TTS triggers and customizing voice options.
+
+## Advanced
+<details>
+<summary>Click here if you prefer to run it yourself.</summary>
 
 ### Prerequisites
 
@@ -89,7 +123,33 @@ For a complete list of available commands and voices, visit the documentation:
     ```
     The bot should connect to Twitch IRC and the web server for OBS will start (typically on `http://localhost:8080`).
 
-### OBS Browser Source Setup
+### Deployment to Google Cloud Run
+
+1.  **Build Docker Image:**
+    ```bash
+    gcloud builds submit --tag gcr.io/YOUR_GCP_PROJECT_ID/chatvibes-tts # Replace YOUR_GCP_PROJECT_ID
+    ```
+    (This uses the `cloudbuild.yaml` if present, or a default Docker build). Ensure your `Dockerfile` is correctly configured.
+
+2.  **Deploy to Cloud Run:**
+    Refer to the `cloudbuild.yaml` for deployment steps or use `gcloud run deploy`:
+    ```bash
+    gcloud run deploy chatvibes-tts-service \
+      --image gcr.io/YOUR_GCP_PROJECT_ID/chatvibes-tts \
+      --platform managed \
+      --region YOUR_REGION \
+      --allow-unauthenticated \
+      --service-account YOUR_CHATVIBES_SERVICE_ACCOUNT_EMAIL \
+      --set-secrets=TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REFRESH_TOKEN_SECRET/versions/latest,REPLICATE_API_TOKEN=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REPLICATE_TOKEN_SECRET/versions/latest \
+      --set-env-vars=NODE_ENV=production,LOG_LEVEL=info,PINO_PRETTY_LOGGING=false,GOOGLE_CLOUD_PROJECT=YOUR_GCP_PROJECT_ID,TWITCH_BOT_USERNAME=YourBotName,REPLICATE_TTS_MODEL_NAME="minimax/speech-02-turbo"
+      # Add other necessary env vars or secrets
+    ```
+    * Replace placeholders with your actual values.
+    * Ensure the Cloud Run service account has "Cloud Datastore User" and "Secret Manager Secret Accessor" roles.
+
+</details>
+
+## OBS Browser Source Setup
 
 1.  In OBS, add a new "Browser" source.
 2.  Set the URL to `http://localhost:8080/?channel=yourchannelname`
@@ -307,30 +367,6 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 * **Usage:** `!tts say Welcome everyone to the stream!`
 
 </details>
-
-## Deployment to Google Cloud Run
-
-1.  **Build Docker Image:**
-    ```bash
-    gcloud builds submit --tag gcr.io/YOUR_GCP_PROJECT_ID/chatvibes-tts # Replace YOUR_GCP_PROJECT_ID
-    ```
-    (This uses the `cloudbuild.yaml` if present, or a default Docker build). Ensure your `Dockerfile` is correctly configured.
-
-2.  **Deploy to Cloud Run:**
-    Refer to the `cloudbuild.yaml` for deployment steps or use `gcloud run deploy`:
-    ```bash
-    gcloud run deploy chatvibes-tts-service \
-      --image gcr.io/YOUR_GCP_PROJECT_ID/chatvibes-tts \
-      --platform managed \
-      --region YOUR_REGION \
-      --allow-unauthenticated \
-      --service-account YOUR_CHATVIBES_SERVICE_ACCOUNT_EMAIL \
-      --set-secrets=TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REFRESH_TOKEN_SECRET/versions/latest,REPLICATE_API_TOKEN=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REPLICATE_TOKEN_SECRET/versions/latest \
-      --set-env-vars=NODE_ENV=production,LOG_LEVEL=info,PINO_PRETTY_LOGGING=false,GOOGLE_CLOUD_PROJECT=YOUR_GCP_PROJECT_ID,TWITCH_BOT_USERNAME=YourBotName,REPLICATE_TTS_MODEL_NAME="minimax/speech-02-turbo"
-      # Add other necessary env vars or secrets
-    ```
-    * Replace placeholders with your actual values.
-    * Ensure the Cloud Run service account has "Cloud Datastore User" and "Secret Manager Secret Accessor" roles.
 
 ## License
 
