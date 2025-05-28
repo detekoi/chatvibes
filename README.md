@@ -50,7 +50,8 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
 
 5.  **How TTS is Triggered**:
     * ChatVibes TTS is typically triggered by specific events you configure (e.g., channel point redemptions, specific commands like `!say <message>`, donations, subscriptions, etc., depending on the bot's features).
-    * Please refer to the main ChatVibes bot configuration documentation for details on setting up TTS triggers and customizing voice options.
+    * Please refer to the [main ChatVibes documentation](https://detekoi.github.io/chatvibesdocs.html) for details on setting up TTS triggers and customizing voice options.
+    * The repository for the ChatVibes web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
 
 ## Advanced
 <details>
