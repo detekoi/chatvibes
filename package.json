@@ -31,7 +31,8 @@
         "pino-pretty": "^10.2.0",
         "replicate": "^0.29.0",
         "tmi.js": "^1.8.5",
-        "ws": "^8.13.0"
+        "ws": "^8.13.0",
+        "python-shell": "^5.0.0"
     },
     "devDependencies": {
         "eslint": "^8.50.0",

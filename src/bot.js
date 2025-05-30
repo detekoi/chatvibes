@@ -16,6 +16,11 @@ import * as ttsService from './components/tts/ttsService.js'; // generateSpeech,
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
 
+//Music Components
+import { initializeMusicQueues } from './components/music/musicQueue.js';
+// ++ ADD THIS IMPORT ++
+import { initializeMusicState } from './components/music/musicState.js'; // [ नवे]
+
 // Command Processing
 import { initializeCommandProcessor, processMessage as processCommand } from './components/commands/commandProcessor.js';
 import { initializeIrcSender, enqueueMessage, clearMessageQueue } from './lib/ircSender.js';
@@ -113,13 +118,21 @@ async function main() {
 
         // Initialize core components
         logger.info('ChatVibes: Initializing Secret Manager...');
-        initializeSecretManager();
+        initializeSecretManager(); //
 
         logger.info('ChatVibes: Initializing TTS State (Firestore)...');
-        await initializeTtsState();
+        await initializeTtsState(); //
+
+        // ++ INITIALIZE MUSIC STATE HERE ++
+        logger.info('ChatVibes: Initializing Music State (Firestore)...'); // [ नवे]
+        await initializeMusicState(); // [ नवे]
 
         logger.info('ChatVibes: Initializing Channel Manager (Firestore)...');
-        await initializeChannelManager();
+        await initializeChannelManager(); //
+
+        // Music Generation System
+        logger.info('ChatVibes: Initializing Music Generation system (queues)...'); // [ नवे]
+        initializeMusicQueues(); //
 
         // Load Twitch Channels (dynamic from Firestore in prod, static from .env in dev)
         if (config.app.nodeEnv === 'development') {
@@ -157,16 +170,16 @@ async function main() {
         }
 
         logger.info('ChatVibes: Initializing Twitch Helix Client...');
-        await initializeHelixClient(config.twitch);
+        await initializeHelixClient(config.twitch); //
 
         logger.info('ChatVibes: Initializing Command Processor for !tts commands...');
-        initializeCommandProcessor();
+        initializeCommandProcessor(); //
 
         logger.info('ChatVibes: Initializing IRC Sender queue...');
-        initializeIrcSender();
+        initializeIrcSender(); //
 
         logger.info('ChatVibes: Creating Twitch IRC Client instance...');
-        ircClientInstance = await createIrcClient(config.twitch);
+        ircClientInstance = await createIrcClient(config.twitch); //
 
         // --- Setup IRC Event Listeners ---
         ircClientInstance.on('connected', async (address, port) => {
@@ -229,7 +242,7 @@ async function main() {
             const username = tags.username?.toLowerCase();
 
             // 1. Process Bot Commands (like !tts)
-            const commandWasProcessed = await processCommand(channelNameNoHash, tags, message);
+            const commandWasProcessed = await processCommand(channelNameNoHash, tags, message); //
 
             // 2. If not a command, and TTS mode is 'all', enqueue for TTS
             if (!commandWasProcessed) {
@@ -284,11 +297,11 @@ async function main() {
         });
 
         logger.info('ChatVibes: Connecting to Twitch IRC...');
-        await connectIrcClient();
+        await connectIrcClient(); //
         ircClientInstance = getIrcClient();
 
         logger.info('ChatVibes: Initializing Web Server for OBS audio...');
-        const { server: webServerInstance } = initializeWebServer();
+        const { server: webServerInstance } = initializeWebServer(); //
         global.healthServer = webServerInstance;
 
         logger.info(`ChatVibes: Bot username: ${config.twitch.username}.`);
