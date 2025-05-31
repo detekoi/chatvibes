@@ -1,7 +1,7 @@
 // src/components/commands/handlers/index.js
 import logger from '../../../lib/logger.js';
 import tts from './tts.js';
-import music from '../music.js';
+import music from './music.js';
 
 
 const commandHandlers = {
