@@ -40,8 +40,15 @@ async function createIrcClient(twitchConfig) {
         throw error;
     }
 
-    const channelsToJoin = twitchConfig.channels.map(ch => ch.startsWith('#') ? ch : `#${ch}`);
-    logger.debug(`Target channels for ChatVibes: ${channelsToJoin.join(', ')}`);
+    // Ensure channels are prefixed with # and are unique (lowercase)
+    const uniqueChannelsToJoin = [...new Set(
+        (twitchConfig.channels || []).map(ch => `#${String(ch).replace(/^#/, '').toLowerCase()}`)
+    )];
+    // Add a check for empty channel list after processing, if no channels are configured to join.
+    if (uniqueChannelsToJoin.length === 0) {
+        logger.warn('ChatVibes: No channels configured to join after processing unique channels list. The bot will connect to IRC but may not be in any channels initially.');
+    }
+    logger.debug(`Target channels for ChatVibes (unique): ${uniqueChannelsToJoin.join(', ')}`);
 
     const clientOptions = {
         options: { debug: config.app.logLevel === 'debug' },
@@ -58,7 +65,7 @@ async function createIrcClient(twitchConfig) {
             username: twitchConfig.username,
             password: ircPassword,
         },
-        channels: channelsToJoin,
+        channels: uniqueChannelsToJoin, // Use the de-duplicated and consistently formatted list
         logger: {
             info: (message) => logger.info(`[ChatVibes TMI.js] ${message}`),
             warn: (message) => logger.warn(`[ChatVibes TMI.js] ${message}`),
