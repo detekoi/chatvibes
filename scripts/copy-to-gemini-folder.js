@@ -19,7 +19,8 @@ const EXCLUDED_DIRS = [
     '.vscode',
     '.idea',
     '.DS_Store',
-    '.env'
+    '.env',
+    '.venv'
 ];
 
 // Ensure target directory exists
