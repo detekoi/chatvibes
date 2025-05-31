@@ -7,10 +7,71 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Error categorization and user-friendly messages
+function categorizeError(rawError, errorType) {
+    const errorLower = rawError.toLowerCase();
+    
+    // Check for specific error patterns
+    if (errorLower.includes('service is temporarily unavailable') || rawError.includes('(E004)')) {
+        return {
+            type: 'service_unavailable',
+            userMessage: 'The music generation service is temporarily unavailable. Please try again in a few minutes.',
+            logMessage: `Service unavailable error: ${rawError}`
+        };
+    }
+    
+    if (errorLower.includes('prompt was rejected') && errorLower.includes('artist names')) {
+        return {
+            type: 'artist_names_rejected',
+            userMessage: 'Prompt was rejected. Please do not include specific artist names in your prompt.',
+            logMessage: `Prompt rejected for artist names: ${rawError}`
+        };
+    }
+    
+    if (errorLower.includes('rate limit') || errorLower.includes('quota exceeded')) {
+        return {
+            type: 'rate_limited',
+            userMessage: 'Rate limit exceeded. Please wait a moment before trying again.',
+            logMessage: `Rate limit error: ${rawError}`
+        };
+    }
+    
+    if (errorLower.includes('timeout') || errorLower.includes('timed out')) {
+        return {
+            type: 'timeout',
+            userMessage: 'Music generation timed out. Please try again with a simpler prompt.',
+            logMessage: `Timeout error: ${rawError}`
+        };
+    }
+    
+    if (errorLower.includes('invalid') && errorLower.includes('token')) {
+        return {
+            type: 'auth_error',
+            userMessage: 'Authentication error. Please contact the bot administrator.',
+            logMessage: `Auth error: ${rawError}`
+        };
+    }
+    
+    if (errorLower.includes('content policy') || errorLower.includes('safety')) {
+        return {
+            type: 'content_policy',
+            userMessage: 'Your prompt was rejected for safety reasons. Please try a different prompt.',
+            logMessage: `Content policy violation: ${rawError}`
+        };
+    }
+    
+    // Generic error
+    return {
+        type: 'unknown_error',
+        userMessage: 'An unexpected error occurred. Please try again later.',
+        logMessage: `Unknown error (${errorType}): ${rawError}`
+    };
+}
+
 export async function generateMusic(prompt, options = {}) {
     const { negativePrompt, seed } = options;
     // Keep reasonable timeout - if generation happens in <45s, 90s should be plenty
-    const PYTHON_TIMEOUT_MS = 60000; // 60 seconds
+    const PYTHON_TIMEOUT_MS = 90000; // 90 seconds
 
     const pythonArgs = {
         prompt,
@@ -49,7 +110,14 @@ export async function generateMusic(prompt, options = {}) {
                     logger.error({ err: killError }, '[MusicBridge] Error attempting to kill Python script.');
                 }
             }
-            reject(new Error(`Python script execution timed out for music generation.`));
+            
+            // Return categorized timeout error
+            const errorInfo = categorizeError('Python script execution timed out for music generation.', 'TimeoutError');
+            resolve({
+                success: false,
+                error: errorInfo.type,
+                message: errorInfo.userMessage
+            });
         }, PYTHON_TIMEOUT_MS);
 
         const shellOptions = {
@@ -98,14 +166,29 @@ export async function generateMusic(prompt, options = {}) {
 
             if (err) {
                 logger.error({ err, prompt: prompt.substring(0,50) }, 'Python music service error from shell');
-                reject(new Error(`Music service error: ${err.message}`));
+                
+                // Categorize the shell error
+                const errorInfo = categorizeError(err.message, 'ShellError');
+                logger.error(errorInfo.logMessage);
+                
+                resolve({
+                    success: false,
+                    error: errorInfo.type,
+                    message: errorInfo.userMessage
+                });
                 return;
             }
 
             // Check if we got any results
             if (!hasResult || !results || results.length === 0) {
                 logger.error({results, hasResult, prompt: prompt.substring(0,50)}, 'No results from Python music service script.');
-                reject(new Error('No response from music service script.'));
+                
+                const errorInfo = categorizeError('No response from music service script.', 'NoResponseError');
+                resolve({
+                    success: false,
+                    error: errorInfo.type,
+                    message: errorInfo.userMessage
+                });
                 return;
             }
 
@@ -115,16 +198,46 @@ export async function generateMusic(prompt, options = {}) {
                 
                 if (typeof result !== 'object' || result === null) {
                     logger.error({ parsedResult: result, type: typeof result, allResults: results, prompt: prompt.substring(0,50) }, 'Python service response was not a valid object after mode:json processing.');
-                    reject(new Error('Invalid response format from music service (expected object).'));
+                    
+                    const errorInfo = categorizeError('Invalid response format from music service.', 'InvalidResponseError');
+                    resolve({
+                        success: false,
+                        error: errorInfo.type,
+                        message: errorInfo.userMessage
+                    });
                     return;
                 }
                 
-                logger.debug({ result, totalResults: results.length, prompt: prompt.substring(0,50) }, 'Received result from Python music service');
+                // Check if Python script returned an error
+                if (!result.success) {
+                    const rawError = result.raw_error || 'Unknown error';
+                    const errorType = result.error_type || 'UnknownError';
+                    
+                    // Categorize the error from Python
+                    const errorInfo = categorizeError(rawError, errorType);
+                    logger.error(`[MusicBridge] ${errorInfo.logMessage}`);
+                    
+                    resolve({
+                        success: false,
+                        error: errorInfo.type,
+                        message: errorInfo.userMessage
+                    });
+                    return;
+                }
+                
+                // Success case
+                logger.debug({ result, totalResults: results.length, prompt: prompt.substring(0,50) }, 'Received successful result from Python music service');
                 resolve(result);
                 
             } catch (parseErr) {
                 logger.error({ parseErr, results, prompt: prompt.substring(0,50) }, 'Failed to process/parse Python service response');
-                reject(new Error('Invalid response from music service (unexpected error during processing).'));
+                
+                const errorInfo = categorizeError('Invalid response from music service.', 'ParseError');
+                resolve({
+                    success: false,
+                    error: errorInfo.type,
+                    message: errorInfo.userMessage
+                });
             }
         });
     });

@@ -6,7 +6,7 @@ import { sendAudioToChannel } from '../web/server.js';
 import { enqueueMessage } from '../../lib/ircSender.js';
 
 const channelQueues = new Map();
-const MAX_MUSIC_QUEUE_LENGTH = 10; // Limit due to 30-second generation time
+const MAX_MUSIC_QUEUE_LENGTH = 8; // Limit due to up to 90-second generation time
 
 export function getOrCreateMusicQueue(channelName) {
     if (!channelQueues.has(channelName)) {
@@ -64,7 +64,7 @@ export async function processMusicQueue(channelName) {
     mq.currentGenerationUser = event.user;
 
     // Notify chat that generation has started
-    enqueueMessage(`#${channelName}`, `🎵 Generating music for @${event.user}: "${event.prompt.substring(0,50)}${event.prompt.length > 50 ? '...' : ''}" (This may take up to 30 seconds)`);
+    enqueueMessage(`#${channelName}`, `🎵 Generating music for @${event.user}: "${event.prompt.substring(0,50)}${event.prompt.length > 50 ? '...' : ''}" (This may take up to 90 seconds)`);
 
     logger.info(`[${channelName}] Starting music generation for ${event.user}: "${event.prompt}"`);
 
@@ -83,20 +83,15 @@ export async function processMusicQueue(channelName) {
             
             logger.info(`[${channelName}] Music generation completed for ${event.user}: ${result.audio_url}`);
         } else {
-            // Handle specific error cases
-            let errorMessage;
-            if (result.error === 'artist_names_rejected') {
-                errorMessage = `@${event.user}, ${result.message}`;
-            } else {
-                errorMessage = `@${event.user}, Sorry, music generation failed. Please try again with a different prompt. (${result.error || 'Unknown error'})`;
-            }
-            
+            // Handle error cases with user-friendly messages from bridge
+            const errorMessage = `@${event.user}, ${result.message}`;
             enqueueMessage(`#${channelName}`, errorMessage);
-            logger.error(`[${channelName}] Music generation failed for ${event.user}: ${result.message || result.error}`);
+            logger.error(`[${channelName}] Music generation failed for ${event.user}: ${result.message}`);
         }
     } catch (error) {
-        enqueueMessage(`#${channelName}`, `@${event.user}, Sorry, there was an error generating your music. Please try again later.`);
-        logger.error({ err: error, channel: channelName, user: event.user, prompt: event.prompt }, 'Music generation error in processMusicQueue');
+        // This should rarely happen now since bridge handles errors gracefully
+        enqueueMessage(`#${channelName}`, `@${event.user}, Sorry, there was an unexpected error generating your music. Please try again later.`);
+        logger.error({ err: error, channel: channelName, user: event.user, prompt: event.prompt }, 'Unexpected music generation error in processMusicQueue');
     } finally {
         mq.isProcessing = false;
         mq.currentGeneration = null;
