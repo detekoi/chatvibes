@@ -6,7 +6,7 @@ import { sendAudioToChannel } from '../web/server.js';
 import { enqueueMessage } from '../../lib/ircSender.js';
 
 const channelQueues = new Map();
-const MAX_MUSIC_QUEUE_LENGTH = 8; // Limit due to up to 90-second generation time
+const MAX_MUSIC_QUEUE_LENGTH = 8; // Limit due to up to 60-second generation time
 
 export function getOrCreateMusicQueue(channelName) {
     if (!channelQueues.has(channelName)) {
@@ -64,7 +64,7 @@ export async function processMusicQueue(channelName) {
     mq.currentGenerationUser = event.user;
 
     // Notify chat that generation has started
-    enqueueMessage(`#${channelName}`, `🎵 Generating music for @${event.user}: "${event.prompt.substring(0,50)}${event.prompt.length > 50 ? '...' : ''}" (This may take up to 90 seconds)`);
+    enqueueMessage(`#${channelName}`, `🎵 Generating music for @${event.user}: "${event.prompt.substring(0,50)}${event.prompt.length > 50 ? '...' : ''}" (This may take up to 60 seconds)`);
 
     logger.info(`[${channelName}] Starting music generation for ${event.user}: "${event.prompt}"`);
 

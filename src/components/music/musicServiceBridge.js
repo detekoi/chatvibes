@@ -70,8 +70,8 @@ function categorizeError(rawError, errorType) {
 
 export async function generateMusic(prompt, options = {}) {
     const { negativePrompt, seed } = options;
-    // Keep reasonable timeout - if generation happens in <45s, 90s should be plenty
-    const PYTHON_TIMEOUT_MS = 90000; // 90 seconds
+    // Keep reasonable timeout - if generation happens in <45s, 60s should be plenty
+    const PYTHON_TIMEOUT_MS = 60000; // 60 seconds
 
     const pythonArgs = {
         prompt,
