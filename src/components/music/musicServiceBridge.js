@@ -9,7 +9,8 @@ const __dirname = path.dirname(__filename);
 
 export async function generateMusic(prompt, options = {}) {
     const { negativePrompt, seed } = options;
-    const PYTHON_TIMEOUT_MS = 45000; // 45 seconds timeout for the python script
+    // Let's increase the timeout slightly as a test, e.g., to 75 seconds
+    const PYTHON_TIMEOUT_MS = 75000; // Increased from 45000
 
     const pythonArgs = {
         prompt,
@@ -20,12 +21,12 @@ export async function generateMusic(prompt, options = {}) {
     return new Promise((resolve, reject) => {
         const pythonScript = path.join(__dirname, 'musicService.py');
         
-        let shell = null; // To store the PythonShell instance for potential killing
+        let shell = null;
         const timeoutId = setTimeout(() => {
             logger.error(`[MusicBridge] Python script execution timed out after ${PYTHON_TIMEOUT_MS / 1000}s for prompt: "${prompt.substring(0,50)}..."`);
             if (shell && shell.childProcess && !shell.childProcess.killed) {
                 try {
-                    shell.kill('SIGTERM'); // Attempt to kill the python process
+                    shell.kill('SIGTERM'); 
                     logger.info('[MusicBridge] Sent SIGTERM to hanging Python script.');
                 } catch (killError) {
                     logger.error({ err: killError }, '[MusicBridge] Error attempting to kill Python script.');
@@ -35,25 +36,28 @@ export async function generateMusic(prompt, options = {}) {
         }, PYTHON_TIMEOUT_MS);
 
         const shellOptions = {
-            mode: 'json', // Ensures stdout is treated as JSON lines
-            pythonPath: process.env.PYTHON_PATH || 'python', // Or specify your python path
+            mode: 'json', 
+            pythonPath: process.env.PYTHON_PATH || 'python3', // Consider using python3 explicitly
             args: [JSON.stringify(pythonArgs)],
-            env: { // Pass only necessary environment variables
+            env: { 
                 'REPLICATE_API_TOKEN': process.env.REPLICATE_API_TOKEN,
-                'PATH': process.env.PATH // Important for finding python and its dependencies if in a virtualenv
+                'PATH': process.env.PATH 
             }
         };
         
         logger.debug({options: shellOptions, script: pythonScript }, '[MusicBridge] Running PythonShell with options.');
 
         shell = PythonShell.run(pythonScript, shellOptions, (err, results) => {
-            clearTimeout(timeoutId); // Important: clear the timeout once the script finishes or errors
+            clearTimeout(timeoutId); 
 
             if (err) {
-                logger.error({ err, prompt: prompt.substring(0,50) }, 'Python music service error');
+                logger.error({ err, prompt: prompt.substring(0,50) }, 'Python music service error from shell');
                 reject(new Error(`Music service error: ${err.message}`));
                 return;
             }
+
+            // Log raw results for inspection
+            logger.debug({ rawResults: results, prompt: prompt.substring(0,50) }, 'Raw results from Python music service script.');
 
             if (!results || results.length === 0) {
                 logger.error({results, prompt: prompt.substring(0,50)}, 'No results from Python music service script.');
@@ -62,16 +66,19 @@ export async function generateMusic(prompt, options = {}) {
             }
 
             try {
-                // PythonShell in 'json' mode should already parse JSON objects from stdout lines.
-                // If results[0] is already an object, no need to JSON.parse(results[0]).
-                // If it's a string that needs parsing, then JSON.parse(results[0]) is correct.
-                // Assuming the python script prints a single JSON line.
-                const result = (typeof results[0] === 'string') ? JSON.parse(results[0]) : results[0];
+                // When mode is 'json', results should be an array of parsed JSON objects.
+                // The Python script is designed to print a single JSON object.
+                const result = results[0]; 
+                if (typeof result !== 'object' || result === null) {
+                    logger.error({ parsedResult: result, type: typeof result, prompt: prompt.substring(0,50) }, 'Python service response was not a valid object after mode:json processing.');
+                    reject(new Error('Invalid response format from music service (expected object).'));
+                    return;
+                }
                 logger.debug({ result, prompt: prompt.substring(0,50) }, 'Received result from Python music service');
                 resolve(result);
-            } catch (parseErr) {
-                logger.error({ parseErr, results, prompt: prompt.substring(0,50) }, 'Failed to parse Python service response');
-                reject(new Error('Invalid response from music service'));
+            } catch (parseErr) { // This catch might be redundant if results[0] is already an object
+                logger.error({ parseErr, results, prompt: prompt.substring(0,50) }, 'Failed to process/parse Python service response');
+                reject(new Error('Invalid response from music service (unexpected error during processing).'));
             }
         });
     });
