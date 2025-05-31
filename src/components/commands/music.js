@@ -1,3 +1,4 @@
+// src/components/commands/music.js
 import logger from '../../lib/logger.js';
 import { enqueueMessage } from '../../lib/ircSender.js';
 import { enqueueMusicGeneration, getMusicQueueStatus, clearMusicQueue } from '../music/musicQueue.js';
@@ -130,7 +131,7 @@ export default {
         }
 
         const prompt = args.join(' '); // The full original arguments if not a subcommand
-        
+
         const result = await enqueueMusicGeneration(channelNameNoHash, {
             prompt,
             user: user.username, // Keep original case for display/logging if needed by queue
