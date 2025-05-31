@@ -244,24 +244,48 @@ async function main() {
             const channelNameNoHash = channel.substring(1).toLowerCase();
             const username = tags.username?.toLowerCase();
 
-            // 1. Process Bot Commands (like !tts, !music)
-            const commandWasProcessed = await processCommand(channelNameNoHash, tags, message);
+            // 1. Process Bot Commands. processCommand now returns the command name if processed, or null.
+            const processedCommandName = await processCommand(channelNameNoHash, tags, message);
 
-            // 2. If not a command, consider for TTS based on mode
-            if (!commandWasProcessed) {
+            if (processedCommandName) { // A command was processed
+                // Check if the processed command was '!music' and should be read by TTS
+                if (processedCommandName === 'music') {
+                    const ttsConfig = await getTtsState(channelNameNoHash);
+                    const isIgnoredUser = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
+
+                    // Read !music command if TTS enabled, user not ignored, AND mode is 'all'
+                    if (ttsConfig.engineEnabled && !isIgnoredUser && ttsConfig.mode === 'all') {
+                        logger.debug(`ChatVibes [${channelNameNoHash}]: Mode ALL - Enqueuing '!music' command from ${username} for TTS: "${message.substring(0,50)}..."`);
+                        await ttsQueue.enqueue(channelNameNoHash, {
+                            text: message, // The full command message: "!music <prompt>"
+                            user: username,
+                            type: 'command_music', // Differentiate the type for TTS queue if needed
+                        });
+                    } else {
+                         logger.trace({
+                            channel: channelNameNoHash, user: username, command: processedCommandName,
+                            engineEnabled: ttsConfig.engineEnabled, mode: ttsConfig.mode, isIgnoredUser
+                        }, `ChatVibes: '!music' command not enqueued for TTS due to config (engine off, mode not 'all', or user ignored).`);
+                    }
+                }
+                // For other commands (like !tts ...), their original text is not spoken by default by this top-level logic.
+                // Specific commands like '!tts say' handle their own TTS queuing if necessary.
+                logger.trace(`ChatVibes [${channelNameNoHash}]: Message from ${username} was processed as command '!${processedCommandName}'.`);
+
+            } else { // Not a command (processedCommandName is null)
                 // Secondary Guard: Check if the message sender is the bot itself.
-                // This prevents the bot's own status messages (e.g., from !music command)
-                // from being enqueued for TTS when mode is 'all'.
+                // This prevents the bot's own status messages from being enqueued for TTS when mode is 'all'.
                 if (username && config.twitch.username && username === config.twitch.username.toLowerCase()) {
-                    logger.trace(`ChatVibes [${channelNameNoHash}]: Message from bot user ${username} (config: ${config.twitch.username.toLowerCase()}) and not a command. Skipping TTS queueing.`);
+                    logger.trace(`ChatVibes [${channelNameNoHash}]: Message from bot user ${username} (config: ${config.twitch.username.toLowerCase()}) was not a command. Skipping TTS queueing.`);
                     return;
                 }
 
+                // TTS for regular chat messages if mode is 'all'
                 const ttsConfig = await getTtsState(channelNameNoHash);
                 const isIgnoredUser = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
 
                 if (ttsConfig.engineEnabled && ttsConfig.mode === 'all' && !isIgnoredUser) {
-                    logger.debug(`ChatVibes [${channelNameNoHash}]: Mode ALL - Enqueuing message from ${username} for TTS: "${message.substring(0,30)}..."`);
+                    logger.debug(`ChatVibes [${channelNameNoHash}]: Mode ALL - Enqueuing non-command message from ${username} for TTS: "${message.substring(0,30)}..."`);
                     await ttsQueue.enqueue(channelNameNoHash, {
                         text: message,
                         user: username,
@@ -274,14 +298,10 @@ async function main() {
                         engineEnabled: ttsConfig.engineEnabled,
                         mode: ttsConfig.mode,
                         isIgnored: isIgnoredUser,
-                        messageWasCommand: commandWasProcessed,
+                        messageWasCommand: !!processedCommandName, // Will be false here
                         isBotMessage: (username && config.twitch.username && username === config.twitch.username.toLowerCase())
-                    }, "ChatVibes: Message not enqueued for TTS (not 'all' mode, or engine off, or ignored user, or was bot message).");
+                    }, "ChatVibes: Non-command message not enqueued for TTS (mode not 'all', or engine off, or ignored user, or was bot message).");
                 }
-            } else {
-                // Message was processed as a command by the user (e.g. !music <prompt> or !tts status)
-                // These original commands should not be spoken.
-                logger.trace(`ChatVibes [${channelNameNoHash}]: Message from ${username} was processed as a command. No TTS for the original command text.`);
             }
         });
 
