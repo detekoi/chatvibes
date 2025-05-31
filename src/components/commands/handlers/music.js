@@ -7,23 +7,23 @@ import { hasPermission } from '../commandProcessor.js';
 // Import new subcommands
 import musicModeCommand from '../music/mode.js';
 import musicIgnoreCommand from '../music/ignoreUser.js';
+import musicListIgnoredCommand from '../music/listIgnored.js'; // ++ ADD THIS IMPORT ++
 
 const musicSubCommands = {
     mode: musicModeCommand,
     ignore: musicIgnoreCommand,
+    ignored: musicListIgnoredCommand, // ++ ADD THIS MAPPING ++
     // Simple status, on, off, clear can be handled directly or be full command files
-    // For now, keeping them as direct logic in the main execute for simplicity,
-    // but they could be refactored into their own files similar to `mode` and `ignore`.
 };
 
 
 export default {
     name: 'music',
     description: 'Generate music using AI. Use !music <prompt> to generate 30 seconds of music.',
-    usage: '!music <prompt> | !music status | !music clear | !music on/off | !music mode <all|mods> | !music ignore <add|del> <user>',
-    permission: 'everyone', // Base command, subcommands/actions have their own checks
+    usage: '!music <prompt> | !music status | !music clear | !music on/off | !music mode <all|mods> | !music ignore <add|del> <user> | !music ignored', // ++ ADDED IGNORED ++
+    permission: 'everyone', 
     execute: async (context) => {
-        const { channel, user, args, command: baseCommandName } = context; // baseCommandName is 'music'
+        const { channel, user, args, command: baseCommandName } = context; 
         const channelNameNoHash = channel.substring(1);
         const invokingUsername = user.username.toLowerCase();
 
@@ -36,23 +36,20 @@ export default {
         const subCommandHandler = musicSubCommands[subCommandArg];
 
         if (subCommandHandler) {
-            // Check permission for the subcommand itself
-            const requiredSubCommandPermission = subCommandHandler.permission || 'moderator'; // Default to moderator
+            const requiredSubCommandPermission = subCommandHandler.permission || 'moderator'; 
             if (!hasPermission(requiredSubCommandPermission, user, channelNameNoHash)) {
                 enqueueMessage(channel, `@${user['display-name']}, You don't have permission for '!music ${subCommandArg}'.`);
                 return;
             }
-            // Create context for the subcommand
             const subCommandContext = {
                 ...context,
-                command: subCommandArg, // The subcommand name itself (e.g., 'mode', 'ignore')
-                args: args.slice(1),    // Remaining arguments for the subcommand
+                command: subCommandArg, 
+                args: args.slice(1),    
             };
             await subCommandHandler.execute(subCommandContext);
             return;
         }
         
-        // Handle legacy/direct subcommands
         if (subCommandArg === 'status') {
             const musicState = await getMusicState(channelNameNoHash);
             const queueStatus = getMusicQueueStatus(channelNameNoHash);
@@ -66,7 +63,7 @@ export default {
                 }
             }
             if (musicState.ignoredUsers && musicState.ignoredUsers.length > 0 && hasPermission('moderator', user, channelNameNoHash)) {
-                statusMsg += ` Ignored users: ${musicState.ignoredUsers.length}.`;
+                statusMsg += ` Ignored users: ${musicState.ignoredUsers.length}. Use !music ignored to list them.`; // Added hint
             }
             
             enqueueMessage(channel, `@${user['display-name']}, ${statusMsg}`);
@@ -99,12 +96,11 @@ export default {
         }
         
         if (subCommandArg === 'help') {
-             enqueueMessage(channel, `@${user['display-name']}, Music commands: !music <prompt>, status, on/off, clear, mode <all|mods>, ignore <add|del> <user>. Default music role is 'everyone'.`);
+             // ++ UPDATED HELP MESSAGE ++
+             enqueueMessage(channel, `@${user['display-name']}, Music commands: !music <prompt>, status, on/off, clear, mode <all|mods>, ignore <username | add/del user>, ignored. Default music role is 'everyone'.`);
             return;
         }
 
-
-        // --- Handle music generation request (prompt provided) ---
         const musicState = await getMusicState(channelNameNoHash);
         
         if (!musicState.enabled) {
@@ -112,14 +108,11 @@ export default {
             return;
         }
 
-        // Check ignored users FIRST
         if (musicState.ignoredUsers && musicState.ignoredUsers.includes(invokingUsername)) {
             logger.debug(`[${channelNameNoHash}] User ${invokingUsername} is on the music ignore list. Dropping request.`);
-            // Optionally send a silent confirmation or no message. For now, no message.
             return;
         }
 
-        // Check permissions based on allowedRoles
         const isAllowed = musicState.allowedRoles.some(role => 
             hasPermission(role, user, channelNameNoHash)
         );
@@ -129,7 +122,7 @@ export default {
             return;
         }
 
-        const prompt = args.join(' '); // The full original arguments if not a subcommand
+        const prompt = args.join(' '); 
         
         if (prompt.length < 10) {
             enqueueMessage(channel, `@${user['display-name']}, Please provide a more descriptive music prompt (at least 10 characters).`);
@@ -142,14 +135,14 @@ export default {
 
         const result = await enqueueMusicGeneration(channelNameNoHash, {
             prompt,
-            user: user.username, // Keep original case for display/logging if needed by queue
+            user: user.username, 
             negativePrompt: null,
             seed: null
         });
 
         if (!result.success) {
             switch (result.reason) {
-                case 'disabled': // Should be caught earlier, but as a fallback
+                case 'disabled': 
                     enqueueMessage(channel, `@${user['display-name']}, Music generation is currently disabled.`);
                     break;
                 case 'queue_full':
@@ -159,6 +152,5 @@ export default {
                     enqueueMessage(channel, `@${user['display-name']}, Failed to queue music generation. Please try again.`);
             }
         }
-        // Success for enqueueing is handled by the queue processor (sends "generating..." message)
     }
 };
