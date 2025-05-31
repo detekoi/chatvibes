@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 export async function generateMusic(prompt, options = {}) {
     const { negativePrompt, seed } = options;
     // Keep reasonable timeout - if generation happens in <45s, 90s should be plenty
-    const PYTHON_TIMEOUT_MS = 90000; // 90 seconds
+    const PYTHON_TIMEOUT_MS = 60000; // 60 seconds
 
     const pythonArgs = {
         prompt,
