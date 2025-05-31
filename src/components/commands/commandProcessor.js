@@ -69,7 +69,7 @@ function hasPermission(requiredPermission, tags, channelName) {
     // Moderator check specifically for 'moderator' permission level
     if (permLevel === 'moderator') {
         const isModByTag = tags.mod === true || tags.mod === '1';
-        const isModByBadge = user.badges?.moderator === '1';
+        const isModByBadge = tags.badges?.moderator === '1'; // Corrected: was user.badges, now tags.badges
         // Broadcaster is already covered above, so mods don't need explicit isBroadcaster check here
         return isModByTag || isModByBadge;
     }
@@ -116,7 +116,15 @@ async function processMessage(channelNameNoHash, tags, message) {
     logger.debug({ permitted }, 'Base command permission check result');
 
     if (!permitted) {
+        // If base command permission fails, we should send a message here or ensure the handler does.
+        // For '!tts' and '!music', the base permission is 'everyone', so this block is typically skipped for them.
+        // The subcommand permission is handled *inside* the respective handler.
+        // However, if a base command itself required mod permission and failed, a message here would be good.
+        // For now, the "Oops" message below would catch if `hasPermission` threw an error.
+        // If `hasPermission` correctly returns false, the subcommand handler will deal with it.
         logger.warn(`User ${tags.username} lacks permission for base command !${commandName} in #${channelNameNoHash}`);
+        // Optionally, send a generic "no permission for base command" message if desired,
+        // but current structure relies on subcommand handlers for their specific messages.
         return null; // Return null if user lacks permission for base command
     }
 
