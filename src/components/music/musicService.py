@@ -1,5 +1,4 @@
 # src/components/music/musicService.py
-# Simplified script - just handles Replicate API call, all error processing done in JS
 import replicate
 import sys
 import json
