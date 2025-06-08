@@ -236,7 +236,7 @@ async function main() {
                 const ttsConfig = await getTtsState(channelNameNoHash);
                 const isIgnoredUser = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
 
-                if (ttsConfig.engineEnabled && ttsConfig.mode === 'all' && !isIgnoredUser) {
+                if (ttsConfig.engineEnabled && ttsConfig.mode === 'all' && !isIgnoredUser && !ttsConfig.bitsModeEnabled) {
                     logger.debug(`ChatVibes [${channelNameNoHash}]: Mode ALL - Enqueuing message from ${username} for TTS: "${message.substring(0,30)}..."`);
                     await ttsQueue.enqueue(channelNameNoHash, {
                         text: message,
@@ -250,8 +250,9 @@ async function main() {
                         engineEnabled: ttsConfig.engineEnabled,
                         mode: ttsConfig.mode,
                         isIgnored: isIgnoredUser,
+                        bitsModeEnabled: ttsConfig.bitsModeEnabled,
                         messageWasCommand: commandWasProcessed
-                    }, "ChatVibes: Message not enqueued for TTS in 'all' mode.");
+                    }, "ChatVibes: Message not enqueued for TTS.");
                 }
             }
         });
