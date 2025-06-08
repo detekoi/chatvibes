@@ -18,7 +18,7 @@ For a complete list of available commands and voices, visit the documentation:
 
   * Reads Twitch chat messages aloud.
   * Announces Twitch events (subscriptions, cheers, raids, etc.).
-  * **Monetization with Bits:** Optionally require users to cheer a minimum number of Bits to have their message read aloud.
+  * **Monetization with Bits:** Optionally require users to cheer a minimum number of Bits to have their message read aloud or to generate music.
   * Controllable via chat commands for enabling/disabling, managing the queue, changing voice settings, and more.
   * Customizable voices and speech parameters via Replicate API (minimax/speech-02-turbo model).
   * Per-user voice, emotion, pitch and speed preferences for TTS.
@@ -57,7 +57,7 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
 5.  **How TTS is Triggered**:
 
       * ChatVibes TTS is typically triggered by specific events you configure (e.g., channel point redemptions, specific commands like `!say <message>`, donations, subscriptions, etc., depending on the bot's features).
-      * The bot also supports a **Bits-for-TTS** mode, where messages are only read if they are accompanied by a cheer that meets a channel-configurable minimum amount.
+      * The bot also supports a **Bits-for-TTS** and **Bits-for-Music** mode, where messages are only read or music is only generated if they are accompanied by a cheer that meets a channel-configurable minimum amount.
       * Please refer to the [main ChatVibes documentation](https://detekoi.github.io/chatvibesdocs.html) for details on setting up TTS triggers and customizing voice options.
       * The repository for the ChatVibes web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
 
@@ -429,7 +429,7 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 ### Music Generation Commands
 
 **`!music <prompt>`**
-* **Description:** Generates a short piece of music based on your prompt.
+* **Description:** Generates a short piece of music based on your prompt. If Bits-for-Music mode is on, the message must be accompanied by a cheer of the minimum required amount.
 * **Permission:** Configurable by mods (default: everyone, can be mods only). User must not be on music ignore list.
 * **Usage:** `!music epic orchestral battle theme`
 
@@ -445,8 +445,20 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 * **Permission:** Moderator
 * **Usage:** `!music mode all` or `!music mode mods`
 
+**`!music bits [on|off|min <amount>]`**
+* **Description:** (Mod only) Configures Bits-for-Music. When enabled, users must cheer with their prompt to generate music.
+    * `on`: Enables Bits-for-Music mode.
+    * `off`: Disables Bits-for-Music mode.
+    * `min <amount>`: Sets the minimum number of Bits required (e.g., `min 100`).
+* **Permission:** Moderator
+* **Usage:**
+    * `!music bits on`
+    * `!music bits off`
+    * `!music bits min 100`
+    * `!music bits` (displays current status)
+
 **`!music status`**
-* **Description:** Shows the current status of music generation (enabled/disabled, mode, queue length).
+* **Description:** Shows the current status of music generation (enabled/disabled, mode, queue length, bits mode).
 * **Permission:** Everyone
 * **Usage:** `!music status`
 

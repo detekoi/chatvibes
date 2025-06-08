@@ -1,3 +1,4 @@
+// src/components/music/musicState.js
 import { Firestore, FieldValue } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 
@@ -14,6 +15,8 @@ const DEFAULT_MUSIC_SETTINGS = {
     allowedRoles: ['everyone'], // Changed default to 'everyone'
     cooldownSeconds: 300,
     ignoredUsers: [], // Added ignoredUsers
+    bitsModeEnabled: false, 
+    bitsMinimumAmount: 100, 
     updatedAt: null
 };
 
@@ -63,6 +66,35 @@ export async function getMusicState(channelName) {
     musicConfigsCache.set(channelName, defaultConfigCopy);
     return defaultConfigCopy;
 }
+
+/**
+ * Sets the Bits-for-Music configuration for a channel.
+ * @param {string} channelName - The name of the channel.
+ * @param {object} bitsConfig - An object containing { enabled, minimumAmount }.
+ * @returns {Promise<boolean>}
+ */
+export async function setBitsConfigMusic(channelName, { enabled, minimumAmount }) {
+    const docRef = db.collection(MUSIC_COLLECTION).doc(channelName);
+    try {
+        const updatePayload = {
+            bitsModeEnabled: enabled,
+            bitsMinimumAmount: minimumAmount,
+            updatedAt: FieldValue.serverTimestamp()
+        };
+        await docRef.set(updatePayload, { merge: true });
+        logger.info(`[${channelName}] Bits-for-Music config updated: Enabled=${enabled}, Min=${minimumAmount}`);
+        
+        // Update local cache
+        const currentConfig = await getMusicState(channelName); // Ensures we have the full config
+        musicConfigsCache.set(channelName, { ...currentConfig, ...updatePayload });
+        
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName }, 'Failed to set Bits-for-Music config.');
+        return false;
+    }
+}
+
 
 export async function setMusicEnabled(channelName, enabled) {
     try {
