@@ -25,6 +25,7 @@ import listIgnored from '../tts/listIgnored.js';
 import toggleEvents from '../tts/toggleEvents.js';
 import emotionCmd from '../tts/emotion.js';
 import say from '../tts/say.js';
+import bits from '../tts/bits.js';
 import { hasPermission } from '../commandProcessor.js'; // Import the centralized function
 // Create subcommands object
 const ttsSubCommands = {
@@ -56,6 +57,7 @@ const ttsSubCommands = {
     ignored: listIgnored,
     events: toggleEvents,
     say,
+    bits,
 };
 
 export default {
