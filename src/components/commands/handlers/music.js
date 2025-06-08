@@ -1,28 +1,28 @@
+// src/components/commands/handlers/music.js
 import logger from '../../../lib/logger.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
 import { enqueueMusicGeneration, getMusicQueueStatus, clearMusicQueue } from '../../music/musicQueue.js';
 import { getMusicState, setMusicEnabled } from '../../music/musicState.js';
 import { hasPermission } from '../commandProcessor.js';
 
-// Import new subcommands
+// Import subcommands
 import musicModeCommand from '../music/mode.js';
 import musicIgnoreCommand from '../music/ignoreUser.js';
 import musicListIgnoredCommand from '../music/listIgnored.js';
-import musicBitsCommand from '../music/bits.js'; // ++ ADD THIS IMPORT ++
+import musicBitsCommand from '../music/bits.js';
 
 const musicSubCommands = {
     mode: musicModeCommand,
     ignore: musicIgnoreCommand,
     ignored: musicListIgnoredCommand,
-    bits: musicBitsCommand, // ++ ADD THIS MAPPING ++
-    // Simple status, on, off, clear can be handled directly or be full command files
+    bits: musicBitsCommand,
 };
 
 
 export default {
     name: 'music',
-    description: 'Generate music using AI. Use !music <prompt> to generate 30 seconds of music.',
-    usage: '!music <prompt> | !music status | !music clear | !music on/off | !music mode <all|mods> | !music ignore <add|del> <user> | !music ignored | !music bits <on|off|min>', // ++ ADDED BITS ++
+    description: 'Generate music using AI. Use !music <prompt> to generate music.',
+    usage: '!music <prompt> | !music status | !music clear | !music on/off | !music mode <all|mods> | !music ignore <add|del> <user> | !music ignored | !music bits <on|off|min>',
     permission: 'everyone', 
     execute: async (context) => {
         const { channel, user, args, command: baseCommandName } = context; 
@@ -59,7 +59,7 @@ export default {
             
             let statusMsg = `Music generation is ${musicState.enabled ? 'ENABLED' : 'DISABLED'}. Mode: ${currentMode}.`;
             if (musicState.enabled) {
-                statusMsg += ` Bits Mode: ${musicState.bitsModeEnabled ? `ON (min ${musicState.bitsMinimumAmount})` : 'OFF'}.`; // ++ ADD BITS STATUS ++
+                statusMsg += ` Bits Mode: ${musicState.bitsModeEnabled ? `ON (min ${musicState.bitsMinimumAmount})` : 'OFF'}.`;
                 statusMsg += ` Queue: ${queueStatus.queueLength} pending.`;
                 if (queueStatus.isProcessing) {
                     statusMsg += ` Currently generating for @${queueStatus.currentUser}.`;
@@ -99,7 +99,6 @@ export default {
         }
         
         if (subCommandArg === 'help') {
-             // ++ UPDATED HELP MESSAGE ++
              enqueueMessage(channel, `@${user['display-name']}, Music commands: !music <prompt>, status, on/off, clear, mode <all|mods>, ignore <add|del user>, ignored, bits <on|off|min>.`);
             return;
         }
@@ -110,23 +109,21 @@ export default {
             enqueueMessage(channel, `@${user['display-name']}, Music generation is currently disabled.`);
             return;
         }
+        
+        if (musicState.bitsModeEnabled) {
+            const bits = parseInt(user.bits, 10) || 0;
+            const minimumBits = musicState.bitsMinimumAmount || 1;
+            if (bits < minimumBits) {
+                enqueueMessage(channel, `@${user['display-name']}, music generation requires a cheer of at least ${minimumBits} bits with your prompt.`);
+                return;
+            }
+        }
 
         if (musicState.ignoredUsers && musicState.ignoredUsers.includes(invokingUsername)) {
             logger.debug(`[${channelNameNoHash}] User ${invokingUsername} is on the music ignore list. Dropping request.`);
             return;
         }
-
-        // ++ START NEW BITS CHECK LOGIC ++
-        if (musicState.bitsModeEnabled) {
-            const userBits = parseInt(user.bits, 10) || 0;
-            const minimumBits = musicState.bitsMinimumAmount || 1;
-            if (userBits < minimumBits) {
-                enqueueMessage(channel, `@${user['display-name']}, music generation requires a cheer of at least ${minimumBits} bits with your prompt.`);
-                return; // Stop execution if bits are insufficient
-            }
-        }
-        // ++ END NEW BITS CHECK LOGIC ++
-
+        
         const isAllowed = musicState.allowedRoles.some(role => 
             hasPermission(role, user, channelNameNoHash)
         );

@@ -14,8 +14,8 @@ import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
 
 // Music Components
-import { initializeMusicQueues } from './components/music/musicQueue.js';
-import { initializeMusicState } from './components/music/musicState.js';
+import { initializeMusicQueues, enqueueMusicGeneration } from './components/music/musicQueue.js';
+import { initializeMusicState, getMusicState } from './components/music/musicState.js';
 
 // Command Processing
 import { initializeCommandProcessor, processMessage as processCommand } from './components/commands/commandProcessor.js';
@@ -187,43 +187,55 @@ async function main() {
             }
         });
 
-        // --- MESSAGE HANDLER for ChatVibes ---
+        // --- MESSAGE HANDLER ---
         ircClientInstance.on('message', async (channel, tags, message, self) => {
             if (self) return;
 
+            // --- 1. PREPARATION ---
             const channelNameNoHash = channel.substring(1).toLowerCase();
             const username = tags.username?.toLowerCase();
+            const bits = parseInt(tags.bits, 10) || 0;
 
-            const processedCommandName = await processCommand(channelNameNoHash, tags, message);
+            // Clean the cheermote from the message if it has bits.
+            const cleanMessage = bits > 0 ? message.replace(/^[\w]+\d+\s*/, '').trim() : message;
 
+            if (!cleanMessage) return;
+
+            // --- 2. COMMAND PROCESSING ---
+            const processedCommandName = await processCommand(channelNameNoHash, tags, cleanMessage);
+
+            // --- 3. TTS PROCESSING ---
+            const ttsConfig = await getTtsState(channelNameNoHash);
+            const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
+
+            // If TTS is globally off for the channel or the user is on the ignore list, do no TTS.
+            if (!ttsConfig.engineEnabled || isTtsIgnored) {
+                return;
+            }
+
+            // A. If a command was just run, decide if we should READ the command text aloud.
             if (processedCommandName) {
-                // Special handling for music command to also be read by TTS if mode is 'all'
-                if (processedCommandName === 'music') {
-                    const ttsConfig = await getTtsState(channelNameNoHash);
-                    if (ttsConfig.engineEnabled && ttsConfig.mode === 'all' && !(ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username))) {
-                        await ttsQueue.enqueue(channelNameNoHash, { text: message, user: username, type: 'command_music' });
-                    }
+                // Requirement 3: Read !music commands aloud. 
+                if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
+                    await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
                 }
-            } else {
-                // --- TTS for regular chat messages ---
-                const ttsConfig = await getTtsState(channelNameNoHash);
-                const isIgnoredUser = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
-
-                // **MERGED LOGIC**: Only enqueue if engine is on, mode is 'all', user isn't ignored, AND bits mode is OFF.
-                if (ttsConfig.engineEnabled && ttsConfig.mode === 'all' && !isIgnoredUser && !ttsConfig.bitsModeEnabled) {
-                    logger.debug(`ChatVibes [${channelNameNoHash}]: Mode ALL - Enqueuing message from ${username} for TTS: "${message.substring(0,30)}..."`);
-                    await ttsQueue.enqueue(channelNameNoHash, {
-                        text: message,
-                        user: username,
-                        type: 'chat',
-                    });
-                } else {
-                     logger.debug({
-                        channel: channelNameNoHash, user: username,
-                        engineEnabled: ttsConfig.engineEnabled, mode: ttsConfig.mode, isIgnored: isIgnoredUser,
-                        bitsModeEnabled: ttsConfig.bitsModeEnabled,
-                        messageWasCommand: !!processedCommandName
-                    }, "ChatVibes: Message not enqueued for TTS.");
+            }
+            // B. If it was NOT a command, it's a regular chat message.
+            else {
+                // Handle regular chat messages according to the TTS mode.
+                if (ttsConfig.bitsModeEnabled) {
+                    // In bits mode, only messages with enough bits get read.
+                    if (bits > 0) {
+                        const minimumBits = ttsConfig.bitsMinimumAmount || 1;
+                        if (bits >= minimumBits) {
+                            await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
+                        }
+                    }
+                    // If bits mode is on and it's a regular message (no bits), we do nothing.
+                } 
+                // Requirement 1: If bits mode is OFF, check for 'all' mode to read regular chat.
+                else if (ttsConfig.mode === 'all') {
+                    await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
                 }
             }
         });
@@ -236,25 +248,54 @@ async function main() {
             handleTwitchEventForTTS(channel, username, 'resub', `${username} resubscribed for ${months} months! ${message || ''}`);
         });
         
-        // Cheer handler with Bits-for-TTS feature
+        // Handle cheer messages - both with and without text
         ircClientInstance.on('cheer', async (channel, userstate, message) => {
             const channelNameNoHash = channel.substring(1);
-            const ttsConfig = await getTtsState(channelNameNoHash);
-
-            if (ttsConfig.bitsModeEnabled) {
-                const minimumBits = ttsConfig.bitsMinimumAmount || 1;
-                const userBits = parseInt(userstate.bits, 10);
-
-                if (userBits >= minimumBits) {
-                    if (message && message.trim().length > 0) {
-                        logger.info(`[${channelNameNoHash}] Bits-for-TTS: User ${userstate.username} cheered ${userBits}. Enqueuing message.`);
-                        await ttsQueue.enqueue(channelNameNoHash, { text: message, user: userstate.username, type: 'cheer_tts' });
+            const username = userstate.username?.toLowerCase();
+            const bits = parseInt(userstate.bits, 10) || 0;
+            
+            // Clean the cheermote from the message
+            const cleanMessage = message.replace(/^[\w]+\d+\s*/, '').trim();
+            
+            if (cleanMessage) {
+                // Process cheer message with content - treat like a regular message but with bits
+                logger.info(`[CHEER EVENT] Channel: ${channel}, User: ${username}, Message: "${message}", Cleaned: "${cleanMessage}", Bits: ${bits}`);
+                
+                // Command processing for cheer messages
+                const processedCommandName = await processCommand(channelNameNoHash, userstate, cleanMessage);
+                
+                // TTS processing for cheer messages
+                const ttsConfig = await getTtsState(channelNameNoHash);
+                const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
+                
+                if (ttsConfig.engineEnabled && !isTtsIgnored) {
+                    if (processedCommandName) {
+                        // Read command aloud if appropriate
+                        if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
+                            await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
+                        }
+                    } else {
+                        // Handle regular cheer messages according to TTS mode
+                        if (ttsConfig.bitsModeEnabled) {
+                            const minimumBits = ttsConfig.bitsMinimumAmount || 1;
+                            if (bits >= minimumBits) {
+                                await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
+                            }
+                        } else if (ttsConfig.mode === 'all') {
+                            await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
+                        }
                     }
                 }
-            } else if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
-                // Fallback to default cheer announcement if bits mode is off but events are on
-                const cheerAnnouncement = `${userstate['display-name'] || userstate.username} cheered ${userstate.bits} bits! ${message}`;
-                await handleTwitchEventForTTS(channel, userstate.username, 'cheer', cheerAnnouncement);
+            } else {
+                // Cheer without message - announce the event if appropriate
+                const displayName = userstate['display-name'] || userstate.username;
+                const ttsConfig = await getTtsState(channelNameNoHash);
+                const musicState = await getMusicState(channelNameNoHash);
+
+                if (!ttsConfig.bitsModeEnabled && !musicState.bitsModeEnabled && ttsConfig.engineEnabled && ttsConfig.speakEvents) {
+                    const cheerAnnouncement = `${displayName} cheered ${userstate.bits} bits!`;
+                    await handleTwitchEventForTTS(channel, userstate.username, 'cheer', cheerAnnouncement);
+                }
             }
         });
 
