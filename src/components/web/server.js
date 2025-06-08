@@ -74,9 +74,10 @@ function parseJsonBody(req) {
 function sendJsonResponse(res, statusCode, data) {
     res.writeHead(statusCode, { 
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': 'https://chatvibestts.web.app',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true'
     });
     res.end(JSON.stringify(data));
 }
@@ -138,9 +139,10 @@ async function handleApiRequest(req, res) {
     // Handle CORS preflight
     if (method === 'OPTIONS') {
         res.writeHead(204, {
-            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Origin': 'https://chatvibestts.web.app',
             'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Credentials': 'true'
         });
         res.end();
         return;
