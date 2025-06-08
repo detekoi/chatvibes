@@ -63,8 +63,8 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
 
 ## Advanced
 
-\<details\>
-\<summary\>Click here if you prefer to run it yourself.\</summary\>
+<details>
+<summary>Click here if you prefer to run it yourself.</summary>
 
 ### Prerequisites
 
@@ -169,7 +169,7 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
       * Replace placeholders with your actual values.
       * Ensure the Cloud Run service account has "Cloud Datastore User" and "Secret Manager Secret Accessor" roles.
 
-\</details\>
+</details>
 
 ## OBS Browser Source Setup
 
@@ -185,8 +185,8 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
 
 All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also documented here: [https://detekoi.github.io/chatvibesdocs.html\#commands](https://detekoi.github.io/chatvibesdocs.html#commands)
 
-\<details\>
-\<summary\>Click to expand command documentation.\</summary\>
+<details>
+<summary>Click to expand command documentation.</summary>
 
 ### General Commands
 
@@ -426,4 +426,4 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
   * **Permission:** Moderator
   * **Usage:** `!tts say Welcome everyone to the stream!`
 
-\</details\>
+</details>
