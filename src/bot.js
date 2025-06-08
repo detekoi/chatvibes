@@ -6,15 +6,16 @@ import http from 'http';
 // Core Twitch & Cloud
 import { initializeSecretManager } from './lib/secretManager.js';
 import { createIrcClient, connectIrcClient, getIrcClient } from './components/twitch/ircClient.js';
-// **** HELIX CLIENT IS STILL USEFUL ****
-import { initializeHelixClient, getHelixClient } from './components/twitch/helixClient.js';
+import { initializeHelixClient } from './components/twitch/helixClient.js';
 
 // ChatVibes TTS Components
 import { initializeTtsState, getTtsState } from './components/tts/ttsState.js';
-// **** TTSSERVICE IS ESSENTIAL ****
-import * as ttsService from './components/tts/ttsService.js'; // generateSpeech, getAvailableVoices
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
+
+// Music Components
+import { initializeMusicQueues } from './components/music/musicQueue.js';
+import { initializeMusicState } from './components/music/musicState.js';
 
 // Command Processing
 import { initializeCommandProcessor, processMessage as processCommand } from './components/commands/commandProcessor.js';
@@ -23,7 +24,6 @@ import { initializeIrcSender, enqueueMessage, clearMessageQueue } from './lib/ir
 // Channel Management
 import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges } from './components/twitch/channelManager.js';
 
-// ... (rest of the bot.js file)
 let ircClientInstance = null;
 let channelChangeListener = null;
 const CHANNEL_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -105,8 +105,8 @@ async function gracefulShutdown(signal) {
 
 async function main() {
     try {
-        const packageName = config.name || 'chatvibes-tts';
-        const packageVersion = config.version || '1.0.0';
+        const packageName = 'chatvibes-tts';
+        const packageVersion = '1.0.0';
         logger.info(`Starting ${packageName} v${packageVersion}...`);
         logger.info(`Node Env: ${config.app.nodeEnv}, Log Level: ${config.app.logLevel}`);
         logger.info(`Project ID: ${process.env.GOOGLE_CLOUD_PROJECT || 'ChatVibesTTS (Hardcoded fallback - Set GOOGLE_CLOUD_PROJECT)'}`);
@@ -118,48 +118,45 @@ async function main() {
         logger.info('ChatVibes: Initializing TTS State (Firestore)...');
         await initializeTtsState();
 
+        logger.info('ChatVibes: Initializing Music State (Firestore)...');
+        await initializeMusicState();
+
         logger.info('ChatVibes: Initializing Channel Manager (Firestore)...');
         await initializeChannelManager();
+        
+        logger.info('ChatVibes: Initializing Music Generation system (queues)...');
+        initializeMusicQueues();
 
-        // Load Twitch Channels (dynamic from Firestore in prod, static from .env in dev)
+        // Load Twitch Channels
         if (config.app.nodeEnv === 'development') {
-            if (!process.env.TWITCH_CHANNELS || config.twitch.channels.length === 0) {
-                logger.fatal('ChatVibes (DEV MODE): TWITCH_CHANNELS environment variable is not set or empty. Please set it in your .env file for the bot to join your test channel(s).');
+            const devChannelsRaw = process.env.TWITCH_CHANNELS || "";
+            const devChannels = devChannelsRaw.split(',').map(ch => ch.trim().toLowerCase()).filter(ch => ch);
+            if (devChannels.length === 0) {
+                logger.fatal('ChatVibes (DEV MODE): TWITCH_CHANNELS environment variable is not set or results in an empty list. Please set it.');
                 process.exit(1);
             }
-            logger.info(`ChatVibes (DEV MODE): Loaded ${config.twitch.channels.length} channels from .env: [${config.twitch.channels.join(', ')}]`);
+            config.twitch.channels = [...new Set(devChannels)];
+            logger.info(`ChatVibes (DEV MODE): Unique channels prepared for TMI client options: [${config.twitch.channels.join(', ')}]`);
         } else {
-            logger.info('ChatVibes: Loading active channels from Firestore...');
+            logger.info('ChatVibes: Loading active channels from Firestore for TMI client options...');
             try {
                 const managedChannels = await getActiveManagedChannels();
-                if (managedChannels && managedChannels.length > 0) {
-                    config.twitch.channels = managedChannels.map(ch => ch.toLowerCase());
-                    logger.info(`ChatVibes: Loaded ${config.twitch.channels.length} active channels from Firestore: [${config.twitch.channels.join(', ')}]`);
-                } else {
-                    logger.warn('ChatVibes: No active channels found in Firestore. The bot will connect to Twitch IRC but may not join any channels until they are added via the (future) web UI or if TWITCH_CHANNELS env var is used as a fallback.');
-                    if (process.env.TWITCH_CHANNELS && process.env.TWITCH_CHANNELS.split(',').map(ch => ch.trim()).filter(ch => ch).length > 0) {
-                        config.twitch.channels = process.env.TWITCH_CHANNELS.split(',').map(ch => ch.trim().toLowerCase()).filter(ch => ch);
-                        logger.info(`ChatVibes (Fallback): Loaded ${config.twitch.channels.length} channels from TWITCH_CHANNELS env var: [${config.twitch.channels.join(', ')}]`);
-                    } else if (config.twitch.channels.length === 0) {
-                        logger.warn('ChatVibes: No channels configured from Firestore or TWITCH_CHANNELS env var.');
-                    }
+                config.twitch.channels = [...new Set(managedChannels || [])];
+                logger.info(`ChatVibes: Unique channels from Firestore for TMI client options: [${config.twitch.channels.join(', ')}]`);
+                if (config.twitch.channels.length === 0) {
+                    logger.warn('ChatVibes: No active channels from Firestore. Bot will rely on dynamic joins.');
                 }
             } catch (error) {
-                logger.error({ err: error }, 'ChatVibes: Error loading channels from Firestore. Check Firestore setup and permissions.');
-                if (!config.twitch.channels || config.twitch.channels.length === 0) {
-                    logger.fatal("ChatVibes: Failed to load channels from any source. Exiting.");
-                    process.exit(1);
-                }
+                logger.error({ err: error }, 'ChatVibes: Error loading channels from Firestore.');
+                config.twitch.channels = [];
             }
         }
-        if (!config.twitch.channels || config.twitch.channels.length === 0) {
-            logger.warn('ChatVibes: No Twitch channels configured to join initially. The bot will connect but rely on the Web UI or Firestore updates to join channels.');
-        }
+        if (!config.twitch.channels) config.twitch.channels = [];
 
         logger.info('ChatVibes: Initializing Twitch Helix Client...');
-        await initializeHelixClient(config.twitch);
+        await initializeHelixClient();
 
-        logger.info('ChatVibes: Initializing Command Processor for !tts commands...');
+        logger.info('ChatVibes: Initializing Command Processor for commands...');
         initializeCommandProcessor();
 
         logger.info('ChatVibes: Initializing IRC Sender queue...');
@@ -171,45 +168,14 @@ async function main() {
         // --- Setup IRC Event Listeners ---
         ircClientInstance.on('connected', async (address, port) => {
             logger.info(`ChatVibes: Successfully connected to Twitch IRC: ${address}:${port}`);
-            if (config.app.nodeEnv !== 'development') {
+             if (config.app.nodeEnv !== 'development') {
                 logger.info('ChatVibes: Setting up Firestore channel listener and performing initial sync.');
                 if (!channelChangeListener) {
                     channelChangeListener = listenForChannelChanges(ircClientInstance);
                 }
-                try {
-                    const syncResult = await syncManagedChannelsWithIrc(ircClientInstance);
-                    logger.info(`ChatVibes: Initial channel sync - Joined: ${syncResult.joined.length}, Parted: ${syncResult.parted.length}`);
-                    const activeChannels = await getActiveManagedChannels();
-                    config.twitch.channels = activeChannels.map(ch => ch.toLowerCase());
-                    logger.info(`ChatVibes: Config updated with ${config.twitch.channels.length} active channels post-sync.`);
-                } catch (error) {
-                    logger.error({ err: error }, 'ChatVibes: Error during initial channel sync from Firestore.');
-                }
-                setInterval(async () => {
-                    if (config.app.nodeEnv !== 'development') {
-                        try {
-                            logger.info('ChatVibes: Running scheduled channel sync...');
-                            const syncResult = await syncManagedChannelsWithIrc(ircClientInstance);
-                            if (syncResult.joined.length > 0 || syncResult.parted.length > 0) {
-                                const currentActive = await getActiveManagedChannels();
-                                config.twitch.channels = currentActive.map(ch => ch.toLowerCase());
-                                logger.info(`ChatVibes: Updated config with ${config.twitch.channels.length} active channels after scheduled sync.`);
-                            }
-                        } catch (error) {
-                            logger.error({ err: error }, 'ChatVibes: Error during scheduled channel sync.');
-                        }
-                    }
-                }, CHANNEL_SYNC_INTERVAL_MS);
+                await syncManagedChannelsWithIrc(ircClientInstance);
             } else {
-                logger.info('ChatVibes (DEV MODE): Skipping Firestore channel listener and sync. Joining channels from .env.');
-                if (config.twitch.channels.length > 0) {
-                    config.twitch.channels.forEach(ch => {
-                        const channelToJoin = ch.startsWith('#') ? ch : `#${ch.toLowerCase()}`;
-                        logger.info(`ChatVibes (DEV MODE): Attempting to join channel from .env: ${channelToJoin}`);
-                        ircClientInstance.join(channelToJoin)
-                            .catch(err => logger.error({err, channel: channelToJoin}, `Failed to join ${channelToJoin} in dev mode`));
-                    });
-                }
+                 logger.info('ChatVibes (DEV MODE): Relying on TMI.js auto-join for channels specified in client options.');
             }
         });
 
@@ -228,14 +194,22 @@ async function main() {
             const channelNameNoHash = channel.substring(1).toLowerCase();
             const username = tags.username?.toLowerCase();
 
-            // 1. Process Bot Commands (like !tts)
-            const commandWasProcessed = await processCommand(channelNameNoHash, tags, message);
+            const processedCommandName = await processCommand(channelNameNoHash, tags, message);
 
-            // 2. If not a command, and TTS mode is 'all', enqueue for TTS
-            if (!commandWasProcessed) {
+            if (processedCommandName) {
+                // Special handling for music command to also be read by TTS if mode is 'all'
+                if (processedCommandName === 'music') {
+                    const ttsConfig = await getTtsState(channelNameNoHash);
+                    if (ttsConfig.engineEnabled && ttsConfig.mode === 'all' && !(ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username))) {
+                        await ttsQueue.enqueue(channelNameNoHash, { text: message, user: username, type: 'command_music' });
+                    }
+                }
+            } else {
+                // --- TTS for regular chat messages ---
                 const ttsConfig = await getTtsState(channelNameNoHash);
                 const isIgnoredUser = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
 
+                // **MERGED LOGIC**: Only enqueue if engine is on, mode is 'all', user isn't ignored, AND bits mode is OFF.
                 if (ttsConfig.engineEnabled && ttsConfig.mode === 'all' && !isIgnoredUser && !ttsConfig.bitsModeEnabled) {
                     logger.debug(`ChatVibes [${channelNameNoHash}]: Mode ALL - Enqueuing message from ${username} for TTS: "${message.substring(0,30)}..."`);
                     await ttsQueue.enqueue(channelNameNoHash, {
@@ -244,78 +218,58 @@ async function main() {
                         type: 'chat',
                     });
                 } else {
-                    logger.debug({
-                        channel: channelNameNoHash,
-                        user: username,
-                        engineEnabled: ttsConfig.engineEnabled,
-                        mode: ttsConfig.mode,
-                        isIgnored: isIgnoredUser,
+                     logger.debug({
+                        channel: channelNameNoHash, user: username,
+                        engineEnabled: ttsConfig.engineEnabled, mode: ttsConfig.mode, isIgnored: isIgnoredUser,
                         bitsModeEnabled: ttsConfig.bitsModeEnabled,
-                        messageWasCommand: commandWasProcessed
+                        messageWasCommand: !!processedCommandName
                     }, "ChatVibes: Message not enqueued for TTS.");
                 }
             }
         });
 
-        // --- TTS Event Handlers ---
-        const handleTwitchEventForTTS = async (channel, username, eventType, eventDetailsText) => {
-            const channelNameNoHash = channel.substring(1);
-            const ttsConfig = await getTtsState(channelNameNoHash);
-            if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
-                logger.info(`ChatVibes [${channelNameNoHash}]: TTS Event: ${eventType} by ${username}. Text: "${eventDetailsText}"`);
-                await ttsQueue.enqueue(channelNameNoHash, {
-                    text: eventDetailsText,
-                    user: username,
-                    type: 'event',
-                });
-            }
-        };
-
+        // --- Event Handlers ---
         ircClientInstance.on('subscription', (channel, username, method, message, userstate) => {
             handleTwitchEventForTTS(channel, username, 'subscription', `${username} just subscribed! ${message || ''}`);
         });
         ircClientInstance.on('resub', (channel, username, months, message, userstate, methods) => {
             handleTwitchEventForTTS(channel, username, 'resub', `${username} resubscribed for ${months} months! ${message || ''}`);
         });
+        
+        // Cheer handler with Bits-for-TTS feature
         ircClientInstance.on('cheer', async (channel, userstate, message) => {
             const channelNameNoHash = channel.substring(1);
             const ttsConfig = await getTtsState(channelNameNoHash);
 
-            // Check if the Bits-for-TTS feature is enabled
             if (ttsConfig.bitsModeEnabled) {
                 const minimumBits = ttsConfig.bitsMinimumAmount || 1;
                 const userBits = parseInt(userstate.bits, 10);
 
                 if (userBits >= minimumBits) {
-                    // User paid enough, enqueue their message for TTS
                     if (message && message.trim().length > 0) {
-                        logger.info(`[${channelNameNoHash}] Bits-for-TTS: User ${userstate.username} cheered ${userBits} (>= min ${minimumBits}). Enqueuing message: "${message}"`);
-                        await ttsQueue.enqueue(channelNameNoHash, {
-                            text: message,
-                            user: userstate.username,
-                            type: 'cheer_tts', // A specific type for this event
-                        });
-                    } else {
-                        logger.info(`[${channelNameNoHash}] Bits-for-TTS: User ${userstate.username} cheered ${userBits} but provided no message.`);
+                        logger.info(`[${channelNameNoHash}] Bits-for-TTS: User ${userstate.username} cheered ${userBits}. Enqueuing message.`);
+                        await ttsQueue.enqueue(channelNameNoHash, { text: message, user: userstate.username, type: 'cheer_tts' });
                     }
-                } else {
-                    // User didn't pay enough (optional: notify them)
-                    logger.info(`[${channelNameNoHash}] Bits-for-TTS: User ${userstate.username} cheered ${userBits} (< min ${minimumBits}). Ignoring.`);
                 }
-            } 
-            // Fallback to original event announcements if Bits mode is OFF but general events are ON
-            else if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
+            } else if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
+                // Fallback to default cheer announcement if bits mode is off but events are on
                 const cheerAnnouncement = `${userstate['display-name'] || userstate.username} cheered ${userstate.bits} bits! ${message}`;
-                await ttsQueue.enqueue(channelNameNoHash, {
-                    text: cheerAnnouncement,
-                    user: userstate.username,
-                    type: 'event',
-                });
+                await handleTwitchEventForTTS(channel, userstate.username, 'cheer', cheerAnnouncement);
             }
         });
+
         ircClientInstance.on('raided', (channel, username, viewers, tags) => {
             handleTwitchEventForTTS(channel, username, 'raid', `${username} is raiding with ${viewers} viewers!`);
         });
+
+        const handleTwitchEventForTTS = async (channel, username, eventType, eventDetailsText) => {
+             const channelNameNoHash = channel.substring(1);
+             const ttsConfig = await getTtsState(channelNameNoHash);
+             if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
+                 logger.info(`ChatVibes [${channelNameNoHash}]: TTS Event: ${eventType} by ${username}.`);
+                 await ttsQueue.enqueue(channelNameNoHash, { text: eventDetailsText, user: username, type: 'event' });
+             }
+        };
 
         logger.info('ChatVibes: Connecting to Twitch IRC...');
         await connectIrcClient();
@@ -326,7 +280,6 @@ async function main() {
         global.healthServer = webServerInstance;
 
         logger.info(`ChatVibes: Bot username: ${config.twitch.username}.`);
-        logger.info(`ChatVibes: Initial channels to attempt join (may be updated by ChannelManager): ${ircClientInstance.getChannels().join(', ') || 'None (will join via ChannelManager)'}`);
 
     } catch (error) {
         logger.fatal({ err: error, stack: error.stack }, 'ChatVibes: Fatal error during initialization.');
@@ -334,6 +287,7 @@ async function main() {
     }
 }
 
+// Graceful shutdown hooks
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('uncaughtException', (error) => {

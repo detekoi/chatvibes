@@ -336,15 +336,14 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
       * `!tts lang reset`
       * `!tts language` (displays current personal preference)
 
-**`!tts ignore add <username>`**
-
-  * **Description:**
-      * **For any user:** Allows you to add *yourself* to the TTS ignore list for the channel. Your messages will not be spoken.
-      * **For Moderators/Broadcaster:** Allows you to add *any specified Twitch user* to the TTS ignore list for the channel. Messages from this user will not be spoken.
-  * **Permission:** Everyone (to add themselves), Moderator (to add others)
-  * **Usage:**
-      * `!tts ignore add yourusername` (if you want to ignore yourself)
-      * `!tts ignore add SomeOtherUser` (if you are a mod/broadcaster)
+**`!tts ignore <username>`** / **`!tts ignore add <username>`**
+* **Description:**
+    * **For any user:** Allows you to add *yourself* to the TTS ignore list for the channel. Your messages will not be spoken. Use `!tts ignore yourusername` or `!tts ignore add yourusername`.
+    * **For Moderators/Broadcaster:** Allows you to add *any specified Twitch user* to the TTS ignore list for the channel. Messages from this user will not be spoken.
+* **Permission:** Everyone (to add themselves), Moderator (to add others)
+* **Usage:**
+    * `!tts ignore yourusername` (if you want to ignore yourself)
+    * `!tts ignore add SomeOtherUser` (if you are a mod/broadcaster)
 
 **`!tts ignore del <username>`** (Aliases: `delete`, `rem`, `remove`)
 
@@ -421,9 +420,58 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 ### Direct TTS (Moderator Only - for testing/announcements)
 
 **`!tts say <message>`**
+* **Description:** Immediately enqueues the provided message for TTS, regardless of the current mode. Uses the requesting user's preferences or channel defaults for voice, pitch, speed, and emotion.
+* **Permission:** Moderator
+* **Usage:** `!tts say Welcome everyone to the stream!`
 
-  * **Description:** Immediately enqueues the provided message for TTS, regardless of the current mode. Uses the requesting user's preferences or channel defaults for voice, pitch, speed, and emotion.
-  * **Permission:** Moderator
-  * **Usage:** `!tts say Welcome everyone to the stream!`
+-----
+  
+### Music Generation Commands
+
+**`!music <prompt>`**
+* **Description:** Generates a short piece of music based on your prompt.
+* **Permission:** Configurable by mods (default: everyone, can be mods only). User must not be on music ignore list.
+* **Usage:** `!music epic orchestral battle theme`
+
+**`!music on|off`**
+* **Description:** (Mod only) Enables or disables the music generation feature for the channel.
+* **Permission:** Moderator
+* **Usage:** `!music on` or `!music off`
+
+**`!music mode <all|mods>`**
+* **Description:** (Mod only) Sets who can use the `!music <prompt>` command.
+    * `all`: Everyone can generate music.
+    * `mods`: Only moderators and the broadcaster can generate music.
+* **Permission:** Moderator
+* **Usage:** `!music mode all` or `!music mode mods`
+
+**`!music status`**
+* **Description:** Shows the current status of music generation (enabled/disabled, mode, queue length).
+* **Permission:** Everyone
+* **Usage:** `!music status`
+
+**`!music clear`**
+* **Description:** (Mod only) Clears all pending music generation requests from the queue.
+* **Permission:** Moderator
+* **Usage:** `!music clear`
+
+**`!music ignore <username>`** / **`!music ignore add <username>`**
+* **Description:**
+    * **For any user:** Allows you to add *yourself* to the music ignore list. Your `!music <prompt>` requests will be ignored. Use `!music ignore yourusername` or `!music ignore add yourusername`.
+    * **For Moderators/Broadcaster:** Allows you to add *any specified Twitch user* to the music ignore list.
+* **Permission:** Everyone (to add themselves), Moderator (to add others)
+* **Usage:**
+    * `!music ignore yourusername` (if you want to ignore yourself)
+    * `!music ignore add SomeOtherUser` (if you are a mod/broadcaster)
+
+**`!music ignore del <username>`** (Aliases: `delete`, `rem`, `remove`)
+* **Description:** (Mod only) Removes the specified Twitch user from the music ignore list.
+* **Permission:** Moderator
+* **Usage:** `!music ignore del SomeUser`
+
+**`!music ignored`**
+* **Description:** (Mod only) Lists all users currently on the music ignore list for the channel.
+* **Permission:** Moderator
+* **Usage:** `!music ignored`
 
 </details>

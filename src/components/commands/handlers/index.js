@@ -1,13 +1,13 @@
 // src/components/commands/handlers/index.js
 import logger from '../../../lib/logger.js';
-import ttsBaseCommand from './tts.js'; // This handles all "!tts <subcommand>" variations
+import tts from './tts.js';
+import music from './music.js';
 
-// If you had other distinct base commands, you'd import their handlers too
-// import someOtherBaseCommand from './someOtherCommand.js';
 
 const commandHandlers = {
-    tts: ttsBaseCommand,
-    // someOtherCommand: someOtherBaseCommand, // Example
+    tts,
+    music,
+    // someOtherBaseCommand, // Example
 };
 
 const loadedCommands = Object.keys(commandHandlers);

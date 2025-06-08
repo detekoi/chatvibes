@@ -1,3 +1,4 @@
+// src/components/commands/commandProcessor.js
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 // Import command handlers (assuming handlers/index.js exports an object/Map)
@@ -26,7 +27,7 @@ function initializeCommandProcessor() {
 /**
  * Parses a message to extract command name and arguments.
  * @param {string} message - The raw message content.
- * @returns {{command: string, args: string[]} | null} Parsed command and args, or null if not a command.
+ * @returns {{commandName: string, args: string[]} | null} Parsed command name and args, or null if not a command.
  */
 function parseCommand(message) {
     if (!message.startsWith(COMMAND_PREFIX)) {
@@ -34,13 +35,13 @@ function parseCommand(message) {
     }
 
     const args = message.slice(COMMAND_PREFIX.length).trim().split(/ +/g);
-    const command = args.shift()?.toLowerCase(); // Get command name (lowercase)
+    const commandName = args.shift()?.toLowerCase(); // Get command name (lowercase)
 
-    if (!command) {
+    if (!commandName) {
         return null; // Just the prefix was typed
     }
 
-    return { command, args };
+    return { commandName, args };
 }
 
 /**
@@ -68,7 +69,7 @@ function hasPermission(requiredPermission, tags, channelName) {
     // Moderator check specifically for 'moderator' permission level
     if (permLevel === 'moderator') {
         const isModByTag = tags.mod === true || tags.mod === '1';
-        const isModByBadge = tags.badges?.moderator === '1';
+        const isModByBadge = tags.badges?.moderator === '1'; // Corrected: was user.badges, now tags.badges
         // Broadcaster is already covered above, so mods don't need explicit isBroadcaster check here
         return isModByTag || isModByBadge;
     }
@@ -86,7 +87,7 @@ function hasPermission(requiredPermission, tags, channelName) {
  * @param {string} channelNameNoHash - Channel name (without '#').
  * @param {object} tags - tmi.js message tags.
  * @param {string} message - Raw message content.
- * @returns {Promise<boolean>} True if a command was successfully found and executed (or attempted), false otherwise.
+ * @returns {Promise<string|null>} The name of the command if processed, null otherwise.
  */
 async function processMessage(channelNameNoHash, tags, message) {
     logger.debug({ channelName: channelNameNoHash, user: tags.username, message }, 'processMessage called');
@@ -95,59 +96,63 @@ async function processMessage(channelNameNoHash, tags, message) {
 
     if (!parsed) {
         logger.debug('Message not a command or just prefix');
-        return false;
+        return null; // Return null if not a command
     }
 
-    const { command, args } = parsed;
-    logger.debug({ command, args }, 'Parsed command');
+    const { commandName, args } = parsed;
+    logger.debug({ command: commandName, args }, 'Parsed command');
 
-    const handler = commandHandlers[command];
-    logger.debug({ command, handlerExists: !!handler }, 'Command handler lookup result');
+    const handler = commandHandlers[commandName];
+    logger.debug({ command: commandName, handlerExists: !!handler }, 'Command handler lookup result');
 
     if (!handler || typeof handler.execute !== 'function') {
-        logger.debug(`Command prefix used, but no handler found for: ${command}`);
-        return false;
+        logger.debug(`Command prefix used, but no handler found for: ${commandName}`);
+        return null; // Return null if no handler
     }
 
     // --- Permission Check for the base command ---
-    logger.debug(`Checking permission for base command !${command}`);
-    // Use the exported hasPermission, passing handler.permission
+    logger.debug(`Checking permission for base command !${commandName}`);
     const permitted = hasPermission(handler.permission || 'everyone', tags, channelNameNoHash);
     logger.debug({ permitted }, 'Base command permission check result');
 
     if (!permitted) {
-        logger.warn(`User ${tags.username} lacks permission for base command !${command} in #${channelNameNoHash}`);
-        // Optional: Send a whisper or message indicating lack of permission? Be careful about spam.
-        // e.g., enqueueMessage(`#${channelNameNoHash}`, `@${tags['display-name']}, You don't have permission for !${command}.`);
-        return false; // Command found but user lacks permission for base command
+        // If base command permission fails, we should send a message here or ensure the handler does.
+        // For '!tts' and '!music', the base permission is 'everyone', so this block is typically skipped for them.
+        // The subcommand permission is handled *inside* the respective handler.
+        // However, if a base command itself required mod permission and failed, a message here would be good.
+        // For now, the "Oops" message below would catch if `hasPermission` threw an error.
+        // If `hasPermission` correctly returns false, the subcommand handler will deal with it.
+        logger.warn(`User ${tags.username} lacks permission for base command !${commandName} in #${channelNameNoHash}`);
+        // Optionally, send a generic "no permission for base command" message if desired,
+        // but current structure relies on subcommand handlers for their specific messages.
+        return null; // Return null if user lacks permission for base command
     }
 
     // --- Execute Command ---
-    logger.info(`Executing command !${command} for user ${tags.username} in #${channelNameNoHash}`);
+    logger.info(`Executing command !${commandName} for user ${tags.username} in #${channelNameNoHash}`);
     try {
         const context = {
             channel: `#${channelNameNoHash}`,
             user: tags,
             args: args,
-            message: message,
+            message: message, // Pass original message
+            command: commandName, // Pass the executed command name for context within subcommand handlers
             ircClient: getIrcClient(),
             logger: logger
         };
         await handler.execute(context);
-        return true;
+        return commandName; // Return the processed command name
 
     } catch (error) {
-        logger.error({ err: error, command: command, user: tags.username, channel: channelNameNoHash },
-            `Error executing command !${command}`);
+        logger.error({ err: error, command: commandName, user: tags.username, channel: channelNameNoHash },
+            `Error executing command !${commandName}`);
         try {
             const ircClient = getIrcClient();
-            // Do not await here, just enqueue
-            // enqueueMessage(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${command}.`);
-            await ircClient.say(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${command}.`);
+            await ircClient.say(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${commandName}.`);
         } catch (sayError) {
              logger.error({ err: sayError }, 'Failed to send command execution error message to chat.');
         }
-        return true; // Command was attempted, even though it failed
+        return commandName; // Command was attempted, return command name
     }
 }
 

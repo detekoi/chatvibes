@@ -100,14 +100,24 @@ function playNextInQueue() {
     }
     isPlaying = true;
     const audioUrl = audioQueue.shift();
-    console.log('TTS Player: Attempting to play:', audioUrl);
+    console.log('Player: Attempting to play audio:', audioUrl);
+    
+    // Set volume based on content type (music vs TTS)
+    if (audioUrl.includes('replicate.delivery') && audioUrl.includes('wav')) {
+        // Likely music content - may need volume adjustment
+        audioPlayer.volume = 0.8;
+    } else {
+        // TTS content
+        audioPlayer.volume = 1.0;
+    }
+    
     audioPlayer.src = audioUrl;
     audioPlayer.play()
-        .then(() => console.log('TTS Player: Playback started for:', audioUrl))
+        .then(() => console.log('Player: Playback started for:', audioUrl))
         .catch(e => {
-            console.error('TTS Player: Error playing audio:', audioUrl, e);
+            console.error('Player: Error playing audio:', audioUrl, e);
             isPlaying = false;
-            playNextInQueue(); // Try next if error
+            playNextInQueue();
         });
 }
 

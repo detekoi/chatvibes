@@ -12,6 +12,14 @@ let lastVoiceListFetchTime = 0;
 const VOICE_LIST_CACHE_DURATION = 60 * 60 * 1000; 
 
 export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId || 'Friendly_Person', options = {}) {
+  logger.info({
+    logKey: "TTS_GENERATE_SPEECH_CALLED",
+    textToGenerate: text,
+    voiceIdForTTS: voiceId,
+    optionsSummary: { speed: options.speed, pitch: options.pitch, emotion: options.emotion, languageBoost: options.languageBoost },
+    timestamp_ms: Date.now()
+  }, `TTS_GENERATE_SPEECH_CALLED for text: "${text.substring(0, 30)}...", Voice: ${voiceId}`);
+
   const input = {
     text,
     voice_id: voiceId,

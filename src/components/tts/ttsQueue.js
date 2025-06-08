@@ -32,6 +32,16 @@ export function getOrCreateChannelQueue(channelName) {
 
 export async function enqueue(channelName, eventData) {
     const { text, user, type = 'chat', voiceOptions = {} } = eventData;
+
+    logger.debug({
+        logKey: "TTS_ENQUEUE_CALLED",
+        channelName,
+        textForTTS: text,
+        userForTTS: user,
+        typeForTTS: type,
+        timestamp_ms: Date.now()
+    }, `TTS_ENQUEUE_CALLED for user: ${user}, type: ${type}, text: "${text.substring(0, 30)}..."`);
+
     const ttsStatus = await getTtsState(channelName);
     if (!ttsStatus.engineEnabled) {
         logger.debug(`[${channelName}] TTS engine disabled, dropping message from ${user}.`);
