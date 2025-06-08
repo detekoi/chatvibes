@@ -187,18 +187,32 @@ async function handleApiRequest(req, res) {
 // Voices endpoint handler
 async function handleVoicesEndpoint(req, res) {
     try {
-        // Try to fetch voices from Replicate or return hardcoded list
+        // Try to fetch actual voices from TTS service
+        const { getAvailableVoices } = await import('../tts/ttsService.js');
+        const voiceList = await getAvailableVoices();
+        
+        if (voiceList && voiceList.length > 0) {
+            const voiceIds = voiceList.map(voice => voice.id || voice);
+            sendJsonResponse(res, 200, { success: true, voices: voiceIds });
+        } else {
+            // Fallback voices if TTS service fails
+            const fallbackVoices = [
+                'Friendly_Person', 'Professional_Woman', 'Casual_Male', 'Energetic_Youth',
+                'Warm_Grandmother', 'Confident_Leader', 'Soothing_Narrator', 'Cheerful_Assistant',
+                'Deep_Narrator', 'Bright_Assistant', 'Calm_Guide', 'Energetic_Host'
+            ];
+            sendJsonResponse(res, 200, { success: true, voices: fallbackVoices });
+        }
+    } catch (error) {
+        logger.error({ err: error }, 'Failed to fetch voices from TTS service');
+        
+        // Return fallback voices on error
         const fallbackVoices = [
             'Friendly_Person', 'Professional_Woman', 'Casual_Male', 'Energetic_Youth',
             'Warm_Grandmother', 'Confident_Leader', 'Soothing_Narrator', 'Cheerful_Assistant',
             'Deep_Narrator', 'Bright_Assistant', 'Calm_Guide', 'Energetic_Host'
         ];
-        
-        // TODO: Fetch actual voices from TTS service
         sendJsonResponse(res, 200, { success: true, voices: fallbackVoices });
-    } catch (error) {
-        logger.error({ err: error }, 'Failed to fetch voices');
-        sendErrorResponse(res, 500, 'Failed to fetch voices');
     }
 }
 
