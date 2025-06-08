@@ -359,7 +359,11 @@ async function validateTtsSetting(key, value) {
         case 'bitsMinimumAmount':
             const amount = parseInt(value, 10);
             return !isNaN(amount) && amount >= 0;
+        case 'voiceId':
+            // Allow any string voice ID - validation will happen in TTS service
+            return typeof value === 'string' && value.length > 0;
         default:
+            logger.warn(`Unknown TTS setting key: ${key}`);
             return false;
     }
 }

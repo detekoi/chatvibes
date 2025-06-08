@@ -117,10 +117,10 @@ export async function addIgnoredUser(channelName, username) {
     const lowerUser = username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
     try {
-        await docRef.update({
+        await docRef.set({
             ignoredUsers: FieldValue.arrayUnion(lowerUser),
             updatedAt: FieldValue.serverTimestamp()
-        });
+        }, { merge: true });
         // Update cache
         const config = await getTtsState(channelName); // Fetches or gets from cache
         if (!config.ignoredUsers.includes(lowerUser)) {
