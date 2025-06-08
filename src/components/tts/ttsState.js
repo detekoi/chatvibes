@@ -563,3 +563,52 @@ export async function clearUserLanguagePreference(channelName, username) {
         return false;
     }
 }
+
+// --- Functions for Bits-for-TTS Configuration ---
+/**
+ * Sets the Bits-for-TTS configuration for a channel.
+ * @param {string} channelName - The name of the channel.
+ * @param {object} bitsConfig - An object containing { enabled, minimumAmount }.
+ * @returns {Promise<boolean>}
+ */
+export async function setBitsConfig(channelName, { enabled, minimumAmount }) {
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        const updatePayload = {
+            bitsModeEnabled: enabled,
+            bitsMinimumAmount: minimumAmount,
+            updatedAt: FieldValue.serverTimestamp()
+        };
+        await docRef.set(updatePayload, { merge: true });
+        logger.info(`[${channelName}] Bits-for-TTS config updated: Enabled=${enabled}, Min=${minimumAmount}`);
+        // Update local cache
+        const currentConfig = channelConfigsCache.get(channelName) || {};
+        channelConfigsCache.set(channelName, { ...currentConfig, ...updatePayload });
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName }, 'Failed to set Bits-for-TTS config.');
+        return false;
+    }
+}
+
+/**
+ * Gets the Bits-for-TTS configuration for a channel.
+ * @param {string} channelName - The name of the channel.
+ * @returns {Promise<{enabled: boolean, minimumAmount: number}>}
+ */
+export async function getBitsConfig(channelName) {
+    const config = await getTtsState(channelName);
+    return {
+        enabled: !!config.bitsModeEnabled,
+        minimumAmount: typeof config.bitsMinimumAmount === 'number' ? config.bitsMinimumAmount : 0
+    };
+}
+
+/**
+ * Resets the Bits-for-TTS configuration for a channel to defaults (disabled, min 0).
+ * @param {string} channelName - The name of the channel.
+ * @returns {Promise<boolean>}
+ */
+export async function resetBitsConfig(channelName) {
+    return setBitsConfig(channelName, { enabled: false, minimumAmount: 0 });
+}
