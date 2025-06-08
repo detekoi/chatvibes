@@ -6,6 +6,45 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { fileURLToPath } from 'url';
 import logger from '../../lib/logger.js'; // Path: src/lib/logger.js
 
+// Import TTS state management functions
+import { 
+    getTtsState, 
+    setTtsState,
+    addIgnoredUser,
+    removeIgnoredUser,
+    setChannelDefaultPitch,
+    setChannelDefaultSpeed,
+    setChannelDefaultEmotion,
+    setChannelDefaultLanguage,
+    resetChannelDefaultPitch,
+    resetChannelDefaultSpeed,
+    resetChannelDefaultEmotion,
+    resetChannelDefaultLanguage,
+    setBitsConfig,
+    getBitsConfig,
+    resetBitsConfig
+} from '../tts/ttsState.js';
+
+// Import Music state management functions
+import {
+    getMusicState,
+    setMusicEnabled,
+    setAllowedMusicRoles,
+    addIgnoredUserMusic,
+    removeIgnoredUserMusic,
+    setBitsConfigMusic
+} from '../music/musicState.js';
+
+// Import constants for validation
+import {
+    VALID_EMOTIONS,
+    VALID_LANGUAGE_BOOSTS,
+    TTS_PITCH_MIN,
+    TTS_PITCH_MAX,
+    TTS_SPEED_MIN,
+    TTS_SPEED_MAX
+} from '../tts/ttsConstants.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -15,7 +54,301 @@ const PORT = process.env.PORT || 8080;
 let wssInstance = null;
 const channelClients = new Map(); // channelName (lowercase) -> Set of WebSocket clients
 
-const httpServer = http.createServer((req, res) => {
+// Helper function to parse JSON body
+function parseJsonBody(req) {
+    return new Promise((resolve, reject) => {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            try {
+                resolve(body ? JSON.parse(body) : {});
+            } catch (error) {
+                reject(error);
+            }
+        });
+        req.on('error', reject);
+    });
+}
+
+// Helper function to send JSON response
+function sendJsonResponse(res, statusCode, data) {
+    res.writeHead(statusCode, { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    });
+    res.end(JSON.stringify(data));
+}
+
+// Helper function to send error response
+function sendErrorResponse(res, statusCode, message) {
+    sendJsonResponse(res, statusCode, { success: false, error: message });
+}
+
+// Helper function to extract channel from URL path
+function extractChannelFromPath(url) {
+    const parts = url.split('/');
+    const channelIndex = parts.indexOf('channel');
+    return channelIndex !== -1 && parts[channelIndex + 1] ? parts[channelIndex + 1].toLowerCase() : null;
+}
+
+// Simple channel ownership verification
+async function verifyChannelAccess(req, channelName) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return { authorized: false, error: 'Missing authorization header' };
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    try {
+        // In a real implementation, you would:
+        // 1. Decode the JWT token from the web UI
+        // 2. Verify it's valid and not expired  
+        // 3. Extract the user's Twitch username
+        // 4. Check if it matches the channelName or if user is a moderator
+        
+        // For now, we'll do a simple check that the token exists
+        // TODO: Implement proper JWT verification with shared secret
+        if (!token || token.length < 10) {
+            return { authorized: false, error: 'Invalid token' };
+        }
+        
+        // Placeholder: In production, verify JWT and extract username
+        // const decodedToken = jwt.verify(token, JWT_SECRET);
+        // const username = decodedToken.userLogin;
+        // return { authorized: username.toLowerCase() === channelName, username };
+        
+        // For development: Allow access (remove in production)
+        return { authorized: true, username: channelName };
+        
+    } catch (error) {
+        logger.error({ err: error }, 'Token verification failed');
+        return { authorized: false, error: 'Token verification failed' };
+    }
+}
+
+// Route handlers for REST API
+async function handleApiRequest(req, res) {
+    const url = new URL(req.url, `http://localhost:${PORT}`);
+    const pathname = url.pathname;
+    const method = req.method;
+
+    // Handle CORS preflight
+    if (method === 'OPTIONS') {
+        res.writeHead(204, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+        });
+        res.end();
+        return;
+    }
+
+    try {
+        // Special endpoint for voices (no auth required)
+        if (pathname === '/api/voices') {
+            return await handleVoicesEndpoint(req, res);
+        }
+
+        // Extract channel name from URL
+        const channelName = extractChannelFromPath(pathname);
+        if (!channelName) {
+            return sendErrorResponse(res, 400, 'Channel name required in URL path');
+        }
+
+        // Verify user has access to this channel's settings
+        const authResult = await verifyChannelAccess(req, channelName);
+        if (!authResult.authorized) {
+            return sendErrorResponse(res, 401, authResult.error || 'Unauthorized access to channel settings');
+        }
+
+        // Route to appropriate handler based on path and method
+        if (pathname.includes('/api/tts/settings')) {
+            await handleTtsSettings(req, res, channelName, method);
+        } else if (pathname.includes('/api/tts/ignore')) {
+            await handleTtsIgnore(req, res, channelName, method);
+        } else if (pathname.includes('/api/music/settings')) {
+            await handleMusicSettings(req, res, channelName, method);
+        } else if (pathname.includes('/api/music/ignore')) {
+            await handleMusicIgnore(req, res, channelName, method);
+        } else {
+            sendErrorResponse(res, 404, 'API endpoint not found');
+        }
+    } catch (error) {
+        logger.error({ err: error, url: pathname }, 'API request error');
+        sendErrorResponse(res, 500, 'Internal server error');
+    }
+}
+
+// Voices endpoint handler
+async function handleVoicesEndpoint(req, res) {
+    try {
+        // Try to fetch voices from Replicate or return hardcoded list
+        const fallbackVoices = [
+            'Friendly_Person', 'Professional_Woman', 'Casual_Male', 'Energetic_Youth',
+            'Warm_Grandmother', 'Confident_Leader', 'Soothing_Narrator', 'Cheerful_Assistant',
+            'Deep_Narrator', 'Bright_Assistant', 'Calm_Guide', 'Energetic_Host'
+        ];
+        
+        // TODO: Fetch actual voices from TTS service
+        sendJsonResponse(res, 200, { success: true, voices: fallbackVoices });
+    } catch (error) {
+        logger.error({ err: error }, 'Failed to fetch voices');
+        sendErrorResponse(res, 500, 'Failed to fetch voices');
+    }
+}
+
+// TTS Settings handlers
+async function handleTtsSettings(req, res, channelName, method) {
+    if (method === 'GET') {
+        const settings = await getTtsState(channelName);
+        sendJsonResponse(res, 200, { success: true, settings });
+    } else if (method === 'PUT') {
+        const body = await parseJsonBody(req);
+        const { key, value } = body;
+        
+        // Validate the setting
+        if (!await validateTtsSetting(key, value)) {
+            return sendErrorResponse(res, 400, `Invalid setting: ${key} = ${value}`);
+        }
+        
+        const success = await setTtsState(channelName, key, value);
+        if (success) {
+            sendJsonResponse(res, 200, { success: true, message: 'Setting updated successfully' });
+        } else {
+            sendErrorResponse(res, 500, 'Failed to update setting');
+        }
+    } else {
+        sendErrorResponse(res, 405, 'Method not allowed');
+    }
+}
+
+// TTS Ignore list handlers
+async function handleTtsIgnore(req, res, channelName, method) {
+    if (method === 'POST') {
+        const body = await parseJsonBody(req);
+        const { username } = body;
+        if (!username) {
+            return sendErrorResponse(res, 400, 'Username required');
+        }
+        
+        const success = await addIgnoredUser(channelName, username);
+        if (success) {
+            sendJsonResponse(res, 200, { success: true, message: `User ${username} added to ignore list` });
+        } else {
+            sendErrorResponse(res, 500, 'Failed to add user to ignore list');
+        }
+    } else if (method === 'DELETE') {
+        const body = await parseJsonBody(req);
+        const { username } = body;
+        if (!username) {
+            return sendErrorResponse(res, 400, 'Username required');
+        }
+        
+        const success = await removeIgnoredUser(channelName, username);
+        if (success) {
+            sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from ignore list` });
+        } else {
+            sendErrorResponse(res, 500, 'Failed to remove user from ignore list');
+        }
+    } else {
+        sendErrorResponse(res, 405, 'Method not allowed');
+    }
+}
+
+// Music Settings handlers
+async function handleMusicSettings(req, res, channelName, method) {
+    if (method === 'GET') {
+        const settings = await getMusicState(channelName);
+        sendJsonResponse(res, 200, { success: true, settings });
+    } else if (method === 'PUT') {
+        const body = await parseJsonBody(req);
+        const { key, value } = body;
+        
+        let success = false;
+        if (key === 'enabled') {
+            success = await setMusicEnabled(channelName, value);
+        } else if (key === 'allowedRoles') {
+            success = await setAllowedMusicRoles(channelName, value);
+        } else if (key === 'bitsConfig') {
+            success = await setBitsConfigMusic(channelName, value);
+        } else {
+            return sendErrorResponse(res, 400, `Unknown music setting: ${key}`);
+        }
+        
+        if (success) {
+            sendJsonResponse(res, 200, { success: true, message: 'Music setting updated successfully' });
+        } else {
+            sendErrorResponse(res, 500, 'Failed to update music setting');
+        }
+    } else {
+        sendErrorResponse(res, 405, 'Method not allowed');
+    }
+}
+
+// Music Ignore list handlers
+async function handleMusicIgnore(req, res, channelName, method) {
+    if (method === 'POST') {
+        const body = await parseJsonBody(req);
+        const { username } = body;
+        if (!username) {
+            return sendErrorResponse(res, 400, 'Username required');
+        }
+        
+        const success = await addIgnoredUserMusic(channelName, username);
+        if (success) {
+            sendJsonResponse(res, 200, { success: true, message: `User ${username} added to music ignore list` });
+        } else {
+            sendErrorResponse(res, 500, 'Failed to add user to music ignore list');
+        }
+    } else if (method === 'DELETE') {
+        const body = await parseJsonBody(req);
+        const { username } = body;
+        if (!username) {
+            return sendErrorResponse(res, 400, 'Username required');
+        }
+        
+        const success = await removeIgnoredUserMusic(channelName, username);
+        if (success) {
+            sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from music ignore list` });
+        } else {
+            sendErrorResponse(res, 500, 'Failed to remove user from music ignore list');
+        }
+    } else {
+        sendErrorResponse(res, 405, 'Method not allowed');
+    }
+}
+
+// Validation function for TTS settings
+async function validateTtsSetting(key, value) {
+    switch (key) {
+        case 'engineEnabled':
+        case 'speakEvents':
+        case 'bitsModeEnabled':
+            return typeof value === 'boolean';
+        case 'mode':
+            return ['all', 'command'].includes(value);
+        case 'emotion':
+            return VALID_EMOTIONS.includes(value.toLowerCase());
+        case 'languageBoost':
+            return VALID_LANGUAGE_BOOSTS.includes(value);
+        case 'pitch':
+            const pitch = parseInt(value, 10);
+            return !isNaN(pitch) && pitch >= TTS_PITCH_MIN && pitch <= TTS_PITCH_MAX;
+        case 'speed':
+            const speed = parseFloat(value);
+            return !isNaN(speed) && speed >= TTS_SPEED_MIN && speed <= TTS_SPEED_MAX;
+        case 'bitsMinimumAmount':
+            const amount = parseInt(value, 10);
+            return !isNaN(amount) && amount >= 0;
+        default:
+            return false;
+    }
+}
+
+const httpServer = http.createServer(async (req, res) => {
     if (!req.url) { // Should not happen, but good to guard
         res.writeHead(400);
         res.end('Bad Request');
@@ -23,6 +356,11 @@ const httpServer = http.createServer((req, res) => {
     }
 
     let requestedPath = req.url.split('?')[0]; // Get only the path part, remove query string
+
+    // Handle API requests
+    if (requestedPath.startsWith('/api/')) {
+        return await handleApiRequest(req, res);
+    }
 
     // Ignore common browser requests for icons to prevent 404 spam in logs
     if (requestedPath === '/favicon.ico' || requestedPath === '/apple-touch-icon.png' || requestedPath === '/apple-touch-icon-precomposed.png') {
@@ -41,7 +379,6 @@ const httpServer = http.createServer((req, res) => {
     // This assumes files are directly in public, not in a 'tts-obs' subfolder within public
     const localFilePath = staticFilePath.startsWith('/tts-obs') ? staticFilePath.substring('/tts-obs'.length) : staticFilePath;
     const fullPath = path.join(PUBLIC_DIR, localFilePath);
-
 
     // Security: Prevent directory traversal
     if (fullPath.indexOf(PUBLIC_DIR) !== 0) {
