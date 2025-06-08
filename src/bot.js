@@ -276,8 +276,41 @@ async function main() {
         ircClientInstance.on('resub', (channel, username, months, message, userstate, methods) => {
             handleTwitchEventForTTS(channel, username, 'resub', `${username} resubscribed for ${months} months! ${message || ''}`);
         });
-        ircClientInstance.on('cheer', (channel, userstate, message) => {
-            handleTwitchEventForTTS(channel, userstate.username, 'cheer', `${userstate['display-name'] || userstate.username} cheered ${userstate.bits} bits! ${message}`);
+        ircClientInstance.on('cheer', async (channel, userstate, message) => {
+            const channelNameNoHash = channel.substring(1);
+            const ttsConfig = await getTtsState(channelNameNoHash);
+
+            // Check if the Bits-for-TTS feature is enabled
+            if (ttsConfig.bitsModeEnabled) {
+                const minimumBits = ttsConfig.bitsMinimumAmount || 1;
+                const userBits = parseInt(userstate.bits, 10);
+
+                if (userBits >= minimumBits) {
+                    // User paid enough, enqueue their message for TTS
+                    if (message && message.trim().length > 0) {
+                        logger.info(`[${channelNameNoHash}] Bits-for-TTS: User ${userstate.username} cheered ${userBits} (>= min ${minimumBits}). Enqueuing message: "${message}"`);
+                        await ttsQueue.enqueue(channelNameNoHash, {
+                            text: message,
+                            user: userstate.username,
+                            type: 'cheer_tts', // A specific type for this event
+                        });
+                    } else {
+                        logger.info(`[${channelNameNoHash}] Bits-for-TTS: User ${userstate.username} cheered ${userBits} but provided no message.`);
+                    }
+                } else {
+                    // User didn't pay enough (optional: notify them)
+                    logger.info(`[${channelNameNoHash}] Bits-for-TTS: User ${userstate.username} cheered ${userBits} (< min ${minimumBits}). Ignoring.`);
+                }
+            } 
+            // Fallback to original event announcements if Bits mode is OFF but general events are ON
+            else if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
+                const cheerAnnouncement = `${userstate['display-name'] || userstate.username} cheered ${userstate.bits} bits! ${message}`;
+                await ttsQueue.enqueue(channelNameNoHash, {
+                    text: cheerAnnouncement,
+                    user: userstate.username,
+                    type: 'event',
+                });
+            }
         });
         ircClientInstance.on('raided', (channel, username, viewers, tags) => {
             handleTwitchEventForTTS(channel, username, 'raid', `${username} is raiding with ${viewers} viewers!`);
