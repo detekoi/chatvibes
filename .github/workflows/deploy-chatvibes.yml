@@ -70,7 +70,7 @@ jobs:
       # New Step: Build and push the Docker image to Google Artifact Registry
       - name: Build and Push Docker Image
         run: |
-          gcloud builds submit --tag "gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE_NAME }}:${{ github.sha }}" .
+          gcloud builds submit --tag "gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE_NAME }}:${{ github.sha }}" . --async
 
       # Modified Step: Deploy the specific image to Cloud Run
       - name: Deploy to Cloud Run
