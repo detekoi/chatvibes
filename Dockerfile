@@ -4,25 +4,29 @@ FROM node:18-slim
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
-# (Optional but good practice) Ensure Python and pip are available
-RUN apt-get update && apt-get install -y python3 python3-pip
+# Install Python and the tool to create virtual environments
+RUN apt-get update && apt-get install -y python3 python3-pip python3-venv
 
-# --- Python Dependency Installation ---
-# Copy the Python requirements file into the container
+# Create a virtual environment in the /opt/venv directory
+RUN python3 -m venv /opt/venv
+
+# Add the virtual environment's bin directory to the PATH.
+# This makes `python` and `pip` from the venv the default.
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy Python requirements file
 COPY requirements.txt ./
 
-# Install the Python dependencies listed in requirements.txt
+# Install Python dependencies (this will now use the venv's pip)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- Node.js Dependency Installation ---
-# Copy package.json and package-lock.json
+# Copy Node.js package files
 COPY package*.json ./
 
-# Install Node.js dependencies using the lock file for consistency
+# Install Node.js dependencies
 RUN npm ci --only=production
 
-# --- Application Code ---
-# Copy the rest of your application's source code
+# Bundle app source
 COPY . .
 
 # Expose the port the app runs on
