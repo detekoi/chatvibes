@@ -32,7 +32,7 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
 
 1.  **Visit the ChatVibes Management Portal**:
 
-      * Go to [ChatVibes Management Portal](https://chatvibestts.web.app/) (Make sure this is your correct deployed URL)
+      * Go to [ChatVibes Management Portal](https://chatvibestts.web.app/)
       * Click on "Login with Twitch"
 
 2.  **Authorize the Application**:
