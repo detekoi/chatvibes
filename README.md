@@ -56,7 +56,8 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
 
 5.  **How TTS is Triggered**:
 
-      * ChatVibes TTS is typically triggered by specific events you configure (e.g., channel point redemptions, specific commands like `!say <message>`, donations, subscriptions, etc., depending on the bot's features).
+      * By default, ChatVibes is in **"all messages" mode**, where it reads most chat from all users. You can use the `!tts permission` and `!tts mode` commands to change this behavior. See [Commands](#command-documentation)
+      * You can trigger TTS with a command like `!tts <your message>` or `!tts say <your message>`.
       * The bot also supports a **Bits-for-TTS** and **Bits-for-Music** mode, where messages are only read or music is only generated if they are accompanied by a cheer that meets a channel-configurable minimum amount.
       * Please refer to the [main ChatVibes documentation](https://detekoi.github.io/chatvibesdocs.html) for details on setting up TTS triggers and customizing voice options.
       * The repository for the ChatVibes web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
@@ -233,13 +234,24 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 **`!tts mode [all|command]`**
 
   * **Description:** Toggles the TTS mode.
-      * `all`: All chat messages (not from ignored users or commands) and enabled events will be spoken.
-      * `command`: Only messages triggered by specific TTS commands (like `!tts say`) or enabled events will be spoken. Regular chat is ignored.
+      * `all`: All chat messages (respecting the `!tts permission` setting) and enabled events will be spoken. **This is the default mode.**
+      * `command`: Only messages triggered by specific TTS commands (like `!tts <message>`) or enabled events will be spoken. Regular chat is ignored.
   * **Permission:** Moderator
   * **Usage:**
       * `!tts mode all`
       * `!tts mode command`
       * `!tts mode` (displays current mode)
+
+**`!tts permission [everyone|all|mods]`**
+
+  * **Description:** Sets a filter on who can trigger TTS when the bot is in `all` mode. This does not affect `command` mode.
+      * `everyone` or `all`: Any user's chat message can be spoken. (**Default**)
+      * `mods`: Only messages from moderators and the broadcaster will be spoken.
+  * **Permission:** Moderator
+  * **Usage:**
+      * `!tts permission everyone`
+      * `!tts permission mods`
+      * `!tts permission` (displays the current permission filter)
 
 **`!tts bits [on|off|min <amount>]`**
 
@@ -417,12 +429,12 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 
 -----
 
-### Direct TTS (Moderator Only - for testing/announcements)
+### Direct TTS
 
-**`!tts say <message>`**
-* **Description:** Immediately enqueues the provided message for TTS, regardless of the current mode. Uses the requesting user's preferences or channel defaults for voice, pitch, speed, and emotion.
-* **Permission:** Moderator
-* **Usage:** `!tts say Welcome everyone to the stream!`
+**`!tts <message>`** (Alias: `!tts say <message>`)
+* **Description:** Immediately enqueues the provided message for TTS. This works in both `all` and `command` modes. It uses the requesting user's preferences (or channel defaults) for voice, pitch, speed, and emotion.
+* **Permission:** Everyone
+* **Usage:** `!tts Welcome everyone to the stream!` or `!tts say Welcome everyone!`
 
 -----
   

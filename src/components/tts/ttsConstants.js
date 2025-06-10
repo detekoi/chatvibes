@@ -3,7 +3,8 @@ import config from '../../config/index.js';
 
 export const DEFAULT_TTS_SETTINGS = {
     engineEnabled: true,
-    mode: 'command',
+    mode: 'all',
+    ttsPermissionLevel: 'everyone',
     voiceId: config.tts?.defaultVoiceId || 'Friendly_Person',
     speed: config.tts?.defaultSpeed || 1.0, 
     volume: 1.0,

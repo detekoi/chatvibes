@@ -26,6 +26,7 @@ import toggleEvents from '../tts/toggleEvents.js';
 import emotionCmd from '../tts/emotion.js';
 import say from '../tts/say.js';
 import bits from '../tts/bits.js';
+import permission from '../tts/permission.js';
 import { hasPermission } from '../commandProcessor.js'; // Import the centralized function
 // Create subcommands object
 const ttsSubCommands = {
@@ -58,6 +59,7 @@ const ttsSubCommands = {
     events: toggleEvents,
     say,
     bits,
+    permission,
 };
 
 export default {
@@ -86,9 +88,20 @@ export default {
         let actualSubCommandHandler = ttsSubCommands[subCommandNameFromArgs];
         let effectiveSubCommandName = subCommandNameFromArgs;
 
+        // If the subcommand is not found, treat it as an implicit 'say' command
         if (!actualSubCommandHandler || typeof actualSubCommandHandler.execute !== 'function') {
-            enqueueMessage(channel, `@${user['display-name']}, Unknown TTS subcommand '${subCommandNameFromArgs}'. For commands, see: https://detekoi.github.io/chatvibesdocs.html#commands`);
-            logger.debug(`Unknown TTS subcommand: ${subCommandNameFromArgs} for user ${user.username} in ${channel}`);
+            // Use the 'say' handler but with the original full arguments
+            const sayHandler = ttsSubCommands['say'];
+            if (sayHandler && typeof sayHandler.execute === 'function') {
+                const sayContext = {
+                    ...context,
+                    command: 'say',
+                    args: args, // Pass all original args as the message to say
+                };
+                await sayHandler.execute(sayContext);
+            } else {
+                enqueueMessage(channel, `@${user['display-name']}, For command info, see: https://detekoi.github.io/chatvibesdocs.html#commands`);
+            }
             return;
         }
 

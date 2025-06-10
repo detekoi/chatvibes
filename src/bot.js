@@ -18,7 +18,7 @@ import { initializeMusicQueues, enqueueMusicGeneration } from './components/musi
 import { initializeMusicState, getMusicState } from './components/music/musicState.js';
 
 // Command Processing
-import { initializeCommandProcessor, processMessage as processCommand } from './components/commands/commandProcessor.js';
+import { initializeCommandProcessor, processMessage as processCommand, hasPermission } from './components/commands/commandProcessor.js';
 import { initializeIrcSender, enqueueMessage, clearMessageQueue } from './lib/ircSender.js';
 
 // Channel Management
@@ -235,7 +235,10 @@ async function main() {
                 } 
                 // Requirement 1: If bits mode is OFF, check for 'all' mode to read regular chat.
                 else if (ttsConfig.mode === 'all') {
-                    await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
+                    const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
+                    if (hasPermission(requiredPermission, tags, channelNameNoHash)) {
+                        await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
+                    }
                 }
             }
         });
@@ -282,7 +285,10 @@ async function main() {
                                 await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
                             }
                         } else if (ttsConfig.mode === 'all') {
-                            await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
+                            const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
+                            if (hasPermission(requiredPermission, userstate, channelNameNoHash)) {
+                                await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
+                            }
                         }
                     }
                 }

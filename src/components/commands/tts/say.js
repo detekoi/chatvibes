@@ -8,7 +8,7 @@ export default {
     name: 'say',
     description: 'Makes the bot say a message using TTS (for testing or specific announcements).',
     usage: '!tts say <message>',
-    permission: 'moderator', // Or 'everyone' for easy testing during development
+    permission: 'everyone', 
     execute: async (context) => {
         const { channel, user, args } = context;
         const channelNameNoHash = channel.substring(1);
