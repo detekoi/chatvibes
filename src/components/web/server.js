@@ -346,6 +346,8 @@ async function validateTtsSetting(key, value) {
             return typeof value === 'boolean';
         case 'mode':
             return ['all', 'command'].includes(value);
+        case 'ttsPermissionLevel':
+            return ['everyone', 'mods'].includes(value);
         case 'emotion':
             return VALID_EMOTIONS.includes(value.toLowerCase());
         case 'languageBoost':
