@@ -300,6 +300,18 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 
 ### User & Event Preferences
 
+**`!tts prefs [<channel>]`** (Alias: `!tts preferences`)
+
+  * **Description:** Sends you a short-lived link to **your personal TTS settings page**.  
+      * Configure your own voice, pitch, speed, emotion, and language on a per-channel basis.  
+      * Includes a red-outlined “Danger Zone” where you can add yourself to the channel’s TTS and/or Music ignore lists (only a moderator can undo this).  
+      * The bot posts the link publicly in chat; it is signed for you only and expires after one click **or 10 minutes**.  
+      * If `<channel>` is omitted, the page is pre-filled with the channel where you ran the command—but you can type any other channel that has ChatVibes enabled.
+  * **Permission:** Everyone
+  * **Usage:**
+      * `!tts prefs`  (pre-selects the current channel)
+      * `!tts prefs SomeOtherChannel`
+
 **`!tts voice <voice_id|reset>`**
 
   * **Description:** Allows a user to set their preferred voice for messages they trigger. Use `reset` to revert to the channel's default voice. Use `!tts voices` to get a link to available voice IDs.
