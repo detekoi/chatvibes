@@ -67,6 +67,9 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
+      - name: Update package-lock.json
+        run: npm install
+
       # New Step: Build and push the Docker image to Google Artifact Registry
       - name: Build and Push Docker Image
         run: |
