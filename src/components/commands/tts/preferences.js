@@ -25,18 +25,41 @@ function createSignedToken(channel, viewer) {
 }
 
 /**
- * Creates a link for viewer preferences (direct link for now)
+ * Creates a short link for viewer preferences via the web UI API
  * @param {string} channel - Channel name
  * @param {string} viewer - Viewer username
- * @returns {Promise<string>} - Settings URL
+ * @returns {Promise<string>} - Short link URL
  */
 async function createViewerSettingsLink(channel, viewer) {
     const token = createSignedToken(channel, viewer);
     const longUrl = `${VIEWER_PAGE_BASE}/viewer-settings.html?channel=${encodeURIComponent(channel)}&token=${token}`;
     
-    // For now, return the direct link
-    // TODO: Implement short link service later if needed
-    return longUrl;
+    try {
+        console.log('Attempting to create short link for:', longUrl);
+        // Call the web UI's short link creation API (no auth required for this endpoint)
+        const response = await axios.post(`${VIEWER_PAGE_BASE}/api/shortlink`, {
+            url: longUrl
+        }, {
+            timeout: 5000  // 5 second timeout
+        });
+        
+        console.log('Short link response:', response.status, response.data);
+        
+        if (response.data && response.data.shortUrl) {
+            console.log('Successfully created short link:', response.data.shortUrl);
+            return response.data.shortUrl;
+        } else {
+            throw new Error('No shortUrl in response');
+        }
+    } catch (error) {
+        console.error('Failed to create short link, using long URL:', error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', error.response.data);
+        }
+        // Fallback to long URL if short link service fails
+        return longUrl;
+    }
 }
 
 export default {
