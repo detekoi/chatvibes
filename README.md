@@ -104,7 +104,7 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
     Copy `.env.example` to `.env` and fill in the required values:
 
       * `TWITCH_BOT_USERNAME`: The Twitch username for your bot (e.g., "ChatVibesBot").
-      * `TWITCH_CHANNELS`: Comma-separated list of Twitch channels to join initially (e.g., "yourchannel,anotherchannel").
+      * `TWITCH_CHANNELS`: For local development only - comma-separated list of Twitch channels to join initially (e.g., "yourchannel,anotherchannel").
       * `TWITCH_CLIENT_ID`: Your Twitch application's Client ID.
       * `TWITCH_CLIENT_SECRET`: Your Twitch application's Client Secret.
       * `REPLICATE_API_TOKEN`: Your Replicate API token.
@@ -175,9 +175,7 @@ Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from t
 ## OBS Browser Source Setup
 
 1.  In OBS, add a new "Browser" source.
-2.  Set the URL to `http://localhost:8080/?channel=yourchannelname`
-      * Replace `yourchannelname` with the lowercase Twitch username of the channel this ChatVibes instance is for. This **must match** one of the channels the bot is in.
-      * Ensure the port (`8080`) matches what ChatVibes is running on.
+2.  Set the URL to your unique TTS URL from the ChatVibes dashboard (for cloud instances) or `http://localhost:8080/?channel=yourchannelname` for local development.
 3.  Set Width and Height as needed (e.g., 300x100, can be small as it's audio-only).
 4.  **Important:** After adding the source, right-click it in OBS, select "Interact". A window will pop up showing the page. If you see a button like "Click to Enable TTS Audio", click it once to allow the browser to play audio. This is required due to browser autoplay policies.
 5.  **Audio Setup:** In the Audio Mixer section of OBS, click the three dots (⋮) next to the browser source's audio track, select "Advanced Audio Properties", and set "Audio Monitoring" to "Monitor and Output". This allows the streamer to hear the TTS audio.
@@ -300,17 +298,14 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 
 ### User & Event Preferences
 
-**`!tts prefs [<channel>]`** (Alias: `!tts preferences`)
+**`!tts prefs`** (Alias: `!tts preferences`)
 
   * **Description:** Sends you a short-lived link to **your personal TTS settings page**.  
       * Configure your own voice, pitch, speed, emotion, and language on a per-channel basis.  
       * Includes a red-outlined “Danger Zone” where you can add yourself to the channel’s TTS and/or Music ignore lists (only a moderator can undo this).  
-      * The bot posts the link publicly in chat; it is signed for you only and expires after one click **or 10 minutes**.  
-      * If `<channel>` is omitted, the page is pre-filled with the channel where you ran the command—but you can type any other channel that has ChatVibes enabled.
+      * The bot posts the link publicly in chat; it is signed for you only and expires after first access or 10 minutes. The page is pre-filled with the current channel.  
   * **Permission:** Everyone
-  * **Usage:**
-      * `!tts prefs`  (pre-selects the current channel)
-      * `!tts prefs SomeOtherChannel`
+  * **Usage:** `!tts prefs`
 
 **`!tts voice <voice_id|reset>`**
 
