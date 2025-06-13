@@ -18,7 +18,13 @@ if (!JWT_SECRET) {
  */
 function createSignedToken(channel, viewer) {
     return jwt.sign(
-        { ch: channel, usr: viewer, typ: 'prefs' },
+        { 
+            ch: channel, 
+            usr: viewer, 
+            typ: 'prefs',
+            requiresTwitchAuth: true, // Force Twitch authentication for security
+            iat: Math.floor(Date.now() / 1000) // Issued at time
+        },
         JWT_SECRET,
         { expiresIn: '10m' }
     );
