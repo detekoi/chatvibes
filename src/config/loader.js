@@ -44,7 +44,8 @@ function loadConfig() {
             defaultPitch: parseInt(process.env.TTS_DEFAULT_PITCH, 10) || 0, 
             defaultSpeed: parseFloat(process.env.TTS_DEFAULT_SPEED) || 1.0, 
             replicateApiToken: process.env.REPLICATE_API_TOKEN,
-            replicateModel: process.env.REPLICATE_TTS_MODEL_NAME || "minimax/speech-02-turbo"
+            replicateModel: process.env.REPLICATE_TTS_MODEL_NAME || "minimax/speech-02-turbo",
+            defaultEnglishNormalization: false,
             },
         app: {
             logLevel: process.env.LOG_LEVEL || 'info',

@@ -564,6 +564,15 @@ export async function clearUserLanguagePreference(channelName, username) {
     }
 }
 
+async function getUserEnglishNormalizationPreference(channelName, username) {
+    const userPrefs = await getUserPreferences(channelName, username);
+    return userPrefs?.englishNormalization;
+}
+
+async function setUserEnglishNormalizationPreference(channelName, username, value) {
+    await setUserPreference(channelName, username, 'englishNormalization', value);
+}
+
 // --- Functions for Bits-for-TTS Configuration ---
 /**
  * Sets the Bits-for-TTS configuration for a channel.
@@ -611,4 +620,9 @@ export async function getBitsConfig(channelName) {
  */
 export async function resetBitsConfig(channelName) {
     return setBitsConfig(channelName, { enabled: false, minimumAmount: 0 });
+}
+
+export {
+    getUserEnglishNormalizationPreference,
+    setUserEnglishNormalizationPreference
 }

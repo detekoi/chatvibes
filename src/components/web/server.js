@@ -220,7 +220,12 @@ async function handleVoicesEndpoint(req, res) {
 async function handleTtsSettings(req, res, channelName, method) {
     if (method === 'GET') {
         const settings = await getTtsState(channelName);
-        sendJsonResponse(res, 200, { success: true, settings });
+        // Include englishNormalization in the GET response
+        const payload = {
+            ...settings,
+            englishNormalization: settings.englishNormalization !== undefined ? settings.englishNormalization : false, // Assuming false as default if not set
+        };
+        sendJsonResponse(res, 200, { success: true, settings: payload });
     } else if (method === 'PUT') {
         const body = await parseJsonBody(req);
         const { key, value } = body;
@@ -343,6 +348,8 @@ async function validateTtsSetting(key, value) {
         case 'engineEnabled':
         case 'speakEvents':
         case 'bitsModeEnabled':
+            return typeof value === 'boolean';
+        case 'englishNormalization':
             return typeof value === 'boolean';
         case 'mode':
             return ['all', 'command'].includes(value);

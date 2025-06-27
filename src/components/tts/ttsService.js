@@ -28,7 +28,9 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     pitch: options.pitch ?? TTS_PITCH_DEFAULT,
     emotion: options.emotion ?? config.tts?.defaultEmotion ?? 'auto',
     language_boost: options.languageBoost ?? config.tts?.defaultLanguageBoost ?? 'Automatic',
-    english_normalization: options.englishNormalization !== undefined ? options.englishNormalization : true, // Use provided value if exists
+    english_normalization: options.englishNormalization !== undefined
+        ? options.englishNormalization
+        : false,
     sample_rate: options.sampleRate ?? 32000,
     bitrate: options.bitrate ?? 128000,
     channel: options.channel ?? 'mono',

@@ -10,7 +10,7 @@ export const DEFAULT_TTS_SETTINGS = {
     volume: 1.0,
     pitch: config.tts?.defaultPitch || 0, 
     emotion: config.tts?.defaultEmotion || 'auto',
-    englishNormalization: true,
+    englishNormalization: false,
     sampleRate: 32000,
     bitrate: 128000,
     channel: 'mono',

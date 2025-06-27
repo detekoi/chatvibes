@@ -8,7 +8,8 @@ import {
     getUserVoicePreference,
     getUserPitchPreference,
     getUserSpeedPreference,
-    getUserLanguagePreference
+    getUserLanguagePreference,
+    getUserEnglishNormalizationPreference
 } from './ttsState.js';
 import { sendAudioToChannel } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
@@ -60,6 +61,7 @@ export async function enqueue(channelName, eventData) {
     let userPitch = null;
     let userSpeed = null;
     let userLanguage = null;
+    let userEnglishNorm = null;
 
     if (user) {
         userEmotion = await getUserEmotionPreference(channelName, user);
@@ -67,6 +69,7 @@ export async function enqueue(channelName, eventData) {
         userPitch = await getUserPitchPreference(channelName, user);
         userSpeed = await getUserSpeedPreference(channelName, user);
         userLanguage = await getUserLanguagePreference(channelName, user);
+        userEnglishNorm = await getUserEnglishNormalizationPreference(channelName, user);
     }
 
     const finalVoiceOptions = {
@@ -76,7 +79,9 @@ export async function enqueue(channelName, eventData) {
         emotion: userEmotion || channelConfig.emotion || DEFAULT_TTS_SETTINGS.emotion,
         languageBoost: userLanguage || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
         volume: channelConfig.volume || DEFAULT_TTS_SETTINGS.volume,
-        englishNormalization: channelConfig.englishNormalization !== undefined ? channelConfig.englishNormalization : DEFAULT_TTS_SETTINGS.englishNormalization,
+        englishNormalization: userEnglishNorm ?? (channelConfig.englishNormalization !== undefined
+                                ? channelConfig.englishNormalization
+                                : DEFAULT_TTS_SETTINGS.englishNormalization),
         sampleRate: channelConfig.sampleRate || DEFAULT_TTS_SETTINGS.sampleRate,
         bitrate: channelConfig.bitrate || DEFAULT_TTS_SETTINGS.bitrate,
         channel: channelConfig.channel || DEFAULT_TTS_SETTINGS.channel,
