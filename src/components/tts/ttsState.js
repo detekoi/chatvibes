@@ -564,6 +564,34 @@ export async function clearUserLanguagePreference(channelName, username) {
     }
 }
 
+async function getUserPreferences(channelName, username) {
+    const lowerUser = username.toLowerCase();
+    const channelConfig = await getTtsState(channelName);
+    return channelConfig.userPreferences?.[lowerUser] || {};
+}
+
+async function setUserPreference(channelName, username, preferenceKey, value) {
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.set({
+            userPreferences: { [lowerUser]: { [preferenceKey]: value } },
+            updatedAt: FieldValue.serverTimestamp()
+        }, { mergeFields: [`userPreferences.${lowerUser}.${preferenceKey}`, 'updatedAt'] });
+        logger.info(`[${channelName}] User TTS preference updated for ${lowerUser}: ${preferenceKey} = ${value}`);
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
+        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
+        currentConfig.userPreferences[lowerUser][preferenceKey] = value;
+        currentConfig.updatedAt = new Date();
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, user: lowerUser, preference: preferenceKey, value }, 'Failed to set user TTS preference.');
+        return false;
+    }
+}
+
 async function getUserEnglishNormalizationPreference(channelName, username) {
     const userPrefs = await getUserPreferences(channelName, username);
     return userPrefs?.englishNormalization;
