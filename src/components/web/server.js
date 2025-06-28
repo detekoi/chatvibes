@@ -4,11 +4,14 @@ import path from 'path';
 import fs from 'fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { fileURLToPath } from 'url';
-import logger from '../../lib/logger.js'; // Path: src/lib/logger.js
+import logger from '../../lib/logger.js';
+import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
+import config from '../../config/index.js';
 
 // Import TTS state management functions
-import { 
-    getTtsState, 
+import {
+    getTtsState,
     setTtsState,
     addIgnoredUser,
     removeIgnoredUser,
@@ -54,11 +57,21 @@ const PORT = process.env.PORT || 8080;
 let wssInstance = null;
 const channelClients = new Map(); // channelName (lowercase) -> Set of WebSocket clients
 
-// Helper function to parse JSON body
+// --- Security & Utility Enhancements ---
+
+// Enforce a reasonable body size limit to prevent DoS attacks
+const MAX_BODY_SIZE = 1048576; // 1 MB
+
 function parseJsonBody(req) {
     return new Promise((resolve, reject) => {
         let body = '';
-        req.on('data', chunk => body += chunk);
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY_SIZE) {
+                req.connection.destroy();
+                reject(new Error('Payload too large'));
+            }
+        });
         req.on('end', () => {
             try {
                 resolve(body ? JSON.parse(body) : {});
@@ -70,9 +83,20 @@ function parseJsonBody(req) {
     });
 }
 
+const apiRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    // Correctly extract IP when behind a proxy (like Cloud Run)
+    keyGenerator: (req) => {
+        return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+    },
+});
+
 // Helper function to send JSON response
 function sendJsonResponse(res, statusCode, data) {
-    res.writeHead(statusCode, { 
+    res.writeHead(statusCode, {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': 'https://chatvibestts.web.app',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -94,94 +118,90 @@ function extractChannelFromPath(url) {
     return channelIndex !== -1 && parts[channelIndex + 1] ? parts[channelIndex + 1].toLowerCase() : null;
 }
 
-// Simple channel ownership verification
-async function verifyChannelAccess(req, channelName) {
+// --- Security Enhancements ---
+const JWT_SECRET = process.env.JWT_SECRET_KEY || config.secrets.jwtSecret;
+
+// Hardened JWT Verification Middleware
+async function verifyChannelAccess(req, res, next) {
+    const channelName = extractChannelFromPath(req.url);
+    if (!channelName) {
+        return sendErrorResponse(res, 400, 'Channel name not found in URL path');
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return { authorized: false, error: 'Missing authorization header' };
+        return sendErrorResponse(res, 401, 'Authorization token is required');
     }
 
     const token = authHeader.split(' ')[1];
-    
+    if (!token) {
+        return sendErrorResponse(res, 401, 'Bearer token is missing');
+    }
+
     try {
-        // In a real implementation, you would:
-        // 1. Decode the JWT token from the web UI
-        // 2. Verify it's valid and not expired  
-        // 3. Extract the user's Twitch username
-        // 4. Check if it matches the channelName or if user is a moderator
-        
-        // For now, we'll do a simple check that the token exists
-        // TODO: Implement proper JWT verification with shared secret
-        if (!token || token.length < 10) {
-            return { authorized: false, error: 'Invalid token' };
+        const decoded = jwt.verify(token, JWT_SECRET, {
+            audience: 'chatvibes-api',
+            issuer: 'chatvibes-auth'
+        });
+
+        if (!decoded?.userLogin) {
+            return sendErrorResponse(res, 401, 'Token missing required userLogin claim');
         }
-        
-        // Placeholder: In production, verify JWT and extract username
-        // const decodedToken = jwt.verify(token, JWT_SECRET);
-        // const username = decodedToken.userLogin;
-        // return { authorized: username.toLowerCase() === channelName, username };
-        
-        // For development: Allow access (remove in production)
-        return { authorized: true, username: channelName };
-        
+
+        const userLogin = decoded.userLogin.toLowerCase();
+        if (userLogin !== channelName) {
+            return sendErrorResponse(res, 403, 'Forbidden: You do not have permission to modify this channel');
+        }
+
+        req.channelName = channelName;
+        req.userLogin = userLogin;
+        await next(); // Await the next middleware/handler
     } catch (error) {
-        logger.error({ err: error }, 'Token verification failed');
-        return { authorized: false, error: 'Token verification failed' };
+        logger.error({ err: error }, 'JWT verification failed');
+        if (error instanceof jwt.TokenExpiredError) {
+            return sendErrorResponse(res, 401, 'Token has expired');
+        }
+        if (error instanceof jwt.JsonWebTokenError) {
+            return sendErrorResponse(res, 401, 'Invalid token');
+        }
+        return sendErrorResponse(res, 500, 'Internal server error during token verification');
     }
 }
 
 // Route handlers for REST API
 async function handleApiRequest(req, res) {
-    const url = new URL(req.url, `http://localhost:${PORT}`);
-    const pathname = url.pathname;
-    const method = req.method;
+    apiRateLimiter(req, res, async () => {
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204, {
+                'Access-Control-Allow-Origin': 'https://chatvibestts.web.app',
+                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+                'Access-Control-Allow-Credentials': 'true'
+            });
+            res.end();
+            return;
+        }
 
-    // Handle CORS preflight
-    if (method === 'OPTIONS') {
-        res.writeHead(204, {
-            'Access-Control-Allow-Origin': 'https://chatvibestts.web.app',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Credentials': 'true'
+        if (req.url.startsWith('/api/voices')) {
+            return handleVoicesEndpoint(req, res);
+        }
+
+        // All other API endpoints require verification
+        await verifyChannelAccess(req, res, async () => {
+            const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
+            if (pathname.includes('/api/tts/settings')) {
+                await handleTtsSettings(req, res, req.channelName, req.method);
+            } else if (pathname.includes('/api/tts/ignore')) {
+                await handleTtsIgnore(req, res, req.channelName, req.method);
+            } else if (pathname.includes('/api/music/settings')) {
+                await handleMusicSettings(req, res, req.channelName, req.method);
+            } else if (pathname.includes('/api/music/ignore')) {
+                await handleMusicIgnore(req, res, req.channelName, req.method);
+            } else {
+                sendErrorResponse(res, 404, 'API endpoint not found');
+            }
         });
-        res.end();
-        return;
-    }
-
-    try {
-        // Special endpoint for voices (no auth required)
-        if (pathname === '/api/voices') {
-            return await handleVoicesEndpoint(req, res);
-        }
-
-        // Extract channel name from URL
-        const channelName = extractChannelFromPath(pathname);
-        if (!channelName) {
-            return sendErrorResponse(res, 400, 'Channel name required in URL path');
-        }
-
-        // Verify user has access to this channel's settings
-        const authResult = await verifyChannelAccess(req, channelName);
-        if (!authResult.authorized) {
-            return sendErrorResponse(res, 401, authResult.error || 'Unauthorized access to channel settings');
-        }
-
-        // Route to appropriate handler based on path and method
-        if (pathname.includes('/api/tts/settings')) {
-            await handleTtsSettings(req, res, channelName, method);
-        } else if (pathname.includes('/api/tts/ignore')) {
-            await handleTtsIgnore(req, res, channelName, method);
-        } else if (pathname.includes('/api/music/settings')) {
-            await handleMusicSettings(req, res, channelName, method);
-        } else if (pathname.includes('/api/music/ignore')) {
-            await handleMusicIgnore(req, res, channelName, method);
-        } else {
-            sendErrorResponse(res, 404, 'API endpoint not found');
-        }
-    } catch (error) {
-        logger.error({ err: error, url: pathname }, 'API request error');
-        sendErrorResponse(res, 500, 'Internal server error');
-    }
+    });
 }
 
 // Voices endpoint handler
@@ -190,7 +210,7 @@ async function handleVoicesEndpoint(req, res) {
         // Try to fetch actual voices from TTS service
         const { getAvailableVoices } = await import('../tts/ttsService.js');
         const voiceList = await getAvailableVoices();
-        
+
         if (voiceList && voiceList.length > 0) {
             const voiceIds = voiceList.map(voice => voice.id || voice);
             sendJsonResponse(res, 200, { success: true, voices: voiceIds });
@@ -205,7 +225,7 @@ async function handleVoicesEndpoint(req, res) {
         }
     } catch (error) {
         logger.error({ err: error }, 'Failed to fetch voices from TTS service');
-        
+
         // Return fallback voices on error
         const fallbackVoices = [
             'Friendly_Person', 'Professional_Woman', 'Casual_Male', 'Energetic_Youth',
@@ -229,12 +249,12 @@ async function handleTtsSettings(req, res, channelName, method) {
     } else if (method === 'PUT') {
         const body = await parseJsonBody(req);
         const { key, value } = body;
-        
+
         // Validate the setting
         if (!await validateTtsSetting(key, value)) {
             return sendErrorResponse(res, 400, `Invalid setting: ${key} = ${value}`);
         }
-        
+
         const success = await setTtsState(channelName, key, value);
         if (success) {
             sendJsonResponse(res, 200, { success: true, message: 'Setting updated successfully' });
@@ -254,7 +274,7 @@ async function handleTtsIgnore(req, res, channelName, method) {
         if (!username) {
             return sendErrorResponse(res, 400, 'Username required');
         }
-        
+
         const success = await addIgnoredUser(channelName, username);
         if (success) {
             sendJsonResponse(res, 200, { success: true, message: `User ${username} added to ignore list` });
@@ -267,7 +287,7 @@ async function handleTtsIgnore(req, res, channelName, method) {
         if (!username) {
             return sendErrorResponse(res, 400, 'Username required');
         }
-        
+
         const success = await removeIgnoredUser(channelName, username);
         if (success) {
             sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from ignore list` });
@@ -287,7 +307,7 @@ async function handleMusicSettings(req, res, channelName, method) {
     } else if (method === 'PUT') {
         const body = await parseJsonBody(req);
         const { key, value } = body;
-        
+
         let success = false;
         if (key === 'enabled') {
             success = await setMusicEnabled(channelName, value);
@@ -298,7 +318,7 @@ async function handleMusicSettings(req, res, channelName, method) {
         } else {
             return sendErrorResponse(res, 400, `Unknown music setting: ${key}`);
         }
-        
+
         if (success) {
             sendJsonResponse(res, 200, { success: true, message: 'Music setting updated successfully' });
         } else {
@@ -317,7 +337,7 @@ async function handleMusicIgnore(req, res, channelName, method) {
         if (!username) {
             return sendErrorResponse(res, 400, 'Username required');
         }
-        
+
         const success = await addIgnoredUserMusic(channelName, username);
         if (success) {
             sendJsonResponse(res, 200, { success: true, message: `User ${username} added to music ignore list` });
@@ -330,12 +350,12 @@ async function handleMusicIgnore(req, res, channelName, method) {
         if (!username) {
             return sendErrorResponse(res, 400, 'Username required');
         }
-        
+
         const success = await removeIgnoredUserMusic(channelName, username);
         if (success) {
             sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from music ignore list` });
         } else {
-            sendErrorResponse(res, 500, 'Failed to remove user from music ignore list');
+            sendErrorResponse(res, 500, 'Failed to remove user from ignore list');
         }
     } else {
         sendErrorResponse(res, 405, 'Method not allowed');
@@ -457,74 +477,69 @@ const httpServer = http.createServer(async (req, res) => {
 });
 
 export function initializeWebServer() {
-    // ... (wssInstance and WebSocket connection logic remains the same as the good version from previous response)
-    // Ensure the 'channel' extraction from req.url in wss.on('connection') is robust.
     if (wssInstance) {
         logger.warn('ChatVibes TTS WebServer already initialized.');
         return { server: httpServer, wss: wssInstance, sendAudioToChannel };
     }
 
-    wssInstance = new WebSocketServer({ server: httpServer }); // Attach WebSocket server to HTTP server
+    wssInstance = new WebSocketServer({ server: httpServer });
     logger.info(`ChatVibes TTS WebSocket Server initialized and attached to HTTP server.`);
 
     wssInstance.on('connection', (ws, req) => {
-        let clientChannelName = 'unknown_channel'; // Default
+        let channelName = null;
+        let token = null;
         try {
-            // req.url for WebSocket connection is the path part of the initial HTTP handshake URL
-            // e.g., "/?channel=parfaittest"
-            if (req.url) {
-                const params = new URLSearchParams(req.url.split('?')[1] || '');
-                const extractedChannel = params.get('channel')?.toLowerCase();
-                if (extractedChannel) {
-                    clientChannelName = extractedChannel;
-                }
-            }
+            const urlObj = new URL(req.url, `http://${req.headers.host}`);
+            channelName = urlObj.searchParams.get('channel')?.toLowerCase();
+            token = urlObj.searchParams.get('token');
         } catch (e) {
-            logger.error({ err: e, url: req.url }, "Error parsing channel from WebSocket connection URL");
+            logger.error({ err: e, url: req.url }, "Error parsing channel/token from WebSocket connection URL");
         }
 
-
-        if (clientChannelName === 'unknown_channel' || clientChannelName === 'null' || !clientChannelName) {
-            logger.warn(`TTS WebSocket connection attempt with invalid/missing channel identifier (URL: ${req.url}). Terminating.`);
-            ws.send(JSON.stringify({ type: 'error', message: 'Channel identifier missing or invalid in WebSocket connection URL.' }));
-            ws.terminate();
+        if (!token || !channelName) {
+            ws.close(1008, 'Token and channel are required');
             return;
         }
 
-        logger.info(`TTS WebSocket client connected for channel: ${clientChannelName}`);
+        try {
+            // Verify WebSocket token
+            jwt.verify(token, JWT_SECRET, { audience: 'chatvibes-ws', issuer: 'chatvibes-auth' });
 
-        if (!channelClients.has(clientChannelName)) {
-            channelClients.set(clientChannelName, new Set());
-        }
-        channelClients.get(clientChannelName).add(ws);
-        ws.send(JSON.stringify({ type: 'registered', channel: clientChannelName, message: 'Successfully registered with ChatVibes TTS WebSocket.' }));
-
-        ws.on('message', (message) => {
-            try {
-                const parsedMessage = JSON.parse(message.toString());
-                logger.debug({ channel: clientChannelName, received: parsedMessage }, `Received WebSocket message`);
-                // Handle client messages if necessary, e.g., confirmation of audio played
-                // if (parsedMessage.type === 'audioPlayedConfirmation') { ... }
-            } catch (e) {
-                logger.warn({ channel: clientChannelName, rawMessage: message.toString() }, "Received unparseable WebSocket message from client.");
+            logger.info(`WebSocket client connected and authenticated for channel: ${channelName}`);
+            if (!channelClients.has(channelName)) {
+                channelClients.set(channelName, new Set());
             }
-        });
+            channelClients.get(channelName).add(ws);
+            ws.send(JSON.stringify({ type: 'registered', channel: channelName }));
 
-        ws.on('close', (code, reason) => {
-            const reasonStr = reason ? reason.toString() : 'No reason given';
-            logger.info(`TTS WebSocket client disconnected for channel: ${clientChannelName}. Code: ${code}, Reason: "${reasonStr}"`);
-            if (channelClients.has(clientChannelName)) {
-                channelClients.get(clientChannelName).delete(ws);
-                if (channelClients.get(clientChannelName).size === 0) {
-                    channelClients.delete(clientChannelName);
-                    logger.info(`No more TTS clients for channel: ${clientChannelName}, removing from map.`);
+            ws.on('message', (message) => {
+                try {
+                    const parsedMessage = JSON.parse(message.toString());
+                    logger.debug({ channel: channelName, received: parsedMessage }, `Received WebSocket message`);
+                } catch (e) {
+                    logger.warn({ channel: channelName, rawMessage: message.toString() }, "Received unparseable WebSocket message from client.");
                 }
-            }
-        });
+            });
 
-        ws.on('error', (error) => {
-            logger.error({ err: error, channel: clientChannelName }, 'TTS WebSocket client error.');
-        });
+            ws.on('close', (code, reason) => {
+                const reasonStr = reason ? reason.toString() : 'No reason given';
+                logger.info(`WebSocket client disconnected for channel: ${channelName}. Code: ${code}, Reason: "${reasonStr}"`);
+                const clients = channelClients.get(channelName);
+                if (clients) {
+                    clients.delete(ws);
+                    if (clients.size === 0) {
+                        channelClients.delete(channelName);
+                        logger.info(`No more TTS clients for channel: ${channelName}, removing from map.`);
+                    }
+                }
+            });
+
+            ws.on('error', (error) => logger.error({ err: error, channel: channelName }, 'WebSocket client error.'));
+
+        } catch (error) {
+            logger.warn({ err: error.message, channel: channelName }, "WebSocket connection rejected due to invalid token.");
+            ws.close(1008, 'Invalid token');
+        }
     });
 
     httpServer.listen(PORT, () => {
@@ -535,7 +550,6 @@ export function initializeWebServer() {
 }
 
 export function sendAudioToChannel(channelName, audioUrlOrCommand) {
-    // ... (sendAudioToChannel logic remains the same as the good version from previous response)
     if (!wssInstance) {
         logger.warn('ChatVibes TTS WebSocket server not initialized. Cannot send audio.');
         return;

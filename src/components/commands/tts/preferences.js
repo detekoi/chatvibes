@@ -26,7 +26,11 @@ function createSignedToken(channel, viewer) {
             iat: Math.floor(Date.now() / 1000) // Issued at time
         },
         JWT_SECRET,
-        { expiresIn: '10m' }
+        { 
+            expiresIn: '10m',
+            issuer: 'chatvibes-auth',
+            audience: 'chatvibes-ws'
+        }
     );
 }
 
