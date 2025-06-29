@@ -4,10 +4,10 @@ import jwt from 'jsonwebtoken';
 import axios from 'axios';
 
 const VIEWER_PAGE_BASE = process.env.WEB_UI_BASE_URL || 'https://chatvibestts.web.app';
-const JWT_SECRET = process.env.JWT_SECRET_KEY;
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 
-if (!JWT_SECRET) {
-    console.error('JWT_SECRET environment variable is required for preferences command');
+if (!JWT_SECRET_KEY) {
+    console.error('JWT_SECRET_KEY environment variable is required for preferences command');
 }
 
 /**
@@ -25,7 +25,7 @@ function createSignedToken(channel, viewer) {
             requiresTwitchAuth: true, // Force Twitch authentication for security
             iat: Math.floor(Date.now() / 1000) // Issued at time
         },
-        JWT_SECRET,
+        JWT_SECRET_KEY,
         { 
             expiresIn: '10m',
             issuer: 'chatvibes-auth',

@@ -119,7 +119,7 @@ function extractChannelFromPath(url) {
 }
 
 // --- Security Enhancements ---
-const JWT_SECRET = process.env.JWT_SECRET_KEY || config.secrets.jwtSecret;
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || config.secrets.jwtSecret;
 
 // Hardened JWT Verification Middleware
 async function verifyChannelAccess(req, res, next) {
@@ -139,7 +139,7 @@ async function verifyChannelAccess(req, res, next) {
     }
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET, {
+        const decoded = jwt.verify(token, JWT_SECRET_KEY, {
             audience: 'chatvibes-api',
             issuer: 'chatvibes-auth'
         });
@@ -507,7 +507,7 @@ export function initializeWebServer() {
         let authenticated = false;
         if (token) {
             try {
-                jwt.verify(token, JWT_SECRET, { audience: 'chatvibes-ws', issuer: 'chatvibes-auth' });
+                jwt.verify(token, JWT_SECRET_KEY, { audience: 'chatvibes-ws', issuer: 'chatvibes-auth' });
                 authenticated = true;
                 logger.info(`WebSocket client connected and authenticated for channel: ${channelName}`);
             } catch (error) {
