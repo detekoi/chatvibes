@@ -84,7 +84,7 @@ export default {
         const username = user.username;
         const displayName = user['display-name'] || username;
 
-        if (!JWT_SECRET) {
+        if (!JWT_SECRET_KEY) {
             console.error('JWT_SECRET_KEY not found in environment. Available env keys:', Object.keys(process.env).filter(k => k.includes('JWT')));
             enqueueMessage(channel, `@${displayName}, Viewer preferences are temporarily unavailable. Please try again later.`);
             return;
