@@ -496,50 +496,58 @@ export function initializeWebServer() {
             logger.error({ err: e, url: req.url }, "Error parsing channel/token from WebSocket connection URL");
         }
 
-        if (!token || !channelName) {
-            ws.close(1008, 'Token and channel are required');
+        if (!channelName) {
+            logger.warn(`TTS WebSocket connection attempt with invalid/missing channel identifier (URL: ${req.url}). Terminating.`);
+            ws.send(JSON.stringify({ type: 'error', message: 'Channel identifier missing or invalid in WebSocket connection URL.' }));
+            ws.close(1008, 'Channel name required');
             return;
         }
 
-        try {
-            // Verify WebSocket token
-            jwt.verify(token, JWT_SECRET, { audience: 'chatvibes-ws', issuer: 'chatvibes-auth' });
-
-            logger.info(`WebSocket client connected and authenticated for channel: ${channelName}`);
-            if (!channelClients.has(channelName)) {
-                channelClients.set(channelName, new Set());
+        // For WebSocket connections, allow both authenticated (with token) and unauthenticated (OBS browser source)
+        let authenticated = false;
+        if (token) {
+            try {
+                jwt.verify(token, JWT_SECRET, { audience: 'chatvibes-ws', issuer: 'chatvibes-auth' });
+                authenticated = true;
+                logger.info(`WebSocket client connected and authenticated for channel: ${channelName}`);
+            } catch (error) {
+                logger.warn({ err: error.message, channel: channelName }, "WebSocket connection with invalid token, allowing unauthenticated access.");
             }
-            channelClients.get(channelName).add(ws);
-            ws.send(JSON.stringify({ type: 'registered', channel: channelName }));
-
-            ws.on('message', (message) => {
-                try {
-                    const parsedMessage = JSON.parse(message.toString());
-                    logger.debug({ channel: channelName, received: parsedMessage }, `Received WebSocket message`);
-                } catch (e) {
-                    logger.warn({ channel: channelName, rawMessage: message.toString() }, "Received unparseable WebSocket message from client.");
-                }
-            });
-
-            ws.on('close', (code, reason) => {
-                const reasonStr = reason ? reason.toString() : 'No reason given';
-                logger.info(`WebSocket client disconnected for channel: ${channelName}. Code: ${code}, Reason: "${reasonStr}"`);
-                const clients = channelClients.get(channelName);
-                if (clients) {
-                    clients.delete(ws);
-                    if (clients.size === 0) {
-                        channelClients.delete(channelName);
-                        logger.info(`No more TTS clients for channel: ${channelName}, removing from map.`);
-                    }
-                }
-            });
-
-            ws.on('error', (error) => logger.error({ err: error, channel: channelName }, 'WebSocket client error.'));
-
-        } catch (error) {
-            logger.warn({ err: error.message, channel: channelName }, "WebSocket connection rejected due to invalid token.");
-            ws.close(1008, 'Invalid token');
         }
+
+        if (!authenticated) {
+            logger.info(`WebSocket client connected (unauthenticated) for channel: ${channelName}`);
+        }
+
+        if (!channelClients.has(channelName)) {
+            channelClients.set(channelName, new Set());
+        }
+        channelClients.get(channelName).add(ws);
+        ws.send(JSON.stringify({ type: 'registered', channel: channelName, message: 'Successfully registered with ChatVibes TTS WebSocket.' }));
+
+        ws.on('message', (message) => {
+            try {
+                const parsedMessage = JSON.parse(message.toString());
+                logger.debug({ channel: channelName, received: parsedMessage }, `Received WebSocket message`);
+            } catch (e) {
+                logger.warn({ channel: channelName, rawMessage: message.toString() }, "Received unparseable WebSocket message from client.");
+            }
+        });
+
+        ws.on('close', (code, reason) => {
+            const reasonStr = reason ? reason.toString() : 'No reason given';
+            logger.info(`WebSocket client disconnected for channel: ${channelName}. Code: ${code}, Reason: "${reasonStr}"`);
+            const clients = channelClients.get(channelName);
+            if (clients) {
+                clients.delete(ws);
+                if (clients.size === 0) {
+                    channelClients.delete(channelName);
+                    logger.info(`No more TTS clients for channel: ${channelName}, removing from map.`);
+                }
+            }
+        });
+
+        ws.on('error', (error) => logger.error({ err: error, channel: channelName }, 'WebSocket client error.'));
     });
 
     httpServer.listen(PORT, () => {
