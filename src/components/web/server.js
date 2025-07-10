@@ -48,6 +48,8 @@ import {
     TTS_SPEED_MAX
 } from '../tts/ttsConstants.js';
 
+import { getSecretValue } from '../../lib/secretManager.js'; // Import your secret manager helper
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -485,39 +487,53 @@ export function initializeWebServer() {
     wssInstance = new WebSocketServer({ server: httpServer });
     logger.info(`ChatVibes TTS WebSocket Server initialized and attached to HTTP server.`);
 
-    wssInstance.on('connection', (ws, req) => {
+    wssInstance.on('connection', async (ws, req) => { // Make the handler async
         let channelName = null;
-        let token = null;
+        let tokenFromUrl = null;
+
         try {
             const urlObj = new URL(req.url, `http://${req.headers.host}`);
             channelName = urlObj.searchParams.get('channel')?.toLowerCase();
-            token = urlObj.searchParams.get('token');
+            tokenFromUrl = urlObj.searchParams.get('token'); // This is the persistent OBS token
         } catch (e) {
-            logger.error({ err: e, url: req.url }, "Error parsing channel/token from WebSocket connection URL");
-        }
-
-        if (!channelName) {
-            logger.warn(`TTS WebSocket connection attempt with invalid/missing channel identifier (URL: ${req.url}). Terminating.`);
-            ws.send(JSON.stringify({ type: 'error', message: 'Channel identifier missing or invalid in WebSocket connection URL.' }));
-            ws.close(1008, 'Channel name required');
+            logger.error({ err: e, url: req.url }, "Error parsing channel/token from WebSocket URL");
+            ws.close(1008, 'Invalid URL format');
             return;
         }
 
-        // For WebSocket connections, allow both authenticated (with token) and unauthenticated (OBS browser source)
-        let authenticated = false;
-        if (token) {
-            try {
-                jwt.verify(token, JWT_SECRET_KEY, { audience: 'chatvibes-ws', issuer: 'chatvibes-auth' });
-                authenticated = true;
-                logger.info(`WebSocket client connected and authenticated for channel: ${channelName}`);
-            } catch (error) {
-                logger.warn({ err: error.message, channel: channelName }, "WebSocket connection with invalid token, allowing unauthenticated access.");
-            }
+        if (!channelName || !tokenFromUrl) {
+            logger.warn(`TTS WebSocket connection rejected: Channel or Token missing from URL.`);
+            ws.send(JSON.stringify({ type: 'error', message: 'Channel and token are required.' }));
+            ws.close(1008, 'Channel and token required');
+            return;
         }
 
-        if (!authenticated) {
-            logger.info(`WebSocket client connected (unauthenticated) for channel: ${channelName}`);
+        // --- New Token Validation Logic ---
+        try {
+            const channelConfig = await getTtsState(channelName);
+            const secretName = channelConfig?.obsSocketSecretName;
+
+            if (!secretName) {
+                logger.error({ channel: channelName }, "Rejecting WS connection: No OBS token secret is configured for this channel.");
+                ws.close(1008, 'Configuration error: No token configured');
+                return;
+            }
+
+            const storedToken = await getSecretValue(secretName);
+
+            if (storedToken && storedToken === tokenFromUrl) {
+                logger.info(`WebSocket client authenticated for channel: ${channelName}`);
+            } else {
+                logger.warn({ channel: channelName }, "Rejecting WS connection: Invalid token provided.");
+                ws.close(1008, 'Invalid token');
+                return;
+            }
+        } catch (error) {
+            logger.error({ err: error, channel: channelName }, "Error during WebSocket token validation.");
+            ws.close(1011, 'Internal server error during authentication');
+            return;
         }
+        // --- End Validation Logic ---
 
         if (!channelClients.has(channelName)) {
             channelClients.set(channelName, new Set());

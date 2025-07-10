@@ -22,10 +22,11 @@ import { initializeCommandProcessor, processMessage as processCommand, hasPermis
 import { initializeIrcSender, enqueueMessage, clearMessageQueue } from './lib/ircSender.js';
 
 // Channel Management
-import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges } from './components/twitch/channelManager.js';
+import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges, listenForObsTokenChanges } from './components/twitch/channelManager.js';
 
 let ircClientInstance = null;
 let channelChangeListener = null;
+let obsTokenChangeListener = null;
 const CHANNEL_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 let isShuttingDown = false;
 
@@ -73,6 +74,19 @@ async function gracefulShutdown(signal) {
         }
     } else {
         logger.info('ChatVibes: No active Firestore channel change listener to clean up.');
+    }
+
+    if (obsTokenChangeListener && typeof obsTokenChangeListener === 'function') {
+        try {
+            logger.info('ChatVibes: Cleaning up Firestore OBS token change listener...');
+            obsTokenChangeListener();
+            obsTokenChangeListener = null;
+            logger.info('ChatVibes: Firestore OBS token change listener cleaned up.');
+        } catch (error) {
+            logger.error({ err: error }, 'ChatVibes: Error cleaning up Firestore OBS token change listener.');
+        }
+    } else {
+        logger.info('ChatVibes: No active Firestore OBS token change listener to clean up.');
     }
 
     clearMessageQueue();
@@ -173,6 +187,9 @@ async function main() {
                 if (!channelChangeListener) {
                     channelChangeListener = listenForChannelChanges(ircClientInstance);
                 }
+                if (!obsTokenChangeListener) {
+                    obsTokenChangeListener = listenForObsTokenChanges();
+                }
                 await syncManagedChannelsWithIrc(ircClientInstance);
             } else {
                  logger.info('ChatVibes (DEV MODE): Relying on TMI.js auto-join for channels specified in client options.');
@@ -184,6 +201,10 @@ async function main() {
             if (channelChangeListener) {
                 channelChangeListener();
                 channelChangeListener = null;
+            }
+            if (obsTokenChangeListener) {
+                obsTokenChangeListener();
+                obsTokenChangeListener = null;
             }
         });
 

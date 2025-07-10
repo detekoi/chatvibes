@@ -112,6 +112,30 @@ export async function setTtsState(channelName, key, value) {
         return false;
     }
 }
+
+/**
+ * Sets the OBS WebSocket token secret name for a channel.
+ * @param {string} channelName - The name of the channel.
+ * @param {string} secretName - The full resource name of the secret in Secret Manager.
+ * @returns {Promise<boolean>}
+ */
+export async function setObsSocketSecretName(channelName, secretName) {
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.set({
+            obsSocketSecretName: secretName,
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        logger.info(`[${channelName}] OBS WebSocket secret name has been set.`);
+        // Update cache
+        const currentConfig = await getTtsState(channelName);
+        channelConfigsCache.set(channelName, { ...currentConfig, obsSocketSecretName: secretName });
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName }, 'Failed to set OBS socket secret name in Firestore.');
+        return false;
+    }
+}
 // Functions for managing ignored users
 export async function addIgnoredUser(channelName, username) {
     const lowerUser = username.toLowerCase();

@@ -2,7 +2,7 @@
 
 ChatVibes is a Twitch bot that reads chat messages and events aloud using Text-to-Speech (TTS), controllable via chat commands. It's designed to be deployed on Google Cloud Run and integrates with OBS via a browser source for audio playback.
 
-**[Add ChatVibes to your Twitch channel →](https://chatvibestts.web.app/)**
+**[Streamer Dashboard →](https://chatvibestts.web.app/)**
 
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-blue.svg)](LICENSE.md) 
 

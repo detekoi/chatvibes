@@ -1,6 +1,7 @@
 // src/components/twitch/channelManager.js
 import { Firestore } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
+import { setObsSocketSecretName } from '../tts/ttsState.js';
 
 // --- Firestore Client Initialization ---
 let db = null; // Firestore database instance
@@ -292,4 +293,50 @@ export async function getAllManagedChannels() {
         logger.error({ err: error }, "[ChannelManager] Error fetching all managed channels.");
         throw new ChannelManagerError("Failed to fetch all managed channels.", error);
     }
+}
+
+/**
+ * Sets up a listener for OBS token changes in the managedChannels collection.
+ * When a new OBS token is generated via the web UI, this will sync it to the TTS channel config.
+ * @returns {Function} Unsubscribe function to stop listening for changes
+ */
+export function listenForObsTokenChanges() {
+    const db = _getDb();
+    
+    logger.info("[ChannelManager] Setting up listener for OBS token changes...");
+    
+    const unsubscribe = db.collection(MANAGED_CHANNELS_COLLECTION)
+        .onSnapshot(snapshot => {
+            snapshot.docChanges().forEach(async change => {
+                if (change.type === 'modified') {
+                    const channelData = change.doc.data();
+                    const channelName = change.doc.id; // Document ID is the channel name
+                    
+                    // Check if this change includes a new OBS token
+                    if (channelData && channelData.obsTokenSecretName) {
+                        try {
+                            logger.info(`[ChannelManager] Detected OBS token update for channel: ${channelName}`);
+                            
+                            // Sync the OBS token secret name to the TTS channel config
+                            const success = await setObsSocketSecretName(channelName, channelData.obsTokenSecretName);
+                            
+                            if (success) {
+                                logger.info(`[ChannelManager] Successfully synced OBS token for channel: ${channelName}`);
+                            } else {
+                                logger.error(`[ChannelManager] Failed to sync OBS token for channel: ${channelName}`);
+                            }
+                        } catch (error) {
+                            logger.error({ err: error, channel: channelName }, 
+                                `[ChannelManager] Error syncing OBS token for channel: ${channelName}`);
+                        }
+                    }
+                }
+            });
+        }, error => {
+            logger.error({ err: error }, "[ChannelManager] Error in OBS token changes listener.");
+        });
+    
+    logger.info("[ChannelManager] OBS token changes listener set up successfully.");
+    
+    return unsubscribe;
 }
