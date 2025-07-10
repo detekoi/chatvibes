@@ -187,12 +187,14 @@ async function main() {
                 if (!channelChangeListener) {
                     channelChangeListener = listenForChannelChanges(ircClientInstance);
                 }
-                if (!obsTokenChangeListener) {
-                    obsTokenChangeListener = listenForObsTokenChanges();
-                }
                 await syncManagedChannelsWithIrc(ircClientInstance);
             } else {
                  logger.info('ChatVibes (DEV MODE): Relying on TMI.js auto-join for channels specified in client options.');
+            }
+            
+            // Always set up OBS token listener (needed for WebSocket authentication)
+            if (!obsTokenChangeListener) {
+                obsTokenChangeListener = listenForObsTokenChanges();
             }
         });
 

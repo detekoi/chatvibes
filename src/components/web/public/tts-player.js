@@ -9,10 +9,15 @@ const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 // e.g., http://localhost:8080/?channel=yourstreamername
 const queryParams = new URLSearchParams(window.location.search);
 const channelName = queryParams.get('channel');
+const token = queryParams.get('token');
 
 let wsUrl;
 if (channelName) {
-    wsUrl = `${wsProtocol}//${window.location.host}/?channel=${channelName}`; // Keep channel in WS URL for server
+    if (token) {
+        wsUrl = `${wsProtocol}//${window.location.host}/?channel=${channelName}&token=${token}`; // Include both channel and token
+    } else {
+        wsUrl = `${wsProtocol}//${window.location.host}/?channel=${channelName}`; // Fallback without token
+    }
 } else {
     // Fallback or error if channel name is not provided in OBS source URL
     console.error("Channel name not provided in query parameters! WebSocket cannot connect properly.");
