@@ -63,6 +63,7 @@ const ttsSubCommands = {
     permission,
     preferences,
     prefs: preferences,
+    settings: preferences,
 };
 
 export default {

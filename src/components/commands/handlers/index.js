@@ -7,6 +7,7 @@ import music from './music.js';
 const commandHandlers = {
     tts,
     music,
+    myvoice: preferences,
     // someOtherBaseCommand, // Example
 };
 
