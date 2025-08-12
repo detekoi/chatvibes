@@ -1,5 +1,6 @@
 // src/bot.js
 import config from './config/index.js';
+import { getAllowedChannels, isChannelAllowed, initializeAllowList } from './lib/allowList.js';
 import logger from './lib/logger.js';
 import http from 'http';
 
@@ -129,6 +130,9 @@ async function main() {
         logger.info('ChatVibes: Initializing Secret Manager...');
         initializeSecretManager();
 
+        // Initialize allow-list from secret if configured (before loading channels)
+        await initializeAllowList();
+
         logger.info('ChatVibes: Initializing TTS State (Firestore)...');
         await initializeTtsState();
 
@@ -141,24 +145,39 @@ async function main() {
         logger.info('ChatVibes: Initializing Music Generation system (queues)...');
         initializeMusicQueues();
 
-        // Load Twitch Channels
-        if (config.app.nodeEnv === 'development') {
-            const devChannelsRaw = process.env.TWITCH_CHANNELS || "";
-            const devChannels = devChannelsRaw.split(',').map(ch => ch.trim().toLowerCase()).filter(ch => ch);
-            if (devChannels.length === 0) {
-                logger.fatal('ChatVibes (DEV MODE): TWITCH_CHANNELS environment variable is not set or results in an empty list. Please set it.');
+        // --- Load Twitch Channels ---
+        // Use env-based channels locally (development) and Firestore when deployed on Cloud Run.
+        const isCloudRun = !!(process.env.K_SERVICE || process.env.K_REVISION || process.env.K_CONFIGURATION);
+        if (!isCloudRun && config.app.nodeEnv === 'development') {
+            logger.info('ChatVibes: Local development detected. Using TWITCH_CHANNELS from .env');
+            const envChannels = (process.env.TWITCH_CHANNELS || '')
+                .split(',')
+                .map(ch => ch.trim().toLowerCase())
+                .filter(Boolean);
+            // Apply allow-list if present
+            const allowList = getAllowedChannels();
+            const filteredChannels = allowList.length > 0 ? envChannels.filter(ch => allowList.includes(ch)) : envChannels;
+            
+            if (envChannels.length === 0) {
+                logger.fatal('ChatVibes: TWITCH_CHANNELS is empty or not set in .env for development. Please set it.');
                 process.exit(1);
             }
-            config.twitch.channels = [...new Set(devChannels)];
-            logger.info(`ChatVibes (DEV MODE): Unique channels prepared for TMI client options: [${config.twitch.channels.join(', ')}]`);
+            if (allowList.length > 0 && filteredChannels.length === 0) {
+                logger.fatal('ChatVibes: All configured dev channels are blocked by allow-list. Update ALLOWED_CHANNELS or TWITCH_CHANNELS.');
+                process.exit(1);
+            }
+            config.twitch.channels = [...new Set(filteredChannels)];
+            logger.info(`ChatVibes: Loaded ${config.twitch.channels.length} channels from .env: [${config.twitch.channels.join(', ')}]`);
         } else {
-            logger.info('ChatVibes: Loading active channels from Firestore for TMI client options...');
+            logger.info('ChatVibes: Cloud environment detected or not development. Loading channels from Firestore.');
             try {
                 const managedChannels = await getActiveManagedChannels();
-                config.twitch.channels = [...new Set(managedChannels || [])];
-                logger.info(`ChatVibes: Unique channels from Firestore for TMI client options: [${config.twitch.channels.join(', ')}]`);
-                if (config.twitch.channels.length === 0) {
-                    logger.warn('ChatVibes: No active channels from Firestore. Bot will rely on dynamic joins.');
+                if (managedChannels && managedChannels.length > 0) {
+                    config.twitch.channels = [...new Set(managedChannels)];
+                    logger.info(`ChatVibes: Loaded ${config.twitch.channels.length} channels from Firestore.`);
+                } else {
+                    logger.warn('ChatVibes: No active channels found in Firestore managedChannels collection. Bot will wait for dynamic joins.');
+                    config.twitch.channels = [];
                 }
             } catch (error) {
                 logger.error({ err: error }, 'ChatVibes: Error loading channels from Firestore.');
@@ -216,6 +235,7 @@ async function main() {
 
             // --- 1. PREPARATION ---
             const channelNameNoHash = channel.substring(1).toLowerCase();
+            if (!isChannelAllowed(channelNameNoHash)) return;
             const username = tags.username?.toLowerCase();
             const bits = parseInt(tags.bits, 10) || 0;
 
@@ -268,15 +288,20 @@ async function main() {
 
         // --- Event Handlers ---
         ircClientInstance.on('subscription', (channel, username, method, message, userstate) => {
+            const channelNameNoHash = channel.substring(1).toLowerCase();
+            if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'subscription', `${username} just subscribed! ${message || ''}`);
         });
         ircClientInstance.on('resub', (channel, username, months, message, userstate, methods) => {
+            const channelNameNoHash = channel.substring(1).toLowerCase();
+            if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'resub', `${username} resubscribed for ${months} months! ${message || ''}`);
         });
         
         // Handle cheer messages - both with and without text
         ircClientInstance.on('cheer', async (channel, userstate, message) => {
             const channelNameNoHash = channel.substring(1);
+            if (!isChannelAllowed(channelNameNoHash.toLowerCase())) return;
             const username = userstate.username?.toLowerCase();
             const bits = parseInt(userstate.bits, 10) || 0;
             
@@ -329,6 +354,8 @@ async function main() {
         });
 
         ircClientInstance.on('raided', (channel, username, viewers, tags) => {
+            const channelNameNoHash = channel.substring(1).toLowerCase();
+            if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'raid', `${username} is raiding with ${viewers} viewers!`);
         });
 

@@ -2,7 +2,9 @@
 
 ChatVibes is a Twitch bot that reads chat messages and events aloud using Text-to-Speech (TTS), controllable via chat commands. It's designed to be deployed on Google Cloud Run and integrates with OBS via a browser source for audio playback.
 
-**[Streamer Dashboard →](https://chatvibestts.web.app/)**
+> **Important:** Access to the cloud version of ChatVibes is currently invite-only via an allow-list. The self-serve web dashboard is disabled for unapproved channels. If you'd like to try the bot, please contact me via [this contact form](https://detekoi.github.io/#contact-me).
+
+**[Streamer Dashboard →](https://chatvibestts.web.app/)** *(invite-only)*
 
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-blue.svg)](LICENSE.md) 
 
@@ -28,9 +30,11 @@ For a complete list of available commands and voices, visit the documentation:
 
 ## Adding ChatVibes to Your Channel & Setup
 
-Streamers can easily add or remove the ChatVibes Text-to-Speech (TTS) bot from their channel and configure it for their streaming software using the web interface:
+**Note:** Access is currently invite-only. If you haven't been approved, you'll see an access denied message. [Request access here](https://detekoi.github.io/#contact-me).
 
-1.  **Visit the ChatVibes Management Portal**:
+Approved streamers can add or remove the ChatVibes Text-to-Speech (TTS) bot from their channel and configure it for their streaming software using the web interface:
+
+1.  **Visit the ChatVibes Management Portal** *(invite-only)*:
 
       * Go to [ChatVibes Management Portal](https://chatvibestts.web.app/)
       * Click on "Login with Twitch"

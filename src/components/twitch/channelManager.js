@@ -2,6 +2,7 @@
 import { Firestore } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 import { setObsSocketSecretName } from '../tts/ttsState.js';
+import { getAllowedChannels } from '../../lib/allowList.js';
 
 // --- Firestore Client Initialization ---
 let db = null; // Firestore database instance
@@ -96,10 +97,22 @@ export async function getActiveManagedChannels() {
             }
         });
         
-        logger.info(`[ChannelManager] Successfully fetched ${channels.length} active managed channels.`);
-        logger.debug(`[ChannelManager] Active channels: ${channels.join(', ')}`);
-        
-        return channels;
+        // Apply allow-list filtering if configured
+        const allowList = getAllowedChannels();
+        const filtered = allowList.length > 0 ? channels.filter(ch => allowList.includes(ch)) : channels;
+
+        if (allowList.length > 0 && filtered.length !== channels.length) {
+            const blocked = channels.filter(ch => !allowList.includes(ch));
+            logger.info(`[ChannelManager] Allow-list active. Allowed: ${filtered.length}, Blocked: ${blocked.length}`);
+            if (blocked.length) {
+                logger.debug(`[ChannelManager] Blocked channels: ${blocked.join(', ')}`);
+            }
+        }
+
+        logger.info(`[ChannelManager] Successfully fetched ${filtered.length} active managed channels (post allow-list).`);
+        logger.debug(`[ChannelManager] Active channels: ${filtered.join(', ')}`);
+
+        return filtered;
     } catch (error) {
         logger.error({ err: error }, "[ChannelManager] Error fetching active managed channels.");
         throw new ChannelManagerError("Failed to fetch active managed channels.", error);
@@ -166,12 +179,28 @@ export async function syncManagedChannelsWithIrc(ircClient) {
         
         const promises = [];
         
+        const allowList = getAllowedChannels();
         snapshot.forEach(doc => {
             const channelData = doc.data();
             if (channelData && typeof channelData.channelName === 'string') {
                 const channelName = channelData.channelName.toLowerCase();
                 const isActive = !!channelData.isActive;
                 const isCurrentlyJoined = currentChannels.includes(channelName);
+                
+                if (allowList.length > 0 && !allowList.includes(channelName)) {
+                    if (isCurrentlyJoined) {
+                        // Leave channels that are not allowed
+                        promises.push(
+                            syncChannelWithIrc(ircClient, channelName, false)
+                                .then(() => partedChannels.push(channelName))
+                                .catch(err => {
+                                    logger.error({ err, channel: channelName }, 
+                                        `[ChannelManager] Error leaving disallowed channel ${channelName}`);
+                                })
+                        );
+                    }
+                    return; // Skip non-allowed channels
+                }
                 
                 if (isActive && !isCurrentlyJoined) {
                     // Need to join
@@ -245,7 +274,12 @@ export function listenForChannelChanges(ircClient) {
                 logger.info(`[ChannelManager] Detected ${changes.length} channel management changes.`);
                 
                 // Process the VALID changes
+                const allowList = getAllowedChannels();
                 changes.forEach(change => {
+                    if (allowList.length > 0 && !allowList.includes(change.channelName.toLowerCase())) {
+                        logger.info({ channel: change.channelName }, '[ChannelManager] Skipping change: channel not in allow-list');
+                        return;
+                    }
                     if (change.type === 'added' || change.type === 'modified') {
                         syncChannelWithIrc(ircClient, change.channelName, change.isActive)
                             .catch(err => {
@@ -314,6 +348,12 @@ export function listenForObsTokenChanges() {
                     
                     // Check if this change includes a new OBS token
                     if (channelData && channelData.obsTokenSecretName) {
+                        // Enforce allow-list: skip syncing tokens for disallowed channels
+                        const allowed = getAllowedChannels();
+                        if (allowed.length > 0 && !allowed.includes(channelName.toLowerCase())) {
+                            logger.info({ channel: channelName }, '[ChannelManager] Skipping OBS token sync: channel not in allow-list');
+                            return;
+                        }
                         try {
                             logger.info(`[ChannelManager] Detected OBS token update for channel: ${channelName}`);
                             

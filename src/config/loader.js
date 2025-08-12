@@ -29,6 +29,11 @@ function loadConfig() {
     }
     // TWITCH_CHANNELS check can remain for local dev convenience
 
+    const allowedChannels = (process.env.ALLOWED_CHANNELS || '')
+        .split(',')
+        .map(ch => ch.trim().toLowerCase())
+        .filter(Boolean);
+
     const config = {
         twitch: {
             username: process.env.TWITCH_BOT_USERNAME,
@@ -37,6 +42,9 @@ function loadConfig() {
                 : [], // In prod, this will be populated by channelManager
             clientId: process.env.TWITCH_CLIENT_ID,
             clientSecret: process.env.TWITCH_CLIENT_SECRET,
+        },
+        security: {
+            allowedChannels,
         },
         tts: {
             defaultVoiceId: process.env.TTS_DEFAULT_VOICE_ID || 'Friendly_Person',
@@ -54,6 +62,7 @@ function loadConfig() {
         },
         secrets: {
             twitchBotRefreshTokenName: process.env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME,
+            allowedChannelsSecretName: process.env.ALLOWED_CHANNELS_SECRET_NAME,
         }
     };
 

@@ -8,6 +8,7 @@ import logger from '../../lib/logger.js';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import config from '../../config/index.js';
+import { isChannelAllowed } from '../../lib/allowList.js';
 
 // Import TTS state management functions
 import {
@@ -128,6 +129,11 @@ async function verifyChannelAccess(req, res, next) {
     const channelName = extractChannelFromPath(req.url);
     if (!channelName) {
         return sendErrorResponse(res, 400, 'Channel name not found in URL path');
+    }
+
+    // Allow-list enforcement
+    if (!isChannelAllowed(channelName)) {
+        return sendErrorResponse(res, 403, 'Forbidden: Channel is not allowed to use this service');
     }
 
     const authHeader = req.headers.authorization;
@@ -505,6 +511,13 @@ export function initializeWebServer() {
             logger.warn(`TTS WebSocket connection rejected: Channel or Token missing from URL.`);
             ws.send(JSON.stringify({ type: 'error', message: 'Channel and token are required.' }));
             ws.close(1008, 'Channel and token required');
+            return;
+        }
+
+        // Enforce allow-list before any secret lookups
+        if (!isChannelAllowed(channelName)) {
+            logger.warn({ channel: channelName }, 'Rejecting WS connection: Channel not in allow-list');
+            ws.close(1008, 'Channel not allowed');
             return;
         }
 
