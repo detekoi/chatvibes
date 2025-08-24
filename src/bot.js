@@ -1,6 +1,6 @@
 // src/bot.js
 import config from './config/index.js';
-import { getAllowedChannels, isChannelAllowed, initializeAllowList } from './lib/allowList.js';
+import { getAllowedChannels, isChannelAllowed, initializeAllowList, startAllowListRefresh } from './lib/allowList.js';
 import logger from './lib/logger.js';
 import http from 'http';
 
@@ -132,6 +132,9 @@ async function main() {
 
         // Initialize allow-list from secret if configured (before loading channels)
         await initializeAllowList();
+        
+        // Start periodic refresh of allowlist (every 5 minutes)
+        startAllowListRefresh(5);
 
         logger.info('ChatVibes: Initializing TTS State (Firestore)...');
         await initializeTtsState();

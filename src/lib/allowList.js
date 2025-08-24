@@ -2,6 +2,8 @@
 import config from '../config/index.js';
 import { getSecretValue } from './secretManager.js';
 
+let allowListRefreshInterval = null;
+
 /**
  * Returns true if the channel is permitted to use the bot.
  * If no allow-list is configured, all channels are allowed.
@@ -50,5 +52,41 @@ export async function initializeAllowList() {
     // Errors already logged in getSecretValue
   }
 }
+
+/**
+ * Start periodic refresh of the allowlist from the secret.
+ * Refreshes every 5 minutes by default.
+ */
+export function startAllowListRefresh(intervalMinutes = 5) {
+  const secretName = process.env.ALLOWED_CHANNELS_SECRET_NAME || config.secrets?.allowedChannelsSecretName;
+  if (!secretName) {
+    console.log('[AllowList] No secret configured, periodic refresh disabled');
+    return;
+  }
+
+  // Clear any existing interval
+  if (allowListRefreshInterval) {
+    clearInterval(allowListRefreshInterval);
+  }
+
+  console.log(`[AllowList] Starting periodic refresh every ${intervalMinutes} minutes`);
+  
+  allowListRefreshInterval = setInterval(async () => {
+    console.log('[AllowList] Refreshing allowlist from secret...');
+    await initializeAllowList();
+  }, intervalMinutes * 60 * 1000);
+}
+
+/**
+ * Stop the periodic allowlist refresh.
+ */
+export function stopAllowListRefresh() {
+  if (allowListRefreshInterval) {
+    clearInterval(allowListRefreshInterval);
+    allowListRefreshInterval = null;
+    console.log('[AllowList] Stopped periodic refresh');
+  }
+}
+
 
 
