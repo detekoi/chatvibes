@@ -89,4 +89,36 @@ echo "  projects/${PROJECT_ID}/secrets/${SECRET_NAME}/versions/latest"
 echo
 info "The running service (e.g., 'chatvibes-tts-service' in ${REGION}) will pick up the new secret version on next instance start."
 
+# --- Trigger Live Refresh (Optional) ---
+if [[ -n "${CHATVIBES_SERVICE_URL:-}" ]] && [[ -n "${ADMIN_REFRESH_SECRET:-}" ]]; then
+    info "Attempting to refresh allowlist in running service..."
+    
+    curl_response=$(curl -s -w "HTTPSTATUS:%{http_code}" \
+        -X POST \
+        -H "x-admin-secret: ${ADMIN_REFRESH_SECRET}" \
+        -H "Content-Type: application/json" \
+        "${CHATVIBES_SERVICE_URL}/api/admin/refresh-allowlist" \
+        2>/dev/null || true)
+    
+    if [[ -n "${curl_response}" ]]; then
+        http_code=$(echo "${curl_response}" | sed -E 's/.*HTTPSTATUS:([0-9]{3})$/\1/')
+        response_body=$(echo "${curl_response}" | sed -E 's/HTTPSTATUS:[0-9]{3}$//')
+        
+        if [[ "${http_code}" == "200" ]]; then
+            info "✅ Successfully triggered live allowlist refresh in running service."
+        else
+            info "⚠️  Live refresh attempt failed (HTTP ${http_code}). Service will pick up changes on next restart."
+            if [[ -n "${response_body}" ]]; then
+                echo "Response: ${response_body}"
+            fi
+        fi
+    else
+        info "⚠️  Could not reach service for live refresh. Service will pick up changes on next restart."
+    fi
+else
+    info "💡 To enable live refresh without restart, set environment variables:"
+    info "   CHATVIBES_SERVICE_URL=https://your-service-url.run.app"
+    info "   ADMIN_REFRESH_SECRET=your-admin-secret"
+fi
+
 
