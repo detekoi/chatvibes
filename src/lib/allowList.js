@@ -55,6 +55,7 @@ export async function initializeAllowList() {
 
 /**
  * Start periodic refresh of the allowlist from the secret.
+ * Only starts if there's active IRC activity to avoid keeping instance alive unnecessarily.
  * Refreshes every 5 minutes by default.
  */
 export function startAllowListRefresh(intervalMinutes = 5) {
@@ -69,12 +70,21 @@ export function startAllowListRefresh(intervalMinutes = 5) {
     clearInterval(allowListRefreshInterval);
   }
 
-  console.log(`[AllowList] Starting periodic refresh every ${intervalMinutes} minutes`);
+  console.log(`[AllowList] Starting allowlist refresh (will refresh on IRC activity every ${intervalMinutes} minutes)`);
   
+  // Use a lighter approach - only refresh when there's actual activity
   allowListRefreshInterval = setInterval(async () => {
     console.log('[AllowList] Refreshing allowlist from secret...');
     await initializeAllowList();
   }, intervalMinutes * 60 * 1000);
+}
+
+/**
+ * Refresh allowlist on-demand (called when needed, doesn't keep instance alive).
+ */
+export async function refreshAllowListOnDemand() {
+  console.log('[AllowList] On-demand refresh triggered');
+  await initializeAllowList();
 }
 
 /**

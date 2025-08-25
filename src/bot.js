@@ -133,8 +133,8 @@ async function main() {
         // Initialize allow-list from secret if configured (before loading channels)
         await initializeAllowList();
         
-        // Start periodic refresh of allowlist (every 5 minutes)
-        startAllowListRefresh(5);
+        // Note: Periodic refresh disabled to allow scale-to-zero
+        // The allowlist will refresh on each bot restart (which happens when needed)
 
         logger.info('ChatVibes: Initializing TTS State (Firestore)...');
         await initializeTtsState();
