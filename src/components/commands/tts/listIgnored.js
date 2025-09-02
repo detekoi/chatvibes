@@ -9,7 +9,7 @@ export default {
     usage: '!tts ignored',
     permission: 'moderator', // Or 'everyone' if you want anyone to see
     execute: async (context) => {
-        const { channel, user, replyToId } = context;
+        const { channel, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
 
         try {

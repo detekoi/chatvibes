@@ -63,8 +63,9 @@ const prettyOptions = {
     options: {
       colorize: true,
       translateTime: 'SYS:standard', // More human-readable time for local dev
+      singleLine: true,
+      levelFirst: true,
       ignore: 'pid,hostname,serviceContext,severity', // Hide fields less useful in local dev
-      messageKey: 'message', // Tell pino-pretty to use 'message'
     },
   },
 };

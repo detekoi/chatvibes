@@ -72,7 +72,7 @@ export default {
     usage: '!tts <subcommand> [options]',
     permission: 'everyone', // Base command is for everyone, subcommands have their own permissions
     execute: async (context) => {
-        const { channel, user, args, ircClient, replyToId } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1).toLowerCase(); // Ensure lowercase
 
         if (args.length === 0) {

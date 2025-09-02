@@ -17,9 +17,8 @@ export default {
     usage: commandUsage, // Use the defined usage string
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
+        const { channel, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
-        const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentConfig = await getTtsState(channelNameNoHash);
@@ -35,7 +34,7 @@ export default {
             success = await resetChannelDefaultLanguage(channelNameNoHash);
             if (success) {
                 enqueueMessage(channel, `Channel default TTS language boost reset to ${DEFAULT_TTS_SETTINGS.languageBoost}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default language boost reset by ${user.username}.`);
+                logger.info(`[${channelNameNoHash}] Channel default language boost reset.`);
             } else {
                 enqueueMessage(channel, `Could not reset channel default language boost.`, { replyToId });
             }
@@ -49,7 +48,7 @@ export default {
             success = await setChannelDefaultLanguage(channelNameNoHash, foundLang);
             if (success) {
                 enqueueMessage(channel, `Channel default TTS language boost set to ${foundLang}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default language boost set to ${foundLang} by ${user.username}.`);
+                logger.info(`[${channelNameNoHash}] Channel default language boost set to ${foundLang}.`);
             } else {
                 enqueueMessage(channel, `Could not set channel default language boost to ${foundLang}.`, { replyToId });
             }

@@ -1,7 +1,6 @@
 // src/components/commands/tts/status.js
 import { getTtsState } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
-import { getOrCreateChannelQueue } from '../../tts/ttsQueue.js';
 
 export default {
     name: 'status',
@@ -9,7 +8,7 @@ export default {
     usage: '!tts status',
     permission: 'everyone', // Or 'moderator'
     execute: async (context) => {
-        const { channel, user, ircClient, replyToId } = context;
+        const { channel, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const ttsState = await getTtsState(channelNameNoHash); // from ttsState.js
         const queueModule = await import('../../tts/ttsQueue.js'); // Dynamic import for cq

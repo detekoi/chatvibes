@@ -16,9 +16,8 @@ export default {
     usage: '!tts defaultemotion <emotion|reset>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
+        const { channel, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
-        const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentConfig = await getTtsState(channelNameNoHash);
@@ -33,7 +32,7 @@ export default {
             success = await resetChannelDefaultEmotion(channelNameNoHash);
             if (success) {
                 enqueueMessage(channel, `Channel default TTS emotion reset to ${DEFAULT_TTS_SETTINGS.emotion}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default emotion reset to ${DEFAULT_TTS_SETTINGS.emotion} by ${user.username}.`);
+                logger.info(`[${channelNameNoHash}] Channel default emotion reset to ${DEFAULT_TTS_SETTINGS.emotion}.`);
             } else {
                 enqueueMessage(channel, `Could not reset channel default emotion.`, { replyToId });
             }
@@ -46,7 +45,7 @@ export default {
             success = await setChannelDefaultEmotion(channelNameNoHash, emotionValue);
             if (success) {
                 enqueueMessage(channel, `Channel default TTS emotion set to ${emotionValue}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default emotion set to ${emotionValue} by ${user.username}.`);
+                logger.info(`[${channelNameNoHash}] Channel default emotion set to ${emotionValue}.`);
             } else {
                 enqueueMessage(channel, `Could not set channel default emotion to ${emotionValue}.`, { replyToId });
             }

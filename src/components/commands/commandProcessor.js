@@ -1,6 +1,5 @@
 // src/components/commands/commandProcessor.js
 import logger from '../../lib/logger.js';
-import config from '../../config/index.js';
 // Import command handlers (assuming handlers/index.js exports an object/Map)
 import commandHandlers from './handlers/index.js';
 // We might need access to the IRC client to send command responses

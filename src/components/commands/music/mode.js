@@ -11,7 +11,7 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
-        const displayName = user['display-name'] || user.username;
+        const displayName = user['display-name'] || user.username; // reserved for future messages
 
         if (args.length === 0) {
             const currentConfig = await getMusicState(channelNameNoHash);

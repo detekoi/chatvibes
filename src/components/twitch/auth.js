@@ -2,7 +2,7 @@
 import axios from 'axios';
 import logger from '../../lib/logger.js'; // Assuming logger is in src/lib/
 import config from '../../config/index.js'; // Assuming config is in src/config/
-import { getSecretValue } from '../../lib/secretManager.js'; // Assuming secretManager is in src/lib/
+// Assuming secretManager is in src/lib/
 
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 let appAccessToken = null;

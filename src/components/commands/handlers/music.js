@@ -25,7 +25,7 @@ export default {
     usage: '!music <prompt> | !music status | !music clear | !music on/off | !music mode <all|mods> | !music ignore <add|del> <user> | !music ignored | !music bits <on|off|min>',
     permission: 'everyone', 
     execute: async (context) => {
-        const { channel, user, args, command: baseCommandName, replyToId } = context; 
+        const { channel, user, args, replyToId } = context; 
         const channelNameNoHash = channel.substring(1);
         const invokingUsername = user.username.toLowerCase();
 

@@ -15,18 +15,7 @@ import {
     getTtsState,
     setTtsState,
     addIgnoredUser,
-    removeIgnoredUser,
-    setChannelDefaultPitch,
-    setChannelDefaultSpeed,
-    setChannelDefaultEmotion,
-    setChannelDefaultLanguage,
-    resetChannelDefaultPitch,
-    resetChannelDefaultSpeed,
-    resetChannelDefaultEmotion,
-    resetChannelDefaultLanguage,
-    setBitsConfig,
-    getBitsConfig,
-    resetBitsConfig
+    removeIgnoredUser
 } from '../tts/ttsState.js';
 
 // Import Music state management functions
@@ -97,21 +86,38 @@ const apiRateLimiter = rateLimit({
     },
 });
 
+// CORS helper
+function applyCors(req, res) {
+    const origin = req.headers.origin;
+    const allowedOrigins = new Set([
+        'http://localhost:5002',
+        'http://127.0.0.1:5002',
+        'https://chatvibestts.web.app',
+        'https://chatvibestts.firebaseapp.com'
+    ]);
+    if (origin && allowedOrigins.has(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+        res.setHeader('Access-Control-Allow-Origin', 'https://chatvibestts.web.app');
+    }
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+}
+
 // Helper function to send JSON response
-function sendJsonResponse(res, statusCode, data) {
+function sendJsonResponse(res, statusCode, data, req) {
+    if (req) applyCors(req, res);
     res.writeHead(statusCode, {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': 'https://chatvibestts.web.app',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Credentials': 'true'
+        'Content-Type': 'application/json'
     });
     res.end(JSON.stringify(data));
 }
 
 // Helper function to send error response
-function sendErrorResponse(res, statusCode, message) {
-    sendJsonResponse(res, statusCode, { success: false, error: message });
+function sendErrorResponse(res, statusCode, message, req) {
+    sendJsonResponse(res, statusCode, { success: false, error: message }, req);
 }
 
 // Helper function to extract channel from URL path
@@ -128,22 +134,22 @@ const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || config.secrets.jwtSecret;
 async function verifyChannelAccess(req, res, next) {
     const channelName = extractChannelFromPath(req.url);
     if (!channelName) {
-        return sendErrorResponse(res, 400, 'Channel name not found in URL path');
+        return sendErrorResponse(res, 400, 'Channel name not found in URL path', req);
     }
 
     // Allow-list enforcement
     if (!isChannelAllowed(channelName)) {
-        return sendErrorResponse(res, 403, 'Forbidden: Channel is not allowed to use this service');
+        return sendErrorResponse(res, 403, 'Forbidden: Channel is not allowed to use this service', req);
     }
 
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return sendErrorResponse(res, 401, 'Authorization token is required');
+        return sendErrorResponse(res, 401, 'Authorization token is required', req);
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
-        return sendErrorResponse(res, 401, 'Bearer token is missing');
+        return sendErrorResponse(res, 401, 'Bearer token is missing', req);
     }
 
     try {
@@ -153,12 +159,12 @@ async function verifyChannelAccess(req, res, next) {
         });
 
         if (!decoded?.userLogin) {
-            return sendErrorResponse(res, 401, 'Token missing required userLogin claim');
+            return sendErrorResponse(res, 401, 'Token missing required userLogin claim', req);
         }
 
         const userLogin = decoded.userLogin.toLowerCase();
         if (userLogin !== channelName) {
-            return sendErrorResponse(res, 403, 'Forbidden: You do not have permission to modify this channel');
+            return sendErrorResponse(res, 403, 'Forbidden: You do not have permission to modify this channel', req);
         }
 
         req.channelName = channelName;
@@ -167,12 +173,12 @@ async function verifyChannelAccess(req, res, next) {
     } catch (error) {
         logger.error({ err: error }, 'JWT verification failed');
         if (error instanceof jwt.TokenExpiredError) {
-            return sendErrorResponse(res, 401, 'Token has expired');
+            return sendErrorResponse(res, 401, 'Token has expired', req);
         }
         if (error instanceof jwt.JsonWebTokenError) {
-            return sendErrorResponse(res, 401, 'Invalid token');
+            return sendErrorResponse(res, 401, 'Invalid token', req);
         }
-        return sendErrorResponse(res, 500, 'Internal server error during token verification');
+        return sendErrorResponse(res, 500, 'Internal server error during token verification', req);
     }
 }
 
@@ -180,12 +186,8 @@ async function verifyChannelAccess(req, res, next) {
 async function handleApiRequest(req, res) {
     apiRateLimiter(req, res, async () => {
         if (req.method === 'OPTIONS') {
-            res.writeHead(204, {
-                'Access-Control-Allow-Origin': 'https://chatvibestts.web.app',
-                'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-                'Access-Control-Allow-Credentials': 'true'
-            });
+            applyCors(req, res);
+            res.writeHead(204);
             res.end();
             return;
         }
@@ -210,7 +212,8 @@ async function handleApiRequest(req, res) {
             } else if (pathname.includes('/api/music/ignore')) {
                 await handleMusicIgnore(req, res, req.channelName, req.method);
             } else {
-                sendErrorResponse(res, 404, 'API endpoint not found');
+                applyCors(req, res);
+                sendErrorResponse(res, 404, 'API endpoint not found', req);
             }
         });
     });
@@ -225,7 +228,7 @@ async function handleVoicesEndpoint(req, res) {
 
         if (voiceList && voiceList.length > 0) {
             const voiceIds = voiceList.map(voice => voice.id || voice);
-            sendJsonResponse(res, 200, { success: true, voices: voiceIds });
+            sendJsonResponse(res, 200, { success: true, voices: voiceIds }, req);
         } else {
             // Fallback voices if TTS service fails
             const fallbackVoices = [
@@ -244,7 +247,7 @@ async function handleVoicesEndpoint(req, res) {
             'Warm_Grandmother', 'Confident_Leader', 'Soothing_Narrator', 'Cheerful_Assistant',
             'Deep_Narrator', 'Bright_Assistant', 'Calm_Guide', 'Energetic_Host'
         ];
-        sendJsonResponse(res, 200, { success: true, voices: fallbackVoices });
+        sendJsonResponse(res, 200, { success: true, voices: fallbackVoices }, req);
     }
 }
 
@@ -252,29 +255,28 @@ async function handleVoicesEndpoint(req, res) {
 async function handleTtsSettings(req, res, channelName, method) {
     if (method === 'GET') {
         const settings = await getTtsState(channelName);
-        // Include englishNormalization in the GET response
         const payload = {
             ...settings,
-            englishNormalization: settings.englishNormalization !== undefined ? settings.englishNormalization : false, // Assuming false as default if not set
+            englishNormalization: settings.englishNormalization !== undefined ? settings.englishNormalization : false,
         };
-        sendJsonResponse(res, 200, { success: true, settings: payload });
+        sendJsonResponse(res, 200, { success: true, settings: payload }, req);
     } else if (method === 'PUT') {
         const body = await parseJsonBody(req);
         const { key, value } = body;
 
         // Validate the setting
         if (!await validateTtsSetting(key, value)) {
-            return sendErrorResponse(res, 400, `Invalid setting: ${key} = ${value}`);
+            return sendErrorResponse(res, 400, `Invalid setting: ${key} = ${value}`, req);
         }
 
         const success = await setTtsState(channelName, key, value);
         if (success) {
-            sendJsonResponse(res, 200, { success: true, message: 'Setting updated successfully' });
+            sendJsonResponse(res, 200, { success: true, message: 'Setting updated successfully' }, req);
         } else {
-            sendErrorResponse(res, 500, 'Failed to update setting');
+            sendErrorResponse(res, 500, 'Failed to update setting', req);
         }
     } else {
-        sendErrorResponse(res, 405, 'Method not allowed');
+        sendErrorResponse(res, 405, 'Method not allowed', req);
     }
 }
 
@@ -284,30 +286,30 @@ async function handleTtsIgnore(req, res, channelName, method) {
         const body = await parseJsonBody(req);
         const { username } = body;
         if (!username) {
-            return sendErrorResponse(res, 400, 'Username required');
+            return sendErrorResponse(res, 400, 'Username required', req);
         }
 
         const success = await addIgnoredUser(channelName, username);
         if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `User ${username} added to ignore list` });
+            sendJsonResponse(res, 200, { success: true, message: `User ${username} added to ignore list` }, req);
         } else {
-            sendErrorResponse(res, 500, 'Failed to add user to ignore list');
+            sendErrorResponse(res, 500, 'Failed to add user to ignore list', req);
         }
     } else if (method === 'DELETE') {
         const body = await parseJsonBody(req);
         const { username } = body;
         if (!username) {
-            return sendErrorResponse(res, 400, 'Username required');
+            return sendErrorResponse(res, 400, 'Username required', req);
         }
 
         const success = await removeIgnoredUser(channelName, username);
         if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from ignore list` });
+            sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from ignore list` }, req);
         } else {
-            sendErrorResponse(res, 500, 'Failed to remove user from ignore list');
+            sendErrorResponse(res, 500, 'Failed to remove user from ignore list', req);
         }
     } else {
-        sendErrorResponse(res, 405, 'Method not allowed');
+        sendErrorResponse(res, 405, 'Method not allowed', req);
     }
 }
 
@@ -315,7 +317,7 @@ async function handleTtsIgnore(req, res, channelName, method) {
 async function handleMusicSettings(req, res, channelName, method) {
     if (method === 'GET') {
         const settings = await getMusicState(channelName);
-        sendJsonResponse(res, 200, { success: true, settings });
+        sendJsonResponse(res, 200, { success: true, settings }, req);
     } else if (method === 'PUT') {
         const body = await parseJsonBody(req);
         const { key, value } = body;
@@ -328,16 +330,16 @@ async function handleMusicSettings(req, res, channelName, method) {
         } else if (key === 'bitsConfig') {
             success = await setBitsConfigMusic(channelName, value);
         } else {
-            return sendErrorResponse(res, 400, `Unknown music setting: ${key}`);
+            return sendErrorResponse(res, 400, `Unknown music setting: ${key}`, req);
         }
 
         if (success) {
-            sendJsonResponse(res, 200, { success: true, message: 'Music setting updated successfully' });
+            sendJsonResponse(res, 200, { success: true, message: 'Music setting updated successfully' }, req);
         } else {
-            sendErrorResponse(res, 500, 'Failed to update music setting');
+            sendErrorResponse(res, 500, 'Failed to update music setting', req);
         }
     } else {
-        sendErrorResponse(res, 405, 'Method not allowed');
+        sendErrorResponse(res, 405, 'Method not allowed', req);
     }
 }
 
@@ -347,37 +349,37 @@ async function handleMusicIgnore(req, res, channelName, method) {
         const body = await parseJsonBody(req);
         const { username } = body;
         if (!username) {
-            return sendErrorResponse(res, 400, 'Username required');
+            return sendErrorResponse(res, 400, 'Username required', req);
         }
 
         const success = await addIgnoredUserMusic(channelName, username);
         if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `User ${username} added to music ignore list` });
+            sendJsonResponse(res, 200, { success: true, message: `User ${username} added to music ignore list` }, req);
         } else {
-            sendErrorResponse(res, 500, 'Failed to add user to music ignore list');
+            sendErrorResponse(res, 500, 'Failed to add user to music ignore list', req);
         }
     } else if (method === 'DELETE') {
         const body = await parseJsonBody(req);
         const { username } = body;
         if (!username) {
-            return sendErrorResponse(res, 400, 'Username required');
+            return sendErrorResponse(res, 400, 'Username required', req);
         }
 
         const success = await removeIgnoredUserMusic(channelName, username);
         if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from music ignore list` });
+            sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from music ignore list` }, req);
         } else {
-            sendErrorResponse(res, 500, 'Failed to remove user from ignore list');
+            sendErrorResponse(res, 500, 'Failed to remove user from ignore list', req);
         }
     } else {
-        sendErrorResponse(res, 405, 'Method not allowed');
+        sendErrorResponse(res, 405, 'Method not allowed', req);
     }
 }
 
 // Admin endpoint for refreshing allowlist
 async function handleAllowListRefresh(req, res) {
     if (req.method !== 'POST') {
-        return sendErrorResponse(res, 405, 'Method not allowed');
+        return sendErrorResponse(res, 405, 'Method not allowed', req);
     }
 
     try {
@@ -386,7 +388,7 @@ async function handleAllowListRefresh(req, res) {
         const expectedSecret = process.env.ADMIN_REFRESH_SECRET || 'change-me-in-production';
         
         if (!authHeader || authHeader !== expectedSecret) {
-            return sendErrorResponse(res, 401, 'Invalid admin credentials');
+            return sendErrorResponse(res, 401, 'Invalid admin credentials', req);
         }
 
         logger.info('[AllowList] Admin refresh endpoint called');
@@ -398,7 +400,7 @@ async function handleAllowListRefresh(req, res) {
         });
     } catch (error) {
         logger.error({ err: error }, 'Error refreshing allowlist via admin endpoint');
-        sendErrorResponse(res, 500, 'Failed to refresh allowlist');
+        sendErrorResponse(res, 500, 'Failed to refresh allowlist', req);
     }
 }
 
@@ -419,15 +421,18 @@ async function validateTtsSetting(key, value) {
             return VALID_EMOTIONS.includes(value.toLowerCase());
         case 'languageBoost':
             return VALID_LANGUAGE_BOOSTS.includes(value);
-        case 'pitch':
+        case 'pitch': {
             const pitch = parseInt(value, 10);
             return !isNaN(pitch) && pitch >= TTS_PITCH_MIN && pitch <= TTS_PITCH_MAX;
-        case 'speed':
+        }
+        case 'speed': {
             const speed = parseFloat(value);
             return !isNaN(speed) && speed >= TTS_SPEED_MIN && speed <= TTS_SPEED_MAX;
-        case 'bitsMinimumAmount':
+        }
+        case 'bitsMinimumAmount': {
             const amount = parseInt(value, 10);
             return !isNaN(amount) && amount >= 0;
+        }
         case 'voiceId':
             // Allow any string voice ID - validation will happen in TTS service
             return typeof value === 'string' && value.length > 0;
@@ -480,21 +485,26 @@ const httpServer = http.createServer(async (req, res) => {
     const ext = path.extname(fullPath);
     let contentType = 'text/html'; // Default
     switch (ext) {
-        case '.js':
+        case '.js': {
             contentType = 'application/javascript';
             break;
-        case '.css':
+        }
+        case '.css': {
             contentType = 'text/css';
             break;
-        case '.json':
+        }
+        case '.json': {
             contentType = 'application/json';
             break;
-        case '.png':
+        }
+        case '.png': {
             contentType = 'image/png';
             break;
-        case '.jpg':
+        }
+        case '.jpg': {
             contentType = 'image/jpeg';
             break;
+        }
         // Add more MIME types as needed
     }
 

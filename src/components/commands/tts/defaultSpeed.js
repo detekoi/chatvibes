@@ -17,9 +17,8 @@ export default {
     usage: '!tts defaultspeed <value|reset>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
+        const { channel, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
-        const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentConfig = await getTtsState(channelNameNoHash);
@@ -34,7 +33,7 @@ export default {
             success = await resetChannelDefaultSpeed(channelNameNoHash);
             if (success) {
                 enqueueMessage(channel, `Channel default TTS speed reset to ${TTS_SPEED_DEFAULT}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default speed reset to ${TTS_SPEED_DEFAULT} by ${user.username}.`);
+                logger.info(`[${channelNameNoHash}] Channel default speed reset to ${TTS_SPEED_DEFAULT}.`);
             } else {
                 enqueueMessage(channel, `Could not reset channel default speed.`, { replyToId });
             }
@@ -47,7 +46,7 @@ export default {
             success = await setChannelDefaultSpeed(channelNameNoHash, speedValue);
             if (success) {
                 enqueueMessage(channel, `Channel default TTS speed set to ${speedValue}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default speed set to ${speedValue} by ${user.username}.`);
+                logger.info(`[${channelNameNoHash}] Channel default speed set to ${speedValue}.`);
             } else {
                 enqueueMessage(channel, `Could not set channel default speed to ${speedValue}.`, { replyToId });
             }

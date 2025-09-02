@@ -114,10 +114,10 @@ async function createIrcClient(twitchConfig) {
 
         // Stop polling and other activities that assume a connection
         if (global.streamInfoPollerIntervalId) {
-            if (typeof stopStreamInfoPolling === 'function') {
-                stopStreamInfoPolling(); // Assuming you have this function accessible or implement it
+            if (typeof global.stopStreamInfoPolling === 'function') {
+                global.stopStreamInfoPolling();
             } else {
-                logger.warn('stopStreamInfoPolling is not defined. Please ensure it is implemented and accessible.');
+                logger.warn('stopStreamInfoPolling is not defined on global. Please ensure it is implemented and accessible.');
             }
         }
         // Add similar logic for other periodic tasks if needed

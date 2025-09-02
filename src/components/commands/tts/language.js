@@ -6,7 +6,6 @@ import {
 } from '../../tts/ttsState.js';
 import { VALID_LANGUAGE_BOOSTS } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
-import logger from '../../../lib/logger.js';
 
 const docLink = 'https://detekoi.github.io/chatvibesdocs.html#language-boost';
 

@@ -3,7 +3,7 @@ const getCurrentTime = ({ timezone = 'UTC' }) => {
     try {
       const now = new Date();
       // Intl.DateTimeFormat is robust for timezone handling
-      const formatter = new Intl.DateTimeFormat('en-US', {
+      const formatter = new globalThis.Intl.DateTimeFormat('en-US', {
         timeZone: timezone,
         hour: '2-digit',
         minute: '2-digit',

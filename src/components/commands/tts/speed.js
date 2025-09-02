@@ -8,7 +8,7 @@ import {
     TTS_SPEED_MAX
 } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
-import logger from '../../../lib/logger.js'; // Added logger import for consistency, though not used in this version
+// Added logger import for consistency, though not used in this version
 
 export default {
     name: 'speed',

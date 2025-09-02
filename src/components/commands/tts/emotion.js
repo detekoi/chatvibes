@@ -2,7 +2,6 @@
 import { setUserEmotionPreference, clearUserEmotionPreference, getUserEmotionPreference } from '../../tts/ttsState.js';
 import { VALID_EMOTIONS } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
-import logger from '../../../lib/logger.js';
 
 
 export default {

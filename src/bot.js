@@ -1,8 +1,7 @@
 // src/bot.js
 import config from './config/index.js';
-import { getAllowedChannels, isChannelAllowed, initializeAllowList, startAllowListRefresh } from './lib/allowList.js';
+import { getAllowedChannels, isChannelAllowed, initializeAllowList } from './lib/allowList.js';
 import logger from './lib/logger.js';
-import http from 'http';
 
 // Core Twitch & Cloud
 import { initializeSecretManager } from './lib/secretManager.js';
@@ -15,12 +14,12 @@ import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
 
 // Music Components
-import { initializeMusicQueues, enqueueMusicGeneration } from './components/music/musicQueue.js';
+import { initializeMusicQueues } from './components/music/musicQueue.js';
 import { initializeMusicState, getMusicState } from './components/music/musicState.js';
 
 // Command Processing
 import { initializeCommandProcessor, processMessage as processCommand, hasPermission } from './components/commands/commandProcessor.js';
-import { initializeIrcSender, enqueueMessage, clearMessageQueue } from './lib/ircSender.js';
+import { initializeIrcSender, clearMessageQueue } from './lib/ircSender.js';
 
 // Channel Management
 import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges, listenForObsTokenChanges } from './components/twitch/channelManager.js';

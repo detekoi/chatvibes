@@ -10,7 +10,7 @@ export default {
     usage: '!music ignored',
     permission: 'moderator', // This permission is checked by the main !music command handler
     execute: async (context) => {
-        const { channel, user, replyToId } = context;
+        const { channel, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
 
         // Note: Permission check for 'moderator' is already handled by the caller (handlers/music.js)

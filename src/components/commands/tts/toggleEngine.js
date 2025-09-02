@@ -1,5 +1,5 @@
 // src/components/commands/tts/toggleEngine.js
-import { setTtsState, getTtsState } from '../../tts/ttsState.js';
+import { setTtsState } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
 import logger from '../../../lib/logger.js';
 

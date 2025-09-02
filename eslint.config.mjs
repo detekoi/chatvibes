@@ -36,4 +36,16 @@ export default [
       '**/public/**',
     ],
   },
+  // Browser override for public assets
+  {
+    files: ['**/src/components/web/public/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+    },
+  },
 ];

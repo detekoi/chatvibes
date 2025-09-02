@@ -18,9 +18,8 @@ export default {
     usage: '!tts defaultpitch <value|reset>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
+        const { channel, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
-        const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentConfig = await getTtsState(channelNameNoHash);
@@ -35,7 +34,7 @@ export default {
             success = await resetChannelDefaultPitch(channelNameNoHash);
             if (success) {
                 enqueueMessage(channel, `Channel default TTS pitch reset to ${TTS_PITCH_DEFAULT}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default pitch reset to ${TTS_PITCH_DEFAULT} by ${user.username}.`);
+                logger.info(`[${channelNameNoHash}] Channel default pitch reset to ${TTS_PITCH_DEFAULT}.`);
             } else {
                 enqueueMessage(channel, `Could not reset channel default pitch.`, { replyToId });
             }
@@ -48,7 +47,7 @@ export default {
             success = await setChannelDefaultPitch(channelNameNoHash, pitchValue);
             if (success) {
                 enqueueMessage(channel, `Channel default TTS pitch set to ${pitchValue}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default pitch set to ${pitchValue} by ${user.username}.`);
+                logger.info(`[${channelNameNoHash}] Channel default pitch set to ${pitchValue}.`);
             } else {
                 enqueueMessage(channel, `Could not set channel default pitch to ${pitchValue}.`, { replyToId });
             }

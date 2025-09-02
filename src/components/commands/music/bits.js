@@ -9,7 +9,7 @@ export default {
     usage: '!music bits <on|off|min amount>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
+        const { channel, /* user */ _, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const action = args[0]?.toLowerCase();
 

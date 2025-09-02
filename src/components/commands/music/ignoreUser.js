@@ -2,7 +2,6 @@
 import { addIgnoredUserMusic, removeIgnoredUserMusic, getMusicState } from '../../music/musicState.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
 import { hasPermission } from '../commandProcessor.js';
-import logger from '../../../lib/logger.js';
 
 export default {
     name: 'ignore',
@@ -16,7 +15,7 @@ export default {
         let targetUsernameRaw = args[1];
         let targetUsername = targetUsernameRaw?.toLowerCase().replace(/^@/, '');
         const invokingUsernameLower = user.username.toLowerCase();
-        const invokingUserDisplayName = user['display-name'] || user.username;
+        const invokingUserDisplayName = user['display-name'] || user.username; // keep for messages if needed later
 
         const isModOrBroadcaster = hasPermission('moderator', user, channelNameNoHash);
 

@@ -6,11 +6,9 @@ import {
 } from '../../tts/ttsState.js';
 import {
     TTS_PITCH_MIN,
-    TTS_PITCH_MAX,
-    TTS_PITCH_DEFAULT
+    TTS_PITCH_MAX
 } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
-import logger from '../../../lib/logger.js';
 
 export default {
     name: 'pitch',
