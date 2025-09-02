@@ -15,7 +15,7 @@ export default {
         let targetUsernameRaw = args[1];
         let targetUsername = targetUsernameRaw?.toLowerCase().replace(/^@/, '');
         const invokingUsernameLower = user.username.toLowerCase();
-        const invokingUserDisplayName = user['display-name'] || user.username;
+        
 
         // Determine invoker's status
         const isBroadcaster = user.badges?.broadcaster === '1' || invokingUsernameLower === channelNameNoHash;

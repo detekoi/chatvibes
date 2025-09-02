@@ -15,7 +15,7 @@ export default {
         let targetUsernameRaw = args[1];
         let targetUsername = targetUsernameRaw?.toLowerCase().replace(/^@/, '');
         const invokingUsernameLower = user.username.toLowerCase();
-        const invokingUserDisplayName = user['display-name'] || user.username; // keep for messages if needed later
+        
 
         const isModOrBroadcaster = hasPermission('moderator', user, channelNameNoHash);
 

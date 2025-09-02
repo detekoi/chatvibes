@@ -13,7 +13,6 @@ export default {
         const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const username = user.username;
-        const displayName = user['display-name'] || username;
 
         if (args.length === 0) {
             const currentVoice = await getUserVoicePreference(channelNameNoHash, username);

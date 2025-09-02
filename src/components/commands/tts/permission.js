@@ -11,7 +11,6 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
-        const displayName = user['display-name'] || user.username;
 
         const currentConfig = await getTtsState(channelNameNoHash);
 

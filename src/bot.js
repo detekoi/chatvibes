@@ -27,7 +27,6 @@ import { initializeChannelManager, getActiveManagedChannels, syncManagedChannels
 let ircClientInstance = null;
 let channelChangeListener = null;
 let obsTokenChangeListener = null;
-const CHANNEL_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 let isShuttingDown = false;
 
 async function gracefulShutdown(signal) {
@@ -289,12 +288,12 @@ async function main() {
         });
 
         // --- Event Handlers ---
-        ircClientInstance.on('subscription', (channel, username, method, message, userstate) => {
+        ircClientInstance.on('subscription', (channel, username, _method, message, _userstate) => {
             const channelNameNoHash = channel.substring(1).toLowerCase();
             if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'subscription', `${username} just subscribed! ${message || ''}`);
         });
-        ircClientInstance.on('resub', (channel, username, months, message, userstate, methods) => {
+        ircClientInstance.on('resub', (channel, username, months, message, _userstate, _methods) => {
             const channelNameNoHash = channel.substring(1).toLowerCase();
             if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'resub', `${username} resubscribed for ${months} months! ${message || ''}`);
@@ -355,7 +354,7 @@ async function main() {
             }
         });
 
-        ircClientInstance.on('raided', (channel, username, viewers, tags) => {
+        ircClientInstance.on('raided', (channel, username, viewers) => {
             const channelNameNoHash = channel.substring(1).toLowerCase();
             if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'raid', `${username} is raiding with ${viewers} viewers!`);

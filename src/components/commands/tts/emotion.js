@@ -12,8 +12,7 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
-        const username = user.username; // Storing by lowercase username
-        const displayName = user['display-name'] || username;
+        const username = user.username;
 
         if (args.length === 0) {
             const currentEmotion = await getUserEmotionPreference(channelNameNoHash, username);

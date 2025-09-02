@@ -79,7 +79,7 @@ export async function generateMusic(prompt, options = {}) {
         ...(seed && { seed })
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const pythonScript = path.join(__dirname, 'musicService.py');
         
         let shell = null;

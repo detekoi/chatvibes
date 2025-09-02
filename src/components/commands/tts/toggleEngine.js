@@ -9,7 +9,7 @@ export default {
     usage: '!tts <on|off|enable|disable>',
     permission: 'moderator', // Mod only
     execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
+        const { channel, user, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const actionTriggered = context.command; // This will be 'on', 'off', 'enable', or 'disable'
 

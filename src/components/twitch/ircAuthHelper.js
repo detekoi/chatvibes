@@ -7,7 +7,9 @@ import { getSecretValue, addSecretVersion } from '../../lib/secretManager.js'; /
 const TWITCH_TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 
 // Store the currently active access token in memory for the session
-let currentAccessToken = null;
+// Cache token if future logic needs it; currently not read outside refresh
+// Removed to avoid unused variable warning (value is persisted via Secret Manager when needed)
+// let currentAccessToken = null;
 let isRefreshing = false; // Simple lock to prevent concurrent refreshes
 
 /**
@@ -70,7 +72,7 @@ async function refreshIrcToken() {
             const newRefreshToken = response.data.refresh_token; // Twitch *might* return a new refresh token
 
             logger.info('Successfully refreshed Twitch IRC Access Token.');
-            currentAccessToken = newAccessToken; // Update in-memory cache
+            // In-memory cache not used elsewhere; relying on fresh fetches
 
             // TODO: If Twitch returns a new refresh token, update it in Secret Manager.
             // This requires adding a 'setSecretValue' or 'addSecretVersion' function
@@ -105,7 +107,7 @@ async function refreshIrcToken() {
                 logger.fatal(`Refresh token is likely invalid or revoked (Status: ${error.response.status}). Manual intervention required to get a new refresh token.`);
                 // TODO: Trigger an alert or notification here.
                 // Invalidate the currentAccessToken to prevent further attempts with it
-                currentAccessToken = null;
+                // Clear in-memory token not necessary since we don't use it
             }
         } else if (error.request) {
             errorMessage = `${errorMessage} No response received from Twitch token endpoint.`;

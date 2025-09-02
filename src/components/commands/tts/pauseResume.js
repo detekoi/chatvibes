@@ -9,7 +9,7 @@ export default {
     usage: '!tts <pause|resume>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
+        const { channel, user, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const commandAction = context.command; // 'pause' or 'resume'
 
