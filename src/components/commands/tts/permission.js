@@ -9,7 +9,7 @@ export default {
     usage: '!tts permission <everyone|all|mods>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const displayName = user['display-name'] || user.username;
 
@@ -17,7 +17,7 @@ export default {
 
         if (args.length === 0) {
             const currentPermission = currentConfig.ttsPermissionLevel || 'everyone';
-            enqueueMessage(channel, `@${displayName}, TTS message permission is currently set to: ${currentPermission}. Usage: ${context.command.usage}`);
+            enqueueMessage(channel, `TTS message permission is currently set to: ${currentPermission}. Usage: !tts permission <everyone|all|mods>`, { replyToId });
             return;
         }
 
@@ -29,17 +29,17 @@ export default {
         }
 
         if (newPermission !== 'everyone' && newPermission !== 'mods') {
-            enqueueMessage(channel, `@${displayName}, Invalid permission level. Use 'everyone' (or 'all') or 'mods'.`);
+            enqueueMessage(channel, `Invalid permission level. Use 'everyone' (or 'all') or 'mods'.`, { replyToId });
             return;
         }
 
         const success = await setTtsState(channelNameNoHash, 'ttsPermissionLevel', newPermission);
 
         if (success) {
-            enqueueMessage(channel, `@${displayName}, TTS will now only read messages from: ${newPermission}.`);
+            enqueueMessage(channel, `TTS will now only read messages from: ${newPermission}.`, { replyToId });
             logger.info(`[${channelNameNoHash}] TTS permission level set to '${newPermission}' by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `@${displayName}, Could not set the TTS permission level.`);
+            enqueueMessage(channel, `Could not set the TTS permission level.`, { replyToId });
         }
     },
 };

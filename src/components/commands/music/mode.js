@@ -9,14 +9,14 @@ export default {
     usage: '!music mode <all|mods>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentConfig = await getMusicState(channelNameNoHash);
             const currentMode = currentConfig.allowedRoles.includes('everyone') ? 'all' : 'mods';
-            enqueueMessage(channel, `@${displayName}, Current music generation mode: ${currentMode}. Usage: ${this.usage}`);
+            enqueueMessage(channel, `Current music generation mode: ${currentMode}. Usage: !music mode <all|mods>`, { replyToId });
             return;
         }
 
@@ -31,15 +31,15 @@ export default {
             newRoles = ['moderator'];
             success = await setAllowedMusicRoles(channelNameNoHash, newRoles);
         } else {
-            enqueueMessage(channel, `@${displayName}, Invalid mode. Use 'all' or 'mods'.`);
+            enqueueMessage(channel, `Invalid mode. Use 'all' or 'mods'.`, { replyToId });
             return;
         }
 
         if (success) {
-            enqueueMessage(channel, `@${displayName}, Music generation mode set to: ${newMode} (allows ${newRoles.join(', ')}).`);
+            enqueueMessage(channel, `Music generation mode set to: ${newMode} (allows ${newRoles.join(', ')}).`, { replyToId });
             logger.info(`[${channelNameNoHash}] Music mode set to ${newMode} by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `@${displayName}, Could not set music generation mode.`);
+            enqueueMessage(channel, `Could not set music generation mode.`, { replyToId });
         }
     },
 };

@@ -9,28 +9,28 @@ export default {
     usage: '!tts mode <all|command>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
 
         if (args.length === 0) {
             const currentState = await getTtsState(channelNameNoHash);
-            enqueueMessage(channel, `@${user['display-name']}, Current TTS mode is: ${currentState.mode}. Use '!tts mode <all|command>'.`);
+            enqueueMessage(channel, `Current TTS mode is: ${currentState.mode}. Use '!tts mode <all|command>'.`, { replyToId });
             return;
         }
 
         const newMode = args[0].toLowerCase();
         if (newMode !== 'all' && newMode !== 'command') {
-            enqueueMessage(channel, `@${user['display-name']}, Invalid mode. Use 'all' or 'command'.`);
+            enqueueMessage(channel, `Invalid mode. Use 'all' or 'command'.`, { replyToId });
             return;
         }
 
         const success = await setTtsState(channelNameNoHash, 'mode', newMode);
 
         if (success) {
-            enqueueMessage(channel, `@${user['display-name']}, TTS mode set to: ${newMode}.`);
+            enqueueMessage(channel, `TTS mode set to: ${newMode}.`, { replyToId });
             logger.info(`ChatVibes [${channelNameNoHash}]: TTS mode set to ${newMode} by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `@${user['display-name']}, Could not set TTS mode.`);
+            enqueueMessage(channel, `Could not set TTS mode.`, { replyToId });
         }
     },
 };

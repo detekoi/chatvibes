@@ -10,7 +10,7 @@ export default {
     usage: '!music ignored',
     permission: 'moderator', // This permission is checked by the main !music command handler
     execute: async (context) => {
-        const { channel, user } = context;
+        const { channel, user, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
 
         // Note: Permission check for 'moderator' is already handled by the caller (handlers/music.js)
@@ -21,19 +21,19 @@ export default {
             const ignoredUsers = musicState.ignoredUsers || [];
 
             if (ignoredUsers.length === 0) {
-                enqueueMessage(channel, `@${user['display-name']}, No users are currently on the music ignore list.`);
+                enqueueMessage(channel, `No users are currently on the music ignore list.`, { replyToId });
             } else {
-                let response = `@${user['display-name']}, Music ignored users: `;
+                let response = `Music ignored users: `;
                 const MAX_USERS_PER_MSG = 15;
                 let currentBatch = [];
 
                 for (let i = 0; i < ignoredUsers.length; i++) {
                     currentBatch.push(ignoredUsers[i]);
                     if (currentBatch.length >= MAX_USERS_PER_MSG || i === ignoredUsers.length - 1) {
-                        if (i === ignoredUsers.length - 1 && currentBatch.length < MAX_USERS_PER_MSG && response !== `@${user['display-name']}, Music ignored users: `) {
-                            enqueueMessage(channel, response + currentBatch.join(', '));
+                        if (i === ignoredUsers.length - 1 && currentBatch.length < MAX_USERS_PER_MSG && response !== `Music ignored users: `) {
+                            enqueueMessage(channel, response + currentBatch.join(', '), { replyToId });
                         } else {
-                            enqueueMessage(channel, response + currentBatch.join(', '));
+                            enqueueMessage(channel, response + currentBatch.join(', '), { replyToId });
                         }
                         currentBatch = [];
                         if (i < ignoredUsers.length - 1) response = "More music ignored: ";
@@ -42,7 +42,7 @@ export default {
             }
         } catch (error) {
             logger.error({ err: error, channelName: channelNameNoHash }, 'Error fetching ignored users for music.');
-            enqueueMessage(channel, `@${user['display-name']}, Error fetching music ignored list.`);
+            enqueueMessage(channel, `Error fetching music ignored list.`, { replyToId });
         }
     },
 };

@@ -79,23 +79,23 @@ export default {
     aliases: ['prefs'],
     permission: 'everyone',
     execute: async (context) => {
-        const { channel, user, ircClient } = context;
+        const { channel, user, ircClient, replyToId } = context;
         const channelNameNoHash = channel.substring(1).toLowerCase();
         const username = user.username;
         const displayName = user['display-name'] || username;
 
         if (!JWT_SECRET_KEY) {
             console.error('JWT_SECRET_KEY not found in environment. Available env keys:', Object.keys(process.env).filter(k => k.includes('JWT')));
-            enqueueMessage(channel, `@${displayName}, Viewer preferences are temporarily unavailable. Please try again later.`);
+            enqueueMessage(channel, `Viewer preferences are temporarily unavailable. Please try again later.`, { replyToId });
             return;
         }
 
         try {
             const settingsUrl = await createViewerSettingsLink(channelNameNoHash, username);
-            enqueueMessage(channel, `@${displayName} configure your TTS settings here → ${settingsUrl}`);
+            enqueueMessage(channel, `Configure your TTS settings here → ${settingsUrl}`, { replyToId });
         } catch (error) {
             console.error('Error creating viewer preferences link:', error);
-            enqueueMessage(channel, `@${displayName}, Unable to generate preferences link. Please try again later.`);
+            enqueueMessage(channel, `Unable to generate preferences link. Please try again later.`, { replyToId });
         }
     },
 };

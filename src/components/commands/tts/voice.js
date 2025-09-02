@@ -10,7 +10,7 @@ export default {
     usage: '!tts voice <voice_id|reset>',
     permission: 'everyone',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const username = user.username;
         const displayName = user['display-name'] || username;
@@ -18,9 +18,9 @@ export default {
         if (args.length === 0) {
             const currentVoice = await getUserVoicePreference(channelNameNoHash, username);
             if (currentVoice) {
-                enqueueMessage(channel, `@${displayName}, Your current TTS voice is set to: ${currentVoice}. Use '!tts voice <voice_id>' to change it or '!tts voice reset' to use the channel default.`);
+                enqueueMessage(channel, `Your current TTS voice is set to: ${currentVoice}. Use '!tts voice <voice_id>' to change it or '!tts voice reset' to use the channel default.`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${displayName}, You haven't set a specific TTS voice. The channel default will be used. Use '!tts voice <voice_id>' to set one.`);
+                enqueueMessage(channel, `You haven't set a specific TTS voice. The channel default will be used. Use '!tts voice <voice_id>' to set one.`, { replyToId });
             }
             return;
         }
@@ -29,9 +29,9 @@ export default {
         if (args.length === 1 && (args[0].toLowerCase() === 'reset' || args[0].toLowerCase() === 'default' || args[0].toLowerCase() === 'auto')) {
             const success = await clearUserVoicePreference(channelNameNoHash, username);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Your TTS voice preference has been reset. The channel default will now be used.`);
+                enqueueMessage(channel, `Your TTS voice preference has been reset. The channel default will now be used.`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not reset your TTS voice preference at this time.`);
+                enqueueMessage(channel, `Could not reset your TTS voice preference at this time.`, { replyToId });
             }
             return;
         }
@@ -50,7 +50,7 @@ export default {
         if (!matchedVoice) {
             // CORRECTED DOCUMENTATION LINK
             const voicesCmdDocLink = 'https://detekoi.github.io/chatvibesdocs.html#voices';
-            enqueueMessage(channel, `@${displayName}, Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`);
+            enqueueMessage(channel, `Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`, { replyToId });
             logger.warn(`[${channelNameNoHash}] User ${username} attempted to set invalid voice: ${requestedVoiceIdInput}`);
             return;
         }
@@ -60,9 +60,9 @@ export default {
 
         const success = await setUserVoicePreference(channelNameNoHash, username, validVoiceIdToStore);
         if (success) {
-            enqueueMessage(channel, `@${displayName}, Your TTS voice has been set to: ${validVoiceIdToStore}.`);
+            enqueueMessage(channel, `Your TTS voice has been set to: ${validVoiceIdToStore}.`, { replyToId });
         } else {
-            enqueueMessage(channel, `@${displayName}, Could not set your TTS voice to ${requestedVoiceIdInput} at this time.`);
+            enqueueMessage(channel, `Could not set your TTS voice to ${requestedVoiceIdInput} at this time.`, { replyToId });
         }
     },
 };

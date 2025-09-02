@@ -17,14 +17,14 @@ export default {
     usage: commandUsage, // Use the defined usage string
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentConfig = await getTtsState(channelNameNoHash);
             // Correctly refer to commandUsage defined above, not this.usage
-            enqueueMessage(channel, `@${displayName}, Current default language boost: ${currentConfig.languageBoost ?? DEFAULT_TTS_SETTINGS.languageBoost}. Usage: ${commandUsage}. Options: ${docLink}`);
+            enqueueMessage(channel, `Current default language boost: ${currentConfig.languageBoost ?? DEFAULT_TTS_SETTINGS.languageBoost}. Usage: ${commandUsage}. Options: ${docLink}`, { replyToId });
             return;
         }
 
@@ -34,24 +34,24 @@ export default {
         if (['reset', 'automatic', 'auto', 'none'].includes(actionOrValue)) {
             success = await resetChannelDefaultLanguage(channelNameNoHash);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Channel default TTS language boost reset to ${DEFAULT_TTS_SETTINGS.languageBoost}.`);
+                enqueueMessage(channel, `Channel default TTS language boost reset to ${DEFAULT_TTS_SETTINGS.languageBoost}.`, { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default language boost reset by ${user.username}.`);
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not reset channel default language boost.`);
+                enqueueMessage(channel, `Could not reset channel default language boost.`, { replyToId });
             }
         } else {
             const foundLang = VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === actionOrValue);
             if (!foundLang) {
                  // Updated message to include the docLink
-                enqueueMessage(channel, `@${displayName}, Invalid language. See available languages: ${docLink}`);
+                enqueueMessage(channel, `Invalid language. See available languages: ${docLink}`, { replyToId });
                 return;
             }
             success = await setChannelDefaultLanguage(channelNameNoHash, foundLang);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Channel default TTS language boost set to ${foundLang}.`);
+                enqueueMessage(channel, `Channel default TTS language boost set to ${foundLang}.`, { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default language boost set to ${foundLang} by ${user.username}.`);
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not set channel default language boost to ${foundLang}.`);
+                enqueueMessage(channel, `Could not set channel default language boost to ${foundLang}.`, { replyToId });
             }
         }
     },

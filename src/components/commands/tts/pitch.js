@@ -18,14 +18,14 @@ export default {
     usage: '!tts pitch <value|reset>',
     permission: 'everyone',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const username = user.username;
         const displayName = user['display-name'] || username;
 
         if (args.length === 0) {
             const currentPitch = await getUserPitchPreference(channelNameNoHash, username);
-            enqueueMessage(channel, `@${displayName}, Your current pitch preference: ${currentPitch ?? 'Channel Default'}. Usage: ${this.usage}`);
+            enqueueMessage(channel, `Your current pitch preference: ${currentPitch ?? 'Channel Default'}. Usage: !tts pitch <value|reset>`, { replyToId });
             return;
         }
 
@@ -35,21 +35,21 @@ export default {
         if (actionOrValue === 'reset' || actionOrValue === 'default') {
             success = await clearUserPitchPreference(channelNameNoHash, username);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Your TTS pitch preference has been reset to the channel default.`);
+                enqueueMessage(channel, `Your TTS pitch preference has been reset to the channel default.`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not reset your pitch preference.`);
+                enqueueMessage(channel, `Could not reset your pitch preference.`, { replyToId });
             }
         } else {
             const pitchValue = parseInt(actionOrValue, 10);
             if (isNaN(pitchValue) || pitchValue < TTS_PITCH_MIN || pitchValue > TTS_PITCH_MAX) {
-                enqueueMessage(channel, `@${displayName}, Invalid pitch. Must be an integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`);
+                enqueueMessage(channel, `Invalid pitch. Must be an integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`, { replyToId });
                 return;
             }
             success = await setUserPitchPreference(channelNameNoHash, username, pitchValue);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Your TTS pitch preference set to ${pitchValue}.`);
+                enqueueMessage(channel, `Your TTS pitch preference set to ${pitchValue}.`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not set your pitch preference to ${pitchValue}.`);
+                enqueueMessage(channel, `Could not set your pitch preference to ${pitchValue}.`, { replyToId });
             }
         }
     },

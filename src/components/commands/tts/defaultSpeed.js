@@ -17,13 +17,13 @@ export default {
     usage: '!tts defaultspeed <value|reset>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentConfig = await getTtsState(channelNameNoHash);
-            enqueueMessage(channel, `@${displayName}, Current default speed: ${currentConfig.speed ?? TTS_SPEED_DEFAULT}. Usage: ${this.usage}`);
+            enqueueMessage(channel, `Current default speed: ${currentConfig.speed ?? TTS_SPEED_DEFAULT}. Usage: !tts defaultspeed <value|reset>`, { replyToId });
             return;
         }
 
@@ -33,23 +33,23 @@ export default {
         if (actionOrValue === 'reset') {
             success = await resetChannelDefaultSpeed(channelNameNoHash);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Channel default TTS speed reset to ${TTS_SPEED_DEFAULT}.`);
+                enqueueMessage(channel, `Channel default TTS speed reset to ${TTS_SPEED_DEFAULT}.`, { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default speed reset to ${TTS_SPEED_DEFAULT} by ${user.username}.`);
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not reset channel default speed.`);
+                enqueueMessage(channel, `Could not reset channel default speed.`, { replyToId });
             }
         } else {
             const speedValue = parseFloat(actionOrValue);
             if (isNaN(speedValue) || speedValue < TTS_SPEED_MIN || speedValue > TTS_SPEED_MAX) {
-                enqueueMessage(channel, `@${displayName}, Invalid speed. Must be a number between ${TTS_SPEED_MIN} and ${TTS_SPEED_MAX}.`);
+                enqueueMessage(channel, `Invalid speed. Must be a number between ${TTS_SPEED_MIN} and ${TTS_SPEED_MAX}.`, { replyToId });
                 return;
             }
             success = await setChannelDefaultSpeed(channelNameNoHash, speedValue);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Channel default TTS speed set to ${speedValue}.`);
+                enqueueMessage(channel, `Channel default TTS speed set to ${speedValue}.`, { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default speed set to ${speedValue} by ${user.username}.`);
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not set channel default speed to ${speedValue}.`);
+                enqueueMessage(channel, `Could not set channel default speed to ${speedValue}.`, { replyToId });
             }
         }
     },

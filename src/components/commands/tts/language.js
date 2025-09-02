@@ -16,7 +16,7 @@ export default {
     usage: `!tts language <language_name|auto|none|reset> (Full list: ${docLink})`,
     permission: 'everyone',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const username = user.username;
         const displayName = user['display-name'] || username;
@@ -24,7 +24,7 @@ export default {
         if (args.length === 0) {
             const currentLang = await getUserLanguagePreference(channelNameNoHash, username);
             // Updated message to include the docLink
-            enqueueMessage(channel, `@${displayName}, Your current language preference: ${currentLang ?? 'Channel Default'}. Usage: ${this.usage}. See valid options: ${docLink}`);
+            enqueueMessage(channel, `Your current language preference: ${currentLang ?? 'Channel Default'}. Usage: !tts language <language_name|auto|none|reset>. See valid options: ${docLink}`, { replyToId });
             return;
         }
 
@@ -34,22 +34,22 @@ export default {
         if (['reset', 'default', 'automatic', 'auto', 'none'].includes(requestedLang)) {
             success = await clearUserLanguagePreference(channelNameNoHash, username);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Your TTS language preference has been reset to the channel default (Automatic/None).`);
+                enqueueMessage(channel, `Your TTS language preference has been reset to the channel default (Automatic/None).`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not reset your language preference.`);
+                enqueueMessage(channel, `Could not reset your language preference.`, { replyToId });
             }
         } else {
             const foundLang = VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === requestedLang);
             if (!foundLang) {
                 // Updated message to include the docLink
-                enqueueMessage(channel, `@${displayName}, Invalid language. See available languages: ${docLink}`);
+                enqueueMessage(channel, `Invalid language. See available languages: ${docLink}`, { replyToId });
                 return;
             }
             success = await setUserLanguagePreference(channelNameNoHash, username, foundLang);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Your TTS language preference set to ${foundLang}.`);
+                enqueueMessage(channel, `Your TTS language preference set to ${foundLang}.`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not set your language preference to ${foundLang}.`);
+                enqueueMessage(channel, `Could not set your language preference to ${foundLang}.`, { replyToId });
             }
         }
     },

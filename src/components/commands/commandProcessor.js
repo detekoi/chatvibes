@@ -137,6 +137,7 @@ async function processMessage(channelNameNoHash, tags, message) {
             args: args,
             message: message, // Pass original message
             command: commandName, // Pass the executed command name for context within subcommand handlers
+            replyToId: tags?.id || tags?.['message-id'] || null, // Add reply ID from message tags
             ircClient: getIrcClient(),
             logger: logger
         };

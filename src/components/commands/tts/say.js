@@ -10,11 +10,11 @@ export default {
     usage: '!tts say <message>',
     permission: 'everyone', 
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
 
         if (args.length === 0) {
-            enqueueMessage(channel, `@${user['display-name']}, Please provide a message for me to say.`);
+            enqueueMessage(channel, `Please provide a message for me to say.`, { replyToId });
             return;
         }
 
@@ -22,7 +22,7 @@ export default {
 
         const ttsConfig = await getTtsState(channelNameNoHash);
         if (!ttsConfig.engineEnabled) {
-            enqueueMessage(channel, `@${user['display-name']}, TTS is currently disabled.`);
+            enqueueMessage(channel, `TTS is currently disabled.`, { replyToId });
             return;
         }
 

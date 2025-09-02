@@ -11,14 +11,14 @@ export default {
     usage: '!tts defaultvoice <voice_id|reset>',
     permission: 'moderator', // Only moderators can change the channel's default voice
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentChannelConfig = await getTtsState(channelNameNoHash);
             const currentDefaultVoice = currentChannelConfig.voiceId || config.tts.defaultVoiceId;
-            enqueueMessage(channel, `@${displayName}, The current default TTS voice for this channel is: ${currentDefaultVoice}. Use '!tts defaultvoice <voice_id>' to change it or '!tts defaultvoice reset' to use the system default.`);
+            enqueueMessage(channel, `The current default TTS voice for this channel is: ${currentDefaultVoice}. Use '!tts defaultvoice <voice_id>' to change it or '!tts defaultvoice reset' to use the system default.`, { replyToId });
             return;
         }
 
@@ -28,10 +28,10 @@ export default {
             const systemDefaultVoice = config.tts.defaultVoiceId || 'Friendly_Person'; // Fallback if not in config
             const success = await setTtsState(channelNameNoHash, 'voiceId', systemDefaultVoice);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, The channel's default TTS voice has been reset to the system default: ${systemDefaultVoice}.`);
+                enqueueMessage(channel, `The channel's default TTS voice has been reset to the system default: ${systemDefaultVoice}.`, { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default TTS voice reset to system default '${systemDefaultVoice}' by ${user.username}.`);
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not reset the channel's default TTS voice at this time.`);
+                enqueueMessage(channel, `Could not reset the channel's default TTS voice at this time.`, { replyToId });
             }
             return;
         }
@@ -42,7 +42,7 @@ export default {
 
         const availableVoices = await getAvailableVoices();
         if (!availableVoices || availableVoices.length === 0) {
-            enqueueMessage(channel, `@${displayName}, Could not retrieve the list of available voices at this time. Please try again later.`);
+            enqueueMessage(channel, `Could not retrieve the list of available voices at this time. Please try again later.`, { replyToId });
             logger.warn(`[${channelNameNoHash}] Could not get available voices for !tts defaultvoice command by ${user.username}.`);
             return;
         }
@@ -51,7 +51,7 @@ export default {
 
         if (!matchedVoice) {
             const voicesCmdDocLink = 'https://detekoi.github.io/chatvibesdocs.html#voices';
-            enqueueMessage(channel, `@${displayName}, Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`);
+            enqueueMessage(channel, `Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`, { replyToId });
             logger.warn(`[${channelNameNoHash}] User ${user.username} attempted to set invalid channel default voice: ${requestedVoiceIdInput}`);
             return;
         }
@@ -60,10 +60,10 @@ export default {
 
         const success = await setTtsState(channelNameNoHash, 'voiceId', validVoiceIdToStore);
         if (success) {
-            enqueueMessage(channel, `@${displayName}, The channel's default TTS voice has been set to: ${validVoiceIdToStore}.`);
+            enqueueMessage(channel, `The channel's default TTS voice has been set to: ${validVoiceIdToStore}.`, { replyToId });
             logger.info(`[${channelNameNoHash}] Channel default TTS voice set to '${validVoiceIdToStore}' by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `@${displayName}, Could not set the channel's default TTS voice to ${validVoiceIdToStore} at this time.`);
+            enqueueMessage(channel, `Could not set the channel's default TTS voice to ${validVoiceIdToStore} at this time.`, { replyToId });
         }
     },
 };

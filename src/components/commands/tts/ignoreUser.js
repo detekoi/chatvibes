@@ -10,7 +10,7 @@ export default {
     usage: '!tts ignore <username> | !tts ignore add <username> | !tts ignore <del|delete|rem|remove> <username (mod only)>',
     permission: 'everyone',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1).toLowerCase();
         let action = args[0]?.toLowerCase();
         let targetUsernameRaw = args[1];
@@ -35,11 +35,11 @@ export default {
 
 
         if (!action || !targetUsername || !['add', 'del'].includes(action)) {
-            let usageMsg = `@${invokingUserDisplayName}, Usage: !tts ignore <username_to_ignore_yourself>, OR !tts ignore add <username_to_ignore_yourself_or_other_if_mod>, OR (mods only) !tts ignore <del|remove> <username_to_unignore>`;
+            let usageMsg = `Usage: !tts ignore <username_to_ignore_yourself>, OR !tts ignore add <username_to_ignore_yourself_or_other_if_mod>, OR (mods only) !tts ignore <del|remove> <username_to_unignore>`;
             if (args.length === 0) {
-                 usageMsg = `@${invokingUserDisplayName}, You can ignore yourself with '!tts ignore ${invokingUsernameLower}'. Mods can use '!tts ignore add <user>' or '!tts ignore del <user>'.`;
+                 usageMsg = `You can ignore yourself with '!tts ignore ${invokingUsernameLower}'. Mods can use '!tts ignore add <user>' or '!tts ignore del <user>'.`;
             }
-            enqueueMessage(channel, usageMsg);
+            enqueueMessage(channel, usageMsg, { replyToId });
             return;
         }
 
@@ -47,24 +47,24 @@ export default {
             // Case 1: User is adding themselves
             if (targetUsername === invokingUsernameLower) {
                 const success = await addIgnoredUser(channelNameNoHash, targetUsername);
-                enqueueMessage(channel, `@${invokingUserDisplayName}, ${success ? `You will now be ignored by TTS.` : `Could not add you to the ignore list.`}`);
+                enqueueMessage(channel, `${success ? `You will now be ignored by TTS.` : `Could not add you to the ignore list.`}`, { replyToId });
             }
             // Case 2: Mod/Broadcaster is adding someone else (or themselves, which is also fine)
             else if (isModOrBroadcaster) {
                 const success = await addIgnoredUser(channelNameNoHash, targetUsername);
-                enqueueMessage(channel, `@${invokingUserDisplayName}, ${success ? `${targetUsername} will now be ignored by TTS.` : `Could not add ${targetUsername} to ignore list.`}`);
+                enqueueMessage(channel, `${success ? `${targetUsername} will now be ignored by TTS.` : `Could not add ${targetUsername} to ignore list.`}`, { replyToId });
             }
             // Case 3: Non-mod trying to add someone else
             else {
-                enqueueMessage(channel, `@${invokingUserDisplayName}, You can only add yourself or another user (if you are a mod) to the ignore list. Try '!tts ignore ${invokingUsernameLower}'.`);
+                enqueueMessage(channel, `You can only add yourself or another user (if you are a mod) to the ignore list. Try '!tts ignore ${invokingUsernameLower}'.`, { replyToId });
             }
         } else if (action === 'del') {
             // Only mods/broadcasters can delete
             if (isModOrBroadcaster) {
                 const success = await removeIgnoredUser(channelNameNoHash, targetUsername);
-                enqueueMessage(channel, `@${invokingUserDisplayName}, ${success ? `${targetUsername} will no longer be ignored by TTS.` : `${targetUsername} was not on the ignore list or could not be removed.`}`);
+                enqueueMessage(channel, `${success ? `${targetUsername} will no longer be ignored by TTS.` : `${targetUsername} was not on the ignore list or could not be removed.`}`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${invokingUserDisplayName}, Only moderators can remove users from the TTS ignore list.`);
+                enqueueMessage(channel, `Only moderators can remove users from the TTS ignore list.`, { replyToId });
             }
         }
     },

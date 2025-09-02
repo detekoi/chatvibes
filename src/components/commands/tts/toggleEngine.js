@@ -9,7 +9,7 @@ export default {
     usage: '!tts <on|off|enable|disable>',
     permission: 'moderator', // Mod only
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const actionTriggered = context.command; // This will be 'on', 'off', 'enable', or 'disable'
 
@@ -21,7 +21,7 @@ export default {
         } else {
             // This case should ideally not be reached if routing in tts.js is correct
             logger.error(`toggleEngine called with unexpected action: ${actionTriggered}`);
-            enqueueMessage(channel, `@${user['display-name']}, Internal error processing command '${actionTriggered}'.`);
+            enqueueMessage(channel, `Internal error processing command '${actionTriggered}'.`, { replyToId });
             return;
         }
 
@@ -29,10 +29,10 @@ export default {
 
         if (success) {
             const statusMessage = `TTS engine has been ${enableTTS ? 'ENABLED' : 'DISABLED'}.`;
-            enqueueMessage(channel, `@${user['display-name']}, ${statusMessage}`);
+            enqueueMessage(channel, statusMessage, { replyToId });
             logger.info(`ChatVibes [${channelNameNoHash}]: ${statusMessage} by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `@${user['display-name']}, Could not change TTS engine state at this time.`);
+            enqueueMessage(channel, `Could not change TTS engine state at this time.`, { replyToId });
         }
     },
 };

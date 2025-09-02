@@ -16,13 +16,13 @@ export default {
     usage: '!tts defaultemotion <emotion|reset>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const displayName = user['display-name'] || user.username;
 
         if (args.length === 0) {
             const currentConfig = await getTtsState(channelNameNoHash);
-            enqueueMessage(channel, `@${displayName}, Current default emotion: ${currentConfig.emotion ?? DEFAULT_TTS_SETTINGS.emotion}. Usage: ${this.usage}`);
+            enqueueMessage(channel, `Current default emotion: ${currentConfig.emotion ?? DEFAULT_TTS_SETTINGS.emotion}. Usage: !tts defaultemotion <emotion|reset>`, { replyToId });
             return;
         }
 
@@ -32,23 +32,23 @@ export default {
         if (actionOrValue === 'reset') {
             success = await resetChannelDefaultEmotion(channelNameNoHash);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Channel default TTS emotion reset to ${DEFAULT_TTS_SETTINGS.emotion}.`);
+                enqueueMessage(channel, `Channel default TTS emotion reset to ${DEFAULT_TTS_SETTINGS.emotion}.`, { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default emotion reset to ${DEFAULT_TTS_SETTINGS.emotion} by ${user.username}.`);
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not reset channel default emotion.`);
+                enqueueMessage(channel, `Could not reset channel default emotion.`, { replyToId });
             }
         } else {
             const emotionValue = actionOrValue;
             if (!VALID_EMOTIONS.includes(emotionValue)) {
-                enqueueMessage(channel, `@${displayName}, Invalid emotion. Valid emotions are: ${VALID_EMOTIONS.join(', ')}.`);
+                enqueueMessage(channel, `Invalid emotion. Valid emotions are: ${VALID_EMOTIONS.join(', ')}.`, { replyToId });
                 return;
             }
             success = await setChannelDefaultEmotion(channelNameNoHash, emotionValue);
             if (success) {
-                enqueueMessage(channel, `@${displayName}, Channel default TTS emotion set to ${emotionValue}.`);
+                enqueueMessage(channel, `Channel default TTS emotion set to ${emotionValue}.`, { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default emotion set to ${emotionValue} by ${user.username}.`);
             } else {
-                enqueueMessage(channel, `@${displayName}, Could not set channel default emotion to ${emotionValue}.`);
+                enqueueMessage(channel, `Could not set channel default emotion to ${emotionValue}.`, { replyToId });
             }
         }
     },

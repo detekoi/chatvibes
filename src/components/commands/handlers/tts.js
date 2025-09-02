@@ -72,7 +72,7 @@ export default {
     usage: '!tts <subcommand> [options]',
     permission: 'everyone', // Base command is for everyone, subcommands have their own permissions
     execute: async (context) => {
-        const { channel, user, args, ircClient } = context;
+        const { channel, user, args, ircClient, replyToId } = context;
         const channelNameNoHash = channel.substring(1).toLowerCase(); // Ensure lowercase
 
         if (args.length === 0) {
@@ -83,7 +83,7 @@ export default {
                 const helpContext = { ...context, command: 'commands', args: [] };
                 await helpHandler.execute(helpContext);
             } else {
-                enqueueMessage(channel, `@${user['display-name']}, For command info, see: https://detekoi.github.io/chatvibesdocs.html#commands`);
+                enqueueMessage(channel, `For command info, see: https://detekoi.github.io/chatvibesdocs.html#commands`, { replyToId });
             }
             return;
         }
@@ -104,7 +104,7 @@ export default {
                 };
                 await sayHandler.execute(sayContext);
             } else {
-                enqueueMessage(channel, `@${user['display-name']}, For command info, see: https://detekoi.github.io/chatvibesdocs.html#commands`);
+                enqueueMessage(channel, `For command info, see: https://detekoi.github.io/chatvibesdocs.html#commands`, { replyToId });
             }
             return;
         }
@@ -115,7 +115,7 @@ export default {
         // actualSubCommandHandler.permission is the required permission string
         const requiredSubCommandPermission = actualSubCommandHandler.permission || 'moderator'; // Default to moderator if not specified
         if (!hasPermission(requiredSubCommandPermission, user, channelNameNoHash)) {
-            enqueueMessage(channel, `@${user['display-name']}, You don't have permission for '!tts ${effectiveSubCommandName}'.`);
+            enqueueMessage(channel, `You don't have permission for '!tts ${effectiveSubCommandName}'.`, { replyToId });
             logger.warn(`Permission denied for user ${user.username} on command !tts ${effectiveSubCommandName} in ${channel}. Required: ${requiredSubCommandPermission}`);
             return;
         }

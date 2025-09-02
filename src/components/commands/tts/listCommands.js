@@ -7,8 +7,8 @@ export default {
     usage: '!tts commands (or !tts help)',
     permission: 'everyone',
     execute: async (context) => {
-        const { channel, user } = context;
+        const { channel, user, replyToId } = context;
         const docLink = 'https://detekoi.github.io/chatvibesdocs.html#commands';
-        enqueueMessage(channel, `@${user['display-name']}, You can find the full list of commands here: ${docLink}`);
+        enqueueMessage(channel, `You can find the full list of commands here: ${docLink}`, { replyToId });
     },
 };

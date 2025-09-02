@@ -10,7 +10,7 @@ export default {
     usage: '!music ignore <username> | !music ignore <add|del|delete|rem|remove> <username>',
     permission: 'everyone',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1).toLowerCase();
         let action = args[0]?.toLowerCase();
         let targetUsernameRaw = args[1];
@@ -30,13 +30,13 @@ export default {
         }
 
         if (!action || !targetUsername || !['add', 'del'].includes(action)) {
-            let usageMsg = `@${invokingUserDisplayName}, Usage: !music ignore <your_username_to_ignore_yourself>, OR !music ignore add <username_to_ignore_yourself_or_other_if_mod>, OR (mods only) !music ignore <del|remove> <username_to_unignore>. You can also use '!music ignored' (mods only).`;
+            let usageMsg = `Usage: !music ignore <your_username_to_ignore_yourself>, OR !music ignore add <username_to_ignore_yourself_or_other_if_mod>, OR (mods only) !music ignore <del|remove> <username_to_unignore>. You can also use '!music ignored' (mods only).`;
              if (args.length === 0 || (args.length ===1 && args[0].toLowerCase() === "help")) { // More helpful message for just "!music ignore" or "!music ignore help"
                  const musicState = await getMusicState(channelNameNoHash);
                  const isSelfIgnored = musicState.ignoredUsers.includes(invokingUsernameLower);
-                 usageMsg = `@${invokingUserDisplayName}, ${isSelfIgnored ? 'You are currently being ignored by music generation.' : 'You are not currently ignored.'} To ignore yourself: '!music ignore ${invokingUsernameLower}'. Mods: '!music ignore add/del <user>' or '!music ignored'.`;
+                 usageMsg = `${isSelfIgnored ? 'You are currently being ignored by music generation.' : 'You are not currently ignored.'} To ignore yourself: '!music ignore ${invokingUsernameLower}'. Mods: '!music ignore add/del <user>' or '!music ignored'.`;
             }
-            enqueueMessage(channel, usageMsg);
+            enqueueMessage(channel, usageMsg, { replyToId });
             return;
         }
 
@@ -44,19 +44,19 @@ export default {
         if (action === 'add') {
             if (targetUsername === invokingUsernameLower) {
                 const success = await addIgnoredUserMusic(channelNameNoHash, targetUsername);
-                enqueueMessage(channel, `@${invokingUserDisplayName}, ${success ? `You will now be ignored by music generation.` : `Could not add you to the music ignore list.`}`);
+                enqueueMessage(channel, `${success ? `You will now be ignored by music generation.` : `Could not add you to the music ignore list.`}`, { replyToId });
             } else if (isModOrBroadcaster) {
                 const success = await addIgnoredUserMusic(channelNameNoHash, targetUsername);
-                enqueueMessage(channel, `@${invokingUserDisplayName}, ${success ? `${targetUsername} will now be ignored by music generation.` : `Could not add ${targetUsername} to the music ignore list.`}`);
+                enqueueMessage(channel, `${success ? `${targetUsername} will now be ignored by music generation.` : `Could not add ${targetUsername} to the music ignore list.`}`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${invokingUserDisplayName}, You can only add yourself to the music ignore list. Mods can add others. Try '!music ignore ${invokingUsernameLower}'.`);
+                enqueueMessage(channel, `You can only add yourself to the music ignore list. Mods can add others. Try '!music ignore ${invokingUsernameLower}'.`, { replyToId });
             }
         } else if (action === 'del') {
             if (isModOrBroadcaster) {
                 const success = await removeIgnoredUserMusic(channelNameNoHash, targetUsername);
-                enqueueMessage(channel, `@${invokingUserDisplayName}, ${success ? `${targetUsername} will no longer be ignored by music generation.` : `${targetUsername} was not on the music ignore list or could not be removed.`}`);
+                enqueueMessage(channel, `${success ? `${targetUsername} will no longer be ignored by music generation.` : `${targetUsername} was not on the music ignore list or could not be removed.`}`, { replyToId });
             } else {
-                enqueueMessage(channel, `@${invokingUserDisplayName}, Only moderators can remove users from the music ignore list.`);
+                enqueueMessage(channel, `Only moderators can remove users from the music ignore list.`, { replyToId });
             }
         }
     },

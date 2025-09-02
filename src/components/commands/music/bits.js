@@ -9,14 +9,14 @@ export default {
     usage: '!music bits <on|off|min amount>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args } = context;
+        const { channel, user, args, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const action = args[0]?.toLowerCase();
 
         const currentConfig = await getMusicState(channelNameNoHash);
 
         if (!action) {
-            enqueueMessage(channel, `@${user['display-name']}, Bits-for-Music is currently ${currentConfig.bitsModeEnabled ? 'ON' : 'OFF'} with a minimum of ${currentConfig.bitsMinimumAmount || 100} bits. Use !music bits <on|off|min amount>.`);
+            enqueueMessage(channel, `Bits-for-Music is currently ${currentConfig.bitsModeEnabled ? 'ON' : 'OFF'} with a minimum of ${currentConfig.bitsMinimumAmount || 100} bits. Use !music bits <on|off|min amount>.`, { replyToId });
             return;
         }
 
@@ -26,22 +26,22 @@ export default {
         if (action === 'on') {
             enabled = true;
             await setBitsConfigMusic(channelNameNoHash, { enabled, minimumAmount: minAmount });
-            enqueueMessage(channel, `@${user['display-name']}, Bits-for-Music has been ENABLED. Users must now cheer with their prompt to generate music.`);
+            enqueueMessage(channel, `Bits-for-Music has been ENABLED. Users must now cheer with their prompt to generate music.`, { replyToId });
         } else if (action === 'off') {
             enabled = false;
             await setBitsConfigMusic(channelNameNoHash, { enabled, minimumAmount: minAmount });
-            enqueueMessage(channel, `@${user['display-name']}, Bits-for-Music has been DISABLED.`);
+            enqueueMessage(channel, `Bits-for-Music has been DISABLED.`, { replyToId });
         } else if (action === 'min') {
             const newMin = parseInt(args[1], 10);
             if (isNaN(newMin) || newMin < 1) {
-                enqueueMessage(channel, `@${user['display-name']}, Please provide a valid minimum bit amount (e.g., !music bits min 100).`);
+                enqueueMessage(channel, `Please provide a valid minimum bit amount (e.g., !music bits min 100).`, { replyToId });
                 return;
             }
             minAmount = newMin;
             await setBitsConfigMusic(channelNameNoHash, { enabled: enabled, minimumAmount: minAmount }); // Pass existing 'enabled' state
-            enqueueMessage(channel, `@${user['display-name']}, Minimum Bits for Music set to ${minAmount}.`);
+            enqueueMessage(channel, `Minimum Bits for Music set to ${minAmount}.`, { replyToId });
         } else {
-            enqueueMessage(channel, `@${user['display-name']}, Invalid command. Use !music bits <on|off|min amount>.`);
+            enqueueMessage(channel, `Invalid command. Use !music bits <on|off|min amount>.`, { replyToId });
         }
     },
 };

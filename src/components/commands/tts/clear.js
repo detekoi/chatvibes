@@ -9,11 +9,11 @@ export default {
     usage: '!tts clear',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user } = context;
+        const { channel, user, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
 
         await ttsQueue.clearQueue(channelNameNoHash);
-        enqueueMessage(channel, `@${user['display-name']}, TTS queue has been CLEARED.`);
+        enqueueMessage(channel, `TTS queue has been CLEARED.`, { replyToId });
         logger.info(`ChatVibes [${channelNameNoHash}]: TTS queue cleared by ${user.username}.`);
     },
 };

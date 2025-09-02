@@ -10,7 +10,7 @@ export default {
     usage: '!tts stop',
     permission: 'everyone', // Base permission is everyone, logic inside execute will check specifics
     execute: async (context) => {
-        const { channel, user } = context;
+        const { channel, user, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const invokingUsername = user.username.toLowerCase();
 
@@ -46,10 +46,10 @@ export default {
         if (!canStop) {
             // If it's not their own message and they are not a mod, and something *is* playing
             if (isSomethingToStopServerSide && userWhoseSpeechIsPlaying && invokingUsername !== userWhoseSpeechIsPlaying) {
-                 enqueueMessage(channel, `@${user['display-name']}, You can only stop your own messages. Moderators can stop any TTS.`);
+                 enqueueMessage(channel, `You can only stop your own messages. Moderators can stop any TTS.`, { replyToId });
             } else {
                 // This case covers non-mods when server tracks nothing active.
-                enqueueMessage(channel, `@${user['display-name']}, Nothing appears to be actively playing or generating that you can stop.`);
+                enqueueMessage(channel, `Nothing appears to be actively playing or generating that you can stop.`, { replyToId });
             }
             logger.warn(`[${channelNameNoHash}] TTS stop command by ${invokingUsername} denied or nothing to stop for them. Speaker: ${userWhoseSpeechIsPlaying}, ServerActive: ${isSomethingToStopServerSide}`);
             return;
@@ -60,12 +60,12 @@ export default {
 
         if (stopped) {
             // This means stopCurrentSpeech either aborted generation or cleared a known URL
-            enqueueMessage(channel, `@${user['display-name']}, Current TTS speech/generation has been STOPPED.`);
+            enqueueMessage(channel, `Current TTS speech/generation has been STOPPED.`, { replyToId });
             logger.info(`ChatVibes [${channelNameNoHash}]: TTS stopped by ${invokingUsername}. Original speaker was: ${userWhoseSpeechIsPlaying || 'N/A'}.`);
         } else {
             // This means stopCurrentSpeech found no active controller and no active URL on server side.
             // (It still sent a STOP_CURRENT_AUDIO to the client as a precaution).
-            enqueueMessage(channel, `@${user['display-name']}, Sent stop signal. Nothing was actively being generated or tracked by the bot to stop.`);
+            enqueueMessage(channel, `Sent stop signal. Nothing was actively being generated or tracked by the bot to stop.`, { replyToId });
         }
     },
 };

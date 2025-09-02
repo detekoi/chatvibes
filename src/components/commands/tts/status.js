@@ -9,7 +9,7 @@ export default {
     usage: '!tts status',
     permission: 'everyone', // Or 'moderator'
     execute: async (context) => {
-        const { channel, user, ircClient } = context;
+        const { channel, user, ircClient, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const ttsState = await getTtsState(channelNameNoHash); // from ttsState.js
         const queueModule = await import('../../tts/ttsQueue.js'); // Dynamic import for cq
@@ -17,7 +17,7 @@ export default {
 
 
         const statusMsg = `TTS Status for #${channelNameNoHash}: Engine ${ttsState.engineEnabled ? 'Enabled' : 'Disabled'}. Mode: ${ttsState.mode}. Queue: ${cq.queue.length} pending, Paused: ${cq.isPaused}. Voice: ${ttsState.voiceId}.`;
-        // await ircClient.say(channel, `@${user['display-name']} ${statusMsg}`); // Using enqueueMessage instead
-        enqueueMessage(channel, `@${user['display-name']} ${statusMsg}`);
+        // Use native Twitch reply instead of @mention
+        enqueueMessage(channel, statusMsg, { replyToId });
     },
 };
