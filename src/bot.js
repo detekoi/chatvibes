@@ -257,6 +257,11 @@ async function main() {
                 return;
             }
 
+            // Skip TTS processing for cheer messages in the regular handler - they'll be handled by the dedicated cheer handler
+            if (bits > 0) {
+                return;
+            }
+
             // A. If a command was just run, decide if we should READ the command text aloud.
             if (processedCommandName) {
                 // Requirement 3: Read !music commands aloud. 
