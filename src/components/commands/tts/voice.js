@@ -3,6 +3,7 @@ import { setUserVoicePreference, clearUserVoicePreference, getUserVoicePreferenc
 import { getAvailableVoices } from '../../tts/ttsService.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
 import logger from '../../../lib/logger.js';
+import say from './say.js';
 
 export default {
     name: 'voice',
@@ -47,10 +48,14 @@ export default {
         const matchedVoice = availableVoices.find(v => v.id.toLowerCase() === requestedVoiceIdInput.toLowerCase());
 
         if (!matchedVoice) {
-            // CORRECTED DOCUMENTATION LINK
-            const voicesCmdDocLink = 'https://detekoi.github.io/chatvibesdocs.html#voices';
-            enqueueMessage(channel, `Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`, { replyToId });
-            logger.warn(`[${channelNameNoHash}] User ${username} attempted to set invalid voice: ${requestedVoiceIdInput}`);
+            // Fallback: treat "!tts voice ..." as a say request when no valid voice matches
+            logger.info(`[${channelNameNoHash}] No matching voice for "${requestedVoiceIdInput}". Falling back to say for user ${username}.`);
+            const sayContext = {
+                ...context,
+                command: 'say',
+                args: ['voice', ...args],
+            };
+            await say.execute(sayContext);
             return;
         }
 
