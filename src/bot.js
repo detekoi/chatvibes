@@ -244,11 +244,24 @@ async function main() {
             if (tags['custom-reward-id']) {
                 try {
                     const ttsConfig = await getTtsState(channelNameNoHash);
-                    const configuredRewardId = ttsConfig.channelPointRewardId;
-                    if (configuredRewardId && tags['custom-reward-id'] === configuredRewardId) {
+                    const configuredRewardId = ttsConfig.channelPoints?.rewardId || ttsConfig.channelPointRewardId;
+                    const enabledViaNewConfig = ttsConfig.channelPoints ? ttsConfig.channelPoints.enabled === true : true;
+                    if (configuredRewardId && tags['custom-reward-id'] === configuredRewardId && enabledViaNewConfig) {
                         const redeemingUser = username;
                         const redeemMessage = (message || '').trim();
                         if (redeemMessage.length > 0) {
+                            // Enforce content policy if configured
+                            const policy = (ttsConfig.channelPoints && ttsConfig.channelPoints.contentPolicy) || {};
+                            const minChars = typeof policy.minChars === 'number' ? policy.minChars : 1;
+                            const maxChars = typeof policy.maxChars === 'number' ? policy.maxChars : 200;
+                            const blockLinks = policy.blockLinks !== false; // default block links
+                            const bannedWords = Array.isArray(policy.bannedWords) ? policy.bannedWords : [];
+                            if (redeemMessage.length < minChars) return;
+                            if (redeemMessage.length > maxChars) return;
+                            if (blockLinks && /\bhttps?:\/\//i.test(redeemMessage)) return;
+                            const lowered = redeemMessage.toLowerCase();
+                            if (bannedWords.some(w => w && lowered.includes(String(w).toLowerCase()))) return;
+
                             const isIgnored = Array.isArray(ttsConfig.ignoredUsers) && ttsConfig.ignoredUsers.includes(redeemingUser);
                             if (ttsConfig.engineEnabled && !isIgnored) {
                                 await ttsQueue.enqueue(channelNameNoHash, { text: redeemMessage, user: redeemingUser, type: 'reward' });
