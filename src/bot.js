@@ -240,6 +240,30 @@ async function main() {
             const username = tags.username?.toLowerCase();
             const bits = parseInt(tags.bits, 10) || 0;
 
+            // Intercept Channel Points redemption messages for the TTS reward
+            if (tags['custom-reward-id']) {
+                try {
+                    const ttsConfig = await getTtsState(channelNameNoHash);
+                    const configuredRewardId = ttsConfig.channelPointRewardId;
+                    if (configuredRewardId && tags['custom-reward-id'] === configuredRewardId) {
+                        const redeemingUser = username;
+                        const redeemMessage = (message || '').trim();
+                        if (redeemMessage.length > 0) {
+                            const isIgnored = Array.isArray(ttsConfig.ignoredUsers) && ttsConfig.ignoredUsers.includes(redeemingUser);
+                            if (ttsConfig.engineEnabled && !isIgnored) {
+                                await ttsQueue.enqueue(channelNameNoHash, { text: redeemMessage, user: redeemingUser, type: 'reward' });
+                            }
+                        }
+                        return; // Do not process further as normal chat/command
+                    }
+                    // If it's some other reward, ignore for TTS and do not treat as normal chat
+                    return;
+                } catch (e) {
+                    logger.warn({ err: e }, `ChatVibes: Error handling custom reward redemption for ${channelNameNoHash}`);
+                    return;
+                }
+            }
+
             // Clean the cheermote from the message if it has bits.
             const cleanMessage = bits > 0 ? message.replace(/^[\w]+\d+\s*/, '').trim() : message;
 
