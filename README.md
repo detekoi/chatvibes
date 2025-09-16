@@ -20,7 +20,7 @@ For a complete list of available commands and voices, visit the documentation:
 
   * Reads Twitch chat messages aloud.
   * Announces Twitch events (subscriptions, cheers, raids, etc.).
-  * **Monetization with Bits:** Optionally require users to cheer a minimum number of Bits to have their message read aloud or to generate music.
+  * **Monetization with Bits:** Optionally require users to cheer a minimum number of Bits to have their message read aloud (Bits → TTS) or to generate music.
   * Controllable via chat commands for enabling/disabling, managing the queue, changing voice settings, and more.
   * Customizable voices and speech parameters via Replicate API (minimax/speech-02-turbo model).
   * Per-user voice, emotion, pitch and speed preferences for TTS.
@@ -62,7 +62,7 @@ Approved streamers can add or remove the ChatVibes Text-to-Speech (TTS) bot from
 
       * By default, ChatVibes is in **"all messages" mode**, where it reads most chat from all users. You can use the `!tts permission` and `!tts mode` commands to change this behavior. See [Commands](#command-documentation)
       * You can trigger TTS with a command like `!tts <your message>` or `!tts say <your message>`.
-      * The bot also supports a **Bits-for-TTS** and **Bits-for-Music** mode, where messages are only read or music is only generated if they are accompanied by a cheer that meets a channel-configurable minimum amount.
+      * The bot also supports **Bits → TTS** and **Bits-for-Music** modes, where messages are only read or music is only generated if they are accompanied by a cheer that meets a channel-configurable minimum amount.
       * Please refer to the [main ChatVibes documentation](https://detekoi.github.io/chatvibesdocs.html) for details on setting up TTS triggers and customizing voice options.
       * The repository for the ChatVibes web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
 
@@ -257,16 +257,16 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 
 **`!tts bits [on|off|min <amount>]`**
 
-  * **Description:** Configures the Bits-for-TTS feature, allowing channels to require a minimum Cheer amount to trigger TTS.
-      * `on`: Enables Bits-for-TTS mode. Only messages with a sufficient cheer will be read.
-      * `off`: Disables Bits-for-TTS mode.
+  * **Description:** Configures the Bits → TTS feature, allowing channels to require a minimum Cheer amount to trigger TTS.
+      * `on`: Enables Bits → TTS mode. Only messages with a sufficient cheer will be read.
+      * `off`: Disables Bits → TTS mode.
       * `min <amount>`: Sets the minimum number of Bits required (e.g., `min 100`).
   * **Permission:** Moderator
   * **Usage:**
       * `!tts bits on`
       * `!tts bits off`
       * `!tts bits min 100`
-      * `!tts bits` (displays the current Bits-for-TTS status)
+      * `!tts bits` (displays the current Bits → TTS status)
 
 -----
 

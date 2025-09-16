@@ -5,7 +5,7 @@ import { enqueueMessage } from '../../../lib/ircSender.js';
 
 export default {
     name: 'bits',
-    description: 'Configure Bits-for-TTS. Usage: !tts bits <on|off|min amount>',
+    description: 'Configure Bits → TTS. Usage: !tts bits <on|off|min amount>',
     usage: '!tts bits <on|off|min amount>',
     permission: 'moderator',
     execute: async (context) => {
@@ -16,7 +16,7 @@ export default {
         const currentConfig = await getTtsState(channelNameNoHash);
 
         if (!action) {
-            enqueueMessage(channel, `Bits-for-TTS is currently ${currentConfig.bitsModeEnabled ? 'ON' : 'OFF'} with a minimum of ${currentConfig.bitsMinimumAmount || 100} bits. Use !tts bits <on|off|min amount>.`, { replyToId });
+            enqueueMessage(channel, `Bits → TTS is currently ${currentConfig.bitsModeEnabled ? 'ON' : 'OFF'} with a minimum of ${currentConfig.bitsMinimumAmount || 100} bits. Use !tts bits <on|off|min amount>.`, { replyToId });
             return;
         }
 
@@ -26,11 +26,11 @@ export default {
         if (action === 'on') {
             enabled = true;
             await setBitsConfig(channelNameNoHash, { enabled, minimumAmount: minAmount });
-            enqueueMessage(channel, `Bits-for-TTS has been ENABLED.`, { replyToId });
+            enqueueMessage(channel, `Bits → TTS has been ENABLED.`, { replyToId });
         } else if (action === 'off') {
             enabled = false;
             await setBitsConfig(channelNameNoHash, { enabled, minimumAmount: minAmount });
-            enqueueMessage(channel, `Bits-for-TTS has been DISABLED.`, { replyToId });
+            enqueueMessage(channel, `Bits → TTS has been DISABLED.`, { replyToId });
         } else if (action === 'min') {
             const newMin = parseInt(args[1], 10);
             if (isNaN(newMin) || newMin < 1) {

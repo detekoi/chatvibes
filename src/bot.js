@@ -304,6 +304,9 @@ async function main() {
                 // Requirement 3: Read !music commands aloud. 
                 if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
                     await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
+                } else if (ttsConfig.mode === 'bits_points_only') {
+                    // In bits/points only mode, do not read commands
+                    return;
                 }
             }
             // B. If it was NOT a command, it's a regular chat message.
@@ -325,6 +328,9 @@ async function main() {
                     if (hasPermission(requiredPermission, tags, channelNameNoHash)) {
                         await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
                     }
+                } else if (ttsConfig.mode === 'bits_points_only') {
+                    // In bits/points only mode, ignore normal chat
+                    return;
                 }
             }
         });
@@ -364,12 +370,11 @@ async function main() {
                 
                 if (ttsConfig.engineEnabled && !isTtsIgnored) {
                     if (processedCommandName) {
-                        // Read command aloud if appropriate
                         if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
                             await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
                         }
+                        // In bits_points_only mode, do not read commands
                     } else {
-                        // Handle regular cheer messages according to TTS mode
                         if (ttsConfig.bitsModeEnabled) {
                             const minimumBits = ttsConfig.bitsMinimumAmount || 1;
                             if (bits >= minimumBits) {
@@ -380,7 +385,7 @@ async function main() {
                             if (hasPermission(requiredPermission, userstate, channelNameNoHash)) {
                                 await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
                             }
-                        }
+                        } // else bits_points_only with bitsMode disabled => do nothing
                     }
                 }
             } else {

@@ -5,8 +5,8 @@ import logger from '../../../lib/logger.js';
 
 export default {
     name: 'mode',
-    description: 'Sets TTS mode to read all chat or only respond to commands.',
-    usage: '!tts mode <all|command>',
+    description: 'Sets TTS mode: all chat, commands only, or bits/points only.',
+    usage: '!tts mode <all|command|bits|points>',
     permission: 'moderator',
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
@@ -14,13 +14,16 @@ export default {
 
         if (args.length === 0) {
             const currentState = await getTtsState(channelNameNoHash);
-            enqueueMessage(channel, `Current TTS mode is: ${currentState.mode}. Use '!tts mode <all|command>'.`, { replyToId });
+            enqueueMessage(channel, `Current TTS mode is: ${currentState.mode}. Use '!tts mode <all|command|bits|points>'.`, { replyToId });
             return;
         }
 
-        const newMode = args[0].toLowerCase();
-        if (newMode !== 'all' && newMode !== 'command') {
-            enqueueMessage(channel, `Invalid mode. Use 'all' or 'command'.`, { replyToId });
+        const rawMode = args[0].toLowerCase();
+        let newMode = rawMode;
+        if (rawMode === 'bits' || rawMode === 'points' || rawMode === 'bits_points_only') {
+            newMode = 'bits_points_only';
+        } else if (rawMode !== 'all' && rawMode !== 'command') {
+            enqueueMessage(channel, `Invalid mode. Use 'all', 'command', 'bits', or 'points'.`, { replyToId });
             return;
         }
 
