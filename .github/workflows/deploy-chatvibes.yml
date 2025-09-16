@@ -3,7 +3,7 @@ name: Deploy ChatVibes TTS to Cloud Run
 on:
   push:
     branches:
-      - main # Or your default deployment branch
+      - channel-points # Or your default deployment branch
     paths-ignore:
       - 'README.md'
       - 'README-*.md'
