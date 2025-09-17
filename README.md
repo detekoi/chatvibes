@@ -21,6 +21,7 @@ For a complete list of available commands and voices, visit the documentation:
   * Reads Twitch chat messages aloud.
   * Announces Twitch events (subscriptions, cheers, raids, etc.).
   * **Monetization with Bits:** Optionally require users to cheer a minimum number of Bits to have their message read aloud (Bits → TTS) or to generate music.
+  * **Channel Points → TTS:** Create a custom Twitch Channel Point reward that viewers can redeem with a message to have it read aloud by the TTS bot.
   * Controllable via chat commands for enabling/disabling, managing the queue, changing voice settings, and more.
   * Customizable voices and speech parameters via Replicate API (minimax/speech-02-turbo model).
   * Per-user voice, emotion, pitch and speed preferences for TTS.
@@ -63,8 +64,57 @@ Approved streamers can add or remove the ChatVibes Text-to-Speech (TTS) bot from
       * By default, ChatVibes is in **"all messages" mode**, where it reads most chat from all users. You can use the `!tts permission` and `!tts mode` commands to change this behavior. See [Commands](#command-documentation)
       * You can trigger TTS with a command like `!tts <your message>` or `!tts say <your message>`.
       * The bot also supports **Bits → TTS** and **Bits-for-Music** modes, where messages are only read or music is only generated if they are accompanied by a cheer that meets a channel-configurable minimum amount.
+      * **Channel Points → TTS:** Viewers can redeem a custom Channel Point reward with a message to have it read aloud. See [Channel Points → TTS](#channel-points--tts) section below.
       * Please refer to the [main ChatVibes documentation](https://detekoi.github.io/chatvibesdocs.html) for details on setting up TTS triggers and customizing voice options.
       * The repository for the ChatVibes web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
+
+## Channel Points → TTS
+
+ChatVibes supports creating a custom Twitch Channel Point reward that viewers can redeem with a message to have it read aloud by the TTS bot. This provides an alternative way for viewers to trigger TTS without using chat commands.
+
+### How It Works
+
+1. **Streamer Setup**: In the ChatVibes dashboard, go to the "Channel Points → TTS" section and enable the feature.
+2. **Reward Creation**: The bot automatically creates a custom Channel Point reward on your Twitch channel with configurable settings.
+3. **Viewer Redemption**: Viewers can redeem the reward with a custom message, which gets read aloud by the TTS bot.
+4. **Content Policy**: The system includes built-in content filtering (length limits, link blocking, banned words) to help maintain stream quality.
+
+### Configuration Options
+
+**Basic Settings:**
+- **Reward Title**: Customize the name of the Channel Point reward (e.g., "Text-to-Speech Message")
+- **Cost**: Set how many Channel Points the reward costs to redeem
+- **Prompt**: Helper text shown to viewers when redeeming
+- **Auto-approve**: Skip the redemption queue for immediate processing
+
+**Advanced Settings:**
+- **Global Cooldown**: Minimum time between redemptions (in seconds)
+- **Per-stream Limit**: Maximum number of redemptions per stream
+- **Per-user Limit**: Maximum redemptions per user per stream
+- **Content Policy**:
+  - Minimum/maximum message length
+  - Block links (prevents URLs from being read)
+  - Banned words list (comma-separated)
+
+### TTS Modes
+
+The Channel Points → TTS feature works with all TTS modes:
+- **All Messages**: Channel Point redemptions are read along with regular chat
+- **Commands Only**: Only Channel Point redemptions and `!tts` commands are read
+- **Bits/Points Only**: Only Bits cheers and Channel Point redemptions are read (regular chat is ignored)
+
+### Management
+
+- **Enable/Disable**: Toggle the feature on/off via the dashboard
+- **Test Redemption**: Use the "Test redeem" button to simulate a redemption
+- **Delete Reward**: Remove the Channel Point reward from Twitch entirely
+- **Real-time Updates**: Changes take effect immediately
+
+### Requirements
+
+- The streamer must grant `channel:manage:redemptions` and `channel:read:redemptions` OAuth scopes during initial setup
+- The bot must be added to the channel first
+- Channel Points must be enabled on the Twitch channel
 
 ## Advanced
 
@@ -233,15 +283,19 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
   * **Permission:** Moderator
   * **Usage:** `!tts off`
 
-**`!tts mode [all|command]`**
+**`!tts mode [all|command|bits_points_only]`**
 
   * **Description:** Toggles the TTS mode.
       * `all`: All chat messages (respecting the `!tts permission` setting) and enabled events will be spoken. **This is the default mode.**
       * `command`: Only messages triggered by specific TTS commands (like `!tts <message>`) or enabled events will be spoken. Regular chat is ignored.
+      * `bits_points_only`: Only Bits cheer messages and Channel Point redemptions will be spoken. Regular chat and commands are ignored.
   * **Permission:** Moderator
   * **Usage:**
       * `!tts mode all`
       * `!tts mode command`
+      * `!tts mode bits_points_only`
+      * `!tts mode bits` (alias for bits_points_only)
+      * `!tts mode points` (alias for bits_points_only)
       * `!tts mode` (displays current mode)
 
 **`!tts permission [everyone|all|mods]`**
