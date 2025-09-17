@@ -16,6 +16,7 @@ import { getAvailableVoices } from './ttsService.js'; // For validating voice ID
 
 let db;
 const TTS_CONFIG_COLLECTION = 'ttsChannelConfigs';
+const USER_PREFS_COLLECTION = 'ttsUserPreferences';
 
 // In-memory cache of channel configs
 const channelConfigsCache = new Map();
@@ -109,6 +110,55 @@ export async function setTtsState(channelName, key, value) {
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, key, value }, 'Failed to set TTS state in Firestore.');
+        return false;
+    }
+}
+
+// --- Global (cross-channel) user preferences ---
+export async function getGlobalUserPreferences(username) {
+    if (!db) db = new Firestore();
+    const lowerUser = username.toLowerCase();
+    try {
+        const docRef = db.collection(USER_PREFS_COLLECTION).doc(lowerUser);
+        const docSnap = await docRef.get();
+        if (docSnap.exists) {
+            return docSnap.data() || {};
+        }
+        return {};
+    } catch (error) {
+        logger.error({ err: error, user: lowerUser }, 'Failed to get user preferences from Firestore.');
+        return {};
+    }
+}
+
+export async function setGlobalUserPreference(username, key, value) {
+    if (!db) db = new Firestore();
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(USER_PREFS_COLLECTION).doc(lowerUser);
+    try {
+        await docRef.set({ [key]: value, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+        logger.info(`Global user preference updated for ${lowerUser}: ${key} = ${value}`);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, user: lowerUser, key, value }, 'Failed to set user preference in Firestore.');
+        return false;
+    }
+}
+
+export async function clearGlobalUserPreference(username, key) {
+    if (!db) db = new Firestore();
+    const lowerUser = username.toLowerCase();
+    const docRef = db.collection(USER_PREFS_COLLECTION).doc(lowerUser);
+    try {
+        await docRef.update({ [key]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+        logger.info(`Cleared global user preference '${key}' for ${lowerUser}.`);
+        return true;
+    } catch (error) {
+        if (error.code === 5) {
+            logger.debug(`No specific preference '${key}' to clear for user ${lowerUser}.`);
+            return true;
+        }
+        logger.error({ err: error, user: lowerUser, key }, `Failed to clear user preference '${key}'.`);
         return false;
     }
 }

@@ -1,8 +1,8 @@
 // src/components/commands/tts/language.js
 import {
-    setUserLanguagePreference,
-    clearUserLanguagePreference,
-    getUserLanguagePreference
+    setGlobalUserPreference,
+    clearGlobalUserPreference,
+    getGlobalUserPreferences
 } from '../../tts/ttsState.js';
 import { VALID_LANGUAGE_BOOSTS } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
@@ -16,11 +16,11 @@ export default {
     permission: 'everyone',
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
-        const channelNameNoHash = channel.substring(1);
         const username = user.username;
 
         if (args.length === 0) {
-            const currentLang = await getUserLanguagePreference(channelNameNoHash, username);
+            const prefs = await getGlobalUserPreferences(username);
+            const currentLang = prefs.languageBoost;
             // Updated message to include the docLink
             enqueueMessage(channel, `Your current language preference: ${currentLang ?? 'Channel Default'}. Usage: !tts language <language_name|auto|none|reset>. See valid options: ${docLink}`, { replyToId });
             return;
@@ -30,7 +30,7 @@ export default {
         let success;
 
         if (['reset', 'default', 'automatic', 'auto', 'none'].includes(requestedLang)) {
-            success = await clearUserLanguagePreference(channelNameNoHash, username);
+            success = await clearGlobalUserPreference(username, 'languageBoost');
             if (success) {
                 enqueueMessage(channel, `Your TTS language preference has been reset to the channel default (Automatic/None).`, { replyToId });
             } else {
@@ -43,7 +43,7 @@ export default {
                 enqueueMessage(channel, `Invalid language. See available languages: ${docLink}`, { replyToId });
                 return;
             }
-            success = await setUserLanguagePreference(channelNameNoHash, username, foundLang);
+            success = await setGlobalUserPreference(username, 'languageBoost', foundLang);
             if (success) {
                 enqueueMessage(channel, `Your TTS language preference set to ${foundLang}.`, { replyToId });
             } else {

@@ -1,8 +1,8 @@
 // src/components/commands/tts/pitch.js
 import {
-    setUserPitchPreference,
-    clearUserPitchPreference,
-    getUserPitchPreference
+    setGlobalUserPreference,
+    clearGlobalUserPreference,
+    getGlobalUserPreferences
 } from '../../tts/ttsState.js';
 import {
     TTS_PITCH_MIN,
@@ -17,11 +17,11 @@ export default {
     permission: 'everyone',
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
-        const channelNameNoHash = channel.substring(1);
         const username = user.username;
 
         if (args.length === 0) {
-            const currentPitch = await getUserPitchPreference(channelNameNoHash, username);
+            const prefs = await getGlobalUserPreferences(username);
+            const currentPitch = prefs.pitch;
             enqueueMessage(channel, `Your current pitch preference: ${currentPitch ?? 'Channel Default'}. Usage: !tts pitch <value|reset>`, { replyToId });
             return;
         }
@@ -30,7 +30,7 @@ export default {
         let success;
 
         if (actionOrValue === 'reset' || actionOrValue === 'default') {
-            success = await clearUserPitchPreference(channelNameNoHash, username);
+            success = await clearGlobalUserPreference(username, 'pitch');
             if (success) {
                 enqueueMessage(channel, `Your TTS pitch preference has been reset to the channel default.`, { replyToId });
             } else {
@@ -42,7 +42,7 @@ export default {
                 enqueueMessage(channel, `Invalid pitch. Must be an integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`, { replyToId });
                 return;
             }
-            success = await setUserPitchPreference(channelNameNoHash, username, pitchValue);
+            success = await setGlobalUserPreference(username, 'pitch', pitchValue);
             if (success) {
                 enqueueMessage(channel, `Your TTS pitch preference set to ${pitchValue}.`, { replyToId });
             } else {

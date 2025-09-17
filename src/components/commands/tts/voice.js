@@ -1,5 +1,5 @@
 // src/components/commands/tts/voice.js
-import { setUserVoicePreference, clearUserVoicePreference, getUserVoicePreference } from '../../tts/ttsState.js';
+import { setGlobalUserPreference, clearGlobalUserPreference, getGlobalUserPreferences } from '../../tts/ttsState.js';
 import { getAvailableVoices } from '../../tts/ttsService.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
 import logger from '../../../lib/logger.js';
@@ -12,11 +12,11 @@ export default {
     permission: 'everyone',
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
-        const channelNameNoHash = channel.substring(1);
         const username = user.username;
 
         if (args.length === 0) {
-            const currentVoice = await getUserVoicePreference(channelNameNoHash, username);
+            const prefs = await getGlobalUserPreferences(username);
+            const currentVoice = prefs.voiceId;
             if (currentVoice) {
                 enqueueMessage(channel, `Your current TTS voice is set to: ${currentVoice}. Use '!tts voice <voice_id>' to change it or '!tts voice reset' to use the channel default.`, { replyToId });
             } else {
@@ -27,7 +27,7 @@ export default {
 
         // Check for 'reset' first, as it's a single keyword
         if (args.length === 1 && (args[0].toLowerCase() === 'reset' || args[0].toLowerCase() === 'default' || args[0].toLowerCase() === 'auto')) {
-            const success = await clearUserVoicePreference(channelNameNoHash, username);
+            const success = await clearGlobalUserPreference(username, 'voiceId');
             if (success) {
                 enqueueMessage(channel, `Your TTS voice preference has been reset. The channel default will now be used.`, { replyToId });
             } else {
@@ -62,7 +62,7 @@ export default {
         // Use the correctly cased ID from the available voices list for storing
         const validVoiceIdToStore = matchedVoice.id;
 
-        const success = await setUserVoicePreference(channelNameNoHash, username, validVoiceIdToStore);
+        const success = await setGlobalUserPreference(username, 'voiceId', validVoiceIdToStore);
         if (success) {
             enqueueMessage(channel, `Your TTS voice has been set to: ${validVoiceIdToStore}.`, { replyToId });
         } else {

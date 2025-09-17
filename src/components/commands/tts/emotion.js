@@ -1,5 +1,5 @@
 // src/components/commands/tts/emotion.js
-import { setUserEmotionPreference, clearUserEmotionPreference, getUserEmotionPreference } from '../../tts/ttsState.js';
+import { setGlobalUserPreference, clearGlobalUserPreference, getGlobalUserPreferences } from '../../tts/ttsState.js';
 import { VALID_EMOTIONS } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/ircSender.js';
 
@@ -11,11 +11,11 @@ export default {
     permission: 'everyone',
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
-        const channelNameNoHash = channel.substring(1);
         const username = user.username;
 
         if (args.length === 0) {
-            const currentEmotion = await getUserEmotionPreference(channelNameNoHash, username);
+            const prefs = await getGlobalUserPreferences(username);
+            const currentEmotion = prefs.emotion;
             if (currentEmotion) {
                 enqueueMessage(channel, `Your current TTS emotion is set to: ${currentEmotion}. Use '!tts emotion <emotion_name>' to change it or '!tts emotion reset' to use the channel default.`, { replyToId });
             } else {
@@ -27,7 +27,7 @@ export default {
         const requestedEmotion = args[0].toLowerCase();
 
         if (requestedEmotion === 'reset' || requestedEmotion === 'default' || requestedEmotion === 'auto') {
-            const success = await clearUserEmotionPreference(channelNameNoHash, username);
+            const success = await clearGlobalUserPreference(username, 'emotion');
             if (success) {
                 enqueueMessage(channel, `Your TTS emotion preference has been reset. The channel default will now be used.`, { replyToId });
             } else {
@@ -41,7 +41,7 @@ export default {
             return;
         }
 
-        const success = await setUserEmotionPreference(channelNameNoHash, username, requestedEmotion);
+        const success = await setGlobalUserPreference(username, 'emotion', requestedEmotion);
         if (success) {
             enqueueMessage(channel, `Your TTS emotion has been set to: ${requestedEmotion}.`, { replyToId });
         } else {

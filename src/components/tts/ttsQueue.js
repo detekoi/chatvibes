@@ -4,6 +4,7 @@ import { generateSpeech } from './ttsService.js';
 import {
     getTtsState,
     getChannelTtsConfig,
+    getGlobalUserPreferences,
     getUserEmotionPreference,
     getUserVoicePreference,
     getUserPitchPreference,
@@ -56,6 +57,7 @@ export async function enqueue(channelName, eventData) {
     }
 
     const channelConfig = await getChannelTtsConfig(channelName);
+    let globalUserPrefs = {};
     let userEmotion = null;
     let userVoice = null;
     let userPitch = null;
@@ -64,6 +66,9 @@ export async function enqueue(channelName, eventData) {
     let userEnglishNorm = null;
 
     if (user) {
+        // Fetch global prefs first
+        globalUserPrefs = await getGlobalUserPreferences(user);
+        // Keep legacy per-channel overrides for backward compatibility
         userEmotion = await getUserEmotionPreference(channelName, user);
         userVoice = await getUserVoicePreference(channelName, user);
         userPitch = await getUserPitchPreference(channelName, user);
@@ -73,13 +78,13 @@ export async function enqueue(channelName, eventData) {
     }
 
     const finalVoiceOptions = {
-        voiceId: userVoice || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId,
-        speed: userSpeed ?? channelConfig.speed ?? DEFAULT_TTS_SETTINGS.speed,
-        pitch: userPitch ?? channelConfig.pitch ?? DEFAULT_TTS_SETTINGS.pitch,
-        emotion: userEmotion || channelConfig.emotion || DEFAULT_TTS_SETTINGS.emotion,
-        languageBoost: userLanguage || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
+        voiceId: globalUserPrefs.voiceId || userVoice || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId,
+        speed: (globalUserPrefs.speed ?? userSpeed) ?? channelConfig.speed ?? DEFAULT_TTS_SETTINGS.speed,
+        pitch: (globalUserPrefs.pitch ?? userPitch) ?? channelConfig.pitch ?? DEFAULT_TTS_SETTINGS.pitch,
+        emotion: globalUserPrefs.emotion || userEmotion || channelConfig.emotion || DEFAULT_TTS_SETTINGS.emotion,
+        languageBoost: globalUserPrefs.languageBoost || userLanguage || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
         volume: channelConfig.volume || DEFAULT_TTS_SETTINGS.volume,
-        englishNormalization: userEnglishNorm ?? (channelConfig.englishNormalization !== undefined
+        englishNormalization: (globalUserPrefs.englishNormalization ?? userEnglishNorm) ?? (channelConfig.englishNormalization !== undefined
                                 ? channelConfig.englishNormalization
                                 : DEFAULT_TTS_SETTINGS.englishNormalization),
         sampleRate: channelConfig.sampleRate || DEFAULT_TTS_SETTINGS.sampleRate,
