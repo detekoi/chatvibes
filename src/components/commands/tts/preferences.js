@@ -46,18 +46,24 @@ async function createViewerSettingsLink(channel, viewer) {
     
     try {
         console.log('Attempting to create short link for:', longUrl);
-        // Call the web UI's short link creation API (no auth required for this endpoint)
+        // Call the web UI's short link creation API (now requires Authorization header)
         const response = await axios.post(`${VIEWER_PAGE_BASE}/api/shortlink`, {
             url: longUrl
         }, {
-            timeout: 5000  // 5 second timeout
+            timeout: 5000,  // 5 second timeout
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
         });
         
         console.log('Short link response:', response.status, response.data);
         
-        if (response.data && response.data.shortUrl) {
-            console.log('Successfully created short link:', response.data.shortUrl);
-            return response.data.shortUrl;
+        if (response.data) {
+            const out = response.data.absoluteUrl || response.data.shortUrl;
+            if (out) {
+                console.log('Successfully created short link:', out);
+                return out;
+            }
         } else {
             throw new Error('No shortUrl in response');
         }
