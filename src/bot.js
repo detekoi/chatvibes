@@ -358,9 +358,14 @@ async function main() {
             const cleanMessage = message.replace(/^[\w]+\d+\s*/, '').trim();
             
             if (cleanMessage) {
+                // Skip processing if this is a !tts command, as it's already handled by the regular message handler
+                if (message.trim().toLowerCase().startsWith('!tts')) {
+                    return;
+                }
+
                 // Process cheer message with content - treat like a regular message but with bits
                 logger.info(`[CHEER EVENT] Channel: ${channel}, User: ${username}, Message: "${message}", Cleaned: "${cleanMessage}", Bits: ${bits}`);
-                
+
                 // Command processing for cheer messages
                 const processedCommandName = await processCommand(channelNameNoHash, userstate, cleanMessage);
                 
@@ -380,7 +385,11 @@ async function main() {
                         if (ttsConfig.bitsModeEnabled) {
                             const minimumBits = ttsConfig.bitsMinimumAmount || 1;
                             if (bits >= minimumBits) {
-                                await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
+                                // In command mode, even with bits enabled, we should not read non-command cheer messages
+                                if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only') {
+                                    await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
+                                }
+                                // In command mode, non-command cheer messages should be ignored even with bits
                             }
                         } else if (ttsConfig.mode === 'all') {
                             // Only read non-command cheer messages in 'all' mode, not in 'command' mode
