@@ -370,22 +370,25 @@ async function main() {
                 
                 if (ttsConfig.engineEnabled && !isTtsIgnored) {
                     if (processedCommandName) {
-                        if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
+                        // Read commands aloud in 'all' mode or 'command' mode, but not in 'bits_points_only' mode
+                        if (processedCommandName !== 'tts' && (ttsConfig.mode === 'all' || ttsConfig.mode === 'command')) {
                             await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
                         }
                         // In bits_points_only mode, do not read commands
                     } else {
+                        // For non-command cheer messages, respect the TTS mode
                         if (ttsConfig.bitsModeEnabled) {
                             const minimumBits = ttsConfig.bitsMinimumAmount || 1;
                             if (bits >= minimumBits) {
                                 await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
                             }
                         } else if (ttsConfig.mode === 'all') {
+                            // Only read non-command cheer messages in 'all' mode, not in 'command' mode
                             const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
                             if (hasPermission(requiredPermission, userstate, channelNameNoHash)) {
                                 await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
                             }
-                        } // else bits_points_only with bitsMode disabled => do nothing
+                        } // else command mode or bits_points_only with bitsMode disabled => do nothing for non-command messages
                     }
                 }
             } else {
