@@ -278,7 +278,14 @@ async function main() {
             }
 
             // Clean the cheermote from the message if it has bits.
-            const cleanMessage = bits > 0 ? message.replace(/^[\w]+\d+\s*/, '').trim() : message;
+            // Handle both "Cheer100 hello" and "!tts Cheer100 hello" formats
+            let cleanMessage = message;
+            if (bits > 0) {
+                // Remove cheermotes from beginning: "Cheer100 hello" -> "hello"
+                cleanMessage = cleanMessage.replace(/^[\w]+\d+\s*/, '').trim();
+                // Remove cheermotes after !tts: "!tts Cheer100 hello" -> "!tts hello"
+                cleanMessage = cleanMessage.replace(/^(!tts\s+)[\w]+\d+\s*/, '$1').trim();
+            }
 
             if (!cleanMessage) return;
 
