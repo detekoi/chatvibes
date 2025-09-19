@@ -278,13 +278,13 @@ async function main() {
             }
 
             // Clean the cheermote from the message if it has bits.
-            // Handle both "Cheer100 hello" and "!tts Cheer100 hello" formats
+            // Handle both "Cheer100 hello", "Cheer 100 hello", "!tts Cheer100 hello", and "!tts Cheer 100 hello" formats
             let cleanMessage = message;
             if (bits > 0) {
-                // Remove cheermotes from beginning: "Cheer100 hello" -> "hello"
-                cleanMessage = cleanMessage.replace(/^[\w]+\d+\s*/, '').trim();
-                // Remove cheermotes after !tts: "!tts Cheer100 hello" -> "!tts hello"
-                cleanMessage = cleanMessage.replace(/^(!tts\s+)[\w]+\d+\s*/, '$1').trim();
+                // Remove cheermotes from beginning: "Cheer100 hello" or "Cheer 100 hello" -> "hello"
+                cleanMessage = cleanMessage.replace(/^[\w]+\s*\d+\s*/, '').trim();
+                // Remove cheermotes after !tts: "!tts Cheer100 hello" or "!tts Cheer 100 hello" -> "!tts hello"
+                cleanMessage = cleanMessage.replace(/^(!tts\s+)[\w]+\s*\d+\s*/, '$1').trim();
             }
 
             if (!cleanMessage) return;
@@ -361,8 +361,8 @@ async function main() {
             const username = userstate.username?.toLowerCase();
             const bits = parseInt(userstate.bits, 10) || 0;
             
-            // Clean the cheermote from the message
-            const cleanMessage = message.replace(/^[\w]+\d+\s*/, '').trim();
+            // Clean the cheermote from the message - handle both "Cheer100" and "Cheer 100" formats
+            const cleanMessage = message.replace(/^[\w]+\s*\d+\s*/, '').trim();
             
             if (cleanMessage) {
                 // Skip processing if this is a !tts command, as it's already handled by the regular message handler
