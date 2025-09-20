@@ -534,8 +534,31 @@ export function initializeWebServer() {
 
     wssInstance = new WebSocketServer({ server: httpServer });
     logger.info(`ChatVibes TTS WebSocket Server initialized and attached to HTTP server.`);
+    
+    // Heartbeat to detect broken connections and keep them alive across proxies
+    function heartbeat() {
+        this.isAlive = true;
+    }
+    
+    const heartbeatInterval = setInterval(() => {
+        wssInstance.clients.forEach((ws) => {
+            if (ws.isAlive === false) {
+                logger.warn('Terminating stale WebSocket connection.');
+                return ws.terminate();
+            }
+            ws.isAlive = false;
+            try {
+                ws.ping();
+            } catch (err) {
+                logger.warn({ err }, 'Error sending WebSocket ping; terminating socket');
+                ws.terminate();
+            }
+        });
+    }, 30000);
 
     wssInstance.on('connection', async (ws, req) => { // Make the handler async
+        ws.isAlive = true;
+        ws.on('pong', heartbeat);
         let channelName = null;
         let tokenFromUrl = null;
 
@@ -600,6 +623,14 @@ export function initializeWebServer() {
             try {
                 const parsedMessage = JSON.parse(message.toString());
                 logger.debug({ channel: channelName, received: parsedMessage }, `Received WebSocket message`);
+                if (parsedMessage && parsedMessage.type === 'ping') {
+                    // Respond to application-level pings to keep browser clients confident
+                    try {
+                        ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
+                    } catch (sendErr) {
+                        logger.warn({ err: sendErr, channel: channelName }, 'Failed to send pong response');
+                    }
+                }
             } catch (e) {
                 logger.warn({ channel: channelName, rawMessage: message.toString() }, "Received unparseable WebSocket message from client.");
             }
@@ -623,6 +654,10 @@ export function initializeWebServer() {
 
     httpServer.listen(PORT, () => {
         logger.info(`ChatVibes Web Server (for TTS OBS Source) listening on http://localhost:${PORT}`);
+    });
+
+    wssInstance.on('close', () => {
+        clearInterval(heartbeatInterval);
     });
 
     return { server: httpServer, wss: wssInstance, sendAudioToChannel };

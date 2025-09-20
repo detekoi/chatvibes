@@ -31,6 +31,8 @@ let ws = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 const RECONNECT_DELAY_MS = 3000;
+let keepaliveTimer = null;
+const CLIENT_PING_INTERVAL_MS = 25000; // 25s to stay under common 30s LB idle timeouts
 
 function connectWebSocket() {
     if (!channelName && wsProtocol === 'ws:') { // Only show alert for local dev if channel is missing
@@ -44,6 +46,20 @@ function connectWebSocket() {
     ws.onopen = () => {
         console.log('TTS WebSocket connected successfully.');
         reconnectAttempts = 0; // Reset on successful connection
+        // Start client keepalive ping
+        if (keepaliveTimer) {
+            clearInterval(keepaliveTimer);
+        }
+        keepaliveTimer = setInterval(() => {
+            try {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    // Send lightweight application-level ping
+                    ws.send(JSON.stringify({ type: 'ping', ts: Date.now() }));
+                }
+            } catch (e) {
+                console.warn('TTS WebSocket: error sending client ping', e);
+            }
+        }, CLIENT_PING_INTERVAL_MS);
         // Optional: Send a registration message with the channel name if the server expects it
         // ws.send(JSON.stringify({ type: 'register', channel: channelName }));
     };
@@ -61,6 +77,9 @@ function connectWebSocket() {
                 stopAllAudio();
             } else if (data.type === 'registered') {
                 console.log(`TTS WebSocket registered for channel: ${data.channel}. Message: ${data.message}`);
+            } else if (data.type === 'pong') {
+                // Server responded to app-level ping; nothing else to do
+                // Could update a lastSeen timestamp if desired
             }
         } catch (e) {
             // This might be a direct URL string if your server doesn't always send JSON
@@ -84,6 +103,10 @@ function connectWebSocket() {
     ws.onclose = (event) => {
         console.log(`TTS WebSocket disconnected. Code: ${event.code}, Reason: "${event.reason}". Attempting to reconnect... (Attempt ${reconnectAttempts + 1})`);
         ws = null; // Clear the instance
+        if (keepaliveTimer) {
+            clearInterval(keepaliveTimer);
+            keepaliveTimer = null;
+        }
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttempts++;
             setTimeout(connectWebSocket, RECONNECT_DELAY_MS * reconnectAttempts); // Exponential backoff-like delay
