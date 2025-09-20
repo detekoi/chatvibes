@@ -22,7 +22,7 @@ import { initializeCommandProcessor, processMessage as processCommand, hasPermis
 import { initializeIrcSender, clearMessageQueue } from './lib/ircSender.js';
 
 // Channel Management
-import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges, listenForObsTokenChanges } from './components/twitch/channelManager.js';
+import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges } from './components/twitch/channelManager.js';
 
 let ircClientInstance = null;
 let channelChangeListener = null;
@@ -75,18 +75,7 @@ async function gracefulShutdown(signal) {
         logger.info('ChatVibes: No active Firestore channel change listener to clean up.');
     }
 
-    if (obsTokenChangeListener && typeof obsTokenChangeListener === 'function') {
-        try {
-            logger.info('ChatVibes: Cleaning up Firestore OBS token change listener...');
-            obsTokenChangeListener();
-            obsTokenChangeListener = null;
-            logger.info('ChatVibes: Firestore OBS token change listener cleaned up.');
-        } catch (error) {
-            logger.error({ err: error }, 'ChatVibes: Error cleaning up Firestore OBS token change listener.');
-        }
-    } else {
-        logger.info('ChatVibes: No active Firestore OBS token change listener to clean up.');
-    }
+    // OBS token change listener no longer used; tokens are written directly to ttsChannelConfigs by the web UI.
 
     clearMessageQueue();
     logger.info('ChatVibes: IRC message sender queue cleared.');
@@ -212,10 +201,7 @@ async function main() {
                  logger.info('ChatVibes (DEV MODE): Relying on TMI.js auto-join for channels specified in client options.');
             }
             
-            // Always set up OBS token listener (needed for WebSocket authentication)
-            if (!obsTokenChangeListener) {
-                obsTokenChangeListener = listenForObsTokenChanges();
-            }
+            // OBS token listener removed; WebSocket server reads from ttsChannelConfigs.
         });
 
         ircClientInstance.on('disconnected', (reason) => {
@@ -224,10 +210,7 @@ async function main() {
                 channelChangeListener();
                 channelChangeListener = null;
             }
-            if (obsTokenChangeListener) {
-                obsTokenChangeListener();
-                obsTokenChangeListener = null;
-            }
+            // No OBS token listener to clean up.
         });
 
         // --- MESSAGE HANDLER ---
