@@ -80,7 +80,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
 // ... (rest of ttsService.js: _fetchAndParseVoiceList, getAvailableVoices)
 async function _fetchAndParseVoiceList() {
     const url = 'https://replicate.com/minimax/speech-02-turbo/llms.txt';
-    logger.info(`Workspaceing voice list from ${url}`); // Corrected log
+    logger.info(`Fetching voice list from ${url}`);
     try {
         const res = await fetch(url); // Ensure fetch is available (Node 18+) or use a library
         if (!res.ok) {
@@ -89,33 +89,13 @@ async function _fetchAndParseVoiceList() {
 
         const raw = await res.text();
         const lines = raw.split('\n');
-        let allFoundVoiceIds = new Set(); 
-
-        const voiceIdInputHeader = '- voice_id:';
-        const voiceIdInputLineIndex = lines.findIndex(line => line.trim().startsWith(voiceIdInputHeader));
-
-        if (voiceIdInputLineIndex !== -1) {
-            const lineContent = lines[voiceIdInputLineIndex];
-            const systemVoicesMatch = lineContent.match(/system voice IDs:\s*([^)]+)\s*\(/i);
-            if (systemVoicesMatch && systemVoicesMatch[1]) {
-                const systemVoiceChunk = systemVoicesMatch[1];
-                systemVoiceChunk.split(',')
-                    .map(v => v.trim())
-                    .filter(v => v) 
-                    .forEach(vId => allFoundVoiceIds.add(vId));
-                logger.debug(`Found ${allFoundVoiceIds.size} system voice IDs from input line.`);
-            } else {
-                logger.warn('Could not parse system voice IDs from the voice_id input line.');
-            }
-        } else {
-            logger.warn('"voice_id" input line not found. Cannot parse system voices from there.');
-        }
+        let allFoundVoiceIds = new Set();
 
         const mainListHeaderString = '> ## MiniMax TTS Voice List'; 
         const mainListStartIndex = lines.findIndex(line => line.trim() === mainListHeaderString);
 
         if (mainListStartIndex === -1) {
-            logger.warn(`Main voice list header "[${mainListHeaderString}]" not found. Only system voices (if any) will be available.`);
+            logger.warn(`Main voice list header "[${mainListHeaderString}]" not found. Voice list will be empty.`);
         } else {
             logger.info(`Found main voice list header at line index: ${mainListStartIndex}`);
             for (let i = mainListStartIndex + 1; i < lines.length; i++) {
@@ -133,8 +113,8 @@ async function _fetchAndParseVoiceList() {
         }
 
         if (allFoundVoiceIds.size === 0) {
-            logger.warn('No voice IDs found after parsing both sections in llms.txt.');
-            cachedVoiceList = []; 
+            logger.warn('No voice IDs found after parsing in llms.txt.');
+            cachedVoiceList = [];
             return [];
         }
 
