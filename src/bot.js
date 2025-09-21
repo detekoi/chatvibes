@@ -20,6 +20,7 @@ import { initializeMusicState, getMusicState } from './components/music/musicSta
 // Command Processing
 import { initializeCommandProcessor, processMessage as processCommand, hasPermission } from './components/commands/commandProcessor.js';
 import { initializeIrcSender, clearMessageQueue } from './lib/ircSender.js';
+import { createLeaderElection } from './lib/leaderElection.js';
 
 // Channel Management
 import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges } from './components/twitch/channelManager.js';
@@ -28,6 +29,8 @@ let ircClientInstance = null;
 let channelChangeListener = null;
 let obsTokenChangeListener = null;
 let isShuttingDown = false;
+let leaderElection = null;
+let ircStartedByThisInstance = false;
 
 async function gracefulShutdown(signal) {
     if (isShuttingDown) {
@@ -185,36 +188,44 @@ async function main() {
         logger.info('ChatVibes: Initializing IRC Sender queue...');
         initializeIrcSender();
 
-        logger.info('ChatVibes: Creating Twitch IRC Client instance...');
-        ircClientInstance = await createIrcClient(config.twitch);
+        // Start the Web Server early (independent of IRC leadership)
+        logger.info('ChatVibes: Initializing Web Server for OBS audio...');
+        const { server: webServerInstance } = initializeWebServer();
+        global.healthServer = webServerInstance;
 
-        // --- Setup IRC Event Listeners ---
-        ircClientInstance.on('connected', async (address, port) => {
-            logger.info(`ChatVibes: Successfully connected to Twitch IRC: ${address}:${port}`);
-             if (config.app.nodeEnv !== 'development') {
-                logger.info('ChatVibes: Setting up Firestore channel listener and performing initial sync.');
-                if (!channelChangeListener) {
-                    channelChangeListener = listenForChannelChanges(ircClientInstance);
+        // Functions to start/stop IRC subsystem under leader election
+        const startIrcSubsystem = async () => {
+            if (ircStartedByThisInstance) {
+                logger.info('ChatVibes: IRC subsystem already started by this instance.');
+                return;
+            }
+            logger.info('ChatVibes: Creating Twitch IRC Client instance (leader acquired)...');
+            ircClientInstance = await createIrcClient(config.twitch);
+
+            // --- Setup IRC Event Listeners ---
+            ircClientInstance.on('connected', async (address, port) => {
+                logger.info(`ChatVibes: Successfully connected to Twitch IRC: ${address}:${port}`);
+                if (config.app.nodeEnv !== 'development') {
+                    logger.info('ChatVibes: Setting up Firestore channel listener and performing initial sync.');
+                    if (!channelChangeListener) {
+                        channelChangeListener = listenForChannelChanges(ircClientInstance);
+                    }
+                    await syncManagedChannelsWithIrc(ircClientInstance);
+                } else {
+                    logger.info('ChatVibes (DEV MODE): Relying on TMI.js auto-join for channels specified in client options.');
                 }
-                await syncManagedChannelsWithIrc(ircClientInstance);
-            } else {
-                 logger.info('ChatVibes (DEV MODE): Relying on TMI.js auto-join for channels specified in client options.');
-            }
-            
-            // OBS token listener removed; WebSocket server reads from ttsChannelConfigs.
-        });
+            });
 
-        ircClientInstance.on('disconnected', (reason) => {
-            logger.warn(`ChatVibes: Disconnected from Twitch IRC: ${reason || 'Unknown reason'}`);
-            if (channelChangeListener) {
-                channelChangeListener();
-                channelChangeListener = null;
-            }
-            // No OBS token listener to clean up.
-        });
+            ircClientInstance.on('disconnected', (reason) => {
+                logger.warn(`ChatVibes: Disconnected from Twitch IRC: ${reason || 'Unknown reason'}`);
+                if (channelChangeListener) {
+                    channelChangeListener();
+                    channelChangeListener = null;
+                }
+            });
 
-        // --- MESSAGE HANDLER ---
-        ircClientInstance.on('message', async (channel, tags, message, self) => {
+            // --- MESSAGE HANDLER ---
+            ircClientInstance.on('message', async (channel, tags, message, self) => {
             if (self) return;
 
             // --- 1. PREPARATION ---
@@ -323,22 +334,22 @@ async function main() {
                     return;
                 }
             }
-        });
+            });
 
-        // --- Event Handlers ---
-        ircClientInstance.on('subscription', (channel, username, _method, message, _userstate) => {
+            // --- Event Handlers ---
+            ircClientInstance.on('subscription', (channel, username, _method, message, _userstate) => {
             const channelNameNoHash = channel.substring(1).toLowerCase();
             if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'subscription', `${username} just subscribed! ${message || ''}`);
-        });
-        ircClientInstance.on('resub', (channel, username, months, message, _userstate, _methods) => {
+            });
+            ircClientInstance.on('resub', (channel, username, months, message, _userstate, _methods) => {
             const channelNameNoHash = channel.substring(1).toLowerCase();
             if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'resub', `${username} resubscribed for ${months} months! ${message || ''}`);
-        });
-        
-        // Handle cheer messages - both with and without text
-        ircClientInstance.on('cheer', async (channel, userstate, message) => {
+            });
+
+            // Handle cheer messages - both with and without text
+            ircClientInstance.on('cheer', async (channel, userstate, message) => {
             const channelNameNoHash = channel.substring(1);
             if (!isChannelAllowed(channelNameNoHash.toLowerCase())) return;
             const username = userstate.username?.toLowerCase();
@@ -401,30 +412,52 @@ async function main() {
                     await handleTwitchEventForTTS(channel, userstate.username, 'cheer', cheerAnnouncement);
                 }
             }
-        });
+            });
 
-        ircClientInstance.on('raided', (channel, username, viewers) => {
+            ircClientInstance.on('raided', (channel, username, viewers) => {
             const channelNameNoHash = channel.substring(1).toLowerCase();
             if (!isChannelAllowed(channelNameNoHash)) return;
             handleTwitchEventForTTS(channel, username, 'raid', `${username} is raiding with ${viewers} viewers!`);
-        });
+            });
 
-        const handleTwitchEventForTTS = async (channel, username, eventType, eventDetailsText) => {
+            const handleTwitchEventForTTS = async (channel, username, eventType, eventDetailsText) => {
              const channelNameNoHash = channel.substring(1);
              const ttsConfig = await getTtsState(channelNameNoHash);
              if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
                  logger.info(`ChatVibes [${channelNameNoHash}]: TTS Event: ${eventType} by ${username}.`);
                  await ttsQueue.enqueue(channelNameNoHash, { text: eventDetailsText, user: username, type: 'event' });
              }
+            };
+
+            logger.info('ChatVibes: Connecting to Twitch IRC...');
+            await connectIrcClient();
+            ircClientInstance = getIrcClient();
+            ircStartedByThisInstance = true;
         };
 
-        logger.info('ChatVibes: Connecting to Twitch IRC...');
-        await connectIrcClient();
-        ircClientInstance = getIrcClient();
+        const stopIrcSubsystem = async () => {
+            if (!ircStartedByThisInstance) return;
+            try {
+                const client = ircClientInstance || getIrcClient();
+                if (client && typeof client.disconnect === 'function') {
+                    await client.disconnect();
+                }
+            } catch (e) {
+                logger.warn({ err: e }, 'ChatVibes: Error while stopping IRC subsystem');
+            }
+            if (channelChangeListener) {
+                try { channelChangeListener(); } catch {}
+                channelChangeListener = null;
+            }
+            ircStartedByThisInstance = false;
+        };
 
-        logger.info('ChatVibes: Initializing Web Server for OBS audio...');
-        const { server: webServerInstance } = initializeWebServer();
-        global.healthServer = webServerInstance;
+        // Start leader election to ensure only one active IRC processor
+        leaderElection = createLeaderElection();
+        await leaderElection.start({
+            onStartedLeading: startIrcSubsystem,
+            onStoppedLeading: stopIrcSubsystem,
+        });
 
         logger.info(`ChatVibes: Bot username: ${config.twitch.username}.`);
 
