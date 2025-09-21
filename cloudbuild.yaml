@@ -19,6 +19,11 @@ steps:
     - '--platform'
     - 'managed'
     - '--allow-unauthenticated'
+    - '--session-affinity'
+    - '--timeout'
+    - '3600'
+    - '--port'
+    - '8080'
     - '--set-secrets'
     - |
       TWITCH_BOT_USERNAME=projects/${_PROJECT_ID}/secrets/twitch-bot-username/versions/latest,

@@ -109,7 +109,9 @@ function connectWebSocket() {
         }
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttempts++;
-            setTimeout(connectWebSocket, RECONNECT_DELAY_MS * reconnectAttempts); // Exponential backoff-like delay
+            // Use faster initial reconnect delay, then exponential backoff
+            const delay = reconnectAttempts === 1 ? 1000 : RECONNECT_DELAY_MS * (reconnectAttempts - 1);
+            setTimeout(connectWebSocket, delay);
         } else {
             console.error(`TTS WebSocket: Max reconnect attempts (${MAX_RECONNECT_ATTEMPTS}) reached. Please check server and refresh OBS source.`);
         }

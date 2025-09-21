@@ -526,6 +526,9 @@ const httpServer = http.createServer(async (req, res) => {
     });
 });
 
+// Disable Node.js HTTP server timeout to let Cloud Run control connection lifecycle
+httpServer.setTimeout(0);
+
 export function initializeWebServer() {
     if (wssInstance) {
         logger.warn('ChatVibes TTS WebServer already initialized.');
