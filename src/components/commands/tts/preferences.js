@@ -1,5 +1,6 @@
 // src/components/commands/tts/preferences.js
 import { enqueueMessage } from '../../../lib/ircSender.js';
+import { getTtsState } from '../../tts/ttsState.js';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
 
@@ -88,6 +89,17 @@ export default {
         const { channel, user, replyToId } = context;
         const channelNameNoHash = channel.substring(1).toLowerCase();
         const username = user.username;
+
+        try {
+            const ttsState = await getTtsState(channelNameNoHash);
+            if (ttsState && ttsState.allowViewerPreferences === false) {
+                enqueueMessage(channel, `The streamer has disabled personal voice settings for this channel.`, { replyToId });
+                return;
+            }
+        } catch (e) {
+            // If fetching state fails, proceed without blocking, but log to console
+            console.error('Failed to fetch TTS state for allowViewerPreferences check:', e);
+        }
 
         if (!JWT_SECRET_KEY) {
             console.error('JWT_SECRET_KEY not found in environment. Available env keys:', Object.keys(process.env).filter(k => k.includes('JWT')));
