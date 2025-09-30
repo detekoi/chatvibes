@@ -22,6 +22,9 @@ import { initializeCommandProcessor, processMessage as processCommand, hasPermis
 import { initializeIrcSender, clearMessageQueue } from './lib/ircSender.js';
 import { createLeaderElection } from './lib/leaderElection.js';
 
+// URL Processing
+import { processMessageUrls } from './lib/urlProcessor.js';
+
 // Channel Management
 import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges } from './components/twitch/channelManager.js';
 
@@ -258,7 +261,9 @@ async function main() {
 
                             const isIgnored = Array.isArray(ttsConfig.ignoredUsers) && ttsConfig.ignoredUsers.includes(redeemingUser);
                             if (ttsConfig.engineEnabled && !isIgnored) {
-                                await ttsQueue.enqueue(channelNameNoHash, { text: redeemMessage, user: redeemingUser, type: 'reward' });
+                                // Process URLs based on channel configuration
+                                const processedMessage = processMessageUrls(redeemMessage, ttsConfig.readFullUrls);
+                                await ttsQueue.enqueue(channelNameNoHash, { text: processedMessage, user: redeemingUser, type: 'reward' });
                             }
                         }
                         return; // Do not process further as normal chat/command
@@ -304,7 +309,9 @@ async function main() {
             if (processedCommandName) {
                 // Requirement 3: Read !music commands aloud. 
                 if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
-                    await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
+                    // Process URLs based on channel configuration
+                    const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+                    await ttsQueue.enqueue(channelNameNoHash, { text: processedMessage, user: username, type: 'command' });
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, do not read commands
                     return;
@@ -318,7 +325,9 @@ async function main() {
                     if (bits > 0) {
                         const minimumBits = ttsConfig.bitsMinimumAmount || 1;
                         if (bits >= minimumBits) {
-                            await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
+                            // Process URLs based on channel configuration
+                            const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+                            await ttsQueue.enqueue(channelNameNoHash, { text: processedMessage, user: username, type: 'cheer_tts' });
                         }
                     }
                     // If bits mode is on and it's a regular message (no bits), we do nothing.
@@ -327,7 +336,9 @@ async function main() {
                 else if (ttsConfig.mode === 'all') {
                     const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
                     if (hasPermission(requiredPermission, tags, channelNameNoHash)) {
-                        await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
+                        // Process URLs based on channel configuration
+                        const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+                        await ttsQueue.enqueue(channelNameNoHash, { text: processedMessage, user: username, type: 'chat' });
                     }
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, ignore normal chat

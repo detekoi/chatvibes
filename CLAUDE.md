@@ -73,6 +73,7 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
 - Mode (all chat or command only)
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings
-- Language boost setting (New)
+- Language boost setting
+- URL handling (`readFullUrls` - defaults to false, reads only domain names when false)
 - List of ignored users
 - User-specific preferences (including language)
