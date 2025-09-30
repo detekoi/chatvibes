@@ -11,6 +11,7 @@ on:
       - 'LICENSE.md'
       - 'CLAUDE.md'
       - 'gemini/**' # Assuming 'gemini/' folder is for local LLM interaction
+      - 'tests/**' # Exclude test files from triggering deployments
       - '.vscode/**'
       - '.idea/**'
 
