@@ -57,6 +57,8 @@ export async function enqueue(channelName, eventData) {
     }
 
     const channelConfig = await getChannelTtsConfig(channelName);
+    // Check if viewer preferences are allowed (defaults to true if not set)
+    const allowViewerPrefs = ttsStatus && ttsStatus.allowViewerPreferences !== false;
     let globalUserPrefs = {};
     let userEmotion = null;
     let userVoice = null;
@@ -65,10 +67,7 @@ export async function enqueue(channelName, eventData) {
     let userLanguage = null;
     let userEnglishNorm = null;
 
-    // Check if viewer preferences are allowed (defaults to true if not set)
-    const allowViewerPreferences = ttsStatus.allowViewerPreferences !== false;
-
-    if (user && allowViewerPreferences) {
+    if (user && allowViewerPrefs) {
         // Fetch global prefs first
         globalUserPrefs = await getGlobalUserPreferences(user);
         // Keep legacy per-channel overrides for backward compatibility
