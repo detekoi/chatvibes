@@ -65,7 +65,10 @@ export async function enqueue(channelName, eventData) {
     let userLanguage = null;
     let userEnglishNorm = null;
 
-    if (user) {
+    // Check if viewer preferences are allowed (defaults to true if not set)
+    const allowViewerPreferences = ttsStatus.allowViewerPreferences !== false;
+
+    if (user && allowViewerPreferences) {
         // Fetch global prefs first
         globalUserPrefs = await getGlobalUserPreferences(user);
         // Keep legacy per-channel overrides for backward compatibility

@@ -11,6 +11,8 @@ export const DEFAULT_TTS_SETTINGS = {
     pitch: config.tts?.defaultPitch || 0, 
     emotion: config.tts?.defaultEmotion || 'auto',
     englishNormalization: false,
+    allowViewerPreferences: true,
+    readFullUrls: false, // Default to reading only domain names for better listening experience
     sampleRate: 32000,
     bitrate: 128000,
     channel: 'mono',
