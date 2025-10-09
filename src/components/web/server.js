@@ -92,13 +92,14 @@ function applyCors(req, res) {
     const allowedOrigins = new Set([
         'http://localhost:5002',
         'http://127.0.0.1:5002',
+        'https://tts.wildcat.chat',
         'https://chatvibestts.web.app',
         'https://chatvibestts.firebaseapp.com'
     ]);
     if (origin && allowedOrigins.has(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
     } else {
-        res.setHeader('Access-Control-Allow-Origin', 'https://chatvibestts.web.app');
+        res.setHeader('Access-Control-Allow-Origin', 'https://tts.wildcat.chat');
     }
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
