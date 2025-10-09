@@ -32,6 +32,7 @@ env:
   # Full path to the secret containing the bot's refresh token
   TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH: 'projects/906125386407/secrets/twitch-bot-refresh-token/versions/latest'
   REPLICATE_TTS_MODEL_NAME: 'minimax/speech-02-turbo' # Default from your config
+  WEB_UI_BASE_URL: 'https://tts.wildcat.chat' # Web UI base URL for viewer preferences
   # Optional TTS defaults (can be omitted if app defaults are fine)
   # TTS_DEFAULT_VOICE_ID: 'Friendly_Person'
   # TTS_DEFAULT_EMOTION: 'auto'
@@ -91,7 +92,7 @@ jobs:
             --session-affinity \
             --port 8080 \
             --service-account ${{ env.CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }} \
-            --set-env-vars="^:^NODE_ENV=${{ env.NODE_ENV }}:LOG_LEVEL=${{ env.LOG_LEVEL }}:PINO_PRETTY_LOGGING=${{ env.PINO_PRETTY_LOGGING }}:TWITCH_BOT_USERNAME=${{ env.TWITCH_BOT_USERNAME }}:GOOGLE_CLOUD_PROJECT=${{ env.GOOGLE_CLOUD_PROJECT_ENV }}:TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=${{ env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH }}:REPLICATE_TTS_MODEL_NAME=${{ env.REPLICATE_TTS_MODEL_NAME }}" \
+            --set-env-vars="^:^NODE_ENV=${{ env.NODE_ENV }}:LOG_LEVEL=${{ env.LOG_LEVEL }}:PINO_PRETTY_LOGGING=${{ env.PINO_PRETTY_LOGGING }}:TWITCH_BOT_USERNAME=${{ env.TWITCH_BOT_USERNAME }}:GOOGLE_CLOUD_PROJECT=${{ env.GOOGLE_CLOUD_PROJECT_ENV }}:TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=${{ env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH }}:REPLICATE_TTS_MODEL_NAME=${{ env.REPLICATE_TTS_MODEL_NAME }}:WEB_UI_BASE_URL=${{ env.WEB_UI_BASE_URL }}" \
             --set-secrets="\
             JWT_SECRET_KEY=jwt-secret-key:latest,\
             TWITCH_CLIENT_ID=${{ env.TWITCH_CLIENT_ID_SECRET }}:latest,\
