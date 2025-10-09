@@ -8,7 +8,7 @@ export default {
     permission: 'everyone',
     execute: async (context) => {
         const { channel, replyToId } = context;
-        const docLink = 'https://detekoi.github.io/chatvibesdocs.html#voices';
+        const docLink = 'https://docs.wildcat.chat/chatvibesdocs.html#voices';
         enqueueMessage(channel, `You can find the list of available voices here: ${docLink}`, { replyToId });
     },
 };

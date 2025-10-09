@@ -49,7 +49,7 @@ export default {
         const matchedVoice = availableVoices.find(v => v.id.toLowerCase() === requestedVoiceIdInput.toLowerCase());
 
         if (!matchedVoice) {
-            const voicesCmdDocLink = 'https://detekoi.github.io/chatvibesdocs.html#voices';
+            const voicesCmdDocLink = 'https://docs.wildcat.chat/chatvibesdocs.html#voices';
             enqueueMessage(channel, `Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`, { replyToId });
             logger.warn(`[${channelNameNoHash}] Attempted to set invalid channel default voice: ${requestedVoiceIdInput}`);
             return;

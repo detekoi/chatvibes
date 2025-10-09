@@ -8,7 +8,7 @@ export default {
     permission: 'everyone',
     execute: async (context) => {
         const { channel, replyToId } = context;
-        const docLink = 'https://detekoi.github.io/chatvibesdocs.html#commands';
+        const docLink = 'https://docs.wildcat.chat/chatvibesdocs.html#commands';
         enqueueMessage(channel, `You can find the full list of commands here: ${docLink}`, { replyToId });
     },
 };

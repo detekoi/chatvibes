@@ -83,7 +83,7 @@ export default {
                 const helpContext = { ...context, command: 'commands', args: [] };
                 await helpHandler.execute(helpContext);
             } else {
-                enqueueMessage(channel, `For command info, see: https://detekoi.github.io/chatvibesdocs.html#commands`, { replyToId });
+                enqueueMessage(channel, `For command info, see: https://docs.wildcat.chat/chatvibesdocs.html#commands`, { replyToId });
             }
             return;
         }
@@ -104,7 +104,7 @@ export default {
                 };
                 await sayHandler.execute(sayContext);
             } else {
-                enqueueMessage(channel, `For command info, see: https://detekoi.github.io/chatvibesdocs.html#commands`, { replyToId });
+                enqueueMessage(channel, `For command info, see: https://docs.wildcat.chat/chatvibesdocs.html#commands`, { replyToId });
             }
             return;
         }

@@ -9,7 +9,7 @@ import { enqueueMessage } from '../../../lib/ircSender.js';
 import logger from '../../../lib/logger.js';
 
 const commandUsage = '!tts defaultlanguage <language|reset>'; // Define usage string
-const docLink = 'https://detekoi.github.io/chatvibesdocs.html#language-boost';
+const docLink = 'https://docs.wildcat.chat/chatvibesdocs.html#language-boost';
 
 export default {
     name: 'defaultlanguage',
