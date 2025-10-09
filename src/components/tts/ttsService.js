@@ -43,14 +43,23 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
 
 
   logger.debug({ input, model: REPLICATE_MODEL }, 'Sending TTS request to Replicate');
-  
+
   const runOptions = { input };
   if (options.signal) {
     runOptions.signal = options.signal;
   }
 
+  // Add timeout to prevent hanging indefinitely
+  const REPLICATE_TIMEOUT_MS = 60000; // 60 seconds
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Replicate API request timed out')), REPLICATE_TIMEOUT_MS);
+  });
+
   try {
-    const output = await replicate.run(REPLICATE_MODEL, runOptions);
+    const output = await Promise.race([
+      replicate.run(REPLICATE_MODEL, runOptions),
+      timeoutPromise
+    ]);
 
     // Check if the request was aborted *during* the replicate.run call
     if (options.signal && options.signal.aborted) {
