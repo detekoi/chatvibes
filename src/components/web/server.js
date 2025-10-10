@@ -535,7 +535,7 @@ httpServer.setTimeout(0);
 export function initializeWebServer() {
     if (wssInstance) {
         logger.warn('ChatVibes TTS WebServer already initialized.');
-        return { server: httpServer, wss: wssInstance, sendAudioToChannel };
+        return { server: httpServer, wss: wssInstance, sendAudioToChannel, hasActiveClients };
     }
 
     wssInstance = new WebSocketServer({ server: httpServer });
@@ -666,7 +666,17 @@ export function initializeWebServer() {
         clearInterval(heartbeatInterval);
     });
 
-    return { server: httpServer, wss: wssInstance, sendAudioToChannel };
+    return { server: httpServer, wss: wssInstance, sendAudioToChannel, hasActiveClients };
+}
+
+// Export function to check if channel has active WebSocket clients
+export function hasActiveClients(channelName) {
+    if (!wssInstance) {
+        return false;
+    }
+    const lowerChannelName = channelName.toLowerCase();
+    const clients = channelClients.get(lowerChannelName);
+    return clients && clients.size > 0;
 }
 
 export function sendAudioToChannel(channelName, audioUrlOrCommand) {

@@ -12,7 +12,7 @@ import {
     getUserLanguagePreference,
     getUserEnglishNormalizationPreference
 } from './ttsState.js';
-import { sendAudioToChannel } from '../web/server.js';
+import { sendAudioToChannel, hasActiveClients } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
 
 const channelQueues = new Map();
@@ -114,7 +114,18 @@ export async function processQueue(channelName) {
 
     cq.isProcessing = true;
     const event = cq.queue.shift();
-    
+
+    // Check if there are active WebSocket clients before expensive API call
+    if (!hasActiveClients(channelName)) {
+        logger.warn(`[${channelName}] Skipping TTS generation for ${event.user || 'event_tts'} - no active WebSocket clients. Dropping message: "${event.text.substring(0,30)}..."`);
+        cq.isProcessing = false;
+        // Continue processing queue in case clients reconnect
+        if (!cq.isPaused && cq.queue.length > 0) {
+            setTimeout(() => processQueue(channelName), 500);
+        }
+        return;
+    }
+
     // Clear previous state for the new item
     if (cq.currentSpeechController) {
         logger.warn(`[${channelName}] Previous speech controller was still active when starting new item. Aborting it.`);

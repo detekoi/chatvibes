@@ -464,11 +464,16 @@ async function main() {
         };
 
         // Start leader election to ensure only one active IRC processor
-        leaderElection = createLeaderElection();
-        await leaderElection.start({
-            onStartedLeading: startIrcSubsystem,
-            onStoppedLeading: stopIrcSubsystem,
-        });
+        if (config.app.nodeEnv === 'development') {
+            logger.info('ChatVibes (DEV MODE): Skipping leader election, starting IRC subsystem directly...');
+            await startIrcSubsystem();
+        } else {
+            leaderElection = createLeaderElection();
+            await leaderElection.start({
+                onStartedLeading: startIrcSubsystem,
+                onStoppedLeading: stopIrcSubsystem,
+            });
+        }
 
         logger.info(`ChatVibes: Bot username: ${config.twitch.username}.`);
 
