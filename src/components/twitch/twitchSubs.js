@@ -80,14 +80,14 @@ async function makeHelixRequest(method, endpoint, body = null) {
  * Get all EventSub subscriptions
  */
 export async function getEventSubSubscriptions() {
-    return await makeHelixRequest('get', '/eventsub/subscriptions');
+    return await makeHelixRequestWithUserToken('get', '/eventsub/subscriptions');
 }
 
 /**
  * Delete an EventSub subscription by ID
  */
 export async function deleteEventSubSubscription(subscriptionId) {
-    const result = await makeHelixRequest('delete', `/eventsub/subscriptions?id=${subscriptionId}`);
+    const result = await makeHelixRequestWithUserToken('delete', `/eventsub/subscriptions?id=${subscriptionId}`);
     if (result.success) {
         logger.info({ subscriptionId }, 'EventSub subscription deleted successfully');
     }
@@ -137,7 +137,7 @@ export async function subscribeChannelSubscribe(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.subscribe' }, 'Successfully subscribed to channel.subscribe');
     }
@@ -165,7 +165,7 @@ export async function subscribeChannelSubscriptionMessage(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.subscription.message' }, 'Successfully subscribed to channel.subscription.message');
     }
@@ -193,7 +193,7 @@ export async function subscribeChannelSubscriptionGift(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.subscription.gift' }, 'Successfully subscribed to channel.subscription.gift');
     }
@@ -221,7 +221,7 @@ export async function subscribeChannelCheer(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.cheer' }, 'Successfully subscribed to channel.cheer');
     }
@@ -249,7 +249,7 @@ export async function subscribeChannelRaid(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.raid' }, 'Successfully subscribed to channel.raid');
     }
@@ -280,7 +280,7 @@ export async function subscribeChannelFollow(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.follow' }, 'Successfully subscribed to channel.follow (v2)');
     }

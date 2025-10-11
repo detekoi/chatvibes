@@ -4,7 +4,7 @@
 import crypto from 'crypto';
 import config from '../../config/index.js';
 import logger from '../../lib/logger.js';
-import { isChannelAllowed } from './channelManager.js';
+import { isChannelAllowed } from '../../lib/allowList.js';
 import * as ttsQueue from '../tts/ttsQueue.js';
 import { getTtsState } from '../tts/ttsState.js';
 
