@@ -1,11 +1,11 @@
 substitutions:
   _PROJECT_ID: "906125386407"
   _REGION: "us-central1"
-  _SERVICE_NAME: "twitch-tts-app"
+  _SERVICE_NAME: "chatvibes-tts-service"
 
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/${_PROJECT_ID}/twitch-tts-app:$COMMIT_SHA', '.']
+  args: ['build', '-t', 'gcr.io/${_PROJECT_ID}/chatvibes-tts-service:$COMMIT_SHA', '.']
 # … etc …
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: gcloud
@@ -68,4 +68,4 @@ steps:
       echo "Pub/Sub permissions granted successfully"
 
 images:
-- 'gcr.io/${_PROJECT_ID}/twitch-tts-app:$COMMIT_SHA'
+- 'gcr.io/${_PROJECT_ID}/chatvibes-tts-service:$COMMIT_SHA'
