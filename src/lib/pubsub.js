@@ -104,11 +104,11 @@ export async function subscribeTtsEvents(handler) {
 
         logger.info(`Creating Pub/Sub subscription: ${subscriptionName}`);
         
-        // Create subscription with auto-delete after 10 minutes of inactivity
+        // Create subscription with auto-delete after 24 hours of inactivity (minimum allowed)
         [subscription] = await topic.createSubscription(subscriptionName, {
             expirationPolicy: {
                 ttl: {
-                    seconds: 600 // 10 minutes
+                    seconds: 86400 // 24 hours (minimum required by GCP)
                 }
             },
             messageRetentionDuration: {
