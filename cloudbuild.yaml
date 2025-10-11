@@ -14,7 +14,7 @@ steps:
     - 'deploy'
     - '${_SERVICE_NAME}'
     - '--image'
-    - 'gcr.io/${_PROJECT_ID}/twitch-tts-app:$COMMIT_SHA'
+    - 'gcr.io/${_PROJECT_ID}/${_SERVICE_NAME}:$COMMIT_SHA'
     - '--region'
     - '${_REGION}'
     - '--platform'
@@ -41,15 +41,8 @@ steps:
   args:
     - '-c'
     - |
-      # Get the service account email for the Cloud Run service
-      SERVICE_ACCOUNT=$(gcloud run services describe ${_SERVICE_NAME} \
-        --region=${_REGION} \
-        --format='value(spec.template.spec.serviceAccountName)' 2>/dev/null || echo "")
-      
-      # If no custom service account, use the default Compute Engine service account
-      if [ -z "$SERVICE_ACCOUNT" ]; then
-        SERVICE_ACCOUNT="${_PROJECT_ID}-compute@developer.gserviceaccount.com"
-      fi
+      # Use the known service account for the chatvibes-tts-service
+      SERVICE_ACCOUNT="twitch-sa@chatvibestts.iam.gserviceaccount.com"
       
       echo "Granting Pub/Sub permissions to: $SERVICE_ACCOUNT"
       
