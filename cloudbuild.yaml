@@ -1,6 +1,7 @@
 substitutions:
   _PROJECT_ID: "906125386407"
   _REGION: "us-central1"
+  _SERVICE_NAME: "twitch-tts-app"
 
 steps:
 - name: 'gcr.io/cloud-builders/docker'
@@ -11,7 +12,7 @@ steps:
   args:
     - 'run'
     - 'deploy'
-    - 'twitch-tts-app'
+    - '${_SERVICE_NAME}'
     - '--image'
     - 'gcr.io/${_PROJECT_ID}/twitch-tts-app:$COMMIT_SHA'
     - '--region'
@@ -24,6 +25,8 @@ steps:
     - '3600'
     - '--port'
     - '8080'
+    - '--set-env-vars'
+    - 'GOOGLE_CLOUD_PROJECT=${_PROJECT_ID}'
     - '--set-secrets'
     - |
       TWITCH_BOT_USERNAME=projects/${_PROJECT_ID}/secrets/twitch-bot-username/versions/latest,
@@ -31,5 +34,38 @@ steps:
       TWITCH_CLIENT_ID=projects/${_PROJECT_ID}/secrets/twitch-client-id/versions/latest,
       TWITCH_CLIENT_SECRET=projects/${_PROJECT_ID}/secrets/twitch-client-secret/versions/latest,
       TWITCH_BOT_REFRESH_TOKEN=projects/${_PROJECT_ID}/secrets/twitch-bot-refresh-token/versions/latest
+
+# Grant Pub/Sub permissions to the Cloud Run service account
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: bash
+  args:
+    - '-c'
+    - |
+      # Get the service account email for the Cloud Run service
+      SERVICE_ACCOUNT=$(gcloud run services describe ${_SERVICE_NAME} \
+        --region=${_REGION} \
+        --format='value(spec.template.spec.serviceAccountName)' 2>/dev/null || echo "")
+      
+      # If no custom service account, use the default Compute Engine service account
+      if [ -z "$SERVICE_ACCOUNT" ]; then
+        SERVICE_ACCOUNT="${_PROJECT_ID}-compute@developer.gserviceaccount.com"
+      fi
+      
+      echo "Granting Pub/Sub permissions to: $SERVICE_ACCOUNT"
+      
+      # Grant Pub/Sub Publisher role (to publish TTS events)
+      gcloud projects add-iam-policy-binding ${_PROJECT_ID} \
+        --member="serviceAccount:$SERVICE_ACCOUNT" \
+        --role="roles/pubsub.publisher" \
+        --condition=None
+      
+      # Grant Pub/Sub Subscriber role (to receive TTS events)
+      gcloud projects add-iam-policy-binding ${_PROJECT_ID} \
+        --member="serviceAccount:$SERVICE_ACCOUNT" \
+        --role="roles/pubsub.subscriber" \
+        --condition=None
+      
+      echo "Pub/Sub permissions granted successfully"
+
 images:
 - 'gcr.io/${_PROJECT_ID}/twitch-tts-app:$COMMIT_SHA'

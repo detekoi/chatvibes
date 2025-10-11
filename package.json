@@ -27,6 +27,7 @@
     "license": "SEE LICENSE IN LICENSE.md",
     "dependencies": {
         "@google-cloud/firestore": "^7.0.0",
+        "@google-cloud/pubsub": "^4.0.0",
         "@google-cloud/secret-manager": "^5.0.0",
         "axios": "^1.6.0",
         "dotenv": "^16.3.1",

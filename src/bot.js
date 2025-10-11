@@ -28,6 +28,9 @@ import { processMessageUrls } from './lib/urlProcessor.js';
 // Channel Management
 import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges } from './components/twitch/channelManager.js';
 
+// Pub/Sub for cross-instance TTS communication
+import { initializePubSub, publishTtsEvent, subscribeTtsEvents, closePubSub } from './lib/pubsub.js';
+
 let ircClientInstance = null;
 let channelChangeListener = null;
 let obsTokenChangeListener = null;
@@ -85,6 +88,14 @@ async function gracefulShutdown(signal) {
 
     clearMessageQueue();
     logger.info('ChatVibes: IRC message sender queue cleared.');
+
+    // Close Pub/Sub subscription and client
+    logger.info('ChatVibes: Closing Pub/Sub resources...');
+    shutdownTasks.push(
+        closePubSub()
+            .then(() => { logger.info('ChatVibes: Pub/Sub resources closed.'); })
+            .catch(err => { logger.error({ err }, 'ChatVibes: Error closing Pub/Sub.'); })
+    );
 
     let localIrcClient = null;
     try {
@@ -191,6 +202,26 @@ async function main() {
         logger.info('ChatVibes: Initializing IRC Sender queue...');
         initializeIrcSender();
 
+        // Initialize Pub/Sub for cross-instance TTS communication
+        logger.info('ChatVibes: Initializing Pub/Sub for TTS message distribution...');
+        await initializePubSub();
+
+        // Subscribe to TTS events from Pub/Sub
+        // All instances subscribe, but only process if they have active WebSocket clients
+        logger.info('ChatVibes: Setting up Pub/Sub subscriber for TTS events...');
+        await subscribeTtsEvents(async (channelName, eventData) => {
+            // This handler is called on ALL instances when a TTS event is published
+            // The ttsQueue.enqueue will check if there are active WebSocket clients
+            logger.debug({
+                channel: channelName,
+                user: eventData.user,
+                textPreview: eventData.text?.substring(0, 30)
+            }, 'Received TTS event from Pub/Sub, processing locally');
+            
+            await ttsQueue.enqueue(channelName, eventData);
+        });
+        logger.info('ChatVibes: Pub/Sub subscriber ready');
+
         // Start the Web Server early (independent of IRC leadership)
         logger.info('ChatVibes: Initializing Web Server for OBS audio...');
         const { server: webServerInstance } = initializeWebServer();
@@ -263,7 +294,7 @@ async function main() {
                             if (ttsConfig.engineEnabled && !isIgnored) {
                                 // Process URLs based on channel configuration
                                 const processedMessage = processMessageUrls(redeemMessage, ttsConfig.readFullUrls);
-                                await ttsQueue.enqueue(channelNameNoHash, { text: processedMessage, user: redeemingUser, type: 'reward' });
+                                await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: redeemingUser, type: 'reward' });
                             }
                         }
                         return; // Do not process further as normal chat/command
@@ -311,7 +342,7 @@ async function main() {
                 if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
                     // Process URLs based on channel configuration
                     const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                    await ttsQueue.enqueue(channelNameNoHash, { text: processedMessage, user: username, type: 'command' });
+                    await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'command' });
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, do not read commands
                     return;
@@ -327,7 +358,7 @@ async function main() {
                         if (bits >= minimumBits) {
                             // Process URLs based on channel configuration
                             const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                            await ttsQueue.enqueue(channelNameNoHash, { text: processedMessage, user: username, type: 'cheer_tts' });
+                            await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'cheer_tts' });
                         }
                     }
                     // If bits mode is on and it's a regular message (no bits), we do nothing.
@@ -338,7 +369,7 @@ async function main() {
                     if (hasPermission(requiredPermission, tags, channelNameNoHash)) {
                         // Process URLs based on channel configuration
                         const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                        await ttsQueue.enqueue(channelNameNoHash, { text: processedMessage, user: username, type: 'chat' });
+                        await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'chat' });
                     }
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, ignore normal chat
@@ -389,7 +420,7 @@ async function main() {
                     if (processedCommandName) {
                         // Read commands aloud in 'all' mode or 'command' mode, but not in 'bits_points_only' mode
                         if (processedCommandName !== 'tts' && (ttsConfig.mode === 'all' || ttsConfig.mode === 'command')) {
-                            await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
+                            await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
                         }
                         // In bits_points_only mode, do not read commands
                     } else {
@@ -399,7 +430,7 @@ async function main() {
                             if (bits >= minimumBits) {
                                 // In command mode, even with bits enabled, we should not read non-command cheer messages
                                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only') {
-                                    await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
+                                    await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
                                 }
                                 // In command mode, non-command cheer messages should be ignored even with bits
                             }
@@ -407,7 +438,7 @@ async function main() {
                             // Only read non-command cheer messages in 'all' mode, not in 'command' mode
                             const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
                             if (hasPermission(requiredPermission, userstate, channelNameNoHash)) {
-                                await ttsQueue.enqueue(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
+                                await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
                             }
                         } // else command mode or bits_points_only with bitsMode disabled => do nothing for non-command messages
                     }
@@ -436,7 +467,7 @@ async function main() {
              const ttsConfig = await getTtsState(channelNameNoHash);
              if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
                  logger.info(`ChatVibes [${channelNameNoHash}]: TTS Event: ${eventType} by ${username}.`);
-                 await ttsQueue.enqueue(channelNameNoHash, { text: eventDetailsText, user: username, type: 'event' });
+                 await publishTtsEvent(channelNameNoHash, { text: eventDetailsText, user: username, type: 'event' });
              }
             };
 
