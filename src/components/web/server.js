@@ -197,6 +197,10 @@ async function handleApiRequest(req, res) {
             return handleVoicesEndpoint(req, res);
         }
 
+        if (req.url.startsWith('/api/setup-eventsub')) {
+            return handleEventSubSetup(req, res);
+        }
+
         if (req.url.startsWith('/api/admin/refresh-allowlist')) {
             return handleAllowListRefresh(req, res);
         }
@@ -720,4 +724,68 @@ export function sendAudioToChannel(channelName, audioUrlOrCommand) {
             // Optionally, remove dead clients here if state indicates permanent closure
         }
     });
+}
+
+// EventSub setup endpoint handler
+async function handleEventSubSetup(req, res) {
+    try {
+        if (req.method !== 'POST') {
+            return sendErrorResponse(res, 405, 'Method not allowed', req);
+        }
+
+        // Parse request body
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk.toString();
+        });
+
+        req.on('end', async () => {
+            try {
+                const { channelLogin, userId } = JSON.parse(body);
+                
+                if (!channelLogin) {
+                    return sendErrorResponse(res, 400, 'Missing channelLogin', req);
+                }
+
+                logger.info({ channelLogin, userId }, 'Setting up EventSub subscriptions');
+
+                // Import EventSub subscription functions
+                const { subscribeChannelToTtsEvents } = await import('../twitch/twitchSubs.js');
+                
+                // Subscribe to all TTS events for this channel
+                const result = await subscribeChannelToTtsEvents(userId, {
+                    subscribe: true,      // channel.subscribe
+                    resubscribe: true,    // channel.subscription.message
+                    giftSub: true,        // channel.subscription.gift
+                    cheer: true,          // channel.cheer
+                    raid: true,           // channel.raid
+                    follow: false         // channel.follow (disabled by default)
+                });
+
+                logger.info({ 
+                    channelLogin, 
+                    userId, 
+                    successful: result.successful.length, 
+                    failed: result.failed.length 
+                }, 'EventSub setup completed');
+
+                sendJsonResponse(res, 200, {
+                    success: true,
+                    message: 'EventSub subscriptions configured',
+                    channelLogin,
+                    userId,
+                    successful: result.successful,
+                    failed: result.failed
+                }, req);
+
+            } catch (parseError) {
+                logger.error({ err: parseError }, 'Error parsing EventSub setup request');
+                sendErrorResponse(res, 400, 'Invalid request body', req);
+            }
+        });
+
+    } catch (error) {
+        logger.error({ err: error }, 'Error in handleEventSubSetup');
+        sendErrorResponse(res, 500, 'Internal server error', req);
+    }
 }

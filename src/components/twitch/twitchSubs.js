@@ -1,12 +1,65 @@
 // src/components/twitch/twitchSubs.js
 // Twitch EventSub subscription management for TTS event announcements
 
+import axios from 'axios';
 import { getHelixClient, getUsersByLogin } from './helixClient.js';
+import { refreshIrcToken } from './ircAuthHelper.js';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 
 /**
- * Make a Twitch Helix API request
+ * Get bot's user access token (required for EventSub subscriptions with user-level scopes)
+ */
+async function getBotUserAccessToken() {
+    try {
+        // refreshIrcToken returns the access token without oauth: prefix
+        const token = await refreshIrcToken();
+        if (!token) {
+            throw new Error('Failed to get bot user access token');
+        }
+        return token;
+    } catch (error) {
+        logger.error({ err: error }, 'Error getting bot user access token');
+        return null;
+    }
+}
+
+/**
+ * Make a Twitch Helix API request with user access token
+ * (Required for EventSub subscriptions with channel:read:subscriptions, bits:read, etc.)
+ */
+async function makeHelixRequestWithUserToken(method, endpoint, body = null) {
+    try {
+        const userToken = await getBotUserAccessToken();
+        if (!userToken) {
+            throw new Error('Failed to obtain user access token');
+        }
+
+        const response = await axios({
+            method,
+            url: `https://api.twitch.tv/helix${endpoint}`,
+            data: body,
+            headers: {
+                'Authorization': `Bearer ${userToken}`,
+                'Client-ID': config.twitch.clientId,
+                'Content-Type': 'application/json'
+            },
+            timeout: 15000
+        });
+
+        return { success: true, data: response.data };
+    } catch (error) {
+        logger.error({
+            err: error.response ? error.response.data : error.message,
+            method,
+            endpoint
+        }, 'Error making Helix request with user token');
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Make a Twitch Helix API request (uses app token)
  */
 async function makeHelixRequest(method, endpoint, body = null) {
     try {
