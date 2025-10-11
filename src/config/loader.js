@@ -42,6 +42,8 @@ function loadConfig() {
                 : [], // In prod, this will be populated by channelManager
             clientId: process.env.TWITCH_CLIENT_ID,
             clientSecret: process.env.TWITCH_CLIENT_SECRET,
+            publicUrl: process.env.PUBLIC_URL, // EventSub webhook callback URL
+            eventSubSecret: process.env.TWITCH_EVENTSUB_SECRET, // EventSub signature verification secret
         },
         security: {
             allowedChannels,
@@ -63,6 +65,7 @@ function loadConfig() {
         secrets: {
             twitchBotRefreshTokenName: process.env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME,
             allowedChannelsSecretName: process.env.ALLOWED_CHANNELS_SECRET_NAME,
+            jwtSecret: process.env.JWT_SECRET_KEY,
         }
     };
 

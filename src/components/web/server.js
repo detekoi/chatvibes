@@ -454,6 +454,17 @@ const httpServer = http.createServer(async (req, res) => {
 
     let requestedPath = req.url.split('?')[0]; // Get only the path part, remove query string
 
+    // Handle Twitch EventSub webhook (must capture raw body for signature verification)
+    if (req.method === 'POST' && requestedPath === '/twitch/event') {
+        const chunks = [];
+        req.on('data', c => chunks.push(c));
+        req.on('end', async () => {
+            const { eventSubHandler } = await import('../twitch/eventsub.js');
+            await eventSubHandler(req, res, Buffer.concat(chunks));
+        });
+        return;
+    }
+
     // Handle API requests
     if (requestedPath.startsWith('/api/')) {
         return await handleApiRequest(req, res);
