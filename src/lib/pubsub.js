@@ -1,7 +1,6 @@
 // src/lib/pubsub.js
 import { PubSub } from '@google-cloud/pubsub';
 import logger from './logger.js';
-import config from '../config/index.js';
 
 const TOPIC_NAME = 'chatvibes-tts-events';
 const SUBSCRIPTION_PREFIX = 'chatvibes-tts-sub';
@@ -21,9 +20,9 @@ export async function initializePubSub() {
     }
 
     try {
-        pubsubClient = new PubSub({
-            projectId: config.gcp.projectId
-        });
+        // PubSub client will auto-detect projectId from GOOGLE_CLOUD_PROJECT env var
+        // or from GCP metadata service when running on Cloud Run
+        pubsubClient = new PubSub();
 
         // Get or create topic
         topic = pubsubClient.topic(TOPIC_NAME);
