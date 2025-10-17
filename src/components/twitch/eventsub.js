@@ -7,6 +7,7 @@ import logger from '../../lib/logger.js';
 import { isChannelAllowed } from '../../lib/allowList.js';
 import * as ttsQueue from '../tts/ttsQueue.js';
 import { getTtsState } from '../tts/ttsState.js';
+import * as sharedChatManager from './sharedChatManager.js';
 
 // Idempotency and replay protection (in-memory window)
 const processedEventIds = new Map(); // messageId -> timestamp(ms)
@@ -127,6 +128,75 @@ export async function eventSubHandler(req, res, rawBody) {
         }
 
         const { subscription, event } = notification;
+
+        // Handle shared chat events (processed separately from TTS events)
+        if (subscription.type === 'channel.shared_chat.begin') {
+            try {
+                const sessionId = event?.session_id;
+                const hostBroadcasterId = event?.host_broadcaster_user_id;
+                const participants = event?.participants || [];
+
+                if (!sessionId || !hostBroadcasterId) {
+                    logger.warn({ event }, 'ChatVibes: channel.shared_chat.begin missing required fields');
+                    return;
+                }
+
+                const channelLogins = participants.map(p => p.broadcaster_user_login);
+                logger.info({
+                    sessionId,
+                    hostBroadcasterId,
+                    participantCount: participants.length,
+                    channels: channelLogins
+                }, `ChatVibes: Shared chat session started: ${channelLogins.join(', ')}`);
+
+                sharedChatManager.addSession(sessionId, hostBroadcasterId, participants);
+            } catch (error) {
+                logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.begin');
+            }
+            return;
+        }
+
+        if (subscription.type === 'channel.shared_chat.update') {
+            try {
+                const sessionId = event?.session_id;
+                const participants = event?.participants || [];
+
+                if (!sessionId) {
+                    logger.warn({ event }, 'ChatVibes: channel.shared_chat.update missing session_id');
+                    return;
+                }
+
+                const channelLogins = participants.map(p => p.broadcaster_user_login);
+                logger.info({
+                    sessionId,
+                    participantCount: participants.length,
+                    channels: channelLogins
+                }, `ChatVibes: Shared chat session updated: ${channelLogins.join(', ')}`);
+
+                sharedChatManager.updateSession(sessionId, participants);
+            } catch (error) {
+                logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.update');
+            }
+            return;
+        }
+
+        if (subscription.type === 'channel.shared_chat.end') {
+            try {
+                const sessionId = event?.session_id;
+
+                if (!sessionId) {
+                    logger.warn({ event }, 'ChatVibes: channel.shared_chat.end missing session_id');
+                    return;
+                }
+
+                logger.info({ sessionId }, 'ChatVibes: Shared chat session ended');
+                sharedChatManager.removeSession(sessionId);
+            } catch (error) {
+                logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.end');
+            }
+            return;
+        }
+
         const channelName = (
             event?.broadcaster_user_name ||
             event?.broadcaster_user_login ||

@@ -31,12 +31,65 @@ import { initializeChannelManager, getActiveManagedChannels, syncManagedChannels
 // Pub/Sub for cross-instance TTS communication
 import { initializePubSub, publishTtsEvent, subscribeTtsEvents, closePubSub } from './lib/pubsub.js';
 
+// Shared chat session tracking
+import * as sharedChatManager from './components/twitch/sharedChatManager.js';
+import { getUsersByLogin } from './components/twitch/helixClient.js';
+
 let ircClientInstance = null;
 let channelChangeListener = null;
 let obsTokenChangeListener = null;
 let isShuttingDown = false;
 let leaderElection = null;
 let ircStartedByThisInstance = false;
+
+// Cache for broadcaster IDs to avoid repeated API calls
+const broadcasterIdCache = new Map();
+
+/**
+ * Helper function to get shared session info for a channel
+ * @param {string} channelNameNoHash - Channel name without #
+ * @returns {Promise<object|null>} Shared session info or null
+ */
+async function getSharedSessionInfo(channelNameNoHash) {
+    try {
+        // Get broadcaster ID (cached)
+        let broadcasterId = broadcasterIdCache.get(channelNameNoHash);
+        if (!broadcasterId) {
+            const users = await getUsersByLogin([channelNameNoHash]);
+            if (users && users.length > 0) {
+                broadcasterId = users[0].id;
+                broadcasterIdCache.set(channelNameNoHash, broadcasterId);
+            }
+        }
+
+        if (!broadcasterId) {
+            return null;
+        }
+
+        // Check if in shared session
+        const sessionId = sharedChatManager.getSessionForChannel(broadcasterId);
+        if (!sessionId) {
+            return null;
+        }
+
+        // Get session details
+        const session = sharedChatManager.getSession(sessionId);
+        if (!session) {
+            return null;
+        }
+
+        const channelLogins = session.participants.map(p => p.broadcaster_user_login);
+        
+        return {
+            sessionId,
+            channels: channelLogins,
+            participantCount: channelLogins.length
+        };
+    } catch (error) {
+        logger.warn({ err: error, channel: channelNameNoHash }, 'ChatVibes: Error getting shared session info');
+        return null;
+    }
+}
 
 async function gracefulShutdown(signal) {
     if (isShuttingDown) {
@@ -209,16 +262,24 @@ async function main() {
         // Subscribe to TTS events from Pub/Sub
         // All instances subscribe, but only process if they have active WebSocket clients
         logger.info('ChatVibes: Setting up Pub/Sub subscriber for TTS events...');
-        await subscribeTtsEvents(async (channelName, eventData) => {
+        await subscribeTtsEvents(async (channelName, eventData, sharedSessionInfo) => {
             // This handler is called on ALL instances when a TTS event is published
             // The ttsQueue.enqueue will check if there are active WebSocket clients
-            logger.debug({
+            const logData = {
                 channel: channelName,
                 user: eventData.user,
                 textPreview: eventData.text?.substring(0, 30)
-            }, 'Received TTS event from Pub/Sub, processing locally');
+            };
+
+            if (sharedSessionInfo) {
+                logData.sessionId = sharedSessionInfo.sessionId;
+                logData.sharedChannels = sharedSessionInfo.channels;
+                logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] Received TTS event from Pub/Sub for shared session, processing locally`);
+            } else {
+                logger.debug(logData, 'Received TTS event from Pub/Sub, processing locally');
+            }
             
-            await ttsQueue.enqueue(channelName, eventData);
+            await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
         });
         logger.info('ChatVibes: Pub/Sub subscriber ready');
 
@@ -268,6 +329,16 @@ async function main() {
             const username = tags.username?.toLowerCase();
             const bits = parseInt(tags.bits, 10) || 0;
 
+            // Check for shared chat session
+            const sharedSessionInfo = await getSharedSessionInfo(channelNameNoHash);
+            if (sharedSessionInfo) {
+                logger.debug({
+                    channel: channelNameNoHash,
+                    sessionId: sharedSessionInfo.sessionId,
+                    sharedChannels: sharedSessionInfo.channels
+                }, `[SharedChat:${sharedSessionInfo.sessionId}] Processing message in shared session with: ${sharedSessionInfo.channels.join(', ')}`);
+            }
+
             // Intercept Channel Points redemption messages for the TTS reward
             if (tags['custom-reward-id']) {
                 try {
@@ -294,7 +365,7 @@ async function main() {
                             if (ttsConfig.engineEnabled && !isIgnored) {
                                 // Process URLs based on channel configuration
                                 const processedMessage = processMessageUrls(redeemMessage, ttsConfig.readFullUrls);
-                                await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: redeemingUser, type: 'reward' });
+                                await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: redeemingUser, type: 'reward' }, sharedSessionInfo);
                             }
                         }
                         return; // Do not process further as normal chat/command
@@ -342,7 +413,7 @@ async function main() {
                 if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
                     // Process URLs based on channel configuration
                     const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                    await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'command' });
+                    await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'command' }, sharedSessionInfo);
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, do not read commands
                     return;
@@ -358,7 +429,7 @@ async function main() {
                         if (bits >= minimumBits) {
                             // Process URLs based on channel configuration
                             const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                            await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'cheer_tts' });
+                            await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'cheer_tts' }, sharedSessionInfo);
                         }
                     }
                     // If bits mode is on and it's a regular message (no bits), we do nothing.
@@ -369,7 +440,7 @@ async function main() {
                     if (hasPermission(requiredPermission, tags, channelNameNoHash)) {
                         // Process URLs based on channel configuration
                         const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                        await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'chat' });
+                        await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'chat' }, sharedSessionInfo);
                     }
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, ignore normal chat
@@ -397,6 +468,9 @@ async function main() {
             const username = userstate.username?.toLowerCase();
             const bits = parseInt(userstate.bits, 10) || 0;
             
+            // Check for shared session
+            const sharedSessionInfo = await getSharedSessionInfo(channelNameNoHash);
+            
             // Clean the cheermote from the message - handle both "Cheer100" and "Cheer 100" formats
             const cleanMessage = message.replace(/^[\w]+\s*\d+\s*/, '').trim();
             
@@ -420,7 +494,7 @@ async function main() {
                     if (processedCommandName) {
                         // Read commands aloud in 'all' mode or 'command' mode, but not in 'bits_points_only' mode
                         if (processedCommandName !== 'tts' && (ttsConfig.mode === 'all' || ttsConfig.mode === 'command')) {
-                            await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' });
+                            await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' }, sharedSessionInfo);
                         }
                         // In bits_points_only mode, do not read commands
                     } else {
@@ -430,7 +504,7 @@ async function main() {
                             if (bits >= minimumBits) {
                                 // In command mode, even with bits enabled, we should not read non-command cheer messages
                                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only') {
-                                    await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' });
+                                    await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' }, sharedSessionInfo);
                                 }
                                 // In command mode, non-command cheer messages should be ignored even with bits
                             }
@@ -438,7 +512,7 @@ async function main() {
                             // Only read non-command cheer messages in 'all' mode, not in 'command' mode
                             const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
                             if (hasPermission(requiredPermission, userstate, channelNameNoHash)) {
-                                await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' });
+                                await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' }, sharedSessionInfo);
                             }
                         } // else command mode or bits_points_only with bitsMode disabled => do nothing for non-command messages
                     }
@@ -467,7 +541,8 @@ async function main() {
              const ttsConfig = await getTtsState(channelNameNoHash);
              if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
                  logger.info(`ChatVibes [${channelNameNoHash}]: TTS Event: ${eventType} by ${username}.`);
-                 await publishTtsEvent(channelNameNoHash, { text: eventDetailsText, user: username, type: 'event' });
+                 const sharedSessionInfo = await getSharedSessionInfo(channelNameNoHash);
+                 await publishTtsEvent(channelNameNoHash, { text: eventDetailsText, user: username, type: 'event' }, sharedSessionInfo);
              }
             };
 

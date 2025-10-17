@@ -48,7 +48,7 @@ export async function initializePubSub() {
  * @param {string} channelName - Channel name
  * @param {object} eventData - Event data with text, user, type, voiceOptions
  */
-export async function publishTtsEvent(channelName, eventData) {
+export async function publishTtsEvent(channelName, eventData, sharedSessionInfo = null) {
     if (!topic) {
         logger.error('Pub/Sub not initialized, cannot publish TTS event');
         return;
@@ -58,6 +58,7 @@ export async function publishTtsEvent(channelName, eventData) {
         const message = {
             channelName,
             eventData,
+            sharedSessionInfo, // Include shared session metadata if present
             timestamp: Date.now(),
             source: process.env.K_REVISION || 'local'
         };
@@ -65,12 +66,20 @@ export async function publishTtsEvent(channelName, eventData) {
         const dataBuffer = Buffer.from(JSON.stringify(message));
         const messageId = await topic.publishMessage({ data: dataBuffer });
         
-        logger.debug({
+        const logData = {
             messageId,
             channel: channelName,
             user: eventData.user,
             textPreview: eventData.text?.substring(0, 30)
-        }, `Published TTS event to Pub/Sub`);
+        };
+
+        if (sharedSessionInfo) {
+            logData.sessionId = sharedSessionInfo.sessionId;
+            logData.sharedChannels = sharedSessionInfo.channels;
+            logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] Published TTS event to Pub/Sub for shared session`);
+        } else {
+            logger.debug(logData, `Published TTS event to Pub/Sub`);
+        }
 
         return messageId;
     } catch (error) {
@@ -122,17 +131,25 @@ export async function subscribeTtsEvents(handler) {
         subscription.on('message', async (message) => {
             try {
                 const data = JSON.parse(message.data.toString());
-                const { channelName, eventData, source } = data;
+                const { channelName, eventData, sharedSessionInfo, source } = data;
 
-                logger.debug({
+                const logData = {
                     messageId: message.id,
                     channel: channelName,
                     source,
                     currentRevision: process.env.K_REVISION || 'local'
-                }, 'Received TTS event from Pub/Sub');
+                };
 
-                // Call the handler
-                await handler(channelName, eventData);
+                if (sharedSessionInfo) {
+                    logData.sessionId = sharedSessionInfo.sessionId;
+                    logData.sharedChannels = sharedSessionInfo.channels;
+                    logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] Received TTS event from Pub/Sub for shared session`);
+                } else {
+                    logger.debug(logData, 'Received TTS event from Pub/Sub');
+                }
+
+                // Call the handler with shared session info
+                await handler(channelName, eventData, sharedSessionInfo);
 
                 // Acknowledge the message
                 message.ack();

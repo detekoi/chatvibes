@@ -32,17 +32,25 @@ export function getOrCreateChannelQueue(channelName) {
     return channelQueues.get(channelName);
 }
 
-export async function enqueue(channelName, eventData) {
+export async function enqueue(channelName, eventData, sharedSessionInfo = null) {
     const { text, user, type = 'chat', voiceOptions = {} } = eventData;
 
-    logger.debug({
+    const logData = {
         logKey: "TTS_ENQUEUE_CALLED",
         channelName,
         textForTTS: text,
         userForTTS: user,
         typeForTTS: type,
         timestamp_ms: Date.now()
-    }, `TTS_ENQUEUE_CALLED for user: ${user}, type: ${type}, text: "${text.substring(0, 30)}..."`);
+    };
+
+    if (sharedSessionInfo) {
+        logData.sessionId = sharedSessionInfo.sessionId;
+        logData.sharedChannels = sharedSessionInfo.channels;
+        logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] TTS_ENQUEUE_CALLED for user: ${user}, type: ${type}, text: "${text.substring(0, 30)}..." in shared session`);
+    } else {
+        logger.debug(logData, `TTS_ENQUEUE_CALLED for user: ${user}, type: ${type}, text: "${text.substring(0, 30)}..."`);
+    }
 
     const ttsStatus = await getTtsState(channelName);
     if (!ttsStatus.engineEnabled) {
@@ -100,7 +108,7 @@ export async function enqueue(channelName, eventData) {
     
     logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: VoiceID='${finalVoiceOptions.voiceId}', Emotion='${finalVoiceOptions.emotion}', Speed=${finalVoiceOptions.speed}, Pitch=${finalVoiceOptions.pitch}, LanguageBoost='${finalVoiceOptions.languageBoost}'`);
 
-    cq.queue.push({ type, text, user, voiceConfig: finalVoiceOptions, timestamp: new Date() });
+    cq.queue.push({ type, text, user, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0,20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
 }
@@ -150,8 +158,27 @@ export async function processQueue(channelName) {
         } else if (audioUrl) {
             cq.currentSpeechUrl = audioUrl; 
             // currentUserSpeaking is already set for this audio
-            sendAudioToChannel(channelName, audioUrl);
-            logger.info(`[${channelName}] Sent audio URL to web for ${cq.currentUserSpeaking}: ${audioUrl}`);
+            
+            // Send audio to all channels in shared session if applicable
+            if (event.sharedSessionInfo && event.sharedSessionInfo.channels && event.sharedSessionInfo.channels.length > 0) {
+                const sessionId = event.sharedSessionInfo.sessionId;
+                const channels = event.sharedSessionInfo.channels;
+                logger.info(`[SharedChat:${sessionId}] Sending audio to ${channels.length} channels: ${channels.join(', ')}`);
+                
+                // Send to all participating channels
+                for (const targetChannel of channels) {
+                    if (hasActiveClients(targetChannel)) {
+                        sendAudioToChannel(targetChannel, audioUrl);
+                        logger.info(`[SharedChat:${sessionId}] Sent audio to ${targetChannel} for ${cq.currentUserSpeaking}`);
+                    } else {
+                        logger.debug(`[SharedChat:${sessionId}] No active clients for ${targetChannel}, skipping`);
+                    }
+                }
+            } else {
+                // Normal single-channel audio delivery
+                sendAudioToChannel(channelName, audioUrl);
+                logger.info(`[${channelName}] Sent audio URL to web for ${cq.currentUserSpeaking}: ${audioUrl}`);
+            }
         } else {
             // No URL and not aborted - issue in generateSpeech or Replicate
             logger.warn(`[${channelName}] generateSpeech returned no URL for "${event.text.substring(0,30)}..." by ${cq.currentUserSpeaking} and was not aborted.`);
