@@ -613,22 +613,29 @@ export function initializeWebServer() {
             const secretName = channelConfig?.obsSocketSecretName;
 
             if (!secretName) {
-                logger.error({ channel: channelName }, "Rejecting WS connection: No OBS token secret is configured for this channel.");
+                logger.error({ channel: channelName, configKeys: Object.keys(channelConfig || {}) }, "Rejecting WS connection: No OBS token secret is configured for this channel.");
                 ws.close(1008, 'Configuration error: No token configured');
                 return;
             }
 
+            logger.debug({ channel: channelName, secretName }, "Fetching OBS token from Secret Manager");
             const storedToken = await getSecretValue(secretName);
 
-            if (storedToken && storedToken === tokenFromUrl) {
+            if (!storedToken) {
+                logger.error({ channel: channelName, secretName }, "Rejecting WS connection: Failed to retrieve token from Secret Manager.");
+                ws.close(1011, 'Configuration error: Token not found');
+                return;
+            }
+
+            if (storedToken === tokenFromUrl) {
                 logger.info(`WebSocket client authenticated for channel: ${channelName}`);
             } else {
-                logger.warn({ channel: channelName }, "Rejecting WS connection: Invalid token provided.");
+                logger.warn({ channel: channelName }, "Rejecting WS connection: Token mismatch.");
                 ws.close(1008, 'Invalid token');
                 return;
             }
         } catch (error) {
-            logger.error({ err: error, channel: channelName }, "Error during WebSocket token validation.");
+            logger.error({ err: error, channel: channelName, errorMessage: error.message }, "Error during WebSocket token validation.");
             ws.close(1011, 'Internal server error during authentication');
             return;
         }
