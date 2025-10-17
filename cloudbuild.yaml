@@ -41,8 +41,13 @@ steps:
   args:
     - '-c'
     - |
-      # Use the known service account for the chatvibes-tts-service
-      SERVICE_ACCOUNT="twitch-sa@chatvibestts.iam.gserviceaccount.com"
+      # Get the service account used by the Cloud Run service
+      SERVICE_ACCOUNT=$(gcloud run services describe ${_SERVICE_NAME} --region=${_REGION} --format="value(spec.template.spec.serviceAccountName)")
+      
+      # If no custom service account is set, use the default Compute Engine service account
+      if [ -z "$SERVICE_ACCOUNT" ]; then
+        SERVICE_ACCOUNT="${_PROJECT_ID}-compute@developer.gserviceaccount.com"
+      fi
       
       echo "Granting Pub/Sub permissions to: $SERVICE_ACCOUNT"
       
