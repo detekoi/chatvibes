@@ -23,7 +23,7 @@ For a complete list of available commands and voices, visit the documentation:
   * **Monetization with Bits:** Optionally require users to cheer a minimum number of Bits to have their message read aloud (Bits → TTS) or to generate music.
   * **Channel Points → TTS:** Create a custom Twitch Channel Point reward that viewers can redeem with a message to have it read aloud by the TTS bot.
   * Controllable via chat commands for enabling/disabling, managing the queue, changing voice settings, and more.
-  * Customizable voices and speech parameters via Replicate API (minimax/speech-02-turbo model).
+  * Customizable voices and speech parameters via Wavespeed AI API (minimax/speech-02-turbo model).
   * Per-user voice, emotion, pitch and speed preferences for TTS.
   * Ignores specified users.
   * Audio playback through an OBS browser source.
@@ -130,9 +130,9 @@ The Channel Points → TTS feature works with all TTS modes:
       * Register a new application on the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
       * Set the "OAuth Redirect URLs" to something like `http://localhost:3000/auth/twitch/callback` (even if not used by this specific TTS bot directly, it's good practice for Twitch apps).
       * Note down the **Client ID** and generate a **Client Secret**.
-5.  **Replicate API Token:**
-      * Sign up at [Replicate.com](https://replicate.com/).
-      * Get your API token from your [account page](https://replicate.com/account/api-tokens).
+5.  **Wavespeed AI API Key:**
+      * Sign up at [Wavespeed AI](https://wavespeed.ai/).
+      * Get your API key from your settings page.
 6.  **Google Cloud Project:** (for perpetual uptime)
       * A Google Cloud Platform project.
       * Enabled APIs: Cloud Firestore API, Secret Manager API, Cloud Run API, Cloud Build API.
@@ -161,7 +161,7 @@ The Channel Points → TTS feature works with all TTS modes:
       * `TWITCH_CHANNELS`: For local development only - comma-separated list of Twitch channels to join initially (e.g., "yourchannel,anotherchannel").
       * `TWITCH_CLIENT_ID`: Your Twitch application's Client ID.
       * `TWITCH_CLIENT_SECRET`: Your Twitch application's Client Secret.
-      * `REPLICATE_API_TOKEN`: Your Replicate API token.
+      * `WAVESPEED_API_KEY`: Your Wavespeed AI API key.
       * `GOOGLE_CLOUD_PROJECT`: Your Google Cloud Project ID (e.g., "chatvibestts").
       * `TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME`: Full resource name of the secret in Google Secret Manager holding the Twitch User Refresh Token for the `TWITCH_BOT_USERNAME` (e.g., `projects/chatvibestts/secrets/twitch-bot-refresh-token/versions/latest`).
       * `LOG_LEVEL`: (Optional, defaults to `info`, use `trace` or `debug` for more verbose logging).
@@ -216,8 +216,8 @@ The Channel Points → TTS feature works with all TTS modes:
       --region YOUR_REGION \
       --allow-unauthenticated \
       --service-account YOUR_CHATVIBES_SERVICE_ACCOUNT_EMAIL \
-      --set-secrets=TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REFRESH_TOKEN_SECRET/versions/latest,REPLICATE_API_TOKEN=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REPLICATE_TOKEN_SECRET/versions/latest \
-      --set-env-vars=NODE_ENV=production,LOG_LEVEL=info,PINO_PRETTY_LOGGING=false,GOOGLE_CLOUD_PROJECT=YOUR_GCP_PROJECT_ID,TWITCH_BOT_USERNAME=YourBotName,REPLICATE_TTS_MODEL_NAME="minimax/speech-02-turbo"
+      --set-secrets=TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REFRESH_TOKEN_SECRET/versions/latest,WAVESPEED_API_KEY=projects/YOUR_GCP_PROJECT_ID/secrets/WAVESPEED_API_KEY/versions/latest \
+      --set-env-vars=NODE_ENV=production,LOG_LEVEL=info,PINO_PRETTY_LOGGING=false,GOOGLE_CLOUD_PROJECT=YOUR_GCP_PROJECT_ID,TWITCH_BOT_USERNAME=YourBotName
       # Add other necessary env vars or secrets
     ```
 

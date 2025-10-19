@@ -20,7 +20,7 @@
         "twitch",
         "tts",
         "chatbot",
-        "replicate",
+        "wavespeed",
         "chatvibes"
     ],
     "author": "Henry Manes",
@@ -36,7 +36,6 @@
         "jsonwebtoken": "^9.0.2",
         "pino": "^8.15.0",
         "python-shell": "^5.0.0",
-        "replicate": "^0.29.0",
         "tmi.js": "^1.8.5",
         "ws": "^8.13.0"
     },

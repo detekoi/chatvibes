@@ -13,11 +13,11 @@ if (fs.existsSync(envPath)) {
 
 function loadConfig() {
     const requiredEnvVars = [
-        'TWITCH_BOT_USERNAME', 
+        'TWITCH_BOT_USERNAME',
         'TWITCH_CLIENT_ID',
         'TWITCH_CLIENT_SECRET',
-        'TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME', 
-        'REPLICATE_API_TOKEN',
+        'TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME',
+        'WAVESPEED_API_KEY',
     ];
 
     const missingEnvVars = requiredEnvVars.filter(key => !(key in process.env));
@@ -50,12 +50,13 @@ function loadConfig() {
         },
         tts: {
             defaultVoiceId: process.env.TTS_DEFAULT_VOICE_ID || 'Friendly_Person',
-            defaultEmotion: process.env.TTS_DEFAULT_EMOTION || 'auto',
-            defaultPitch: parseInt(process.env.TTS_DEFAULT_PITCH, 10) || 0, 
-            defaultSpeed: parseFloat(process.env.TTS_DEFAULT_SPEED) || 1.0, 
-            replicateApiToken: process.env.REPLICATE_API_TOKEN,
-            replicateModel: process.env.REPLICATE_TTS_MODEL_NAME || "minimax/speech-02-turbo",
+            defaultEmotion: process.env.TTS_DEFAULT_EMOTION || 'neutral',
+            defaultPitch: parseInt(process.env.TTS_DEFAULT_PITCH, 10) || 0,
+            defaultSpeed: parseFloat(process.env.TTS_DEFAULT_SPEED) || 1.0,
+            wavespeedApiKey: process.env.WAVESPEED_API_KEY,
+            wavespeedEndpoint: process.env.WAVESPEED_API_ENDPOINT || 'https://api.wavespeed.ai/api/v3/minimax/speech-02-turbo',
             defaultEnglishNormalization: false,
+            defaultLanguageBoost: process.env.TTS_DEFAULT_LANGUAGE_BOOST || 'auto',
             },
         app: {
             logLevel: process.env.LOG_LEVEL || 'info',
@@ -69,12 +70,12 @@ function loadConfig() {
         }
     };
 
-    if (!config.tts.replicateApiToken && config.app.nodeEnv !== 'test') {
-        console.error('[ConfigLoader] REPLICATE_API_TOKEN is not set. TTS functionality WILL FAIL.');
-        // Potentially throw new Error('Missing REPLICATE_API_TOKEN.');
+    if (!config.tts.wavespeedApiKey && config.app.nodeEnv !== 'test') {
+        console.error('[ConfigLoader] WAVESPEED_API_KEY is not set. TTS functionality WILL FAIL.');
+        // Potentially throw new Error('Missing WAVESPEED_API_KEY.');
     }
-    if (!config.tts.replicateModel && config.app.nodeEnv !== 'test') {
-        console.warn('[ConfigLoader] REPLICATE_TTS_MODEL_NAME is not set. Using default "minimax/speech-02-turbo".');
+    if (!config.tts.wavespeedEndpoint && config.app.nodeEnv !== 'test') {
+        console.warn('[ConfigLoader] WAVESPEED_API_ENDPOINT is not set. Using default endpoint.');
     }
     return config;
 }

@@ -180,7 +180,7 @@ export async function processQueue(channelName) {
                 logger.info(`[${channelName}] Sent audio URL to web for ${cq.currentUserSpeaking}: ${audioUrl}`);
             }
         } else {
-            // No URL and not aborted - issue in generateSpeech or Replicate
+            // No URL and not aborted - issue in generateSpeech or Wavespeed API
             logger.warn(`[${channelName}] generateSpeech returned no URL for "${event.text.substring(0,30)}..." by ${cq.currentUserSpeaking} and was not aborted.`);
             // currentSpeechUrl remains null, currentUserSpeaking will be cleared in finally if controller matches
         }

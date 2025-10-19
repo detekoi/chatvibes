@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This repository contains a Twitch Text-to-Speech (TTS) bot named ChatVibes. The bot connects to Twitch chat and converts text messages to audio using a Replicate API-based TTS service. It allows streamers to have chat messages read aloud with configurable voices and emotions.
+This repository contains a Twitch Text-to-Speech (TTS) bot named ChatVibes. The bot connects to Twitch chat and converts text messages to audio using a Wavespeed AI API-based TTS service. It allows streamers to have chat messages read aloud with configurable voices and emotions.
 
 ## Architecture
 
 - **Core Components**:
   - **Twitch Integration**: Connects to Twitch chat via IRC
   - **Command System**: Processes commands prefixed with `!tts`
-  - **TTS Service**: Generates speech audio via Replicate API
+  - **TTS Service**: Generates speech audio via Wavespeed AI API
   - **TTS Queue**: Manages the order of messages to be spoken
   - **Web Server**: Hosts the browser-based audio player
   - **Firestore Storage**: Persists configuration and user preferences
@@ -47,7 +47,7 @@ export TWITCH_CHANNELS=yourchannel
   - `!tts on/off` - Enable/disable TTS
   - `!tts mode all/command` - Set whether to read all messages or only commands
   - `!tts voices` - List available voices
-  - `!tts emotion <emotion>` - Set speech emotion (auto, neutral, happy, sad, etc.)
+  - `!tts emotion <emotion>` - Set speech emotion (neutral, happy, sad, angry, fearful, disgusted, surprised)
   - `!tts ignore add/del <username>` - Manage ignored users
   - `!tts pause/resume` - Pause/resume the TTS queue
   - `!tts stop` - Stops current audio. Users can stop their own messages; mods can stop any.
@@ -58,7 +58,8 @@ export TWITCH_CHANNELS=yourchannel
 
 ## Key Files
 
-- `src/components/tts/ttsService.js` - Handles TTS generation via Replicate API
+- `src/components/tts/ttsService.js` - Handles TTS generation via Wavespeed AI API
+- `src/components/tts/wavespeedVoices.js` - Hardcoded voice list with language categorization
 - `src/components/tts/ttsQueue.js` - Manages TTS message queue
 - `src/components/tts/ttsState.js` - Manages TTS configuration state
 - `src/components/tts/ttsConstants.js` - Default settings and constants

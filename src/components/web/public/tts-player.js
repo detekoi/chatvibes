@@ -133,7 +133,8 @@ function playNextInQueue() {
     console.log('Player: Attempting to play audio:', audioUrl);
     
     // Set volume based on content type (music vs TTS)
-    if (audioUrl.includes('replicate.delivery') && audioUrl.includes('wav')) {
+    // Music files are typically .wav format, TTS is typically .mp3
+    if (audioUrl.includes('.wav')) {
         // Likely music content - may need volume adjustment
         audioPlayer.volume = 0.8;
     } else {

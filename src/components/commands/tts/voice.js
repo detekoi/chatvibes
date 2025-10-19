@@ -38,7 +38,7 @@ export default {
 
         // If not 'reset', join all arguments to form the voice_id
         // This allows for voice IDs containing spaces, which are then compared against the fetched voice list.
-        // The Replicate model's voice_id values sometimes contain spaces or are underscore_separated.
+        // The Wavespeed model's voice_id values sometimes contain spaces or are underscore_separated.
         // The getAvailableVoices() function in ttsService.js should provide IDs in the exact format required by the API.
         const requestedVoiceIdInput = args.join(' '); // User's input, e.g., "friendly_person"
 

@@ -9,14 +9,14 @@ export const DEFAULT_TTS_SETTINGS = {
     speed: config.tts?.defaultSpeed || 1.0, 
     volume: 1.0,
     pitch: config.tts?.defaultPitch || 0, 
-    emotion: config.tts?.defaultEmotion || 'auto',
+    emotion: config.tts?.defaultEmotion || 'neutral',
     englishNormalization: false,
     allowViewerPreferences: true,
     readFullUrls: false, // Default to reading only domain names for better listening experience
     sampleRate: 32000,
     bitrate: 128000,
     channel: 'mono',
-    languageBoost: config.tts?.defaultLanguageBoost || 'Automatic',
+    languageBoost: config.tts?.defaultLanguageBoost || 'auto',
     speakEvents: true,
     // It's good practice to initialize userPreferences and ignoredUsers in default settings
     // userPreferences: {}, // Will be handled by ttsState.js if it needs to be part of base default
@@ -25,7 +25,7 @@ export const DEFAULT_TTS_SETTINGS = {
 
 
 export const VALID_EMOTIONS = [
-    "auto", "neutral", "happy", "sad", "angry", "fearful", "disgusted", "surprised"
+    "neutral", "happy", "sad", "angry", "fearful", "disgusted", "surprised"
 ];
 
 export const TTS_PITCH_MIN = -12;
@@ -36,7 +36,7 @@ export const TTS_SPEED_MIN = 0.5;
 export const TTS_SPEED_MAX = 2.0;
 export const TTS_SPEED_DEFAULT = 1.0;
 export const VALID_LANGUAGE_BOOSTS = [
-    "None", "Automatic", "Chinese", "Chinese,Yue", "English", "Arabic",
+    "auto", "Chinese", "Chinese,Yue", "English", "Arabic",
     "Russian", "Spanish", "French", "Portuguese", "German", "Turkish",
     "Dutch", "Ukrainian", "Vietnamese", "Indonesian", "Japanese",
     "Italian", "Korean", "Thai", "Polish", "Romanian", "Greek",

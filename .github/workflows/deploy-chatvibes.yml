@@ -31,11 +31,10 @@ env:
   GOOGLE_CLOUD_PROJECT_ENV: 'chatvibestts' # Explicitly set for the application
   # Full path to the secret containing the bot's refresh token
   TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH: 'projects/906125386407/secrets/twitch-bot-refresh-token/versions/latest'
-  REPLICATE_TTS_MODEL_NAME: 'minimax/speech-02-turbo' # Default from your config
   WEB_UI_BASE_URL: 'https://tts.wildcat.chat' # Web UI base URL for viewer preferences
   # Optional TTS defaults (can be omitted if app defaults are fine)
   # TTS_DEFAULT_VOICE_ID: 'Friendly_Person'
-  # TTS_DEFAULT_EMOTION: 'auto'
+  # TTS_DEFAULT_EMOTION: 'neutral'
   # TTS_DEFAULT_PITCH: '0'
   # TTS_DEFAULT_SPEED: '1.0'
 
@@ -43,7 +42,7 @@ env:
   # These names will be used in --set-secrets to map them to environment variables
   TWITCH_CLIENT_ID_SECRET: 'twitch-client-id'
   TWITCH_CLIENT_SECRET_SECRET: 'twitch-client-secret'
-  REPLICATE_API_TOKEN_SECRET: 'replicate-api-token'
+  WAVESPEED_API_KEY_SECRET: 'WAVESPEED_API_KEY'
   TWITCH_CHANNELS_SECRET: 'chatvibes-initial-channels' # For initial channels
   TWITCH_EVENTSUB_SECRET_NAME: 'twitch-eventsub-secret' # EventSub webhook signature secret
 
@@ -93,12 +92,12 @@ jobs:
             --session-affinity \
             --port 8080 \
             --service-account ${{ env.CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }} \
-            --set-env-vars="NODE_ENV=${{ env.NODE_ENV }},LOG_LEVEL=${{ env.LOG_LEVEL }},PINO_PRETTY_LOGGING=${{ env.PINO_PRETTY_LOGGING }},TWITCH_BOT_USERNAME=${{ env.TWITCH_BOT_USERNAME }},GOOGLE_CLOUD_PROJECT=${{ env.GOOGLE_CLOUD_PROJECT_ENV }},TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=${{ env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH }},REPLICATE_TTS_MODEL_NAME=${{ env.REPLICATE_TTS_MODEL_NAME }},WEB_UI_BASE_URL=${{ env.WEB_UI_BASE_URL }},PUBLIC_URL=https://chatvibes-tts-service-906125386407.us-central1.run.app" \
+            --set-env-vars="NODE_ENV=${{ env.NODE_ENV }},LOG_LEVEL=${{ env.LOG_LEVEL }},PINO_PRETTY_LOGGING=${{ env.PINO_PRETTY_LOGGING }},TWITCH_BOT_USERNAME=${{ env.TWITCH_BOT_USERNAME }},GOOGLE_CLOUD_PROJECT=${{ env.GOOGLE_CLOUD_PROJECT_ENV }},TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=${{ env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH }},WEB_UI_BASE_URL=${{ env.WEB_UI_BASE_URL }},PUBLIC_URL=https://chatvibes-tts-service-906125386407.us-central1.run.app" \
             --set-secrets="\
             JWT_SECRET_KEY=jwt-secret-key:latest,\
             TWITCH_CLIENT_ID=${{ env.TWITCH_CLIENT_ID_SECRET }}:latest,\
             TWITCH_CLIENT_SECRET=${{ env.TWITCH_CLIENT_SECRET_SECRET }}:latest,\
-            REPLICATE_API_TOKEN=${{ env.REPLICATE_API_TOKEN_SECRET }}:latest,\
+            WAVESPEED_API_KEY=${{ env.WAVESPEED_API_KEY_SECRET }}:latest,\
             TWITCH_CHANNELS=${{ env.TWITCH_CHANNELS_SECRET }}:latest,\
             TWITCH_EVENTSUB_SECRET=${{ env.TWITCH_EVENTSUB_SECRET_NAME }}:latest" \
             --labels="managed-by=github-actions,repository=${{ github.repository_owner }}_${{ github.event.repository.name }},commit-sha=${{ github.sha }}" \
