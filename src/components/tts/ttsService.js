@@ -117,7 +117,17 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
         return audioUrl;
     } else if (data.status === 'failed') {
         logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned failed status.');
-        throw new Error(`Wavespeed AI returned failed status for TTS generation: ${data.error || 'Unknown error'}`);
+        
+        // Provide specific error messages based on the failure reason
+        if (data.error && data.error.includes("you don't have access to this voice_id")) {
+            throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
+        }
+        
+        if (data.error && data.error.includes("voice_id")) {
+            throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
+        }
+        
+        throw new Error(`TTS generation failed: ${data.error || 'Unknown error'}`);
     } else {
         // In sync mode, we should always get completed or failed status
         logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned unexpected status or missing outputs.');
@@ -137,6 +147,26 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
         response: error.response?.data
     };
     logger.error({ err: logError, text, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI API error in generateSpeech');
+    
+    // Provide specific error messages based on Wavespeed API response
+    if (error.response?.data) {
+        const apiError = error.response.data;
+        
+        // Check for specific Wavespeed error messages
+        if (apiError.message && apiError.message.includes("you don't have access to this voice_id")) {
+            throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
+        }
+        
+        if (apiError.message && apiError.message.includes("voice_id")) {
+            throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
+        }
+        
+        if (apiError.message) {
+            throw new Error(`TTS generation failed: ${apiError.message}`);
+        }
+    }
+    
+    // Fallback to generic error
     throw new Error(`Failed to generate speech via Wavespeed AI API: ${error.message}`);
   }
 }
