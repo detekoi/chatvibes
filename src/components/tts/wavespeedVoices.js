@@ -207,3 +207,73 @@ export function getVoicesByLanguage() {
 export function isValidVoiceId(voiceId) {
     return WAVESPEED_VOICE_IDS.includes(voiceId);
 }
+
+/**
+ * Fetch the latest voice list from Wavespeed schema API
+ * @returns {Promise<Array<string>>} - Array of voice IDs from the schema
+ */
+export async function fetchVoiceListFromSchema() {
+    try {
+        const response = await fetch('https://wavespeed.ai/center/default/api/v1/model_schema/minimax/speech-02-turbo');
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch schema: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+
+        // The API wraps the schema in a data object
+        // Voice IDs are at: data.components.schemas.Input.properties.voice_id['x-enum']
+        const voiceIds = result?.data?.components?.schemas?.Input?.properties?.voice_id?.['x-enum'];
+
+        if (!Array.isArray(voiceIds)) {
+            throw new Error('Schema format unexpected: x-enum not found or not an array');
+        }
+
+        console.log(`[Wavespeed] Fetched ${voiceIds.length} voices from schema API`);
+        return voiceIds;
+    } catch (error) {
+        console.error('[Wavespeed] Failed to fetch voice list from schema:', error.message);
+        throw error;
+    }
+}
+
+/**
+ * Compare hardcoded voice list with schema to detect updates
+ * @returns {Promise<Object>} - Object with comparison results
+ */
+export async function compareWithSchema() {
+    try {
+        const schemaVoices = await fetchVoiceListFromSchema();
+        const hardcodedSet = new Set(WAVESPEED_VOICE_IDS);
+        const schemaSet = new Set(schemaVoices);
+
+        const added = schemaVoices.filter(v => !hardcodedSet.has(v));
+        const removed = WAVESPEED_VOICE_IDS.filter(v => !schemaSet.has(v));
+        const unchanged = schemaVoices.filter(v => hardcodedSet.has(v));
+
+        const result = {
+            hardcodedCount: WAVESPEED_VOICE_IDS.length,
+            schemaCount: schemaVoices.length,
+            added: added,
+            removed: removed,
+            unchanged: unchanged.length,
+            needsUpdate: added.length > 0 || removed.length > 0
+        };
+
+        if (result.needsUpdate) {
+            console.log(`[Wavespeed] Voice list differences detected:`);
+            console.log(`  - ${added.length} new voices in schema`);
+            console.log(`  - ${removed.length} voices removed from schema`);
+            if (added.length > 0) console.log(`  - New voices: ${added.join(', ')}`);
+            if (removed.length > 0) console.log(`  - Removed voices: ${removed.join(', ')}`);
+        } else {
+            console.log(`[Wavespeed] Voice list is up to date (${unchanged.length} voices)`);
+        }
+
+        return result;
+    } catch (error) {
+        console.error('[Wavespeed] Failed to compare voice lists:', error.message);
+        throw error;
+    }
+}
