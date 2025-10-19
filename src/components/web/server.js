@@ -235,22 +235,22 @@ async function handleVoicesEndpoint(req, res) {
             const voiceIds = voiceList.map(voice => voice.id || voice);
             sendJsonResponse(res, 200, { success: true, voices: voiceIds }, req);
         } else {
-            // Fallback voices if TTS service fails
+            // Fallback voices if TTS service fails (Wavespeed default voices)
             const fallbackVoices = [
-                'Friendly_Person', 'Professional_Woman', 'Casual_Male', 'Energetic_Youth',
-                'Warm_Grandmother', 'Confident_Leader', 'Soothing_Narrator', 'Cheerful_Assistant',
-                'Deep_Narrator', 'Bright_Assistant', 'Calm_Guide', 'Energetic_Host'
+                'Friendly_Person', 'Wise_Woman', 'Deep_Voice_Man', 'Calm_Woman',
+                'Casual_Guy', 'Lively_Girl', 'Patient_Man', 'Young_Knight',
+                'Determined_Man', 'Lovely_Girl', 'Decent_Boy', 'Elegant_Man'
             ];
             sendJsonResponse(res, 200, { success: true, voices: fallbackVoices });
         }
     } catch (error) {
         logger.error({ err: error }, 'Failed to fetch voices from TTS service');
 
-        // Return fallback voices on error
+        // Return fallback voices on error (Wavespeed default voices)
         const fallbackVoices = [
-            'Friendly_Person', 'Professional_Woman', 'Casual_Male', 'Energetic_Youth',
-            'Warm_Grandmother', 'Confident_Leader', 'Soothing_Narrator', 'Cheerful_Assistant',
-            'Deep_Narrator', 'Bright_Assistant', 'Calm_Guide', 'Energetic_Host'
+            'Friendly_Person', 'Wise_Woman', 'Deep_Voice_Man', 'Calm_Woman',
+            'Casual_Guy', 'Lively_Girl', 'Patient_Man', 'Young_Knight',
+            'Determined_Man', 'Lovely_Girl', 'Decent_Boy', 'Elegant_Man'
         ];
         sendJsonResponse(res, 200, { success: true, voices: fallbackVoices }, req);
     }
