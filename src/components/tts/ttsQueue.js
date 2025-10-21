@@ -129,7 +129,8 @@ export async function processQueue(channelName) {
 
     // Check if there are active WebSocket clients before expensive API call
     if (!hasActiveClients(channelName)) {
-        logger.warn(`[${channelName}] Skipping TTS generation for ${event.user || 'event_tts'} - no active WebSocket clients. Dropping message: "${event.text.substring(0,30)}..."`);
+        // This is expected in multi-instance setups - only instances with WebSocket clients process messages
+        logger.debug(`[${channelName}] Skipping TTS generation for ${event.user || 'event_tts'} - no active WebSocket clients. Message will be processed by instance with active clients.`);
         cq.isProcessing = false;
         // Continue processing queue in case clients reconnect
         if (!cq.isPaused && cq.queue.length > 0) {
