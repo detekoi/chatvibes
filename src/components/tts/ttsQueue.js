@@ -1,4 +1,5 @@
 // src/components/tts/ttsQueue.js
+import { Firestore } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 import { generateSpeech } from './ttsService.js';
 import {
@@ -14,6 +15,9 @@ import {
 } from './ttsState.js';
 import { sendAudioToChannel, hasActiveClients } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
+
+let db;
+const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
 
 const channelQueues = new Map();
 const MAX_QUEUE_LENGTH = 50;
@@ -276,4 +280,115 @@ export async function clearQueue(channelName) {
     cq.queue = []; // Clear pending items
     logger.info(`[${channelName}] TTS queue cleared of ${itemsCleared} pending messages. This does not stop actively playing/generating audio.`);
     // Does NOT affect cq.currentSpeechUrl, cq.currentUserSpeaking, or cq.currentSpeechController
+}
+
+/**
+ * Persist all TTS queues to Firestore to prevent message loss during shutdown
+ * Only persists pending items, not currently processing item
+ */
+export async function persistAllQueues() {
+    if (!db) db = new Firestore();
+
+    const persistenceTasks = [];
+    let totalPersisted = 0;
+
+    for (const [channelName, cq] of channelQueues.entries()) {
+        if (cq.queue.length === 0) {
+            // No pending items, delete persistence doc if it exists
+            persistenceTasks.push(
+                db.collection(TTS_QUEUE_PERSISTENCE_COLLECTION).doc(channelName).delete()
+                    .catch(err => {
+                        if (err.code !== 5) { // Ignore "NOT_FOUND" errors (code 5)
+                            logger.warn({ err, channel: channelName }, 'Failed to delete empty queue persistence doc');
+                        }
+                    })
+            );
+            continue;
+        }
+
+        // Serialize queue items (convert Date objects to ISO strings)
+        const serializedQueue = cq.queue.map(item => ({
+            ...item,
+            timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp
+        }));
+
+        totalPersisted += cq.queue.length;
+
+        persistenceTasks.push(
+            db.collection(TTS_QUEUE_PERSISTENCE_COLLECTION).doc(channelName).set({
+                channelName,
+                queue: serializedQueue,
+                queueLength: cq.queue.length,
+                isPaused: cq.isPaused,
+                persistedAt: new Date(),
+            }).catch(err => {
+                logger.error({ err, channel: channelName }, 'Failed to persist TTS queue');
+            })
+        );
+    }
+
+    await Promise.allSettled(persistenceTasks);
+    logger.info(`TTS queue persistence complete. Persisted ${totalPersisted} messages across ${channelQueues.size} channels.`);
+}
+
+/**
+ * Restore TTS queues from Firestore after startup
+ * Call this after TTS state is initialized but before processing new messages
+ */
+export async function restoreAllQueues() {
+    if (!db) db = new Firestore();
+
+    try {
+        const snapshot = await db.collection(TTS_QUEUE_PERSISTENCE_COLLECTION).get();
+
+        if (snapshot.empty) {
+            logger.info('No persisted TTS queues found to restore.');
+            return;
+        }
+
+        let totalRestored = 0;
+        const deleteTasks = [];
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const { channelName, queue, isPaused } = data;
+
+            if (!queue || queue.length === 0) {
+                logger.debug(`[${channelName}] Persisted queue was empty, skipping restore.`);
+                deleteTasks.push(doc.ref.delete());
+                return;
+            }
+
+            // Restore queue items (convert ISO strings back to Date objects)
+            const restoredQueue = queue.map(item => ({
+                ...item,
+                timestamp: typeof item.timestamp === 'string' ? new Date(item.timestamp) : item.timestamp
+            }));
+
+            // Get or create channel queue and restore items
+            const cq = getOrCreateChannelQueue(channelName);
+            cq.queue = restoredQueue;
+            cq.isPaused = isPaused || false;
+
+            totalRestored += restoredQueue.length;
+            logger.info(`[${channelName}] Restored ${restoredQueue.length} TTS messages from persistence (paused: ${cq.isPaused})`);
+
+            // Delete the persistence doc after successful restore
+            deleteTasks.push(doc.ref.delete());
+
+            // Start processing the queue if not paused
+            if (!cq.isPaused && cq.queue.length > 0) {
+                logger.info(`[${channelName}] Starting TTS queue processing for restored messages`);
+                // Use setImmediate to avoid blocking the restore loop
+                setImmediate(() => processQueue(channelName));
+            }
+        });
+
+        // Clean up persistence docs
+        await Promise.allSettled(deleteTasks);
+
+        logger.info(`TTS queue restoration complete. Restored ${totalRestored} messages across ${snapshot.size} channels.`);
+    } catch (error) {
+        logger.error({ err: error }, 'Failed to restore TTS queues from Firestore');
+    }
 }

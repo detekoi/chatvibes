@@ -42,6 +42,11 @@ let isShuttingDown = false;
 let leaderElection = null;
 let ircStartedByThisInstance = false;
 
+// Export shutdown state checker for use by other modules
+export function getIsShuttingDown() {
+    return isShuttingDown;
+}
+
 // Cache for broadcaster IDs to avoid repeated API calls
 const broadcasterIdCache = new Map();
 
@@ -142,6 +147,14 @@ async function gracefulShutdown(signal) {
     clearMessageQueue();
     logger.info('ChatVibes: IRC message sender queue cleared.');
 
+    // Persist TTS queues before shutdown to prevent message loss
+    logger.info('ChatVibes: Persisting TTS queues to Firestore...');
+    shutdownTasks.push(
+        ttsQueue.persistAllQueues()
+            .then(() => { logger.info('ChatVibes: TTS queues persisted successfully.'); })
+            .catch(err => { logger.error({ err }, 'ChatVibes: Error persisting TTS queues.'); })
+    );
+
     // Close Pub/Sub subscription and client
     logger.info('ChatVibes: Closing Pub/Sub resources...');
     shutdownTasks.push(
@@ -195,6 +208,9 @@ async function main() {
 
         logger.info('ChatVibes: Initializing TTS State (Firestore)...');
         await initializeTtsState();
+
+        logger.info('ChatVibes: Restoring TTS queues from previous session...');
+        await ttsQueue.restoreAllQueues();
 
         logger.info('ChatVibes: Initializing Music State (Firestore)...');
         await initializeMusicState();

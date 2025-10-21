@@ -3,6 +3,7 @@ import tmi from 'tmi.js';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 import { getValidIrcToken, refreshIrcToken } from './ircAuthHelper.js';
+import { getIsShuttingDown } from '../../bot.js';
 
 let client = null;
 let connectionAttemptPromise = null; // For general connection attempts initiated by connectIrcClient
@@ -122,6 +123,12 @@ async function createIrcClient(twitchConfig) {
         }
         // Add similar logic for other periodic tasks if needed
 
+        // Don't attempt reconnection if we're shutting down
+        if (getIsShuttingDown()) {
+            logger.info('ChatVibes: Disconnected from Twitch IRC during graceful shutdown. Skipping reconnection.');
+            return;
+        }
+
         // Attempt to reconnect, always trying to refresh the token first if the reason suggests auth issues
         // or even for general network issues, as the token might have expired during the downtime.
         if (reason && (reason.toLowerCase().includes('login authentication failed') || 
@@ -154,6 +161,13 @@ async function createIrcClient(twitchConfig) {
  */
 async function handleAuthenticationFailure() {
     logger.error('ENTERING ChatVibes handleAuthenticationFailure due to a suspected auth issue.');
+
+    // Don't attempt reconnection if we're shutting down
+    if (getIsShuttingDown()) {
+        logger.info('ChatVibes: Skipping authentication failure handling - graceful shutdown in progress.');
+        return;
+    }
+
     if (!client) {
         logger.warn('ChatVibes handleAuthenticationFailure called but no client instance.');
         return;
