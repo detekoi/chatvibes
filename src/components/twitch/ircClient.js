@@ -203,6 +203,7 @@ async function handleAuthenticationFailure() {
     }
 
     // This new promise is for the specific reconnection attempt within this handler
+    // CRITICAL: Set the connectionAttemptPromise to prevent duplicate connections
     const refreshAndConnectPromise = (async () => {
         try {
             const newToken = await refreshIrcToken(); // This function is from ircAuthHelper.js
@@ -224,6 +225,9 @@ async function handleAuthenticationFailure() {
         }
     })();
 
+    // Set connectionAttemptPromise to block concurrent connectIrcClient() calls
+    connectionAttemptPromise = refreshAndConnectPromise;
+
     try {
         await refreshAndConnectPromise; // Wait for this specific refresh & connect sequence to complete or fail.
     } catch(err) {
@@ -231,6 +235,10 @@ async function handleAuthenticationFailure() {
         logger.error({err}, "ChatVibes: Awaited refreshAndConnectPromise in handleAuthenticationFailure was rejected or threw an error itself.")
     } finally {
         isHandlingAuthFailure = false; // Release the specific lock for this handler
+        // Clear the connectionAttemptPromise if it's still pointing to our promise
+        if (connectionAttemptPromise === refreshAndConnectPromise) {
+            connectionAttemptPromise = null;
+        }
         logger.info('ChatVibes handleAuthenticationFailure: Process completed.');
     }
 }
