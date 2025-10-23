@@ -205,23 +205,42 @@ async function handleAuthenticationFailure() {
     // This new promise is for the specific reconnection attempt within this handler
     // CRITICAL: Set the connectionAttemptPromise to prevent duplicate connections
     const refreshAndConnectPromise = (async () => {
-        try {
-            const newToken = await refreshIrcToken(); // This function is from ircAuthHelper.js
-            if (newToken) {
+        const MAX_RETRIES = 5;
+        const INITIAL_DELAY_MS = 2000; // Start with 2 seconds
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                const newToken = await refreshIrcToken(); // This function is from ircAuthHelper.js
+                if (!newToken) {
+                    logger.error(`ChatVibes: Failed to refresh token (attempt ${attempt}/${MAX_RETRIES}). Retrying...`);
+                    if (attempt < MAX_RETRIES) {
+                        const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1); // Exponential backoff
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    throw new Error('Failed to refresh token after all retries');
+                }
+
                 logger.info('ChatVibes: Token refreshed successfully after auth failure. Updating client options with new token...');
                 client.opts.identity.password = `oauth:${newToken}`; // CRITICAL: Update the token tmi.js will use
 
-                logger.info('ChatVibes: Attempting to reconnect with the new token...');
+                logger.info(`ChatVibes: Attempting to reconnect with the new token (attempt ${attempt}/${MAX_RETRIES})...`);
                 await client.connect(); // tmi.js will use the updated client.opts
                 logger.info('ChatVibes: Reconnection attempt with new token initiated successfully by handleAuthenticationFailure. Waiting for "connected" event.');
                 // If client.connect() resolves, the 'connected' event should fire.
-            } else {
-                logger.error('ChatVibes: Failed to refresh token after authentication failure. Cannot reconnect automatically. Manual intervention likely required. Bot may remain disconnected.');
-                // Consider more drastic actions if this is a persistent issue.
+                return; // Success! Exit the retry loop
+            } catch (error) {
+                logger.error({ err: error, attempt, maxRetries: MAX_RETRIES }, `ChatVibes: Error occurred during reconnection attempt ${attempt}/${MAX_RETRIES}`);
+
+                if (attempt < MAX_RETRIES) {
+                    const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1); // Exponential backoff: 2s, 4s, 8s, 16s
+                    logger.warn(`ChatVibes: Waiting ${delay}ms before retry ${attempt + 1}/${MAX_RETRIES}...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    logger.fatal('ChatVibes: CRITICAL - All IRC reconnection attempts failed. Bot will remain disconnected until manual intervention or restart.');
+                    throw error; // Re-throw after all retries exhausted
+                }
             }
-        } catch (error) {
-            logger.error({ err: error }, 'ChatVibes: Error occurred within the token refresh or reconnect attempt in handleAuthenticationFailure.');
-            // The bot will likely remain disconnected.
         }
     })();
 
