@@ -10,6 +10,70 @@ let tokenExpiryTime = 0; // Store expiry time in milliseconds since epoch
 
 const TOKEN_REFRESH_BUFFER_SECONDS = 300; // Refresh token 5 minutes before it expires
 
+// Cached Client ID and Secret (loaded from Secret Manager if needed)
+let cachedClientId = null;
+let cachedClientSecret = null;
+
+/**
+ * Get Client ID, loading from Secret Manager if not in environment
+ * @returns {Promise<string>}
+ */
+async function getClientId() {
+    if (cachedClientId) {
+        return cachedClientId;
+    }
+    
+    if (config.twitch.clientId) {
+        cachedClientId = config.twitch.clientId;
+        return cachedClientId;
+    }
+    
+    // Load from Secret Manager
+    try {
+        const { getSecretValue } = await import('../../lib/secretManager.js');
+        logger.info('ChatVibes: Loading Twitch Client ID from Secret Manager...');
+        cachedClientId = await getSecretValue(config.twitch.clientIdSecretPath);
+        if (!cachedClientId) {
+            throw new Error('Failed to load Client ID from Secret Manager');
+        }
+        logger.info('ChatVibes: Successfully loaded Twitch Client ID from Secret Manager');
+        return cachedClientId;
+    } catch (error) {
+        logger.fatal({ err: error }, 'ChatVibes: Failed to load Twitch Client ID');
+        throw error;
+    }
+}
+
+/**
+ * Get Client Secret, loading from Secret Manager if not in environment
+ * @returns {Promise<string>}
+ */
+async function getClientSecret() {
+    if (cachedClientSecret) {
+        return cachedClientSecret;
+    }
+    
+    if (config.twitch.clientSecret) {
+        cachedClientSecret = config.twitch.clientSecret;
+        return cachedClientSecret;
+    }
+    
+    // Load from Secret Manager
+    try {
+        const { getSecretValue } = await import('../../lib/secretManager.js');
+        logger.info('ChatVibes: Loading Twitch Client Secret from Secret Manager...');
+        cachedClientSecret = await getSecretValue(config.twitch.clientSecretPath);
+        if (!cachedClientSecret) {
+            throw new Error('Failed to load Client Secret from Secret Manager');
+        }
+        logger.info('ChatVibes: Successfully loaded Twitch Client Secret from Secret Manager');
+        return cachedClientSecret;
+    } catch (error) {
+        logger.fatal({ err: error }, 'ChatVibes: Failed to load Twitch Client Secret');
+        throw error;
+    }
+}
+
 /**
  * Fetches a new app access token from Twitch.
  * @returns {Promise<string|null>} The new app access token or null on failure.
@@ -17,8 +81,8 @@ const TOKEN_REFRESH_BUFFER_SECONDS = 300; // Refresh token 5 minutes before it e
 async function fetchNewAppAccessToken() {
     logger.info('ChatVibes Twitch Auth: Attempting to fetch new app access token...'); // ChatVibes
     try {
-        const clientId = config.twitch.clientId;
-        const clientSecret = config.twitch.clientSecret; // Assumes clientSecret is directly in config
+        const clientId = await getClientId();
+        const clientSecret = await getClientSecret();
 
         // If clientSecret is in Secret Manager (more secure for production)
         // const clientSecretPath = config.secrets.twitchClientSecretName; // Example: if you store client secret in SM
@@ -123,5 +187,7 @@ export {
     getAppAccessToken,
     fetchNewAppAccessToken, // Export if direct refresh is needed
     validateToken,          // Export for potential external validation use
-    clearCachedAppAccessToken
+    clearCachedAppAccessToken,
+    getClientId,            // Export for Helix client and other modules
+    getClientSecret,        // Export for IRC auth and other modules
 };

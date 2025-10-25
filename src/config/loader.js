@@ -14,8 +14,6 @@ if (fs.existsSync(envPath)) {
 function loadConfig() {
     const requiredEnvVars = [
         'TWITCH_BOT_USERNAME',
-        'TWITCH_CLIENT_ID',
-        'TWITCH_CLIENT_SECRET',
         'TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME',
         'WAVESPEED_API_KEY',
     ];
@@ -34,14 +32,28 @@ function loadConfig() {
         .map(ch => ch.trim().toLowerCase())
         .filter(Boolean);
 
+    // For Client ID and Secret, prefer environment variables for local dev,
+    // but in production these will be loaded from Secret Manager
+    // Use the web UI's Client ID for unified authentication
+    const clientId = process.env.TWITCH_CLIENT_ID || null;
+    const clientSecret = process.env.TWITCH_CLIENT_SECRET || null;
+
+        // Secret Manager paths for production deployment (unified with web UI)
+        const clientIdSecretPath = process.env.TWITCH_CLIENT_ID_SECRET_NAME ||
+            'projects/906125386407/secrets/twitch-client-id/versions/latest';
+        const clientSecretPath = process.env.TWITCH_CLIENT_SECRET_NAME ||
+            'projects/906125386407/secrets/twitch-client-secret/versions/latest';
+
     const config = {
         twitch: {
             username: process.env.TWITCH_BOT_USERNAME,
             channels: process.env.TWITCH_CHANNELS
                 ? process.env.TWITCH_CHANNELS.split(',').map(ch => ch.trim().toLowerCase()).filter(ch => ch)
                 : [], // In prod, this will be populated by channelManager
-            clientId: process.env.TWITCH_CLIENT_ID,
-            clientSecret: process.env.TWITCH_CLIENT_SECRET,
+            clientId: clientId, // May be null initially, loaded from Secret Manager in production
+            clientSecret: clientSecret, // May be null initially, loaded from Secret Manager in production
+            clientIdSecretPath: clientIdSecretPath, // Path to Secret Manager secret
+            clientSecretPath: clientSecretPath, // Path to Secret Manager secret
             publicUrl: process.env.PUBLIC_URL, // EventSub webhook callback URL
             eventSubSecret: process.env.TWITCH_EVENTSUB_SECRET, // EventSub signature verification secret
         },

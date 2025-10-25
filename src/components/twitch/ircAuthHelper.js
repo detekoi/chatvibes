@@ -3,6 +3,7 @@ import axios from 'axios';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 import { getSecretValue, addSecretVersion } from '../../lib/secretManager.js'; // Use the secret manager helper
+import { getClientId, getClientSecret } from './auth.js'; // Use unified Client ID and Secret
 
 const TWITCH_TOKEN_URL = 'https://id.twitch.tv/oauth2/token';
 
@@ -25,16 +26,20 @@ async function refreshIrcToken() {
     isRefreshing = true;
     logger.info('Attempting to refresh Twitch IRC Access Token...');
 
-    const { clientId, clientSecret } = config.twitch;
     const refreshTokenSecretName = config.secrets.twitchBotRefreshTokenName; // Get secret name from config
 
-    if (!clientId || !clientSecret) {
-        logger.error('Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET for token refresh.');
+    if (!refreshTokenSecretName) {
+        logger.error('Missing TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME in configuration.');
         isRefreshing = false;
         return null;
     }
-    if (!refreshTokenSecretName) {
-        logger.error('Missing TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME in configuration.');
+    
+    // Get Client ID and Secret (from env or Secret Manager)
+    const clientId = await getClientId();
+    const clientSecret = await getClientSecret();
+    
+    if (!clientId || !clientSecret) {
+        logger.error('Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET for token refresh.');
         isRefreshing = false;
         return null;
     }

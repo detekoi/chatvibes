@@ -4,59 +4,20 @@
 import axios from 'axios';
 import { getHelixClient, getUsersByLogin } from './helixClient.js';
 import { refreshIrcToken } from './ircAuthHelper.js';
+import { getClientId } from './auth.js';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 
 /**
- * Get bot's user access token (required for EventSub subscriptions with user-level scopes)
+ * NOTE: EventSub webhook subscriptions ALWAYS use App Access Tokens for the API call.
+ * 
+ * For events that require broadcaster permissions (subscriptions, bits, channel points, etc.),
+ * Twitch validates that the broadcaster (identified by broadcaster_user_id in the condition)
+ * has granted the required scopes to your application during OAuth.
+ * 
+ * The app access token authenticates YOUR APPLICATION to Twitch's API.
+ * The broadcaster's OAuth scopes authorize access to THEIR data.
  */
-async function getBotUserAccessToken() {
-    try {
-        // refreshIrcToken returns the access token without oauth: prefix
-        const token = await refreshIrcToken();
-        if (!token) {
-            throw new Error('Failed to get bot user access token');
-        }
-        return token;
-    } catch (error) {
-        logger.error({ err: error }, 'Error getting bot user access token');
-        return null;
-    }
-}
-
-/**
- * Make a Twitch Helix API request with user access token
- * (Required for EventSub subscriptions with channel:read:subscriptions, bits:read, etc.)
- */
-async function makeHelixRequestWithUserToken(method, endpoint, body = null) {
-    try {
-        const userToken = await getBotUserAccessToken();
-        if (!userToken) {
-            throw new Error('Failed to obtain user access token');
-        }
-
-        const response = await axios({
-            method,
-            url: `https://api.twitch.tv/helix${endpoint}`,
-            data: body,
-            headers: {
-                'Authorization': `Bearer ${userToken}`,
-                'Client-ID': config.twitch.clientId,
-                'Content-Type': 'application/json'
-            },
-            timeout: 15000
-        });
-
-        return { success: true, data: response.data };
-    } catch (error) {
-        logger.error({
-            err: error.response ? error.response.data : error.message,
-            method,
-            endpoint
-        }, 'Error making Helix request with user token');
-        return { success: false, error: error.message };
-    }
-}
 
 /**
  * Make a Twitch Helix API request (uses app token)
@@ -77,17 +38,80 @@ async function makeHelixRequest(method, endpoint, body = null) {
 }
 
 /**
+ * Get broadcaster's user access token from Secret Manager
+ * @param {string} broadcasterUserId - The broadcaster's Twitch user ID
+ * @returns {Promise<string|null>} The access token or null if not found
+ */
+async function getBroadcasterAccessToken(broadcasterUserId) {
+    try {
+        const { getSecretValue } = await import('../../lib/secretManager.js');
+        // Secret Manager requires the full resource path
+        const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'chatvibestts';
+        const secretResourceName = `projects/${projectId}/secrets/twitch-access-token-${broadcasterUserId}/versions/latest`;
+        const accessToken = await getSecretValue(secretResourceName);
+        
+        if (!accessToken) {
+            logger.warn({ broadcasterUserId }, 'Broadcaster access token not found in Secret Manager');
+            return null;
+        }
+        
+        return accessToken;
+    } catch (error) {
+        logger.error({ err: error, broadcasterUserId }, 'Error retrieving broadcaster access token');
+        return null;
+    }
+}
+
+/**
+ * Make a Twitch Helix API request with broadcaster's user access token
+ * (Required for EventSub subscriptions with scope requirements)
+ */
+async function makeHelixRequestWithBroadcasterToken(method, endpoint, body, broadcasterUserId) {
+    try {
+        const userToken = await getBroadcasterAccessToken(broadcasterUserId);
+        if (!userToken) {
+            return { success: false, error: 'Broadcaster access token not available' };
+        }
+
+        // Use the web UI's Client ID (same one that generated the broadcaster token)
+        const clientId = await getClientId();
+
+        const response = await axios({
+            method,
+            url: `https://api.twitch.tv/helix${endpoint}`,
+            data: body,
+            headers: {
+                'Authorization': `Bearer ${userToken}`,
+                'Client-ID': clientId,
+                'Content-Type': 'application/json'
+            },
+            timeout: 15000
+        });
+
+        return { success: true, data: response.data };
+    } catch (error) {
+        logger.error({
+            err: error.response ? error.response.data : error.message,
+            method,
+            endpoint,
+            broadcasterUserId
+        }, 'Error making Helix request with broadcaster token');
+        return { success: false, error: error.message };
+    }
+}
+
+/**
  * Get all EventSub subscriptions
  */
 export async function getEventSubSubscriptions() {
-    return await makeHelixRequestWithUserToken('get', '/eventsub/subscriptions');
+    return await makeHelixRequest('get', '/eventsub/subscriptions');
 }
 
 /**
  * Delete an EventSub subscription by ID
  */
 export async function deleteEventSubSubscription(subscriptionId) {
-    const result = await makeHelixRequestWithUserToken('delete', `/eventsub/subscriptions?id=${subscriptionId}`);
+    const result = await makeHelixRequest('delete', `/eventsub/subscriptions?id=${subscriptionId}`);
     if (result.success) {
         logger.info({ subscriptionId }, 'EventSub subscription deleted successfully');
     }
@@ -137,7 +161,7 @@ export async function subscribeChannelSubscribe(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.subscribe' }, 'Successfully subscribed to channel.subscribe');
     }
@@ -165,7 +189,7 @@ export async function subscribeChannelSubscriptionMessage(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.subscription.message' }, 'Successfully subscribed to channel.subscription.message');
     }
@@ -193,7 +217,7 @@ export async function subscribeChannelSubscriptionGift(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.subscription.gift' }, 'Successfully subscribed to channel.subscription.gift');
     }
@@ -221,7 +245,7 @@ export async function subscribeChannelCheer(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.cheer' }, 'Successfully subscribed to channel.cheer');
     }
@@ -249,7 +273,7 @@ export async function subscribeChannelRaid(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.raid' }, 'Successfully subscribed to channel.raid');
     }
@@ -280,7 +304,7 @@ export async function subscribeChannelFollow(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.follow' }, 'Successfully subscribed to channel.follow (v2)');
     }
@@ -309,7 +333,7 @@ export async function subscribeChannelPointsRedemptionAdd(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.channel_points_custom_reward_redemption.add' }, 'Successfully subscribed to channel points redemption.add');
     }
@@ -338,7 +362,7 @@ export async function subscribeChannelPointsRedemptionUpdate(broadcasterUserId) 
         }
     };
 
-    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.channel_points_custom_reward_redemption.update' }, 'Successfully subscribed to channel points redemption.update');
     }

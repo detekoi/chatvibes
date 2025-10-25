@@ -1,7 +1,7 @@
 import axios from 'axios';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
-import { getAppAccessToken, clearCachedAppAccessToken } from './auth.js'; // Import both functions
+import { getAppAccessToken, clearCachedAppAccessToken, getClientId } from './auth.js'; // Import auth functions
 
 const TWITCH_HELIX_URL = 'https://api.twitch.tv/helix';
 
@@ -29,17 +29,18 @@ async function initializeHelixClient() {
     axiosInstance.interceptors.request.use(
         async (requestConfig) => {
             try {
-                // Fetch the App Access Token before each request
+                // Fetch the App Access Token and Client ID before each request
                 const token = await getAppAccessToken();
+                const clientId = await getClientId();
                 requestConfig.headers['Authorization'] = `Bearer ${token}`;
-                requestConfig.headers['Client-ID'] = config.twitch.clientId;
+                requestConfig.headers['Client-ID'] = clientId;
                 logger.debug({ url: requestConfig.url, method: requestConfig.method }, 'Helix request prepared with auth headers.');
                 // Add request start time for latency calculation
                 requestConfig.meta = requestConfig.meta || {};
                 requestConfig.meta.requestStartedAt = Date.now();
                 return requestConfig;
             } catch (error) {
-                logger.error({ err: error }, 'Failed to get App Access Token for Helix request.');
+                logger.error({ err: error }, 'Failed to get App Access Token or Client ID for Helix request.');
                 // Prevent the request from proceeding without auth
                 return Promise.reject(new Error('Failed to prepare Helix request authentication.'));
             }

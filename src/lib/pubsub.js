@@ -22,7 +22,8 @@ export async function initializePubSub() {
     try {
         // PubSub client will auto-detect projectId from GOOGLE_CLOUD_PROJECT env var
         // or from GCP metadata service when running on Cloud Run
-        pubsubClient = new PubSub();
+        const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'chatvibestts';
+        pubsubClient = new PubSub({ projectId });
 
         // Get or create topic
         topic = pubsubClient.topic(TOPIC_NAME);
