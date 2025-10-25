@@ -306,4 +306,36 @@ function getIrcClient() {
     return client;
 }
 
-export { createIrcClient, connectIrcClient, getIrcClient, handleAuthenticationFailure }; // Ensure handleAuthenticationFailure is exported if used externally, though it's mostly internal.
+/**
+ * Properly destroys the IRC client by removing all listeners and nulling the instance.
+ * This prevents duplicate event handlers when the client is recreated.
+ */
+async function destroyIrcClient() {
+    if (!client) {
+        logger.debug('No IRC client to destroy');
+        return;
+    }
+
+    try {
+        logger.info('Destroying IRC client and removing all event listeners');
+
+        // Disconnect if connected
+        if (client.readyState() === 'OPEN' || client.readyState() === 'CONNECTING') {
+            await client.disconnect();
+        }
+
+        // Remove all event listeners to prevent duplicates
+        client.removeAllListeners();
+
+        // Clear module-level variables
+        client = null;
+        connectionAttemptPromise = null;
+        isHandlingAuthFailure = false;
+
+        logger.info('IRC client destroyed successfully');
+    } catch (error) {
+        logger.error({ err: error }, 'Error while destroying IRC client');
+    }
+}
+
+export { createIrcClient, connectIrcClient, getIrcClient, handleAuthenticationFailure, destroyIrcClient };

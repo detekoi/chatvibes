@@ -5,7 +5,7 @@ import logger from './lib/logger.js';
 
 // Core Twitch & Cloud
 import { initializeSecretManager } from './lib/secretManager.js';
-import { createIrcClient, connectIrcClient, getIrcClient } from './components/twitch/ircClient.js';
+import { createIrcClient, connectIrcClient, getIrcClient, destroyIrcClient } from './components/twitch/ircClient.js';
 import { initializeHelixClient } from './components/twitch/helixClient.js';
 
 // ChatVibes TTS Components
@@ -163,23 +163,16 @@ async function gracefulShutdown(signal) {
             .catch(err => { logger.error({ err }, 'ChatVibes: Error closing Pub/Sub.'); })
     );
 
-    let localIrcClient = null;
-    try {
-        localIrcClient = ircClientInstance || getIrcClient();
-    } catch (e) {
-        logger.warn('ChatVibes: IRC client not available during shutdown, skipping disconnect step.');
-    }
-
-    if (localIrcClient && typeof localIrcClient.readyState === 'function' && localIrcClient.readyState() === 'OPEN') {
-        logger.info('ChatVibes: Disconnecting from Twitch IRC...');
-        shutdownTasks.push(
-            localIrcClient.disconnect()
-                .then(() => { logger.info('ChatVibes: Disconnected from Twitch IRC.'); })
-                .catch(err => { logger.error({ err }, 'ChatVibes: Error during IRC disconnect.'); })
-        );
-    } else if (localIrcClient) {
-        logger.info('ChatVibes: IRC client was not in OPEN state, no explicit disconnect sent.');
-    }
+    // Properly destroy the IRC client to clean up all event listeners
+    logger.info('ChatVibes: Destroying IRC client...');
+    shutdownTasks.push(
+        destroyIrcClient()
+            .then(() => {
+                ircClientInstance = null;
+                logger.info('ChatVibes: IRC client destroyed.');
+            })
+            .catch(err => { logger.error({ err }, 'ChatVibes: Error destroying IRC client.'); })
+    );
 
     logger.info(`ChatVibes: Waiting for ${shutdownTasks.length} shutdown tasks to complete...`);
     await Promise.allSettled(shutdownTasks);
@@ -545,16 +538,21 @@ async function main() {
         const stopIrcSubsystem = async () => {
             if (!ircStartedByThisInstance) return;
             try {
-                const client = ircClientInstance || getIrcClient();
-                if (client && typeof client.disconnect === 'function') {
-                    await client.disconnect();
+                logger.info('ChatVibes: Stopping IRC subsystem');
+
+                // Clean up channel listener first
+                if (channelChangeListener) {
+                    try { channelChangeListener(); } catch {}
+                    channelChangeListener = null;
                 }
+
+                // Properly destroy the IRC client (removes all event listeners)
+                await destroyIrcClient();
+                ircClientInstance = null;
+
+                logger.info('ChatVibes: IRC subsystem stopped successfully');
             } catch (e) {
                 logger.warn({ err: e }, 'ChatVibes: Error while stopping IRC subsystem');
-            }
-            if (channelChangeListener) {
-                try { channelChangeListener(); } catch {}
-                channelChangeListener = null;
             }
             ircStartedByThisInstance = false;
         };
