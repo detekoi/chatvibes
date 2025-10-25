@@ -42,6 +42,27 @@ let isShuttingDown = false;
 let leaderElection = null;
 let ircStartedByThisInstance = false;
 
+// IRC message de-duplication (guards against accidental double-handler registration or re-emits)
+const IRC_DEDUP_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const processedIrcMessageIds = new Map();
+
+function isDuplicateIrcMessage(messageId) {
+    if (!messageId) return false;
+    const now = Date.now();
+    // Fast return if seen
+    if (processedIrcMessageIds.has(messageId)) {
+        return true;
+    }
+    // Housekeeping: purge old entries occasionally (amortized)
+    if (processedIrcMessageIds.size > 500) {
+        for (const [id, ts] of processedIrcMessageIds) {
+            if (now - ts > IRC_DEDUP_TTL_MS) processedIrcMessageIds.delete(id);
+        }
+    }
+    processedIrcMessageIds.set(messageId, now);
+    return false;
+}
+
 // Export shutdown state checker for use by other modules
 export function getIsShuttingDown() {
     return isShuttingDown;
@@ -339,6 +360,12 @@ async function main() {
             // --- 1. PREPARATION ---
             const channelNameNoHash = channel.substring(1).toLowerCase();
             if (!isChannelAllowed(channelNameNoHash)) return;
+                // IRC de-duplication by message id (tmi.js provides a stable id for each message)
+                const msgId = tags?.id || tags?.['id'];
+                if (isDuplicateIrcMessage(msgId)) {
+                    logger.debug({ channel: channelNameNoHash, msgId }, 'IRC dedupe: Skipping duplicate chat message');
+                    return;
+                }
             const username = tags.username?.toLowerCase();
             const bits = parseInt(tags.bits, 10) || 0;
 
@@ -452,6 +479,12 @@ async function main() {
             ircClientInstance.on('cheer', async (channel, userstate, message) => {
             const channelNameNoHash = channel.substring(1);
             if (!isChannelAllowed(channelNameNoHash.toLowerCase())) return;
+                // De-duplication for cheer events as well
+                const cheerMsgId = userstate?.id || userstate?.['id'] || userstate?.['message-id'];
+                if (isDuplicateIrcMessage(cheerMsgId)) {
+                    logger.debug({ channel: channelNameNoHash.toLowerCase(), msgId: cheerMsgId }, 'IRC dedupe: Skipping duplicate cheer');
+                    return;
+                }
             const username = userstate.username?.toLowerCase();
             const bits = parseInt(userstate.bits, 10) || 0;
             
