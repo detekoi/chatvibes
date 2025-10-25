@@ -355,43 +355,17 @@ async function main() {
                 }, `[SharedChat:${sharedSessionInfo.sessionId}] Processing message in shared session with: ${sharedSessionInfo.channels.join(', ')}`);
             }
 
-            // Intercept Channel Points redemption messages for the TTS reward
+            // NOTE: Channel Points redemptions are now handled exclusively via EventSub
+            // in eventsub.js (handleChannelPointsRedemption function).
+            // The old chat-based trigger has been removed to prevent duplicate TTS playback.
+            // If a custom-reward-id is present, it means some other reward was redeemed,
+            // so we ignore the message for TTS processing.
             if (tags['custom-reward-id']) {
-                try {
-                    const ttsConfig = await getTtsState(channelNameNoHash);
-                    const configuredRewardId = ttsConfig.channelPoints?.rewardId || ttsConfig.channelPointRewardId;
-                    const enabledViaNewConfig = ttsConfig.channelPoints ? ttsConfig.channelPoints.enabled === true : true;
-                    if (configuredRewardId && tags['custom-reward-id'] === configuredRewardId && enabledViaNewConfig) {
-                        const redeemingUser = username;
-                        const redeemMessage = (message || '').trim();
-                        if (redeemMessage.length > 0) {
-                            // Enforce content policy if configured
-                            const policy = (ttsConfig.channelPoints && ttsConfig.channelPoints.contentPolicy) || {};
-                            const minChars = typeof policy.minChars === 'number' ? policy.minChars : 1;
-                            const maxChars = typeof policy.maxChars === 'number' ? policy.maxChars : 500;
-                            const blockLinks = policy.blockLinks !== false; // default block links
-                            const bannedWords = Array.isArray(policy.bannedWords) ? policy.bannedWords : [];
-                            if (redeemMessage.length < minChars) return;
-                            if (redeemMessage.length > maxChars) return;
-                            if (blockLinks && /\bhttps?:\/\//i.test(redeemMessage)) return;
-                            const lowered = redeemMessage.toLowerCase();
-                            if (bannedWords.some(w => w && lowered.includes(String(w).toLowerCase()))) return;
-
-                            const isIgnored = Array.isArray(ttsConfig.ignoredUsers) && ttsConfig.ignoredUsers.includes(redeemingUser);
-                            if (ttsConfig.engineEnabled && !isIgnored) {
-                                // Process URLs based on channel configuration
-                                const processedMessage = processMessageUrls(redeemMessage, ttsConfig.readFullUrls);
-                                await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: redeemingUser, type: 'reward' }, sharedSessionInfo);
-                            }
-                        }
-                        return; // Do not process further as normal chat/command
-                    }
-                    // If it's some other reward, ignore for TTS and do not treat as normal chat
-                    return;
-                } catch (e) {
-                    logger.warn({ err: e }, `ChatVibes: Error handling custom reward redemption for ${channelNameNoHash}`);
-                    return;
-                }
+                logger.debug({ 
+                    channelNameNoHash, 
+                    rewardId: tags['custom-reward-id'] 
+                }, 'Channel Points redemption detected in chat - ignoring (handled by EventSub)');
+                return;
             }
 
             // Clean the cheermote from the message if it has bits.

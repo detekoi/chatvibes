@@ -288,6 +288,64 @@ export async function subscribeChannelFollow(broadcasterUserId) {
 }
 
 /**
+ * Subscribe to channel.channel_points_custom_reward_redemption.add events
+ * (New redemptions - both fulfilled and unfulfilled)
+ */
+export async function subscribeChannelPointsRedemptionAdd(broadcasterUserId) {
+    const { publicUrl, eventSubSecret } = config.twitch;
+    if (!publicUrl || !eventSubSecret) {
+        logger.error('Missing PUBLIC_URL or TWITCH_EVENTSUB_SECRET in config');
+        return { success: false, error: 'Missing configuration' };
+    }
+
+    const body = {
+        type: 'channel.channel_points_custom_reward_redemption.add',
+        version: '1',
+        condition: { broadcaster_user_id: broadcasterUserId },
+        transport: {
+            method: 'webhook',
+            callback: `${publicUrl}/twitch/event`,
+            secret: eventSubSecret
+        }
+    };
+
+    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    if (result.success) {
+        logger.info({ broadcasterUserId, type: 'channel.channel_points_custom_reward_redemption.add' }, 'Successfully subscribed to channel points redemption.add');
+    }
+    return result;
+}
+
+/**
+ * Subscribe to channel.channel_points_custom_reward_redemption.update events
+ * (Redemption status changes - approval, cancellation, etc.)
+ */
+export async function subscribeChannelPointsRedemptionUpdate(broadcasterUserId) {
+    const { publicUrl, eventSubSecret } = config.twitch;
+    if (!publicUrl || !eventSubSecret) {
+        logger.error('Missing PUBLIC_URL or TWITCH_EVENTSUB_SECRET in config');
+        return { success: false, error: 'Missing configuration' };
+    }
+
+    const body = {
+        type: 'channel.channel_points_custom_reward_redemption.update',
+        version: '1',
+        condition: { broadcaster_user_id: broadcasterUserId },
+        transport: {
+            method: 'webhook',
+            callback: `${publicUrl}/twitch/event`,
+            secret: eventSubSecret
+        }
+    };
+
+    const result = await makeHelixRequestWithUserToken('post', '/eventsub/subscriptions', body);
+    if (result.success) {
+        logger.info({ broadcasterUserId, type: 'channel.channel_points_custom_reward_redemption.update' }, 'Successfully subscribed to channel points redemption.update');
+    }
+    return result;
+}
+
+/**
  * Subscribe a channel to all TTS-relevant events
  * @param {string} broadcasterUserId - The broadcaster's user ID
  * @param {object} options - Optional flags for which events to subscribe to
@@ -295,12 +353,14 @@ export async function subscribeChannelFollow(broadcasterUserId) {
  */
 export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {}) {
     const {
-        subscribe = true,      // channel.subscribe
-        resubscribe = true,    // channel.subscription.message
-        giftSub = true,        // channel.subscription.gift
-        cheer = true,          // channel.cheer
-        raid = true,           // channel.raid
-        follow = false         // channel.follow (disabled by default - requires moderator scope)
+        subscribe = true,           // channel.subscribe
+        resubscribe = true,         // channel.subscription.message
+        giftSub = true,             // channel.subscription.gift
+        cheer = true,               // channel.cheer
+        raid = true,                // channel.raid
+        follow = false,             // channel.follow (disabled by default - requires moderator scope)
+        channelPointsAdd = true,    // channel.channel_points_custom_reward_redemption.add
+        channelPointsUpdate = true  // channel.channel_points_custom_reward_redemption.update
     } = options;
 
     const results = {
@@ -361,6 +421,24 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
             results.successful.push('channel.follow');
         } else {
             results.failed.push({ type: 'channel.follow', error: result.error });
+        }
+    }
+
+    if (channelPointsAdd) {
+        const result = await subscribeChannelPointsRedemptionAdd(broadcasterUserId);
+        if (result.success) {
+            results.successful.push('channel.channel_points_custom_reward_redemption.add');
+        } else {
+            results.failed.push({ type: 'channel.channel_points_custom_reward_redemption.add', error: result.error });
+        }
+    }
+
+    if (channelPointsUpdate) {
+        const result = await subscribeChannelPointsRedemptionUpdate(broadcasterUserId);
+        if (result.success) {
+            results.successful.push('channel.channel_points_custom_reward_redemption.update');
+        } else {
+            results.failed.push({ type: 'channel.channel_points_custom_reward_redemption.update', error: result.error });
         }
     }
 
