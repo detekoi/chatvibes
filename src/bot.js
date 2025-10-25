@@ -12,6 +12,8 @@ import { initializeHelixClient } from './components/twitch/helixClient.js';
 import { initializeTtsState, getTtsState } from './components/tts/ttsState.js';
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
+import { Firestore } from '@google-cloud/firestore';
+import crypto from 'crypto';
 
 // Music Components
 import { initializeMusicQueues } from './components/music/musicQueue.js';
@@ -87,6 +89,46 @@ function isDuplicatePubSubEvent(channelName, eventData) {
         return false;
     } catch (_) {
         return false;
+    }
+}
+
+// Cross-instance dedup using Firestore (authoritative claim) to avoid multi-revision double-enqueue
+const firestore = new Firestore();
+const processedEventsCollection = firestore.collection('processedTtsEvents');
+
+async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_TTL_MS) {
+    const user = (eventData?.user || '').toLowerCase();
+    const text = (eventData?.text || '').trim();
+    if (!channelName || !text) return true; // if missing data, do not block
+
+    const keyRaw = `${channelName}|${user}|${text}`;
+    const keyHash = crypto.createHash('sha1').update(keyRaw).digest('hex');
+    const docRef = processedEventsCollection.doc(keyHash);
+    const now = Date.now();
+
+    try {
+        const result = await firestore.runTransaction(async (tx) => {
+            const snap = await tx.get(docRef);
+            if (snap.exists) {
+                const data = snap.data() || {};
+                const expireAtMs = typeof data.expireAtMs === 'number' ? data.expireAtMs : 0;
+                if (expireAtMs > now) {
+                    return false; // already claimed recently
+                }
+            }
+            tx.set(docRef, {
+                channel: channelName,
+                user,
+                createdAtMs: now,
+                expireAtMs: now + ttlMs,
+            }, { merge: true });
+            return true;
+        });
+        return result;
+    } catch (err) {
+        // On Firestore error, fail-open to avoid message loss
+        logger.warn({ err }, 'Pub/Sub global dedupe claim failed; proceeding without dedupe');
+        return true;
     }
 }
 
@@ -336,9 +378,15 @@ async function main() {
                 logger.debug(logData, 'Received TTS event from Pub/Sub, processing locally');
             }
             
-            // Pub/Sub dedupe: avoid enqueuing the exact same payload multiple times across overlapping revisions
+            // Pub/Sub dedupe: local memory check
             if (isDuplicatePubSubEvent(channelName, eventData)) {
-                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0,30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue');
+                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0,30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue (local cache)');
+                return;
+            }
+            // Pub/Sub dedupe: cross-instance Firestore claim (authoritative)
+            const claimed = await claimTtsEventGlobal(channelName, eventData);
+            if (!claimed) {
+                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0,30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue (global claim)');
                 return;
             }
             await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
