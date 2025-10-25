@@ -368,7 +368,7 @@ async function main() {
                             // Enforce content policy if configured
                             const policy = (ttsConfig.channelPoints && ttsConfig.channelPoints.contentPolicy) || {};
                             const minChars = typeof policy.minChars === 'number' ? policy.minChars : 1;
-                            const maxChars = typeof policy.maxChars === 'number' ? policy.maxChars : 200;
+                            const maxChars = typeof policy.maxChars === 'number' ? policy.maxChars : 500;
                             const blockLinks = policy.blockLinks !== false; // default block links
                             const bannedWords = Array.isArray(policy.bannedWords) ? policy.bannedWords : [];
                             if (redeemMessage.length < minChars) return;
