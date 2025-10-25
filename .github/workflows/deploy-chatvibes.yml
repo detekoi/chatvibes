@@ -26,7 +26,7 @@ env:
   # --- Application Environment Variables ---
   # These will be set directly in the Cloud Run service
   NODE_ENV: 'production'
-  LOG_LEVEL: 'info'
+  LOG_LEVEL: 'debug'
   PINO_PRETTY_LOGGING: 'false'
   TWITCH_BOT_USERNAME: 'ChatVibesBot'
   GOOGLE_CLOUD_PROJECT_ENV: 'chatvibestts' # Explicitly set for the application
