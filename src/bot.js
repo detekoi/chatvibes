@@ -310,11 +310,15 @@ async function main() {
             ircClientInstance.on('connected', async (address, port) => {
                 logger.info(`ChatVibes: Successfully connected to Twitch IRC: ${address}:${port}`);
                 if (config.app.nodeEnv !== 'development') {
-                    logger.info('ChatVibes: Setting up Firestore channel listener and performing initial sync.');
+                    logger.info('ChatVibes: Performing initial channel sync before setting up listener.');
+                    // Sync channels FIRST, then set up listener
+                    // This prevents duplicate joins from the listener's initial snapshot
+                    await syncManagedChannelsWithIrc(ircClientInstance);
+
+                    logger.info('ChatVibes: Setting up Firestore channel change listener.');
                     if (!channelChangeListener) {
                         channelChangeListener = listenForChannelChanges(ircClientInstance);
                     }
-                    await syncManagedChannelsWithIrc(ircClientInstance);
                 } else {
                     logger.info('ChatVibes (DEV MODE): Relying on TMI.js auto-join for channels specified in client options.');
                 }
