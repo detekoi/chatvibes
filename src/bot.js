@@ -63,6 +63,33 @@ function isDuplicateIrcMessage(messageId) {
     return false;
 }
 
+// Pub/Sub event de-duplication (guards against overlapping revisions delivering same TTS event)
+const PUBSUB_DEDUP_TTL_MS = 30 * 1000; // 30 seconds
+const recentPubSubKeys = new Map(); // key: channel|user|text -> timestamp
+
+function isDuplicatePubSubEvent(channelName, eventData) {
+    try {
+        const user = (eventData?.user || '').toLowerCase();
+        const text = (eventData?.text || '').trim();
+        const key = `${channelName}|${user}|${text}`;
+        const now = Date.now();
+        const lastTs = recentPubSubKeys.get(key);
+        // Cleanup occasionally to bound memory
+        if (recentPubSubKeys.size > 1000) {
+            for (const [k, ts] of recentPubSubKeys) {
+                if (now - ts > PUBSUB_DEDUP_TTL_MS) recentPubSubKeys.delete(k);
+            }
+        }
+        if (lastTs && now - lastTs < PUBSUB_DEDUP_TTL_MS) {
+            return true;
+        }
+        recentPubSubKeys.set(key, now);
+        return false;
+    } catch (_) {
+        return false;
+    }
+}
+
 // Export shutdown state checker for use by other modules
 export function getIsShuttingDown() {
     return isShuttingDown;
@@ -309,6 +336,11 @@ async function main() {
                 logger.debug(logData, 'Received TTS event from Pub/Sub, processing locally');
             }
             
+            // Pub/Sub dedupe: avoid enqueuing the exact same payload multiple times across overlapping revisions
+            if (isDuplicatePubSubEvent(channelName, eventData)) {
+                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0,30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue');
+                return;
+            }
             await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
         });
         logger.info('ChatVibes: Pub/Sub subscriber ready');
