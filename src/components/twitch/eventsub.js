@@ -465,18 +465,19 @@ async function handleChannelPointsRedemption(subscriptionType, event) {
                 redemptionId,
                 textPreview: userInput?.substring(0, 30)
             }, 'Channel Points redemption pending approval - adding to cache');
-            
-            redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin);
+
+            // Store rewardId along with redemption for later rejection if needed
+            redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId);
         } else if (status === 'fulfilled') {
-            // Redemption was auto-approved (Skip Queue enabled) - play immediately
+            // Redemption was auto-approved (Skip Queue enabled) - validate and play immediately
             logger.info({
                 channelLogin,
                 userName,
                 redemptionId,
                 textPreview: userInput?.substring(0, 30)
-            }, 'Channel Points redemption auto-approved - playing immediately');
-            
-            await processTtsRedemption(channelLogin, userInput, userName, ttsConfig);
+            }, 'Channel Points redemption auto-approved - validating and playing');
+
+            await processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId, rewardId);
         }
     }
     // Handle redemption.update event
@@ -484,22 +485,24 @@ async function handleChannelPointsRedemption(subscriptionType, event) {
         if (status === 'fulfilled') {
             // Check if this redemption was in our cache (meaning it was waiting for approval)
             const cachedRedemption = redemptionCache.getRedemption(redemptionId);
-            
+
             if (cachedRedemption) {
                 logger.info({
                     channelLogin,
                     userName,
                     redemptionId,
                     textPreview: cachedRedemption.userInput?.substring(0, 30)
-                }, 'Channel Points redemption approved by streamer - playing TTS');
-                
+                }, 'Channel Points redemption approved by streamer - validating and playing TTS');
+
                 await processTtsRedemption(
                     cachedRedemption.channelName,
                     cachedRedemption.userInput,
                     cachedRedemption.userName,
-                    ttsConfig
+                    ttsConfig,
+                    redemptionId,
+                    cachedRedemption.rewardId || rewardId
                 );
-                
+
                 // Remove from cache after processing
                 redemptionCache.removeRedemption(redemptionId);
             } else {
@@ -516,14 +519,149 @@ async function handleChannelPointsRedemption(subscriptionType, event) {
 }
 
 /**
- * Process a TTS redemption (apply content policy and enqueue for playback)
+ * Get user access token for broadcaster from Firestore/Secret Manager
+ * This retrieves the broadcaster's OAuth token with channel:manage:redemptions scope
  */
-async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig) {
+async function getBroadcasterAccessToken(channelLogin) {
+    try {
+        // Dynamically import Firestore
+        const { getFirestore } = await import('firebase-admin/firestore');
+        const db = getFirestore();
+
+        // Get user document from managedChannels collection
+        const userDoc = await db.collection('managedChannels').doc(channelLogin).get();
+
+        if (!userDoc.exists) {
+            logger.warn({ channelLogin }, 'Broadcaster not found in managedChannels - cannot get user token');
+            return null;
+        }
+
+        const userData = userDoc.data();
+        const { twitchUserId, needsTwitchReAuth } = userData;
+
+        if (needsTwitchReAuth) {
+            logger.warn({ channelLogin }, 'Broadcaster needs to re-authenticate - cannot reject redemption');
+            return null;
+        }
+
+        if (!twitchUserId) {
+            logger.warn({ channelLogin }, 'Broadcaster missing twitchUserId');
+            return null;
+        }
+
+        // Get access token from Secret Manager
+        // Token is stored at projects/PROJECT_ID/secrets/twitch-access-token-{twitchUserId}
+        const { SecretManagerServiceClient } = await import('@google-cloud/secret-manager');
+        const secretManagerClient = new SecretManagerServiceClient();
+        const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+
+        if (!projectId) {
+            logger.warn('GOOGLE_CLOUD_PROJECT not set - cannot access Secret Manager');
+            return null;
+        }
+
+        const secretName = `projects/${projectId}/secrets/twitch-access-token-${twitchUserId}`;
+
+        try {
+            const [version] = await secretManagerClient.accessSecretVersion({
+                name: `${secretName}/versions/latest`,
+            });
+            const accessToken = version.payload.data.toString().trim();
+            logger.debug({ channelLogin }, 'Retrieved broadcaster access token from Secret Manager');
+            return accessToken;
+        } catch (secretError) {
+            logger.warn({
+                err: secretError,
+                channelLogin,
+                twitchUserId
+            }, 'Failed to get broadcaster access token from Secret Manager');
+            return null;
+        }
+    } catch (error) {
+        logger.error({
+            err: error,
+            channelLogin
+        }, 'Error getting broadcaster access token');
+        return null;
+    }
+}
+
+/**
+ * Reject a Channel Points redemption via Twitch API
+ * Requires broadcaster's user access token with channel:manage:redemptions scope
+ */
+async function rejectRedemption(channelLogin, redemptionId, rewardId, reason) {
+    try {
+        const { getUsersByLogin } = await import('./helixClient.js');
+        const { getClientId } = await import('./auth.js');
+
+        const users = await getUsersByLogin([channelLogin]);
+        if (!users || users.length === 0) {
+            logger.warn({ channelLogin }, 'Cannot reject redemption - broadcaster user ID not found');
+            return false;
+        }
+
+        const broadcasterId = users[0].id;
+
+        // Get broadcaster's user access token (not app access token!)
+        const token = await getBroadcasterAccessToken(channelLogin);
+        if (!token) {
+            logger.warn({
+                channelLogin,
+                redemptionId,
+                reason
+            }, 'Cannot reject redemption - broadcaster access token not available (may need to re-authenticate)');
+            return false;
+        }
+
+        const clientId = await getClientId();
+
+        const axios = (await import('axios')).default;
+        const url = `https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions?broadcaster_id=${encodeURIComponent(broadcasterId)}&reward_id=${encodeURIComponent(rewardId)}&id=${encodeURIComponent(redemptionId)}`;
+
+        await axios.patch(url, {
+            status: 'CANCELED'
+        }, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Client-ID': clientId,
+                'Content-Type': 'application/json'
+            },
+            timeout: 10000
+        });
+
+        logger.info({
+            channelLogin,
+            redemptionId,
+            reason
+        }, 'Rejected Channel Points redemption and refunded points');
+
+        return true;
+    } catch (error) {
+        logger.error({
+            err: error,
+            channelLogin,
+            redemptionId,
+            status: error.response?.status,
+            data: error.response?.data
+        }, 'Failed to reject Channel Points redemption via Twitch API');
+        return false;
+    }
+}
+
+/**
+ * Process a TTS redemption (apply content policy and enqueue for playback)
+ * Returns validation result: { ok: boolean, reason?: string }
+ */
+async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId = null, rewardId = null) {
     const redeemMessage = (userInput || '').trim();
-    
+
     if (redeemMessage.length === 0) {
-        logger.debug({ channelLogin, userName }, 'Empty redemption message - skipping');
-        return;
+        logger.debug({ channelLogin, userName }, 'Empty redemption message - rejecting');
+        if (redemptionId && rewardId) {
+            await rejectRedemption(channelLogin, redemptionId, rewardId, 'Message is empty');
+        }
+        return { ok: false, reason: 'Message is empty' };
     }
 
     // Enforce content policy if configured
@@ -534,24 +672,40 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
     const bannedWords = Array.isArray(policy.bannedWords) ? policy.bannedWords : [];
 
     if (redeemMessage.length < minChars) {
-        logger.debug({ channelLogin, userName, length: redeemMessage.length, minChars }, 'Message too short - skipping');
-        return;
+        const reason = `Message too short (min ${minChars} characters)`;
+        logger.info({ channelLogin, userName, length: redeemMessage.length, minChars, redemptionId }, reason);
+        if (redemptionId && rewardId) {
+            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
+        }
+        return { ok: false, reason };
     }
-    
+
     if (redeemMessage.length > maxChars) {
-        logger.debug({ channelLogin, userName, length: redeemMessage.length, maxChars }, 'Message too long - skipping');
-        return;
+        const reason = `Message too long (max ${maxChars} characters)`;
+        logger.info({ channelLogin, userName, length: redeemMessage.length, maxChars, redemptionId }, reason);
+        if (redemptionId && rewardId) {
+            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
+        }
+        return { ok: false, reason };
     }
-    
+
     if (blockLinks && /\bhttps?:\/\//i.test(redeemMessage)) {
-        logger.debug({ channelLogin, userName }, 'Message contains blocked link - skipping');
-        return;
+        const reason = 'Message contains blocked link';
+        logger.info({ channelLogin, userName, redemptionId }, reason);
+        if (redemptionId && rewardId) {
+            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
+        }
+        return { ok: false, reason };
     }
-    
+
     const lowered = redeemMessage.toLowerCase();
     if (bannedWords.some(w => w && lowered.includes(String(w).toLowerCase()))) {
-        logger.debug({ channelLogin, userName }, 'Message contains banned word - skipping');
-        return;
+        const reason = 'Message contains banned word';
+        logger.info({ channelLogin, userName, redemptionId }, reason);
+        if (redemptionId && rewardId) {
+            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
+        }
+        return { ok: false, reason };
     }
 
     // Process URLs based on channel configuration
@@ -572,4 +726,6 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
         user: userName,
         type: 'reward'
     }, sharedSessionInfo);
+
+    return { ok: true };
 }

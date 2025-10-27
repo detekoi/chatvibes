@@ -3,7 +3,7 @@
 
 import logger from '../../lib/logger.js';
 
-// Map structure: redemption_id -> { userInput, userName, timestamp, channelName }
+// Map structure: redemption_id -> { userInput, userName, timestamp, channelName, rewardId }
 const redemptionCache = new Map();
 
 // TTL for cache entries (24 hours in milliseconds)
@@ -15,17 +15,19 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
  * @param {string} userInput - The user's input text
  * @param {string} userName - The username who redeemed
  * @param {string} channelName - The channel where redemption occurred
+ * @param {string} rewardId - The reward ID for potential rejection
  */
-export function addRedemption(redemptionId, userInput, userName, channelName) {
+export function addRedemption(redemptionId, userInput, userName, channelName, rewardId = null) {
     const entry = {
         userInput,
         userName,
         channelName,
+        rewardId,
         timestamp: Date.now()
     };
-    
+
     redemptionCache.set(redemptionId, entry);
-    
+
     logger.debug({
         redemptionId,
         userName,
