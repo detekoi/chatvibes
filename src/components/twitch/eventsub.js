@@ -549,10 +549,8 @@ async function getBroadcasterAccessToken(channelLogin) {
             return null;
         }
 
-        // Get access token from Secret Manager
-        // Token is stored at projects/PROJECT_ID/secrets/twitch-access-token-{twitchUserId}
-        const { SecretManagerServiceClient } = await import('@google-cloud/secret-manager');
-        const secretManagerClient = new SecretManagerServiceClient();
+        // Get access token from Secret Manager using shared helper (with caching)
+        const { getSecretValue } = await import('../../lib/secretManager.js');
         const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
 
         if (!projectId) {
@@ -560,21 +558,23 @@ async function getBroadcasterAccessToken(channelLogin) {
             return null;
         }
 
-        const secretName = `projects/${projectId}/secrets/twitch-access-token-${twitchUserId}`;
+        const secretName = `projects/${projectId}/secrets/twitch-access-token-${twitchUserId}/versions/latest`;
 
         try {
-            const [version] = await secretManagerClient.accessSecretVersion({
-                name: `${secretName}/versions/latest`,
-            });
-            const accessToken = version.payload.data.toString().trim();
-            logger.debug({ channelLogin }, 'Retrieved broadcaster access token from Secret Manager');
-            return accessToken;
+            const accessToken = await getSecretValue(secretName);
+            if (accessToken) {
+                logger.debug({ channelLogin }, 'Retrieved broadcaster access token from Secret Manager');
+                return accessToken.trim();
+            } else {
+                logger.warn({ channelLogin, twitchUserId }, 'Failed to get broadcaster access token from Secret Manager');
+                return null;
+            }
         } catch (secretError) {
             logger.warn({
                 err: secretError,
                 channelLogin,
                 twitchUserId
-            }, 'Failed to get broadcaster access token from Secret Manager');
+            }, 'Error getting broadcaster access token from Secret Manager');
             return null;
         }
     } catch (error) {

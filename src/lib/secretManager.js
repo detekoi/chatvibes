@@ -4,6 +4,10 @@ import logger from './logger.js'; // Path is relative to this file in src/lib/
 
 let client = null;
 
+// In-memory cache for secrets with TTL
+const secretCache = new Map(); // secretName -> { value, expiresAt }
+const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes default
+
 /**
  * Initializes the Secret Manager client.
  */
@@ -33,11 +37,20 @@ function getSecretManagerClient() {
     return client;
 }
 
-async function getSecretValue(secretResourceName) {
+async function getSecretValue(secretResourceName, cacheTtlMs = DEFAULT_CACHE_TTL_MS) {
     if (!secretResourceName) {
         logger.error('ChatVibes: getSecretValue called with empty secretResourceName.'); // Updated
         return null;
     }
+
+    // Check cache first
+    const now = Date.now();
+    const cached = secretCache.get(secretResourceName);
+    if (cached && cached.expiresAt > now) {
+        logger.debug(`ChatVibes: Using cached secret: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+        return cached.value;
+    }
+
     const smClient = getSecretManagerClient();
     try {
         logger.debug(`ChatVibes: Accessing secret: ${secretResourceName}`); // Updated
@@ -52,6 +65,14 @@ async function getSecretValue(secretResourceName) {
 
         const secretValue = version.payload.data.toString('utf8');
         logger.info(`ChatVibes: Successfully retrieved secret: ${secretResourceName.split('/secrets/')[1].split('/')[0]} (version: ${secretResourceName.split('/').pop()})`); // Updated
+
+        // Cache the secret value
+        secretCache.set(secretResourceName, {
+            value: secretValue,
+            expiresAt: now + cacheTtlMs
+        });
+        logger.debug(`ChatVibes: Cached secret for ${cacheTtlMs}ms: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+
         return secretValue;
     } catch (error) {
         const GcpError = error; // For type hinting if using TS later
@@ -83,6 +104,10 @@ async function addSecretVersion(secretResourceName, value) {
             payload: { data: Buffer.from(value, 'utf8') }
         });
         logger.info(`ChatVibes: New secret version added: ${version.name}`);
+
+        // Invalidate cache for this secret (since we just updated it)
+        invalidateSecretCache(secretResourceName);
+
         return version;
     } catch (error) {
         logger.error({ err: error, secretName: secretResourceName }, 'ChatVibes: Failed to add new secret version.');
@@ -90,4 +115,23 @@ async function addSecretVersion(secretResourceName, value) {
     }
 }
 
-export { initializeSecretManager, getSecretValue, getSecretManagerClient, addSecretVersion };
+/**
+ * Invalidate a specific secret from the cache
+ */
+function invalidateSecretCache(secretResourceName) {
+    const deleted = secretCache.delete(secretResourceName);
+    if (deleted) {
+        logger.debug(`ChatVibes: Invalidated cache for secret: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+    }
+}
+
+/**
+ * Clear all cached secrets (useful for testing or manual refresh)
+ */
+function clearSecretCache() {
+    const count = secretCache.size;
+    secretCache.clear();
+    logger.info(`ChatVibes: Cleared ${count} secrets from cache`);
+}
+
+export { initializeSecretManager, getSecretValue, getSecretManagerClient, addSecretVersion, invalidateSecretCache, clearSecretCache };
