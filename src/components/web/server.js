@@ -547,6 +547,55 @@ const httpServer = http.createServer(async (req, res) => {
 // Disable Node.js HTTP server timeout to let Cloud Run control connection lifecycle
 httpServer.setTimeout(0);
 
+// Rate limiting for failed authentication attempts
+const authFailures = new Map(); // clientIP -> { count, lastAttempt }
+const MAX_AUTH_FAILURES = 5;
+const AUTH_FAILURE_WINDOW_MS = 60000; // 1 minute
+const AUTH_LOCKOUT_MS = 300000; // 5 minutes after max failures
+
+function checkRateLimit(clientIP) {
+    const now = Date.now();
+    const record = authFailures.get(clientIP);
+
+    if (!record) {
+        return { allowed: true };
+    }
+
+    // Check if lockout period has expired
+    if (record.count >= MAX_AUTH_FAILURES) {
+        const timeSinceLast = now - record.lastAttempt;
+        if (timeSinceLast < AUTH_LOCKOUT_MS) {
+            return {
+                allowed: false,
+                retryAfter: Math.ceil((AUTH_LOCKOUT_MS - timeSinceLast) / 1000)
+            };
+        }
+        // Lockout expired, reset
+        authFailures.delete(clientIP);
+        return { allowed: true };
+    }
+
+    // Check if failure window has expired
+    if (now - record.lastAttempt > AUTH_FAILURE_WINDOW_MS) {
+        authFailures.delete(clientIP);
+        return { allowed: true };
+    }
+
+    return { allowed: true };
+}
+
+function recordAuthFailure(clientIP) {
+    const now = Date.now();
+    const record = authFailures.get(clientIP);
+
+    if (!record || now - record.lastAttempt > AUTH_FAILURE_WINDOW_MS) {
+        authFailures.set(clientIP, { count: 1, lastAttempt: now });
+    } else {
+        record.count++;
+        record.lastAttempt = now;
+    }
+}
+
 export function initializeWebServer() {
     if (wssInstance) {
         logger.warn('ChatVibes TTS WebServer already initialized.');
@@ -555,7 +604,17 @@ export function initializeWebServer() {
 
     wssInstance = new WebSocketServer({ server: httpServer });
     logger.info(`ChatVibes TTS WebSocket Server initialized and attached to HTTP server.`);
-    
+
+    // Cleanup rate limit records every 10 minutes
+    setInterval(() => {
+        const now = Date.now();
+        for (const [ip, record] of authFailures.entries()) {
+            if (now - record.lastAttempt > AUTH_LOCKOUT_MS) {
+                authFailures.delete(ip);
+            }
+        }
+    }, 600000);
+
     // Heartbeat to detect broken connections and keep them alive across proxies
     function heartbeat() {
         this.isAlive = true;
@@ -583,6 +642,9 @@ export function initializeWebServer() {
         let channelName = null;
         let tokenFromUrl = null;
 
+        // Get client IP for rate limiting
+        const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+
         try {
             const urlObj = new URL(req.url, `http://${req.headers.host}`);
             channelName = urlObj.searchParams.get('channel')?.toLowerCase();
@@ -600,10 +662,27 @@ export function initializeWebServer() {
             return;
         }
 
+        // Check rate limit before doing any expensive operations
+        const rateLimitCheck = checkRateLimit(clientIP);
+        if (!rateLimitCheck.allowed) {
+            logger.warn({
+                channel: channelName,
+                clientIP,
+                retryAfter: rateLimitCheck.retryAfter
+            }, 'Rate limit exceeded for WebSocket authentication attempts');
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: `Too many failed authentication attempts. Try again in ${rateLimitCheck.retryAfter} seconds.`
+            }));
+            ws.close(1008, 'Rate limit exceeded');
+            return;
+        }
+
         // Enforce allow-list before any secret lookups
         if (!isChannelAllowed(channelName)) {
             logger.warn({ channel: channelName }, 'Rejecting WS connection: Channel not in allow-list');
             ws.close(1008, 'Channel not allowed');
+            recordAuthFailure(clientIP);
             return;
         }
 
@@ -615,27 +694,33 @@ export function initializeWebServer() {
             if (!secretName) {
                 logger.error({ channel: channelName, configKeys: Object.keys(channelConfig || {}) }, "Rejecting WS connection: No OBS token secret is configured for this channel.");
                 ws.close(1008, 'Configuration error: No token configured');
+                recordAuthFailure(clientIP);
                 return;
             }
 
-            logger.debug({ channel: channelName, secretName }, "Fetching OBS token from Secret Manager");
+            logger.debug({ channel: channelName, secretName }, "Retrieving OBS token for authentication");
             const storedToken = await getSecretValue(secretName);
 
             if (!storedToken) {
                 logger.error({ channel: channelName, secretName }, "Rejecting WS connection: Failed to retrieve token from Secret Manager.");
                 ws.close(1011, 'Configuration error: Token not found');
+                recordAuthFailure(clientIP);
                 return;
             }
 
             if (storedToken === tokenFromUrl) {
                 logger.info(`WebSocket client authenticated for channel: ${channelName}`);
+                // Clear any previous auth failures on successful auth
+                authFailures.delete(clientIP);
             } else {
-                logger.warn({ channel: channelName }, "Rejecting WS connection: Token mismatch.");
+                logger.warn({ channel: channelName, clientIP }, "Rejecting WS connection: Token mismatch.");
+                recordAuthFailure(clientIP);
                 ws.close(1008, 'Invalid token');
                 return;
             }
         } catch (error) {
             logger.error({ err: error, channel: channelName, errorMessage: error.message }, "Error during WebSocket token validation.");
+            recordAuthFailure(clientIP);
             ws.close(1011, 'Internal server error during authentication');
             return;
         }
