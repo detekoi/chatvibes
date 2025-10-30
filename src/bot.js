@@ -618,15 +618,8 @@ async function main() {
                     }
                 }
             } else {
-                // Cheer without message - announce the event if appropriate
-                const displayName = userstate['display-name'] || userstate.username;
-                const ttsConfig = await getTtsState(channelNameNoHash);
-                const musicState = await getMusicState(channelNameNoHash);
-
-                if (!ttsConfig.bitsModeEnabled && !musicState.bitsModeEnabled && ttsConfig.engineEnabled && ttsConfig.speakEvents) {
-                    const cheerAnnouncement = `${displayName} cheered ${userstate.bits} bits!`;
-                    await handleTwitchEventForTTS(channel, userstate.username, 'cheer', cheerAnnouncement);
-                }
+                // Cheer without message - event announcement handled by EventSub (eventsub.js)
+                // No action needed here to avoid duplicate announcements
             }
             });
 
