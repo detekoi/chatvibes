@@ -666,28 +666,11 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
 
     // Enforce content policy if configured
     const policy = (ttsConfig.channelPoints && ttsConfig.channelPoints.contentPolicy) || {};
-    const minChars = typeof policy.minChars === 'number' ? policy.minChars : 1;
-    const maxChars = typeof policy.maxChars === 'number' ? policy.maxChars : 500;
     const blockLinks = policy.blockLinks !== false; // default block links
     const bannedWords = Array.isArray(policy.bannedWords) ? policy.bannedWords : [];
 
-    if (redeemMessage.length < minChars) {
-        const reason = `Message too short (min ${minChars} characters)`;
-        logger.info({ channelLogin, userName, length: redeemMessage.length, minChars, redemptionId }, reason);
-        if (redemptionId && rewardId) {
-            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
-        }
-        return { ok: false, reason };
-    }
-
-    if (redeemMessage.length > maxChars) {
-        const reason = `Message too long (max ${maxChars} characters)`;
-        logger.info({ channelLogin, userName, length: redeemMessage.length, maxChars, redemptionId }, reason);
-        if (redemptionId && rewardId) {
-            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
-        }
-        return { ok: false, reason };
-    }
+    // Note: Twitch enforces 500 character limit on redemption input, so we don't need to validate length here
+    // If a message exceeds 500 chars, Twitch won't allow the redemption in the first place
 
     if (blockLinks && /\bhttps?:\/\//i.test(redeemMessage)) {
         const reason = 'Message contains blocked link';
