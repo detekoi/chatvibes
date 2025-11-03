@@ -12,6 +12,9 @@ on:
       - 'CLAUDE.md'
       - 'gemini/**' # Assuming 'gemini/' folder is for local LLM interaction
       - 'tests/**' # Exclude test files from triggering deployments
+      - '**/tests/**' # Also ignore tests in any nested directory
+      - '**/__tests__/**' # Ignore Jest-style __tests__ folders
+      - '**/*.test.*' # Ignore individual test files anywhere
       - '.vscode/**'
       - '.idea/**'
       - 'scripts/**'
