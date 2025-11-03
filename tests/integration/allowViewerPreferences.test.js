@@ -50,7 +50,8 @@ describe('allowViewerPreferences Feature', () => {
 
     // Mock WebSocket server
     jest.unstable_mockModule('../../src/components/web/server.js', () => ({
-      sendAudioToChannel: jest.fn()
+      sendAudioToChannel: jest.fn(),
+      hasActiveClients: jest.fn(() => true)
     }));
 
     // Import modules after mocking
