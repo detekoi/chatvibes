@@ -544,16 +544,8 @@ async function main() {
             });
 
             // --- Event Handlers ---
-            ircClientInstance.on('subscription', (channel, username, _method, message, _userstate) => {
-            const channelNameNoHash = channel.substring(1).toLowerCase();
-            if (!isChannelAllowed(channelNameNoHash)) return;
-            handleTwitchEventForTTS(channel, username, 'subscription', `${username} just subscribed! ${message || ''}`);
-            });
-            ircClientInstance.on('resub', (channel, username, months, message, _userstate, _methods) => {
-            const channelNameNoHash = channel.substring(1).toLowerCase();
-            if (!isChannelAllowed(channelNameNoHash)) return;
-            handleTwitchEventForTTS(channel, username, 'resub', `${username} resubscribed for ${months} months! ${message || ''}`);
-            });
+            // Note: subscription, resub, cheer, and raid events are handled by EventSub (eventsub.js)
+            // to avoid duplicate announcements. IRC handlers are kept only for reference.
 
             // Handle cheer messages - both with and without text
             ircClientInstance.on('cheer', async (channel, userstate, message) => {
@@ -623,21 +615,7 @@ async function main() {
             }
             });
 
-            ircClientInstance.on('raided', (channel, username, viewers) => {
-            const channelNameNoHash = channel.substring(1).toLowerCase();
-            if (!isChannelAllowed(channelNameNoHash)) return;
-            handleTwitchEventForTTS(channel, username, 'raid', `${username} is raiding with ${viewers} viewers!`);
-            });
-
-            const handleTwitchEventForTTS = async (channel, username, eventType, eventDetailsText) => {
-             const channelNameNoHash = channel.substring(1);
-             const ttsConfig = await getTtsState(channelNameNoHash);
-             if (ttsConfig.engineEnabled && ttsConfig.speakEvents) {
-                 logger.info(`ChatVibes [${channelNameNoHash}]: TTS Event: ${eventType} by ${username}.`);
-                 const sharedSessionInfo = await getSharedSessionInfo(channelNameNoHash);
-                 await publishTtsEvent(channelNameNoHash, { text: eventDetailsText, user: username, type: 'event' }, sharedSessionInfo);
-             }
-            };
+            // Raid events are handled by EventSub (eventsub.js) to avoid duplicate announcements
 
             logger.info('ChatVibes: Connecting to Twitch IRC...');
             await connectIrcClient();
