@@ -321,7 +321,8 @@ async function handleTtsIgnore(req, res, channelName, method) {
 // Music Settings handlers
 async function handleMusicSettings(req, res, channelName, method) {
     if (method === 'GET') {
-        const settings = await getMusicState(channelName);
+        // Force refresh from Firestore to get latest data (in case web UI made changes)
+        const settings = await getMusicState(channelName, true);
         sendJsonResponse(res, 200, { success: true, settings }, req);
     } else if (method === 'PUT') {
         const body = await parseJsonBody(req);

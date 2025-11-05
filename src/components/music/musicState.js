@@ -38,13 +38,13 @@ export async function initializeMusicState() {
     }
 }
 
-export async function getMusicState(channelName) {
-    if (musicConfigsCache.has(channelName)) {
+export async function getMusicState(channelName, forceRefresh = false) {
+    if (!forceRefresh && musicConfigsCache.has(channelName)) {
         // Ensure all default fields are present even for cached items, especially new ones
         const cachedConfig = musicConfigsCache.get(channelName);
         return { ...DEFAULT_MUSIC_SETTINGS, ...cachedConfig };
     }
-    
+
     try {
         const docRef = db.collection(MUSIC_COLLECTION).doc(channelName);
         const docSnap = await docRef.get();
@@ -60,7 +60,7 @@ export async function getMusicState(channelName) {
     } catch (error) {
         logger.error({ err: error, channel: channelName }, `Error fetching music state for ${channelName} from Firestore.`);
     }
-    
+
     // If not in cache and not in Firestore, create new default config
     const defaultConfigCopy = { ...DEFAULT_MUSIC_SETTINGS };
     musicConfigsCache.set(channelName, defaultConfigCopy);
