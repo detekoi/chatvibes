@@ -49,6 +49,7 @@ export default {
 
         if (!matchedVoice) {
             // Fallback: treat "!tts voice ..." as a say request when no valid voice matches
+            const channelNameNoHash = channel.replace('#', '');
             logger.info(`[${channelNameNoHash}] No matching voice for "${requestedVoiceIdInput}". Falling back to say for user ${username}.`);
             const sayContext = {
                 ...context,

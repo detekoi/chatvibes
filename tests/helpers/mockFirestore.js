@@ -2,10 +2,11 @@
 // Mock Firestore for testing
 
 export class MockDocumentSnapshot {
-  constructor(data, id, exists = true) {
+  constructor(data, id, exists = true, ref = null) {
     this._data = data;
     this._id = id;
     this._exists = exists;
+    this.ref = ref;
   }
 
   get id() {
@@ -28,7 +29,7 @@ export class MockDocumentReference {
   }
 
   async get() {
-    return new MockDocumentSnapshot(this._data, this._id, !!this._data);
+    return new MockDocumentSnapshot(this._data, this._id, !!this._data, this);
   }
 
   async set(data, options = {}) {
@@ -66,12 +67,13 @@ export class MockCollectionReference {
 
   async get() {
     const docs = Array.from(this.documents.entries()).map(([id, ref]) =>
-      new MockDocumentSnapshot(ref._data, id, !!ref._data)
+      new MockDocumentSnapshot(ref._data, id, !!ref._data, ref)
     );
     return {
       forEach: (callback) => docs.forEach(callback),
       docs,
-      size: docs.length
+      size: docs.length,
+      empty: docs.length === 0
     };
   }
 

@@ -384,7 +384,9 @@ describe('ttsService module', () => {
         ttsService.generateSpeech('Test', 'Voice', {
           signal: controller.signal
         })
-      ).rejects.toThrow('AbortError');
+      ).rejects.toMatchObject({
+        name: 'AbortError'
+      });
     });
 
     test('should handle abort during API call', async () => {
@@ -419,7 +421,9 @@ describe('ttsService module', () => {
 
       await expect(
         ttsService.generateSpeech('Test', 'Voice')
-      ).rejects.toThrow('CanceledError');
+      ).rejects.toMatchObject({
+        name: 'CanceledError'
+      });
     });
 
     test('should use default voice ID from config if not provided', async () => {
