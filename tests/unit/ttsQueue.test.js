@@ -128,6 +128,9 @@ describe('ttsQueue module', () => {
 
   describe('enqueue', () => {
     test('should enqueue message with default settings', async () => {
+      // Pause queue to prevent immediate processing
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      
       const eventData = {
         text: 'Test message',
         user: TEST_USER,
@@ -179,6 +182,9 @@ describe('ttsQueue module', () => {
     });
 
     test('should apply viewer preferences when allowed', async () => {
+      // Pause queue to prevent immediate processing
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      
       mockTtsState.getGlobalUserPreferences.mockResolvedValue({
         voiceId: 'Custom_Voice',
         emotion: 'happy',
@@ -200,6 +206,9 @@ describe('ttsQueue module', () => {
     });
 
     test('should not apply viewer preferences when disallowed', async () => {
+      // Pause queue to prevent immediate processing
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      
       mockTtsState.getTtsState.mockResolvedValue({
         ...mockChannelConfig,
         engineEnabled: true,
@@ -225,6 +234,9 @@ describe('ttsQueue module', () => {
     });
 
     test('should handle event messages without user', async () => {
+      // Pause queue to prevent immediate processing
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      
       const eventData = {
         text: 'User subscribed!',
         type: 'event'
@@ -239,6 +251,9 @@ describe('ttsQueue module', () => {
     });
 
     test('should handle shared session info', async () => {
+      // Pause queue to prevent immediate processing
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      
       const sharedSessionInfo = {
         sessionId: 'test-session',
         channels: ['channel1', 'channel2']
@@ -305,6 +320,9 @@ describe('ttsQueue module', () => {
 
   describe('clearQueue', () => {
     test('should clear all pending messages', async () => {
+      // Pause queue to prevent immediate processing
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      
       const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
 
       // Add multiple messages
