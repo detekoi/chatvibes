@@ -44,6 +44,11 @@ export class MockDocumentReference {
     this._data = { ...this._data, ...data };
     return this;
   }
+
+  async delete() {
+    this._data = null;
+    return this;
+  }
 }
 
 export class MockCollectionReference {
