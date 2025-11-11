@@ -474,8 +474,18 @@ async function main() {
 
             // NOTE: Subscription events (sub, resub, gift sub, raid) are now handled exclusively via EventSub
             // to avoid duplicate TTS announcements. Filter out these system messages from IRC.
+            // IMPORTANT: Only filter events that have EventSub equivalents:
+            // - sub → channel.subscribe
+            // - resub → channel.subscription.message
+            // - subgift → channel.subscription.gift
+            // - anonsubgift → channel.subscription.gift (is_anonymous=true)
+            // - submysterygift → channel.subscription.gift
+            // - raid → channel.raid
+            // Events WITHOUT EventSub equivalents (DO NOT filter):
+            // - giftpaidupgrade, anongiftpaidupgrade (user upgrades gift sub to paid)
+            // - primepaidupgrade (user upgrades Prime sub to paid)
             const msgId = tags['msg-id'];
-            const eventSubManagedMessages = ['sub', 'resub', 'subgift', 'submysterygift', 'giftpaidupgrade', 'rewardgift', 'anongiftpaidupgrade', 'raid'];
+            const eventSubManagedMessages = ['sub', 'resub', 'subgift', 'anonsubgift', 'submysterygift', 'raid'];
             if (msgId && eventSubManagedMessages.includes(msgId)) {
                 logger.debug({
                     channelNameNoHash,
