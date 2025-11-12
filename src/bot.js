@@ -465,10 +465,33 @@ async function main() {
             // If a custom-reward-id is present, it means some other reward was redeemed,
             // so we ignore the message for TTS processing.
             if (tags['custom-reward-id']) {
-                logger.debug({ 
-                    channelNameNoHash, 
-                    rewardId: tags['custom-reward-id'] 
+                logger.debug({
+                    channelNameNoHash,
+                    rewardId: tags['custom-reward-id']
                 }, 'Channel Points redemption detected in chat - ignoring (handled by EventSub)');
+                return;
+            }
+
+            // NOTE: Subscription events (sub, resub, gift sub, raid) are now handled exclusively via EventSub
+            // to avoid duplicate TTS announcements. Filter out these system messages from IRC.
+            // IMPORTANT: Only filter events that have EventSub equivalents:
+            // - sub → channel.subscribe
+            // - resub → channel.subscription.message
+            // - subgift → channel.subscription.gift
+            // - anonsubgift → channel.subscription.gift (is_anonymous=true)
+            // - submysterygift → channel.subscription.gift
+            // - raid → channel.raid
+            // Events WITHOUT EventSub equivalents (DO NOT filter):
+            // - giftpaidupgrade, anongiftpaidupgrade (user upgrades gift sub to paid)
+            // - primepaidupgrade (user upgrades Prime sub to paid)
+            const msgId = tags['msg-id'];
+            const eventSubManagedMessages = ['sub', 'resub', 'subgift', 'anonsubgift', 'submysterygift', 'raid'];
+            if (msgId && eventSubManagedMessages.includes(msgId)) {
+                logger.debug({
+                    channelNameNoHash,
+                    msgId,
+                    username
+                }, 'System message detected in chat - ignoring (handled by EventSub)');
                 return;
             }
 
