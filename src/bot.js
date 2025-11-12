@@ -484,12 +484,12 @@ async function main() {
             // Events WITHOUT EventSub equivalents (DO NOT filter):
             // - giftpaidupgrade, anongiftpaidupgrade (user upgrades gift sub to paid)
             // - primepaidupgrade (user upgrades Prime sub to paid)
-            const msgId = tags['msg-id'];
+            const systemMessageType = tags['msg-id'];
             const eventSubManagedMessages = ['sub', 'resub', 'subgift', 'anonsubgift', 'submysterygift', 'raid'];
-            if (msgId && eventSubManagedMessages.includes(msgId)) {
+            if (systemMessageType && eventSubManagedMessages.includes(systemMessageType)) {
                 logger.debug({
                     channelNameNoHash,
-                    msgId,
+                    msgId: systemMessageType,
                     username
                 }, 'System message detected in chat - ignoring (handled by EventSub)');
                 return;
