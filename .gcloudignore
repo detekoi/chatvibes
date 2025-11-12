@@ -1,0 +1,31 @@
+# Exclude test files from Cloud Build to prevent redeployment on test changes
+tests/
+**/*.test.js
+**/*.spec.js
+**/__tests__/
+**/__mocks__/
+
+# Exclude test-related files
+jest.config.*
+coverage/
+*.test.js
+*.spec.js
+
+# Exclude development files
+.env
+*.log
+.DS_Store
+.idea/
+.vscode/
+node_modules/
+.git/
+.gitignore
+
+# Exclude documentation that doesn't affect deployment
+*.md
+!README.md
+
+# Exclude other development files
+downloaded-logs-*.json
+channels.txt
+

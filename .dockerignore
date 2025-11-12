@@ -1,0 +1,32 @@
+# Exclude test files from Docker image
+tests/
+**/*.test.js
+**/*.spec.js
+**/__tests__/
+**/__mocks__/
+
+# Exclude test-related files
+jest.config.*
+coverage/
+
+# Exclude development files
+.env
+*.log
+.DS_Store
+.idea/
+.vscode/
+.git/
+.gitignore
+.gcloudignore
+
+# Exclude node_modules (will be installed in container)
+node_modules/
+
+# Exclude documentation
+*.md
+!README.md
+
+# Exclude other development files
+downloaded-logs-*.json
+channels.txt
+
