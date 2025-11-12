@@ -338,14 +338,19 @@ async function handleEventNotification(subscriptionType, event, channelName) {
             return;
     }
 
-    // Enqueue the event for TTS
+    // Publish to Pub/Sub for distribution to all instances
+    // This ensures shared chat sessions and multi-instance deployments work correctly
     if (ttsText) {
-        logger.debug({ channelName, text: ttsText, user: username }, 'Enqueueing EventSub event for TTS');
-        await ttsQueue.enqueue(channelName, {
+        logger.debug({ channelName, text: ttsText, user: username }, 'Publishing EventSub event to Pub/Sub for TTS');
+
+        // Get shared session info for distribution to all participating channels
+        const sharedSessionInfo = await getSharedSessionInfo(channelName);
+
+        await publishTtsEvent(channelName, {
             text: ttsText,
             user: username,
             type: 'event'
-        });
+        }, sharedSessionInfo);
     }
 }
 
