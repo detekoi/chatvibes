@@ -8,37 +8,62 @@ import { getIsShuttingDown } from '../../bot.js';
 let client = null;
 let connectionAttemptPromise = null; // For general connection attempts initiated by connectIrcClient
 let isHandlingAuthFailure = false; // Specific lock for the handleAuthenticationFailure process
+let currentConnectionMode = null; // 'anonymous' or 'authenticated'
 
 /**
- * Creates and configures the tmi.js client instance using a dynamically fetched token.
+ * Generates a random justinfan username for anonymous IRC connections.
+ * @returns {string} A justinfan username with random digits.
+ */
+function generateJustinfanUsername() {
+    const randomDigits = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
+    return `justinfan${randomDigits}`;
+}
+
+/**
+ * Creates and configures the tmi.js client instance.
  * Does NOT connect automatically.
  * @param {object} twitchConfig - Twitch configuration object.
+ * @param {string} [connectionMode='authenticated'] - Connection mode: 'anonymous' or 'authenticated'
  * @returns {Promise<tmi.Client>} The configured tmi.js client instance.
  * @throws {Error} If client is already initialized, config is missing, or token fetch fails.
  */
-async function createIrcClient(twitchConfig) {
+async function createIrcClient(twitchConfig, connectionMode = 'authenticated') {
     if (client) {
         logger.warn('ChatVibes IRC client instance already exists.');
         return client; // Return existing instance
     }
-    if (!twitchConfig || !twitchConfig.username || !twitchConfig.channels) {
-        throw new Error('Missing required Twitch configuration (username, channels) for ChatVibes IRC client.');
+    if (!twitchConfig || !twitchConfig.channels) {
+        throw new Error('Missing required Twitch configuration (channels) for ChatVibes IRC client.');
     }
 
-    logger.info(`Attempting to create ChatVibes IRC client for ${twitchConfig.username}...`);
+    currentConnectionMode = connectionMode;
+    logger.info(`Attempting to create ChatVibes IRC client in ${connectionMode} mode...`);
 
+    let ircUsername = twitchConfig.username;
     let ircPassword = null;
-    try {
-        logger.info('Fetching initial IRC token via Auth Helper...');
-        ircPassword = await getValidIrcToken();
-        if (!ircPassword) {
-            logger.fatal('CRITICAL: Failed to obtain initial valid IRC token for ChatVibes. Bot cannot connect.');
-            process.exit(1);
+
+    if (connectionMode === 'anonymous') {
+        // Anonymous mode: use justinfan username, no OAuth required
+        ircUsername = generateJustinfanUsername();
+        ircPassword = 'SCHMOOPIIE'; // Twitch's placeholder for anonymous connections
+        logger.info(`Using anonymous IRC connection with username: ${ircUsername}`);
+    } else {
+        // Authenticated mode: fetch OAuth token
+        if (!twitchConfig.username) {
+            throw new Error('Missing required Twitch configuration (username) for authenticated IRC connection.');
         }
-        logger.info('Successfully obtained initial IRC token.');
-    } catch (error) {
-        logger.fatal({ err: error }, 'Fatal error during getValidIrcToken call in client creation for ChatVibes.');
-        throw error;
+        try {
+            logger.info('Fetching initial IRC token via Auth Helper...');
+            ircPassword = await getValidIrcToken();
+            if (!ircPassword) {
+                logger.fatal('CRITICAL: Failed to obtain initial valid IRC token for ChatVibes. Bot cannot connect.');
+                process.exit(1);
+            }
+            logger.info('Successfully obtained initial IRC token.');
+        } catch (error) {
+            logger.fatal({ err: error }, 'Fatal error during getValidIrcToken call in client creation for ChatVibes.');
+            throw error;
+        }
     }
 
     // Ensure channels are prefixed with # and are unique (lowercase)
@@ -54,7 +79,7 @@ async function createIrcClient(twitchConfig) {
     const clientOptions = {
         options: { debug: config.app.logLevel === 'debug' },
         connection: {
-            reconnect: false, // tmi.js will not attempt its own reconnections on general disconnects. Handled instead by handleAuthenticationFailure.
+            reconnect: false, // tmi.js will not attempt its own reconnections on general disconnects. Handled instead by handleAuthenticationFailure (authenticated mode only).
             secure: true,
             timeout: 90000,
             maxReconnectAttempts: 5,
@@ -63,7 +88,7 @@ async function createIrcClient(twitchConfig) {
             reconnectJitter: 1000
         },
         identity: {
-            username: twitchConfig.username,
+            username: ircUsername,
             password: ircPassword,
         },
         channels: uniqueChannelsToJoin, // Use the de-duplicated and consistently formatted list
@@ -73,7 +98,7 @@ async function createIrcClient(twitchConfig) {
             error: (message) => logger.error(`[ChatVibes TMI.js] ${message}`),
         },
     };
-    logger.info({tmiConnectionOptions: clientOptions.connection}, "ChatVibes TMI.js client connection options");
+    logger.info({tmiConnectionOptions: clientOptions.connection, connectionMode}, "ChatVibes TMI.js client connection options");
 
 
     client = new tmi.Client(clientOptions);
@@ -84,7 +109,8 @@ async function createIrcClient(twitchConfig) {
             { channel: channel || 'N/A', msgid: msgid || 'N/A', notice: message || '' },
             '[ChatVibes TMI Server Notice]'
         );
-        if (msgid === 'msg_login_unsuccessful' || message?.toLowerCase().includes('login unsuccessful')) {
+        if (currentConnectionMode === 'authenticated' &&
+            (msgid === 'msg_login_unsuccessful' || message?.toLowerCase().includes('login unsuccessful'))) {
             logger.error('Login unsuccessful notice received. Token might be invalid. Triggering authentication failure handling for ChatVibes.');
             await handleAuthenticationFailure();
         }
@@ -92,8 +118,9 @@ async function createIrcClient(twitchConfig) {
 
     client.on('error', async (error) => {
         logger.error({ err: error }, '[ChatVibes TMI Client Error]');
-        if (error?.message?.toLowerCase().includes('authentication failed') ||
-            error?.message?.toLowerCase().includes('login unsuccessful')) {
+        if (currentConnectionMode === 'authenticated' &&
+            (error?.message?.toLowerCase().includes('authentication failed') ||
+             error?.message?.toLowerCase().includes('login unsuccessful'))) {
             logger.error('Authentication error detected from error event. Token might be invalid. Triggering authentication failure handling for ChatVibes.');
             await handleAuthenticationFailure();
         }
@@ -101,7 +128,7 @@ async function createIrcClient(twitchConfig) {
 
     client.on('disconnected', async (reason) => {
         const wasHandlingAuthFailure = isHandlingAuthFailure; // Capture state before nulling
-        logger.warn(`ChatVibes disconnected from Twitch IRC: ${reason || 'Unknown reason'}. Current connectionAttemptPromise state: ${!!connectionAttemptPromise}, isHandlingAuthFailure when disconnect started: ${wasHandlingAuthFailure}`);
+        logger.warn(`ChatVibes disconnected from Twitch IRC (${currentConnectionMode} mode): ${reason || 'Unknown reason'}. Current connectionAttemptPromise state: ${!!connectionAttemptPromise}, isHandlingAuthFailure when disconnect started: ${wasHandlingAuthFailure}`);
 
         connectionAttemptPromise = null; // Always clear the general connection attempt promise
 
@@ -129,31 +156,100 @@ async function createIrcClient(twitchConfig) {
             return;
         }
 
-        // Attempt to reconnect, always trying to refresh the token first if the reason suggests auth issues
-        // or even for general network issues, as the token might have expired during the downtime.
-        if (reason && (reason.toLowerCase().includes('login authentication failed') || 
-                       reason.toLowerCase().includes('authentication failed') || 
-                       reason.toLowerCase().includes('ping timeout') ||
-                       reason.toLowerCase().includes('unable to connect') // General failure
-                      )) {
-            logger.warn(`ChatVibes disconnect reason ("${reason}") suggests a need for token refresh or connection issue. Triggering full authentication failure handling.`);
-            await handleAuthenticationFailure(); // This will try to refresh token and then connect
-        } else if (reason) {
-            // For other specific known reasons, you might have different logic.
-            // For now, let's treat most other disconnect reasons as needing a robust reconnect.
-            logger.warn(`ChatVibes disconnected for reason: "${reason}". Attempting robust reconnect via handleAuthenticationFailure.`);
-            await handleAuthenticationFailure(); // Defaulting to full recovery to be safe
+        // Attempt to reconnect based on connection mode
+        if (currentConnectionMode === 'anonymous') {
+            // Anonymous mode: simple reconnect, no token refresh needed
+            logger.info('ChatVibes: Anonymous mode disconnect. Attempting simple reconnect...');
+            await handleAnonymousReconnect();
         } else {
-            // If reason is null or undefined (e.g. clean client.disconnect() was called by us),
-            // usually no automatic action is needed unless it was an unexpected manual disconnect.
-            // If it was part of handleShutdown, that's fine.
-            // If it was part of handleAuthenticationFailure's own client.disconnect(), that's also fine.
-            logger.warn('ChatVibes disconnected with no specific reason (or empty reason). Attempting robust reconnect via handleAuthenticationFailure as a precaution.');
-            await handleAuthenticationFailure(); // <-- ADD THIS LINE TO ATTEMPT RECONNECT
+            // Authenticated mode: may need token refresh
+            if (reason && (reason.toLowerCase().includes('login authentication failed') ||
+                           reason.toLowerCase().includes('authentication failed') ||
+                           reason.toLowerCase().includes('ping timeout') ||
+                           reason.toLowerCase().includes('unable to connect') // General failure
+                          )) {
+                logger.warn(`ChatVibes disconnect reason ("${reason}") suggests a need for token refresh or connection issue. Triggering full authentication failure handling.`);
+                await handleAuthenticationFailure(); // This will try to refresh token and then connect
+            } else if (reason) {
+                // For other specific known reasons, you might have different logic.
+                // For now, let's treat most other disconnect reasons as needing a robust reconnect.
+                logger.warn(`ChatVibes disconnected for reason: "${reason}". Attempting robust reconnect via handleAuthenticationFailure.`);
+                await handleAuthenticationFailure(); // Defaulting to full recovery to be safe
+            } else {
+                // If reason is null or undefined (e.g. clean client.disconnect() was called by us),
+                // usually no automatic action is needed unless it was an unexpected manual disconnect.
+                // If it was part of handleShutdown, that's fine.
+                // If it was part of handleAuthenticationFailure's own client.disconnect(), that's also fine.
+                logger.warn('ChatVibes disconnected with no specific reason (or empty reason). Attempting robust reconnect via handleAuthenticationFailure as a precaution.');
+                await handleAuthenticationFailure();
+            }
         }
     });
 
     return client;
+}
+
+/**
+ * Handler for anonymous connection reconnection (no token refresh needed).
+ */
+async function handleAnonymousReconnect() {
+    logger.info('ENTERING ChatVibes handleAnonymousReconnect for simple reconnection.');
+
+    // Don't attempt reconnection if we're shutting down
+    if (getIsShuttingDown()) {
+        logger.info('ChatVibes: Skipping anonymous reconnect - graceful shutdown in progress.');
+        return;
+    }
+
+    if (!client) {
+        logger.warn('ChatVibes handleAnonymousReconnect called but no client instance.');
+        return;
+    }
+
+    if (connectionAttemptPromise) {
+        logger.warn('ChatVibes handleAnonymousReconnect: A connection attempt is already in progress. Returning existing promise.');
+        return connectionAttemptPromise;
+    }
+
+    logger.info('ChatVibes: Attempting simple reconnect for anonymous connection...');
+
+    const reconnectPromise = (async () => {
+        const MAX_RETRIES = 5;
+        const INITIAL_DELAY_MS = 2000; // Start with 2 seconds
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                logger.info(`ChatVibes: Anonymous reconnect attempt ${attempt}/${MAX_RETRIES}...`);
+                await client.connect();
+                logger.info('ChatVibes: Anonymous reconnection successful.');
+                return; // Success! Exit the retry loop
+            } catch (error) {
+                logger.error({ err: error, attempt, maxRetries: MAX_RETRIES }, `ChatVibes: Error during anonymous reconnect attempt ${attempt}/${MAX_RETRIES}`);
+
+                if (attempt < MAX_RETRIES) {
+                    const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1); // Exponential backoff: 2s, 4s, 8s, 16s
+                    logger.warn(`ChatVibes: Waiting ${delay}ms before retry ${attempt + 1}/${MAX_RETRIES}...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                    logger.fatal('ChatVibes: CRITICAL - All anonymous IRC reconnection attempts failed. Bot will remain disconnected.');
+                    throw error; // Re-throw after all retries exhausted
+                }
+            }
+        }
+    })();
+
+    connectionAttemptPromise = reconnectPromise;
+
+    try {
+        await reconnectPromise;
+    } catch (err) {
+        logger.error({ err }, "ChatVibes: Anonymous reconnect failed after all retries.");
+    } finally {
+        if (connectionAttemptPromise === reconnectPromise) {
+            connectionAttemptPromise = null;
+        }
+        logger.info('ChatVibes handleAnonymousReconnect: Process completed.');
+    }
 }
 
 /**
@@ -307,6 +403,22 @@ function getIrcClient() {
 }
 
 /**
+ * Gets the current IRC connection mode.
+ * @returns {string|null} 'anonymous', 'authenticated', or null if no client exists.
+ */
+function getConnectionMode() {
+    return currentConnectionMode;
+}
+
+/**
+ * Checks if the current connection mode is anonymous (read-only).
+ * @returns {boolean} True if in anonymous mode, false otherwise.
+ */
+function isAnonymousMode() {
+    return currentConnectionMode === 'anonymous';
+}
+
+/**
  * Properly destroys the IRC client by removing all listeners and nulling the instance.
  * This prevents duplicate event handlers when the client is recreated.
  */
@@ -331,6 +443,7 @@ async function destroyIrcClient() {
         client = null;
         connectionAttemptPromise = null;
         isHandlingAuthFailure = false;
+        currentConnectionMode = null;
 
         logger.info('IRC client destroyed successfully');
     } catch (error) {
@@ -338,4 +451,12 @@ async function destroyIrcClient() {
     }
 }
 
-export { createIrcClient, connectIrcClient, getIrcClient, handleAuthenticationFailure, destroyIrcClient };
+export {
+    createIrcClient,
+    connectIrcClient,
+    getIrcClient,
+    getConnectionMode,
+    isAnonymousMode,
+    handleAuthenticationFailure,
+    destroyIrcClient
+};

@@ -3,7 +3,7 @@ import logger from '../../lib/logger.js';
 // Import command handlers (assuming handlers/index.js exports an object/Map)
 import commandHandlers from './handlers/index.js';
 // We might need access to the IRC client to send command responses
-import { getIrcClient } from '../twitch/ircClient.js';
+import { getIrcClient, isAnonymousMode } from '../twitch/ircClient.js';
 
 
 const COMMAND_PREFIX = '!'; // Define the prefix for commands
@@ -128,7 +128,8 @@ async function processMessage(channelNameNoHash, tags, message) {
     }
 
     // --- Execute Command ---
-    logger.info(`Executing command !${commandName} for user ${tags.username} in #${channelNameNoHash}`);
+    const anonymousMode = isAnonymousMode();
+    logger.info(`Executing command !${commandName} for user ${tags.username} in #${channelNameNoHash} (anonymous mode: ${anonymousMode})`);
     try {
         const context = {
             channel: `#${channelNameNoHash}`,
@@ -138,6 +139,7 @@ async function processMessage(channelNameNoHash, tags, message) {
             command: commandName, // Pass the executed command name for context within subcommand handlers
             replyToId: tags?.id || tags?.['message-id'] || null, // Add reply ID from message tags
             ircClient: getIrcClient(),
+            canReply: !anonymousMode, // In anonymous mode, bot cannot send chat messages
             logger: logger
         };
         await handler.execute(context);
@@ -146,11 +148,17 @@ async function processMessage(channelNameNoHash, tags, message) {
     } catch (error) {
         logger.error({ err: error, command: commandName, user: tags.username, channel: channelNameNoHash },
             `Error executing command !${commandName}`);
-        try {
-            const ircClient = getIrcClient();
-            await ircClient.say(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${commandName}.`);
-        } catch (sayError) {
-             logger.error({ err: sayError }, 'Failed to send command execution error message to chat.');
+
+        // Only send error message to chat if not in anonymous mode
+        if (!anonymousMode) {
+            try {
+                const ircClient = getIrcClient();
+                await ircClient.say(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${commandName}.`);
+            } catch (sayError) {
+                logger.error({ err: sayError }, 'Failed to send command execution error message to chat.');
+            }
+        } else {
+            logger.warn(`Cannot send error message to chat: bot is in anonymous mode (read-only).`);
         }
         return commandName; // Command was attempted, return command name
     }

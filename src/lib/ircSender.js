@@ -1,6 +1,6 @@
 // src/lib/ircSender.js
 import logger from './logger.js';
-import { getIrcClient } from '../components/twitch/ircClient.js';
+import { getIrcClient, isAnonymousMode } from '../components/twitch/ircClient.js';
 import { sleep } from './timeUtils.js'; 
 
 const messageQueue = [];
@@ -66,6 +66,12 @@ function initializeIrcSender() {
 async function enqueueMessage(channel, text, options = {}) { // Added options parameter
     if (!channel || !text || typeof channel !== 'string' || typeof text !== 'string' || text.trim().length === 0) {
         logger.warn({ channel, text }, 'ChatVibes: Attempted to queue invalid message.');
+        return;
+    }
+
+    // Skip queuing messages if in anonymous mode (read-only IRC connection)
+    if (isAnonymousMode()) {
+        logger.debug({ channel, text: text.substring(0, 50) }, 'ChatVibes: Skipping message queue in anonymous mode (read-only).');
         return;
     }
 

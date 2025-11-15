@@ -404,8 +404,29 @@ async function main() {
                 logger.info('ChatVibes: IRC subsystem already started by this instance.');
                 return;
             }
-            logger.info('ChatVibes: Creating Twitch IRC Client instance (leader acquired)...');
-            ircClientInstance = await createIrcClient(config.twitch);
+
+            // Determine connection mode based on channel configurations
+            // If any channel requires authenticated mode, use authenticated connection
+            // Otherwise, default to anonymous mode (bot-free)
+            let connectionMode = 'anonymous'; // Default to bot-free mode
+            try {
+                const channels = config.twitch.channels || [];
+                for (const channelName of channels) {
+                    const ttsState = await getTtsState(channelName);
+                    if (ttsState.botMode === 'authenticated') {
+                        logger.info(`ChatVibes: Channel ${channelName} requires authenticated mode. Using authenticated IRC connection.`);
+                        connectionMode = 'authenticated';
+                        break; // If any channel needs auth, use auth for all
+                    }
+                }
+                logger.info(`ChatVibes: Determined IRC connection mode: ${connectionMode}`);
+            } catch (error) {
+                logger.error({ err: error }, 'ChatVibes: Error determining connection mode. Defaulting to anonymous.');
+                connectionMode = 'anonymous';
+            }
+
+            logger.info(`ChatVibes: Creating Twitch IRC Client instance in ${connectionMode} mode (leader acquired)...`);
+            ircClientInstance = await createIrcClient(config.twitch, connectionMode);
 
             // --- Setup IRC Event Listeners ---
             ircClientInstance.on('connected', async (address, port) => {
