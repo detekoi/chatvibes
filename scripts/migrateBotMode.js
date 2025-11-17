@@ -1,6 +1,7 @@
 // migrateBotMode.js
 // Script to add botMode field to existing ttsChannelConfigs documents
-// Default: 'anonymous' (bot-free mode)
+// For existing channels: Sets to 'authenticated' (preserves current bot behavior)
+// New channels will use 'anonymous' as the default from ttsConstants.js
 
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -11,7 +12,8 @@ initializeApp();
 const db = getFirestore();
 
 async function migrateBotMode() {
-  console.log('Starting migration to add botMode field to channel configs...');
+  console.log('Starting migration to add botMode field to existing channel configs...');
+  console.log('Note: Existing channels will be set to "authenticated" to preserve current behavior.\n');
 
   const ttsConfigsRef = db.collection('ttsChannelConfigs');
   let migratedCount = 0;
@@ -33,15 +35,15 @@ async function migrateBotMode() {
       const channelData = doc.data();
 
       if (!channelData.botMode) {
-        // Channel doesn't have botMode field yet
-        console.log(`Channel [${channelName}] missing botMode field. Will add default 'anonymous'.`);
+        // Channel doesn't have botMode field yet - these are existing users who have been using the bot
+        console.log(`Channel [${channelName}] missing botMode field. Will add 'authenticated' to preserve existing behavior.`);
 
         tasks.push((async () => {
           await ttsConfigsRef.doc(channelName).set({
-            botMode: 'anonymous', // Default to bot-free mode
+            botMode: 'authenticated', // Preserve existing authenticated bot behavior
             updatedAt: new Date(),
           }, { merge: true });
-          console.log(`  ✅ Added botMode='anonymous' for [${channelName}].`);
+          console.log(`  ✅ Added botMode='authenticated' for [${channelName}].`);
           migratedCount += 1;
         })());
       } else {
@@ -56,9 +58,12 @@ async function migrateBotMode() {
     console.log(`Checked ${checkedCount} channels in 'ttsChannelConfigs'.`);
     console.log(`Added botMode field to ${migratedCount} channels.`);
     console.log(`Skipped ${skippedCount} channels (already had botMode).`);
-    console.log('Migration complete!');
-    console.log('\nNote: Default mode is "anonymous" (bot-free, read-only IRC).');
-    console.log('To enable chat commands for a channel, set botMode="authenticated" in Firestore.');
+    console.log('\nMigration complete!');
+    console.log('\n📝 What changed:');
+    console.log('   - Existing channels: Set to "authenticated" (keeps bot with chat commands)');
+    console.log('   - New channels: Will default to "anonymous" (bot-free mode)');
+    console.log('\n💡 To switch a channel to bot-free mode:');
+    console.log('   Set botMode="anonymous" in Firestore for that channel');
   } catch (error) {
     console.error('An error occurred during migration:', error);
   }
