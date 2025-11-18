@@ -30,9 +30,12 @@ export async function initializeTtsState() {
         snapshot.forEach(doc => {
             // Ensure userPreferences field exists
             const data = doc.data();
+            // For existing channels without botMode, default to 'authenticated' to preserve behavior
+            // Only new channels (no document) should default to 'anonymous'
             channelConfigsCache.set(doc.id, {
                 ...DEFAULT_TTS_SETTINGS,
                 ...data,
+                botMode: data.botMode !== undefined ? data.botMode : 'authenticated',
                 userPreferences: data.userPreferences || {} // Initialize if missing
             });
         });
@@ -54,9 +57,12 @@ function _setupFirestoreListener() {
                 const data = change.doc.data();
                 if (change.type === 'added' || change.type === 'modified') {
                     logger.info(`TTS config for ${channelName} ${change.type}. Updating cache.`);
+                    // For existing channels without botMode, default to 'authenticated' to preserve behavior
+                    // Only new channels (no document) should default to 'anonymous'
                     channelConfigsCache.set(channelName, {
                         ...DEFAULT_TTS_SETTINGS,
                         ...data,
+                        botMode: data.botMode !== undefined ? data.botMode : 'authenticated',
                         userPreferences: data.userPreferences || {} // Ensure userPreferences exists
                     });
                 } else if (change.type === 'removed') {
@@ -80,13 +86,21 @@ export async function getTtsState(channelName) {
         const docSnap = await docRef.get();
         if (docSnap.exists) {
             const data = docSnap.data();
-            const config = { ...DEFAULT_TTS_SETTINGS, ...data, userPreferences: data.userPreferences || {} };
+            // For existing channels without botMode, default to 'authenticated' to preserve behavior
+            // Only new channels (no document) should default to 'anonymous'
+            const config = {
+                ...DEFAULT_TTS_SETTINGS,
+                ...data,
+                botMode: data.botMode !== undefined ? data.botMode : 'authenticated',
+                userPreferences: data.userPreferences || {}
+            };
             channelConfigsCache.set(channelName, config);
             return config;
         }
     } catch (error) {
         logger.error({ err: error, channel: channelName }, `Error fetching TTS state for ${channelName} from Firestore.`);
     }
+    // No document exists - this is a new channel, use default 'anonymous' mode
     const defaultConfigCopy = { ...DEFAULT_TTS_SETTINGS, userPreferences: {} };
     channelConfigsCache.set(channelName, defaultConfigCopy);
     return defaultConfigCopy;
