@@ -128,9 +128,9 @@ async function processMessage(channelNameNoHash, tags, message) {
         return null; // Return null if user lacks permission for base command
     }
 
-    // --- Check channel-specific bot mode ---
-    // Even if IRC is in authenticated mode globally, individual channels can be in bot-free mode
-    let channelBotMode = 'anonymous'; // Default to bot-free
+    // --- Check Bot Mode (Channel-level and Global) ---
+    // Determine effective anonymous mode by combining channel-level and global IRC connection mode
+    let channelBotMode = 'anonymous'; // Default assumption
     try {
         const ttsState = await getTtsState(channelNameNoHash);
         channelBotMode = ttsState.botMode || 'anonymous';
@@ -140,16 +140,19 @@ async function processMessage(channelNameNoHash, tags, message) {
 
     const isChannelAnonymous = channelBotMode === 'anonymous';
     const globalAnonymousMode = isAnonymousMode();
-    const anonymousMode = isChannelAnonymous || globalAnonymousMode;
 
-    logger.info(`Executing command !${commandName} for user ${tags.username} in #${channelNameNoHash} (channel botMode: ${channelBotMode}, global anonymous: ${globalAnonymousMode}, effective anonymous: ${anonymousMode})`);
-    
-    // Block command execution if channel is in bot-free mode
-    if (isChannelAnonymous) {
-        logger.info(`Command !${commandName} blocked: channel ${channelNameNoHash} is in bot-free mode (anonymous)`);
-        return null; // Don't execute command in bot-free mode
+    // Effective anonymous mode: true if EITHER channel wants bot-free OR global IRC is anonymous
+    const effectiveAnonymousMode = isChannelAnonymous || globalAnonymousMode;
+
+    logger.info(`Command !${commandName} for user ${tags.username} in #${channelNameNoHash} - Channel botMode: ${channelBotMode}, Global anonymous: ${globalAnonymousMode}, Effective anonymous: ${effectiveAnonymousMode}`);
+
+    // Block command execution if in effective anonymous mode (no chat responses possible)
+    if (effectiveAnonymousMode) {
+        logger.info(`Command !${commandName} blocked: channel ${channelNameNoHash} is in effective bot-free mode (channel: ${isChannelAnonymous}, global: ${globalAnonymousMode})`);
+        return null; // Don't execute command when bot cannot respond
     }
 
+    // --- Execute Command ---
     try {
         const context = {
             channel: `#${channelNameNoHash}`,
@@ -159,7 +162,7 @@ async function processMessage(channelNameNoHash, tags, message) {
             command: commandName, // Pass the executed command name for context within subcommand handlers
             replyToId: tags?.id || tags?.['message-id'] || null, // Add reply ID from message tags
             ircClient: getIrcClient(),
-            canReply: !anonymousMode, // In anonymous mode, bot cannot send chat messages
+            canReply: !effectiveAnonymousMode, // Consistent with blocking logic
             logger: logger
         };
         await handler.execute(context);
@@ -169,8 +172,8 @@ async function processMessage(channelNameNoHash, tags, message) {
         logger.error({ err: error, command: commandName, user: tags.username, channel: channelNameNoHash },
             `Error executing command !${commandName}`);
 
-        // Only send error message to chat if not in anonymous mode
-        if (!anonymousMode) {
+        // Only send error message to chat if not in effective anonymous mode
+        if (!effectiveAnonymousMode) {
             try {
                 const ircClient = getIrcClient();
                 await ircClient.say(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${commandName}.`);
@@ -178,7 +181,7 @@ async function processMessage(channelNameNoHash, tags, message) {
                 logger.error({ err: sayError }, 'Failed to send command execution error message to chat.');
             }
         } else {
-            logger.warn(`Cannot send error message to chat: bot is in anonymous mode (read-only).`);
+            logger.warn(`Cannot send error message to chat: bot is in effective anonymous mode (read-only).`);
         }
         return commandName; // Command was attempted, return command name
     }
