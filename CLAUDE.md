@@ -88,4 +88,4 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
 - User-specific preferences (including language)
 
 ### Migration
-Run `node scripts/migrateBotMode.js` to add the `botMode` field to existing channel configs (defaults to `'anonymous'`).
+Run `node scripts/migrateBotMode.js` to add the `botMode` field to existing channel configs (sets to `'authenticated'` to preserve current bot behavior for existing users).
