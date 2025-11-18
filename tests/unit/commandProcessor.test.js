@@ -531,4 +531,181 @@ describe('commandProcessor module', () => {
       );
     });
   });
+
+  describe('bot-free mode blocking', () => {
+    test('should block command execution when channel is in bot-free mode (anonymous)', async () => {
+      const mockHandler = {
+        execute: jest.fn().mockResolvedValue(undefined),
+        permission: 'everyone'
+      };
+
+      jest.resetModules();
+
+      jest.unstable_mockModule('../../src/lib/logger.js', () => ({
+        default: mockLogger
+      }));
+
+      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
+        getIrcClient: jest.fn(() => mockIrcClient),
+        isAnonymousMode: jest.fn(() => false) // Global IRC is authenticated
+      }));
+
+      jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
+        getTtsState: jest.fn(() => Promise.resolve({
+          botMode: 'anonymous' // Channel is in bot-free mode
+        }))
+      }));
+
+      jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
+        default: {
+          'tts': mockHandler
+        }
+      }));
+
+      commandProcessor = await import('../../src/components/commands/commandProcessor.js');
+
+      const result = await commandProcessor.processMessage(
+        'testchannel',
+        { username: 'user', id: 'msg123' },
+        '!tts test'
+      );
+
+      expect(mockHandler.execute).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining('Command !tts blocked: channel testchannel is in bot-free mode')
+      );
+    });
+
+    test('should allow command execution when channel is in authenticated mode', async () => {
+      const mockHandler = {
+        execute: jest.fn().mockResolvedValue(undefined),
+        permission: 'everyone'
+      };
+
+      jest.resetModules();
+
+      jest.unstable_mockModule('../../src/lib/logger.js', () => ({
+        default: mockLogger
+      }));
+
+      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
+        getIrcClient: jest.fn(() => mockIrcClient),
+        isAnonymousMode: jest.fn(() => false) // Global IRC is authenticated
+      }));
+
+      jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
+        getTtsState: jest.fn(() => Promise.resolve({
+          botMode: 'authenticated' // Channel allows bot commands
+        }))
+      }));
+
+      jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
+        default: {
+          'tts': mockHandler
+        }
+      }));
+
+      commandProcessor = await import('../../src/components/commands/commandProcessor.js');
+
+      const result = await commandProcessor.processMessage(
+        'testchannel',
+        { username: 'user', id: 'msg123' },
+        '!tts test'
+      );
+
+      expect(mockHandler.execute).toHaveBeenCalled();
+      expect(result).toBe('tts');
+    });
+
+    test('should default to anonymous mode if getTtsState fails', async () => {
+      const mockHandler = {
+        execute: jest.fn().mockResolvedValue(undefined),
+        permission: 'everyone'
+      };
+
+      jest.resetModules();
+
+      jest.unstable_mockModule('../../src/lib/logger.js', () => ({
+        default: mockLogger
+      }));
+
+      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
+        getIrcClient: jest.fn(() => mockIrcClient),
+        isAnonymousMode: jest.fn(() => false)
+      }));
+
+      jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
+        getTtsState: jest.fn(() => Promise.reject(new Error('Firestore error')))
+      }));
+
+      jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
+        default: {
+          'tts': mockHandler
+        }
+      }));
+
+      commandProcessor = await import('../../src/components/commands/commandProcessor.js');
+
+      const result = await commandProcessor.processMessage(
+        'testchannel',
+        { username: 'user', id: 'msg123' },
+        '!tts test'
+      );
+
+      // Should block because it defaults to anonymous mode on error
+      expect(mockHandler.execute).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          err: expect.any(Error),
+          channel: 'testchannel'
+        }),
+        expect.stringContaining('Error fetching channel botMode')
+      );
+    });
+
+    test('should block when global IRC is anonymous even if channel botMode is authenticated', async () => {
+      const mockHandler = {
+        execute: jest.fn().mockResolvedValue(undefined),
+        permission: 'everyone'
+      };
+
+      jest.resetModules();
+
+      jest.unstable_mockModule('../../src/lib/logger.js', () => ({
+        default: mockLogger
+      }));
+
+      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
+        getIrcClient: jest.fn(() => mockIrcClient),
+        isAnonymousMode: jest.fn(() => true) // Global IRC is anonymous
+      }));
+
+      jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
+        getTtsState: jest.fn(() => Promise.resolve({
+          botMode: 'authenticated' // This shouldn't matter when global is anonymous
+        }))
+      }));
+
+      jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
+        default: {
+          'tts': mockHandler
+        }
+      }));
+
+      commandProcessor = await import('../../src/components/commands/commandProcessor.js');
+
+      const result = await commandProcessor.processMessage(
+        'testchannel',
+        { username: 'user', id: 'msg123' },
+        '!tts test'
+      );
+
+      // Should still execute since we only block on channel-level anonymous mode
+      // The global anonymous mode is for when NO channels have auth
+      expect(mockHandler.execute).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+    });
+  });
 });

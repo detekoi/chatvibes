@@ -4,6 +4,7 @@ import logger from '../../lib/logger.js';
 import commandHandlers from './handlers/index.js';
 // We might need access to the IRC client to send command responses
 import { getIrcClient, isAnonymousMode } from '../twitch/ircClient.js';
+import { getTtsState } from '../tts/ttsState.js';
 
 
 const COMMAND_PREFIX = '!'; // Define the prefix for commands
@@ -127,9 +128,28 @@ async function processMessage(channelNameNoHash, tags, message) {
         return null; // Return null if user lacks permission for base command
     }
 
-    // --- Execute Command ---
-    const anonymousMode = isAnonymousMode();
-    logger.info(`Executing command !${commandName} for user ${tags.username} in #${channelNameNoHash} (anonymous mode: ${anonymousMode})`);
+    // --- Check channel-specific bot mode ---
+    // Even if IRC is in authenticated mode globally, individual channels can be in bot-free mode
+    let channelBotMode = 'anonymous'; // Default to bot-free
+    try {
+        const ttsState = await getTtsState(channelNameNoHash);
+        channelBotMode = ttsState.botMode || 'anonymous';
+    } catch (error) {
+        logger.error({ err: error, channel: channelNameNoHash }, 'Error fetching channel botMode, defaulting to anonymous');
+    }
+
+    const isChannelAnonymous = channelBotMode === 'anonymous';
+    const globalAnonymousMode = isAnonymousMode();
+    const anonymousMode = isChannelAnonymous || globalAnonymousMode;
+
+    logger.info(`Executing command !${commandName} for user ${tags.username} in #${channelNameNoHash} (channel botMode: ${channelBotMode}, global anonymous: ${globalAnonymousMode}, effective anonymous: ${anonymousMode})`);
+    
+    // Block command execution if channel is in bot-free mode
+    if (isChannelAnonymous) {
+        logger.info(`Command !${commandName} blocked: channel ${channelNameNoHash} is in bot-free mode (anonymous)`);
+        return null; // Don't execute command in bot-free mode
+    }
+
     try {
         const context = {
             channel: `#${channelNameNoHash}`,
