@@ -304,7 +304,9 @@ export async function subscribeChannelFollow(broadcasterUserId) {
         }
     };
 
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
+    // Use broadcaster token to get follower details (requires moderator:read:followers scope)
+    const result = await makeHelixRequestWithBroadcasterToken('post', '/eventsub/subscriptions', body, broadcasterUserId);
+    
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.follow' }, 'Successfully subscribed to channel.follow (v2)');
     }

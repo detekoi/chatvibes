@@ -326,10 +326,11 @@ async function handleEventNotification(subscriptionType, event, channelName) {
         }
 
         case 'channel.follow': {
-            // New follower (v2 - doesn't include follower username for privacy)
-            ttsText = `Someone just followed!`;
-            username = 'follower';
-            logger.info({ channelName }, 'Follow event (v2 - no username)');
+            // New follower (v2)
+            const followerUser = event.user_name || event.user_login || 'Someone';
+            ttsText = `${followerUser} just followed!`;
+            username = followerUser;
+            logger.info({ channelName, user: followerUser }, 'Follow event');
             break;
         }
 

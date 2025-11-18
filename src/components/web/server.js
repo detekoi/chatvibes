@@ -852,7 +852,7 @@ async function handleEventSubSetup(req, res) {
                     giftSub: true,        // channel.subscription.gift
                     cheer: true,          // channel.cheer
                     raid: true,           // channel.raid
-                    follow: false         // channel.follow (disabled by default)
+                    follow: true          // channel.follow (enabled for all tiers, assuming scope is present)
                 });
 
                 logger.info({ 
