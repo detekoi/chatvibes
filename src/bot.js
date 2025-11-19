@@ -67,15 +67,16 @@ function isDuplicatePubSubEvent(channelName, eventData) {
 
         if (lastTs && now - lastTs < PUBSUB_DEDUP_TTL_MS) {
             const dedupMethod = usingMessageId ? 'messageId' : 'text-based';
+            const keyDisplay = key.substring(0, 80);
             logger.info({
                 channel: channelName,
                 user,
                 textPreview: text?.substring(0, 30),
                 messageId: messageId || 'N/A',
                 dedupMethod,
-                keyPreview: key.substring(0, 80),
+                keyPreview: keyDisplay,
                 ageMs: now - lastTs
-            }, `TTS message blocked: Duplicate detected in local cache (${dedupMethod} dedupe)`);
+            }, `TTS message blocked: Duplicate in local cache (${dedupMethod}) - msgId: ${messageId || 'NONE'} - key: ${keyDisplay}`);
             return true;
         }
 
@@ -115,15 +116,16 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
                 const expireAtMs = typeof data.expireAtMs === 'number' ? data.expireAtMs : 0;
                 if (expireAtMs > now) {
                     const dedupMethod = usingMessageId ? 'messageId' : 'text-based';
+                    const keyDisplay = keyRaw.substring(0, 80);
                     logger.info({
                         channel: channelName,
                         user,
                         textPreview: text?.substring(0, 30),
                         messageId: messageId || 'N/A',
                         dedupMethod,
-                        keyRawPreview: keyRaw.substring(0, 80),
+                        keyRawPreview: keyDisplay,
                         ageMs: now - data.createdAtMs
-                    }, `TTS message blocked: Duplicate detected in global claim (${dedupMethod} Firestore dedupe)`);
+                    }, `TTS message blocked: Duplicate in Firestore (${dedupMethod}) - msgId: ${messageId || 'NONE'} - key: ${keyDisplay}`);
                     return false; // already claimed recently
                 }
             }
