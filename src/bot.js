@@ -91,7 +91,9 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
     const user = (eventData?.user || '').toLowerCase();
     const text = (eventData?.text || '').trim();
     const messageId = eventData?.messageId || '';
-    if (!channelName || !text) return true; // if missing data, do not block
+    // If messageId is available, we only need channelName for deduplication key.
+    // If messageId is missing, we need both channelName and text for the fallback key.
+    if (!channelName || (!messageId && !text)) return true; // if missing data, do not block
 
     // Use messageId if available (from EventSub), otherwise fall back to text-based dedup
     const keyRaw = messageId
