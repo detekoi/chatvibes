@@ -18,7 +18,7 @@ export const DEFAULT_TTS_SETTINGS = {
     channel: 'mono',
     languageBoost: config.tts?.defaultLanguageBoost || 'auto',
     speakEvents: true,
-    botMode: 'anonymous', // 'anonymous' (bot-free), 'authenticated' (bot with chat commands), or 'auto' (authenticated if available, fallback to anonymous)
+    botRespondsInChat: false, // Whether the bot sends chat responses (default: false = silent mode)
     // It's good practice to initialize userPreferences and ignoredUsers in default settings
     // userPreferences: {}, // Will be handled by ttsState.js if it needs to be part of base default
     // ignoredUsers: []      // Will be handled by ttsState.js
@@ -42,14 +42,4 @@ export const VALID_LANGUAGE_BOOSTS = [
     "Dutch", "Ukrainian", "Vietnamese", "Indonesian", "Japanese",
     "Italian", "Korean", "Thai", "Polish", "Romanian", "Greek",
     "Czech", "Finnish", "Hindi"
-];
-
-export const BOT_MODE_ANONYMOUS = 'anonymous'; // Bot-free: read-only IRC connection (justinfan)
-export const BOT_MODE_AUTHENTICATED = 'authenticated'; // Bot with chat commands: requires OAuth
-export const BOT_MODE_AUTO = 'auto'; // Try authenticated, fallback to anonymous
-
-export const VALID_BOT_MODES = [
-    BOT_MODE_ANONYMOUS,
-    BOT_MODE_AUTHENTICATED,
-    BOT_MODE_AUTO
 ];

@@ -2,6 +2,7 @@
 import logger from './logger.js';
 import { sendMessage } from '../components/twitch/chatClient.js';
 import { sleep } from './timeUtils.js';
+import { getTtsState } from '../components/tts/ttsState.js';
 
 const messageQueue = [];
 let isSending = false;
@@ -54,6 +55,19 @@ export function initializeChatSender() {
 export async function enqueueMessage(channel, text, options = {}) {
     if (!channel || !text || typeof channel !== 'string' || typeof text !== 'string' || text.trim().length === 0) {
         logger.warn({ channel, text }, 'ChatVibes: Attempted to queue invalid message.');
+        return;
+    }
+
+    // Check if bot should respond in chat
+    const channelName = channel.replace(/^#/, '').toLowerCase();
+    try {
+        const ttsState = await getTtsState(channelName);
+        if (!ttsState.botRespondsInChat) {
+            logger.debug({ channel: channelName }, 'ChatVibes: Bot responses disabled for channel - message not queued');
+            return;
+        }
+    } catch (error) {
+        logger.error({ err: error, channel: channelName }, 'ChatVibes: Error checking botRespondsInChat setting - message not queued');
         return;
     }
 

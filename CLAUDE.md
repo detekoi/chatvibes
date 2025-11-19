@@ -9,26 +9,29 @@ This repository contains a Twitch Text-to-Speech (TTS) bot named ChatVibes. The 
 ## Architecture
 
 - **Core Components**:
-  - **Twitch Integration**: Connects to Twitch chat via IRC (supports both anonymous and authenticated modes)
-  - **Command System**: Processes commands prefixed with `!tts` (only sends chat responses in authenticated mode)
+  - **Twitch Integration**: Connects to Twitch chat via EventSub webhooks for receiving messages
+  - **Command System**: Processes commands prefixed with `!tts` (chat responses configurable per-channel)
   - **TTS Service**: Generates speech audio via Wavespeed AI API
   - **TTS Queue**: Manages the order of messages to be spoken
   - **Web Server**: Hosts the browser-based audio player
   - **Firestore Storage**: Persists configuration and user preferences
 
-- **Bot Modes**:
-  - **Anonymous Mode** (default): Connects to Twitch IRC using a "justinfan" anonymous connection. The bot does not appear in the viewer list and cannot send chat messages. All configuration happens via the web dashboard.
-  - **Authenticated Mode** (optional): Uses OAuth to connect as a dedicated bot account. The bot appears in the viewer list and can respond to chat commands like `!tts status` or `!myvoice`.
-  - The mode is configured per-channel via the `botMode` field in Firestore's `ttsChannelConfigs` collection. Valid values: `'anonymous'`, `'authenticated'`, or `'auto'` (try authenticated, fallback to anonymous).
-  - Implementation: See `src/components/twitch/ircClient.js` for connection logic and `src/lib/ircSender.js` for message sending that respects the current mode.
+- **Bot Behavior**:
+  - **Chat Listening**: Bot uses EventSub `channel.chat.message` subscriptions to receive chat messages. The bot will appear in the channel's "Chat Bots" section of the viewer list (required by EventSub architecture).
+  - **Chat Responses** (configurable per-channel): Control whether the bot sends chat responses via the `botRespondsInChat` boolean setting:
+    - `false` (default): Silent mode - bot listens to chat but does NOT respond to commands. All configuration happens via the web dashboard.
+    - `true`: Interactive mode - bot can respond to chat commands like `!tts status` or `!myvoice`.
+  - The setting is configured per-channel via the `botRespondsInChat` field in Firestore's `ttsChannelConfigs` collection.
+  - Implementation: See `src/components/twitch/eventsub.js` for EventSub webhook handling and `src/lib/chatSender.js` for message sending that respects the botRespondsInChat setting.
 
 - **Key Flows**:
-  1. Bot connects to specified Twitch channels (anonymous or authenticated based on channel config)
-  2. Messages are processed based on TTS mode (all chat or command only)
-  3. TTS requests are queued and processed
-  4. Generated audio URLs are sent to web client via WebSocket
-  5. Web client plays the audio
-  6. In authenticated mode, bot can respond to commands in chat; in anonymous mode, responses are silent
+  1. Bot subscribes to EventSub webhooks for specified Twitch channels
+  2. EventSub sends chat messages to the bot's webhook endpoint
+  3. Messages are processed based on TTS mode (all chat or command only)
+  4. TTS requests are queued and processed
+  5. Generated audio URLs are sent to web client via WebSocket
+  6. Web client plays the audio
+  7. If botRespondsInChat is enabled, bot can send responses to chat; otherwise, bot remains silent
 
 ## Common Commands
 
@@ -79,7 +82,7 @@ export TWITCH_CHANNELS=yourchannel
 TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with these settings:
 - Engine enabled/disabled
 - Mode (all chat or command only)
-- **Bot Mode** (`botMode` field): Determines IRC connection type - `'anonymous'` (default, bot-free), `'authenticated'` (bot with chat commands), or `'auto'`
+- **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `false` (default, silent mode), `true` (interactive mode)
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings
 - Language boost setting
@@ -88,4 +91,6 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
 - User-specific preferences (including language)
 
 ### Migration
-Run `node scripts/migrateBotMode.js` to add the `botMode` field to existing channel configs (sets to `'authenticated'` to preserve current bot behavior for existing users).
+The code automatically migrates old `botMode` settings to `botRespondsInChat`:
+- `'authenticated'` → `true` (bot responds in chat)
+- `'anonymous'` or `'auto'` → `false` (bot is silent)

@@ -1,63 +1,104 @@
 // cleanup-eventsub.js
-// Script to delete all existing EventSub subscriptions
-import axios from 'axios';
-import dotenv from 'dotenv';
+// Script to list and clean up old EventSub subscriptions
 
-dotenv.config();
+import 'dotenv/config';
+import { initializeHelixClient } from './src/components/twitch/helixClient.js';
+import { getEventSubSubscriptions, deleteEventSubSubscription } from './src/components/twitch/twitchSubs.js';
+import logger from './src/lib/logger.js';
 
-const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
-const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
+const CURRENT_URL = 'https://chatvibes-tts-service-906125386407.us-central1.run.app/twitch/event';
+const OLD_URL = 'https://chatvibes-tts-service-h7kj56ct4q-uc.a.run.app/twitch/event';
 
-async function getAppAccessToken() {
-    const response = await axios.post('https://id.twitch.tv/oauth2/token', null, {
-        params: {
-            client_id: TWITCH_CLIENT_ID,
-            client_secret: TWITCH_CLIENT_SECRET,
-            grant_type: 'client_credentials'
+async function cleanupSubscriptions() {
+    try {
+        console.log('\n=== EventSub Subscription Cleanup ===\n');
+
+        // Initialize Helix client
+        await initializeHelixClient();
+
+        // Get all subscriptions
+        console.log('Fetching all EventSub subscriptions...');
+        const result = await getEventSubSubscriptions();
+
+        if (!result.success) {
+            console.error('❌ Failed to fetch subscriptions');
+            return;
         }
-    });
-    return response.data.access_token;
-}
 
-async function getAllSubscriptions(token) {
-    const response = await axios.get('https://api.twitch.tv/helix/eventsub/subscriptions', {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Client-ID': TWITCH_CLIENT_ID
+        const subscriptions = result.data?.data || [];
+        console.log(`\nFound ${subscriptions.length} total subscriptions\n`);
+
+        // Separate by URL
+        const currentUrlSubs = [];
+        const oldUrlSubs = [];
+        const otherUrlSubs = [];
+
+        for (const sub of subscriptions) {
+            const callback = sub.transport?.callback;
+            if (callback === CURRENT_URL) {
+                currentUrlSubs.push(sub);
+            } else if (callback === OLD_URL) {
+                oldUrlSubs.push(sub);
+            } else {
+                otherUrlSubs.push(sub);
+            }
         }
-    });
-    return response.data.data;
-}
 
-async function deleteSubscription(token, subscriptionId) {
-    await axios.delete(`https://api.twitch.tv/helix/eventsub/subscriptions?id=${subscriptionId}`, {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Client-ID': TWITCH_CLIENT_ID
+        console.log(`✅ Current URL subscriptions: ${currentUrlSubs.length}`);
+        console.log(`⚠️  Old URL subscriptions: ${oldUrlSubs.length}`);
+        console.log(`❓ Other URL subscriptions: ${otherUrlSubs.length}\n`);
+
+        // Show details of old URL subscriptions
+        if (oldUrlSubs.length > 0) {
+            console.log('\n--- Subscriptions to DELETE (old URL) ---');
+            for (const sub of oldUrlSubs) {
+                console.log(`\nID: ${sub.id}`);
+                console.log(`Type: ${sub.type}`);
+                console.log(`Status: ${sub.status}`);
+                console.log(`Broadcaster ID: ${sub.condition?.broadcaster_user_id || 'N/A'}`);
+                console.log(`User ID: ${sub.condition?.user_id || 'N/A'}`);
+            }
+
+            console.log('\n\n⚠️  About to delete', oldUrlSubs.length, 'old URL subscriptions');
+            console.log('Deleting in 3 seconds... (Press Ctrl+C to cancel)');
+
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            // Delete old subscriptions
+            for (const sub of oldUrlSubs) {
+                console.log(`\nDeleting subscription ${sub.id} (${sub.type})...`);
+                const deleteResult = await deleteEventSubSubscription(sub.id);
+                if (deleteResult.success) {
+                    console.log('  ✅ Deleted successfully');
+                } else {
+                    console.log('  ❌ Failed to delete:', deleteResult.error);
+                }
+            }
+
+            console.log(`\n✅ Cleanup complete! Deleted ${oldUrlSubs.length} old subscriptions`);
+        } else {
+            console.log('\n✅ No old URL subscriptions to delete');
         }
-    });
-}
 
-async function main() {
-    console.log('Getting app access token...');
-    const token = await getAppAccessToken();
-
-    console.log('Fetching all EventSub subscriptions...');
-    const subscriptions = await getAllSubscriptions(token);
-
-    console.log(`\nFound ${subscriptions.length} subscriptions. Deleting...\n`);
-
-    for (const sub of subscriptions) {
-        console.log(`Deleting ${sub.type} (${sub.id})...`);
-        try {
-            await deleteSubscription(token, sub.id);
-            console.log(`Deleted.`);
-        } catch (e) {
-            console.error(`Failed to delete ${sub.id}: ${e.message}`);
+        // Show other URLs for reference
+        if (otherUrlSubs.length > 0) {
+            console.log('\n--- Other URL subscriptions (NOT deleted) ---');
+            for (const sub of otherUrlSubs) {
+                console.log(`\nID: ${sub.id}`);
+                console.log(`Type: ${sub.type}`);
+                console.log(`Callback: ${sub.transport?.callback}`);
+            }
         }
+
+        console.log('\n=== Final Summary ===');
+        console.log(`Kept: ${currentUrlSubs.length} subscriptions on current URL`);
+        console.log(`Deleted: ${oldUrlSubs.length} subscriptions on old URL`);
+        console.log(`Ignored: ${otherUrlSubs.length} subscriptions on other URLs\n`);
+
+    } catch (error) {
+        console.error('❌ Error during cleanup:', error.message);
+        console.error('Stack:', error.stack);
     }
-
-    console.log('\nAll subscriptions deleted!');
 }
 
-main().catch(console.error);
+cleanupSubscriptions();

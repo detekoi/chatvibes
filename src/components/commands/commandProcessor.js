@@ -119,27 +119,16 @@ async function processMessage(channelNameNoHash, tags, message) {
         return null; // Return null if user lacks permission for base command
     }
 
-    // --- Check Bot Mode (Channel-level) ---
-    // Determine effective anonymous mode
-    let channelBotMode = 'anonymous'; // Default assumption
+    // --- Check if bot should respond in chat (Channel-level setting) ---
+    let canReply = false; // Default: bot does not respond in chat
     try {
         const ttsState = await getTtsState(channelNameNoHash);
-        channelBotMode = ttsState.botMode || 'anonymous';
+        canReply = ttsState.botRespondsInChat === true;
     } catch (error) {
-        logger.error({ err: error, channel: channelNameNoHash }, 'Error fetching channel botMode, defaulting to anonymous');
+        logger.error({ err: error, channel: channelNameNoHash }, 'Error fetching channel settings, defaulting to no chat responses');
     }
 
-    const isChannelAnonymous = channelBotMode === 'anonymous';
-    // We no longer have a global IRC client mode, so effective mode is just the channel mode
-    const effectiveAnonymousMode = isChannelAnonymous;
-
-    logger.info(`Command !${commandName} for user ${tags.username} in #${channelNameNoHash} - Channel botMode: ${channelBotMode}, Effective anonymous: ${effectiveAnonymousMode}`);
-
-    // NOTE: We DO NOT block command execution in anonymous mode anymore, 
-    // because we want TTS commands to work even if the bot is "invisible".
-    // However, we will disable the ability to REPLY in chat.
-
-    const canReply = !effectiveAnonymousMode;
+    logger.info(`Command !${commandName} for user ${tags.username} in #${channelNameNoHash} - Bot responds in chat: ${canReply}`);
 
     // --- Execute Command ---
     try {

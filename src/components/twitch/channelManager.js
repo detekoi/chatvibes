@@ -205,9 +205,20 @@ export function listenForChannelChanges() {
                             logger.error({ err: error, channel: change.channelName }, "[ChannelManager] Failed to subscribe channel to EventSub");
                         }
                     }
-                    // We don't strictly need to unsubscribe on removal/inactive because EventSub subscriptions 
-                    // persist until revoked or deleted. However, we could implement cleanup if desired.
-                    // For now, we'll just stop listening (by not subscribing).
+                    // Clean up EventSub subscriptions when channel becomes inactive
+                    else if ((change.type === 'modified' || change.type === 'removed') && !change.isActive) {
+                        try {
+                            const userId = change.twitchUserId;
+                            if (userId) {
+                                logger.info({ channel: change.channelName }, "[ChannelManager] Unsubscribing channel from EventSub events");
+                                const { deleteChannelEventSubSubscriptions } = await import('./twitchSubs.js');
+                                const result = await deleteChannelEventSubSubscriptions(userId);
+                                logger.info({ channel: change.channelName, deleted: result.deleted, errors: result.errors }, "[ChannelManager] Completed EventSub cleanup for deactivated channel");
+                            }
+                        } catch (error) {
+                            logger.error({ err: error, channel: change.channelName }, "[ChannelManager] Failed to unsubscribe channel from EventSub");
+                        }
+                    }
                 }
             }
         }, error => {

@@ -162,6 +162,47 @@ export async function deleteAllEventSubSubscriptions() {
 }
 
 /**
+ * Delete all EventSub subscriptions for a specific broadcaster
+ * @param {string} broadcasterUserId - The broadcaster's user ID
+ * @returns {Promise<{deleted: number, errors: number}>} Count of deleted and failed subscriptions
+ */
+export async function deleteChannelEventSubSubscriptions(broadcasterUserId) {
+    const result = await getEventSubSubscriptions();
+    if (!result.success || !result.data || !result.data.data) {
+        logger.error({ broadcasterUserId }, 'Could not fetch subscriptions to delete for broadcaster');
+        return { deleted: 0, errors: 1 };
+    }
+
+    const subscriptions = result.data.data;
+    // Filter subscriptions for this broadcaster
+    const broadcasterSubs = subscriptions.filter(sub =>
+        sub.condition?.broadcaster_user_id === broadcasterUserId
+    );
+
+    if (broadcasterSubs.length === 0) {
+        logger.info({ broadcasterUserId }, 'No subscriptions found for broadcaster');
+        return { deleted: 0, errors: 0 };
+    }
+
+    logger.info({ broadcasterUserId, count: broadcasterSubs.length }, 'Deleting EventSub subscriptions for broadcaster');
+
+    let deleted = 0;
+    let errors = 0;
+
+    for (const sub of broadcasterSubs) {
+        const deleteResult = await deleteEventSubSubscription(sub.id);
+        if (deleteResult.success) {
+            deleted++;
+        } else {
+            errors++;
+        }
+    }
+
+    logger.info({ broadcasterUserId, deleted, errors }, 'Completed deleting EventSub subscriptions for broadcaster');
+    return { deleted, errors };
+}
+
+/**
  * Subscribe to channel.subscribe events (new subscriptions)
  */
 export async function subscribeChannelSubscribe(broadcasterUserId) {
