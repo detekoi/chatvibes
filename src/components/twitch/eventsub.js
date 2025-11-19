@@ -342,6 +342,13 @@ async function handleEventNotification(subscriptionType, event, channelName) {
             const messageText = event.message?.text || '';
             const bits = event.cheer?.bits || 0;
 
+            // Skip processing the bot's own messages to avoid infinite loops
+            const botUsername = config.twitch.username?.toLowerCase();
+            if (botUsername && username === botUsername) {
+                logger.debug({ user: username }, 'Skipping bot\'s own message');
+                return;
+            }
+
             logger.debug({ channelName, user: username, text: messageText, bits }, 'Chat message event');
 
             // Get shared session info
