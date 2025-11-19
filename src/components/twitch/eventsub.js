@@ -11,6 +11,8 @@ import * as sharedChatManager from './sharedChatManager.js';
 import * as redemptionCache from './redemptionCache.js';
 import { publishTtsEvent } from '../../lib/pubsub.js';
 import { processMessageUrls } from '../../lib/urlProcessor.js';
+import { convertEventSubToTags } from './eventSubToTags.js';
+import { processMessage as processCommand, hasPermission } from '../commands/commandProcessor.js';
 
 // Idempotency and replay protection (in-memory window)
 const processedEventIds = new Map(); // messageId -> timestamp(ms)
@@ -335,39 +337,94 @@ async function handleEventNotification(subscriptionType, event, channelName) {
         }
 
         case 'channel.chat.message': {
-            // Chat message
-            const chatterUser = event.chatter_user_name || event.chatter_user_login || 'Someone';
+            // Chat message - process with full filtering logic like the old IRC handler
+            const username = (event.chatter_user_login || event.chatter_user_name || 'Someone').toLowerCase();
             const messageText = event.message?.text || '';
+            const bits = event.cheer?.bits || 0;
 
-            // We don't set ttsText here because chat messages need special processing (commands, filters, etc.)
-            // Instead, we'll handle this separately or pass it through with a specific type
+            logger.debug({ channelName, user: username, text: messageText, bits }, 'Chat message event');
 
-            // For now, we'll treat it as a potential TTS event, but we need to be careful not to double-process
-            // if we were still using IRC. Since we are migrating, this will be the primary source.
-
-            // We'll use a special type 'chat' for the Pub/Sub event so the TTS service knows to process it as chat
-            // (checking commands, user filters, etc.) rather than a raw system announcement.
-
-            logger.debug({ channelName, user: chatterUser, text: messageText }, 'Chat message event');
-
-            // Publish to Pub/Sub immediately with type 'chat'
-            // The TTS service/worker will handle command parsing and filtering
+            // Get shared session info
             const sharedSessionInfo = await getSharedSessionInfo(channelName);
 
-            await publishTtsEvent(channelName, {
-                text: messageText,
-                user: chatterUser,
-                userId: event.chatter_user_id,
-                messageId: event.message_id,
-                isCheer: event.cheer !== null, // EventSub separates cheers, but chat message might have bits info? 
-                // Actually channel.chat.message has a 'cheer' field if it's a cheer.
-                // But we also have channel.cheer event. We should probably ignore cheers here to avoid duplicates?
-                // Or better, let the TTS service deduplicate based on ID if needed.
-                // For now, let's pass it as 'chat' type.
-                type: 'chat'
-            }, sharedSessionInfo);
+            // Skip if channel points redemption (handled by EventSub channel.channel_points_custom_reward_redemption.add)
+            if (event.channel_points_custom_reward_id) {
+                logger.debug({
+                    channelName,
+                    rewardId: event.channel_points_custom_reward_id
+                }, 'Channel Points redemption detected - ignoring (handled by EventSub)');
+                return;
+            }
 
-            return; // Return early as we've already published
+            // Convert EventSub event to IRC-style tags for command processor
+            const tags = convertEventSubToTags(event);
+
+            // Clean the cheermote from the message if it has bits
+            let cleanMessage = messageText;
+            if (bits > 0) {
+                // Remove cheermotes from beginning: "Cheer100 hello" or "Cheer 100 hello" -> "hello"
+                cleanMessage = cleanMessage.replace(/^[\w]+\s*\d+\s*/, '').trim();
+                // Remove cheermotes after !tts: "!tts Cheer100 hello" or "!tts Cheer 100 hello" -> "!tts hello"
+                cleanMessage = cleanMessage.replace(/^(!tts\s+)[\w]+\s*\d+\s*/, '$1').trim();
+            }
+
+            if (!cleanMessage) return;
+
+            // --- COMMAND PROCESSING ---
+            const processedCommandName = await processCommand(channelName, tags, cleanMessage);
+
+            // --- TTS PROCESSING ---
+            const ttsConfig = await getTtsState(channelName);
+            const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
+
+            // If TTS is globally off for the channel or the user is on the ignore list, do no TTS
+            if (!ttsConfig.engineEnabled || isTtsIgnored) {
+                return;
+            }
+
+            // Skip TTS processing for cheer messages in the regular handler if they'll be handled separately
+            // (Note: EventSub provides cheer data in the same channel.chat.message event, not a separate cheer event)
+            // So we handle both regular messages and cheer messages here
+
+            // A. If a command was just run, decide if we should READ the command text aloud
+            if (processedCommandName) {
+                // Read non-tts commands aloud in 'all' mode
+                if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
+                    const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+                    await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'command', messageId: event.message_id }, sharedSessionInfo);
+                } else if (ttsConfig.mode === 'bits_points_only') {
+                    // In bits/points only mode, do not read commands
+                    return;
+                }
+            }
+            // B. If it was NOT a command, it's a regular chat message or cheer
+            else {
+                // Handle messages with bits (cheers)
+                if (bits > 0) {
+                    const minimumBits = ttsConfig.bitsMinimumAmount || 1;
+                    if (bits >= minimumBits) {
+                        // Only process if in all mode or bits/points mode
+                        if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
+                            const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+                            await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
+                        }
+                    }
+                }
+                // Handle regular chat messages (no bits)
+                else if (ttsConfig.mode === 'all') {
+                    const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
+                    if (hasPermission(requiredPermission, tags, channelName)) {
+                        const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+                        await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
+                    }
+                } else if (ttsConfig.mode === 'bits_points_only') {
+                    // In bits/points only mode, ignore normal chat without bits
+                    return;
+                }
+                // In 'command' mode, non-command messages are ignored (this is the else case - do nothing)
+            }
+
+            return;
         }
 
         default:

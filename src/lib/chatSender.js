@@ -24,14 +24,7 @@ async function _processMessageQueue() {
         logger.debug(`ChatVibes: Sending queued message to ${channel}: "${text.substring(0, 30)}..."`);
 
         try {
-            // Helix Send Chat Message API handles replies via reply_parent_message_id in the body if supported,
-            // but our current sendMessage implementation in chatClient.js takes (channel, message).
-            // We should update chatClient.js to support replyToId if we want replies.
-            // For now, we'll just send the message.
-
-            // TODO: Update chatClient.js to support replyToId
-
-            const success = await sendMessage(channel, text);
+            const success = await sendMessage(channel, text, { replyToId });
             if (!success) {
                 logger.warn({ channel, text: text.substring(0, 30) }, 'ChatVibes: Failed to send message via Helix.');
             }
