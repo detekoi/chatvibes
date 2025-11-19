@@ -71,45 +71,56 @@ async function initializeHelixClient() {
         },
         (error) => {
             // Calculate latency even for errors if possible
-             const latencyMs = error.config?.meta?.requestStartedAt ? Date.now() - error.config.meta.requestStartedAt : -1;
+            const latencyMs = error.config?.meta?.requestStartedAt ? Date.now() - error.config.meta.requestStartedAt : -1;
 
             // Log failed responses
             const commonLogData = {
-                 url: error.config?.url,
-                 method: error.config?.method,
-                 latencyMs: latencyMs,
-                 err: { // Avoid logging the full huge error object directly
-                     message: error.message,
-                     code: error.code,
-                 }
+                url: error.config?.url,
+                method: error.config?.method,
+                latencyMs: latencyMs,
+                err: { // Avoid logging the full huge error object directly
+                    message: error.message,
+                    code: error.code,
+                }
             };
 
             if (error.response) {
                 // The request was made and the server responded with a status code
                 // that falls out of the range of 2xx
                 const rateLimitRemaining = error.response.headers['ratelimit-remaining'];
-                logger.error({
-                    ...commonLogData,
-                    status: error.response.status,
-                    responseBody: error.response.data, // Log response body for debugging
-                    rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : 'N/A',
-                }, `Helix API call failed with status ${error.response.status}`);
+
+                // Downgrade 409 Conflict to debug log (common for EventSub duplicates)
+                if (error.response.status === 409) {
+                    logger.debug({
+                        ...commonLogData,
+                        status: error.response.status,
+                        responseBody: error.response.data,
+                        rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : 'N/A',
+                    }, `Helix API call failed with status ${error.response.status} (Conflict - likely already exists)`);
+                } else {
+                    logger.error({
+                        ...commonLogData,
+                        status: error.response.status,
+                        responseBody: error.response.data, // Log response body for debugging
+                        rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : 'N/A',
+                    }, `Helix API call failed with status ${error.response.status}`);
+                }
 
                 // Specific handling/logging based on status code can be added here
-                 if (error.response.status === 401) {
+                if (error.response.status === 401) {
                     // Unauthorized - token might be invalid. Clear the cached token and log this occurrence.
                     logger.warn('Received 401 Unauthorized from Helix. Clearing cached App Access Token.');
                     clearCachedAppAccessToken();
-                 } else if (error.response.status === 429) {
+                } else if (error.response.status === 429) {
                     // Rate limit exceeded
                     const resetTime = error.response.headers['ratelimit-reset'];
                     const resetDate = resetTime ? new Date(parseInt(resetTime, 10) * 1000) : 'N/A';
                     logger.warn({ resetTimestamp: resetTime, resetDate }, 'Helix API rate limit exceeded (429).');
                     // NOTE: Actual retry/backoff logic should be implemented in the calling function (e.g., the poller)
-                 } else if (error.response.status >= 500) {
+                } else if (error.response.status >= 500) {
                     // Server-side error
                     logger.error('Helix API encountered a server-side error (5xx).');
-                 }
+                }
 
             } else if (error.request) {
                 // The request was made but no response was received
@@ -168,7 +179,7 @@ async function getChannelInformation(broadcasterIds) {
         return response.data?.data || [];
     } catch (error) {
         // Errors are already logged by the response interceptor
-        logger.error({ err: { message: error.message, code: error.code } , broadcasterIds }, `Failed to get channel information for IDs: ${broadcasterIds.join(',')}`);
+        logger.error({ err: { message: error.message, code: error.code }, broadcasterIds }, `Failed to get channel information for IDs: ${broadcasterIds.join(',')}`);
         // Return empty array for graceful degradation
         return [];
     }
@@ -202,10 +213,10 @@ async function getUsersByLogin(loginNames) {
         // Data is expected in response.data.data
         return response.data?.data || [];
     } catch (error) {
-         // Errors are already logged by the response interceptor
-         logger.error({ err: { message: error.message, code: error.code } , loginNames }, `Failed to get user information for logins: ${loginNames.join(',')}`);
-         // Return empty array for graceful degradation
-         return [];
+        // Errors are already logged by the response interceptor
+        logger.error({ err: { message: error.message, code: error.code }, loginNames }, `Failed to get user information for logins: ${loginNames.join(',')}`);
+        // Return empty array for graceful degradation
+        return [];
     }
 }
 
@@ -229,21 +240,21 @@ async function getSharedChatSession(broadcasterId) {
 
     try {
         const response = await client.get('/shared_chat/session', { params });
-        
+
         // Spec: https://dev.twitch.tv/docs/api/reference#get-shared-chat-session
         // Returns session data if channel is in a shared chat session
         const sessionData = response.data?.data?.[0] || null;
-        
+
         if (sessionData) {
-            logger.info({ 
-                broadcasterId, 
+            logger.info({
+                broadcasterId,
                 sessionId: sessionData.session_id,
                 participantCount: sessionData.participants?.length || 0
             }, 'ChatVibes: Channel is in shared chat session');
         } else {
             logger.debug({ broadcasterId }, 'ChatVibes: Channel is not in a shared chat session');
         }
-        
+
         return sessionData;
     } catch (error) {
         // If the channel is not in a shared chat session, the API returns 404
@@ -251,13 +262,13 @@ async function getSharedChatSession(broadcasterId) {
             logger.debug({ broadcasterId }, 'ChatVibes: Channel is not in a shared chat session (404)');
             return null;
         }
-        
+
         // Other errors are already logged by the response interceptor
-        logger.error({ 
-            err: { message: error.message, code: error.code }, 
-            broadcasterId 
+        logger.error({
+            err: { message: error.message, code: error.code },
+            broadcasterId
         }, 'ChatVibes: Failed to get shared chat session information');
-        
+
         // Return null for graceful degradation
         return null;
     }

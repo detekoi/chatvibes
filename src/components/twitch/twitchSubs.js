@@ -28,6 +28,16 @@ async function makeHelixRequest(method, endpoint, body = null) {
         const response = await helixClient({ method, url: endpoint, data: body });
         return { success: true, data: response.data };
     } catch (error) {
+        // 409 Conflict means the subscription already exists - treat as success
+        if (error.response && error.response.status === 409) {
+            logger.debug({
+                method,
+                endpoint,
+                type: body?.type
+            }, 'EventSub subscription already exists (409) - treating as success');
+            return { success: true, data: error.response.data };
+        }
+
         logger.error({
             err: error.response ? error.response.data : error.message,
             method,
@@ -90,6 +100,17 @@ async function makeHelixRequestWithBroadcasterToken(method, endpoint, body, broa
 
         return { success: true, data: response.data };
     } catch (error) {
+        // 409 Conflict means the subscription already exists - treat as success
+        if (error.response && error.response.status === 409) {
+            logger.debug({
+                method,
+                endpoint,
+                type: body?.type,
+                broadcasterUserId
+            }, 'EventSub subscription already exists (409) - treating as success');
+            return { success: true, data: error.response.data };
+        }
+
         logger.error({
             err: error.response ? error.response.data : error.message,
             method,
