@@ -418,6 +418,7 @@ async function validateTtsSetting(key, value) {
         case 'bitsModeEnabled':
         case 'readFullUrls':
         case 'allowViewerPreferences':
+        case 'botRespondsInChat':
             return typeof value === 'boolean';
         case 'englishNormalization':
             return typeof value === 'boolean';

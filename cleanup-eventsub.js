@@ -48,6 +48,10 @@ async function cleanupSubscriptions() {
         console.log(`⚠️  Old URL subscriptions: ${oldUrlSubs.length}`);
         console.log(`❓ Other URL subscriptions: ${otherUrlSubs.length}\n`);
 
+        // Track deletion results
+        let successCount = 0;
+        let failureCount = 0;
+
         // Show details of old URL subscriptions
         if (oldUrlSubs.length > 0) {
             console.log('\n--- Subscriptions to DELETE (old URL) ---');
@@ -70,12 +74,18 @@ async function cleanupSubscriptions() {
                 const deleteResult = await deleteEventSubSubscription(sub.id);
                 if (deleteResult.success) {
                     console.log('  ✅ Deleted successfully');
+                    successCount++;
                 } else {
                     console.log('  ❌ Failed to delete:', deleteResult.error);
+                    failureCount++;
                 }
             }
 
-            console.log(`\n✅ Cleanup complete! Deleted ${oldUrlSubs.length} old subscriptions`);
+            if (failureCount === 0) {
+                console.log(`\n✅ Cleanup complete! Deleted ${successCount} old subscriptions`);
+            } else {
+                console.log(`\n⚠️  Cleanup completed with errors: ${successCount} succeeded, ${failureCount} failed`);
+            }
         } else {
             console.log('\n✅ No old URL subscriptions to delete');
         }
@@ -92,7 +102,11 @@ async function cleanupSubscriptions() {
 
         console.log('\n=== Final Summary ===');
         console.log(`Kept: ${currentUrlSubs.length} subscriptions on current URL`);
-        console.log(`Deleted: ${oldUrlSubs.length} subscriptions on old URL`);
+        if (oldUrlSubs.length > 0) {
+            console.log(`Deleted: ${successCount} subscriptions on old URL${failureCount > 0 ? ` (${failureCount} failed)` : ''}`);
+        } else {
+            console.log(`Deleted: 0 subscriptions on old URL`);
+        }
         console.log(`Ignored: ${otherUrlSubs.length} subscriptions on other URLs\n`);
 
     } catch (error) {
