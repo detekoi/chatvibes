@@ -19,8 +19,8 @@ This repository contains a Twitch Text-to-Speech (TTS) bot named ChatVibes. The 
 - **Bot Behavior**:
   - **Chat Listening**: Bot uses EventSub `channel.chat.message` subscriptions to receive chat messages. The bot will appear in the channel's "Chat Bots" section of the viewer list (required by EventSub architecture).
   - **Chat Responses** (configurable per-channel): Control whether the bot sends chat responses via the `botRespondsInChat` boolean setting:
-    - `false` (default): Silent mode - bot listens to chat but does NOT respond to commands. All configuration happens via the web dashboard.
-    - `true`: Interactive mode - bot can respond to chat commands like `!tts status` or `!myvoice`.
+    - `true` (default): Interactive mode - bot can respond to chat commands like `!tts status` or `!myvoice`.
+    - `false`: Silent mode - bot listens to chat but does NOT respond to commands. All configuration happens via the web dashboard.
   - The setting is configured per-channel via the `botRespondsInChat` field in Firestore's `ttsChannelConfigs` collection.
   - Implementation: See `src/components/twitch/eventsub.js` for EventSub webhook handling and `src/lib/chatSender.js` for message sending that respects the botRespondsInChat setting.
 
@@ -82,7 +82,7 @@ export TWITCH_CHANNELS=yourchannel
 TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with these settings:
 - Engine enabled/disabled
 - Mode (all chat or command only)
-- **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `false` (default, silent mode), `true` (interactive mode)
+- **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `true` (default, interactive mode), `false` (silent mode)
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings
 - Language boost setting

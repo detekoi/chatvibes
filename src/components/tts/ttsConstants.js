@@ -18,7 +18,7 @@ export const DEFAULT_TTS_SETTINGS = {
     channel: 'mono',
     languageBoost: config.tts?.defaultLanguageBoost || 'auto',
     speakEvents: true,
-    botRespondsInChat: false, // Whether the bot sends chat responses (default: false = silent mode)
+    botRespondsInChat: true, // Whether the bot sends chat responses (default: true = interactive mode)
     // It's good practice to initialize userPreferences and ignoredUsers in default settings
     // userPreferences: {}, // Will be handled by ttsState.js if it needs to be part of base default
     // ignoredUsers: []      // Will be handled by ttsState.js
