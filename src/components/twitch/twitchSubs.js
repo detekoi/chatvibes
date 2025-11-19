@@ -466,13 +466,48 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
         }
     };
 
-    // Use app access token (required for webhook subscriptions)
-    // The app must be categorized as "Chat Bot" in Twitch Developer Console
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
-    if (result.success) {
-        logger.info({ broadcasterUserId, botUserId, type: 'channel.chat.message' }, 'Successfully subscribed to channel.chat.message');
+    // Use the bot's user token (requires user:read:chat scope)
+    // Webhooks for channel.chat.message require user authorization from the user specified in the condition.user_id field.
+    // Since we specified user_id = botUserId, we need the BOT'S user token.
+
+    const { getValidIrcToken } = await import('./ircAuthHelper.js');
+    const botToken = await getValidIrcToken(); // Returns "oauth:TOKEN"
+
+    if (!botToken) {
+        logger.error('Could not get valid bot token for chat subscription');
+        return { success: false, error: 'Bot token unavailable' };
     }
-    return result;
+
+    const clientId = await getClientId();
+
+    try {
+        const response = await axios({
+            method: 'post',
+            url: 'https://api.twitch.tv/helix/eventsub/subscriptions',
+            data: body,
+            headers: {
+                'Authorization': `Bearer ${botToken.replace('oauth:', '')}`,
+                'Client-ID': clientId,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        logger.info({ broadcasterUserId, botUserId, type: 'channel.chat.message' }, 'Successfully subscribed to channel.chat.message');
+        return { success: true, data: response.data };
+
+    } catch (error) {
+        // 409 Conflict means the subscription already exists - treat as success
+        if (error.response && error.response.status === 409) {
+            logger.debug({ type: 'channel.chat.message' }, 'EventSub subscription already exists (409)');
+            return { success: true, data: error.response.data };
+        }
+
+        logger.error({
+            err: error.response ? error.response.data : error.message,
+            type: 'channel.chat.message'
+        }, 'Error subscribing to channel.chat.message');
+        return { success: false, error: error.message };
+    }
 }
 
 /**
