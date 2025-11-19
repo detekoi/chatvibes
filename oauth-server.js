@@ -110,6 +110,7 @@ async function startServer() {
 
     // Define required scopes
     const requiredScopes = [
+        'user:bot',            // Required for Chat Bot apps (NEW!)
         'user:read:chat',
         'user:write:chat',
         'chat:read',

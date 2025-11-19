@@ -45,14 +45,19 @@ async function main() {
     console.log('Fetching all EventSub subscriptions...');
     const subscriptions = await getAllSubscriptions(token);
 
-    console.log(`Found ${subscriptions.length} subscriptions`);
+    console.log(`\nFound ${subscriptions.length} subscriptions:\n`);
 
     for (const sub of subscriptions) {
-        console.log(`Deleting subscription: ${sub.type} (${sub.id})`);
-        await deleteSubscription(token, sub.id);
+        console.log(`- ${sub.type} (Status: ${sub.status})`);
+        if (sub.condition.broadcaster_user_id) {
+            console.log(`  Broadcaster ID: ${sub.condition.broadcaster_user_id}`);
+        }
+        if (sub.condition.user_id) {
+            console.log(`  User ID: ${sub.condition.user_id}`);
+        }
     }
 
-    console.log('All subscriptions deleted!');
+    console.log('\n(Subscriptions NOT deleted - just listing)');
 }
 
 main().catch(console.error);

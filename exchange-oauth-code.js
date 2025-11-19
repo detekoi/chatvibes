@@ -63,7 +63,7 @@ async function exchangeCode(authCode) {
         console.log('Login:', validateResponse.data.login);
 
         // Check if required scopes are present
-        const requiredScopes = ['user:read:chat', 'user:write:chat'];
+        const requiredScopes = ['user:bot', 'user:read:chat', 'user:write:chat'];
         const missingScopes = requiredScopes.filter(scope => !validateResponse.data.scopes.includes(scope));
 
         if (missingScopes.length > 0) {

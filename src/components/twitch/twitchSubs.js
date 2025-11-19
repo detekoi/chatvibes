@@ -373,18 +373,13 @@ export async function subscribeChannelPointsRedemptionUpdate(broadcasterUserId) 
 
 /**
  * Subscribe to channel.chat.message events (chat messages)
- * Requires bot's user access token with user:read:chat scope
+ * Requires app to be categorized as "Chat Bot" and bot user to have user:read:chat scope
  */
 export async function subscribeChannelChatMessage(broadcasterUserId) {
-    const { publicUrl, eventSubSecret, accessToken } = config.twitch;
+    const { publicUrl, eventSubSecret } = config.twitch;
     if (!publicUrl || !eventSubSecret) {
         logger.error('Missing PUBLIC_URL or TWITCH_EVENTSUB_SECRET in config');
         return { success: false, error: 'Missing configuration' };
-    }
-
-    if (!accessToken) {
-        logger.error('Missing bot access token in config (required for channel.chat.message subscription)');
-        return { success: false, error: 'Missing bot access token' };
     }
 
     // Get the bot's user ID
@@ -400,7 +395,7 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
         version: '1',
         condition: {
             broadcaster_user_id: broadcasterUserId,
-            user_id: botUserId // The user_id is the bot's ID (the user whose token is being used)
+            user_id: botUserId // The bot's user ID (must have granted user:read:chat scope)
         },
         transport: {
             method: 'webhook',
@@ -409,32 +404,13 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
         }
     };
 
-    // This subscription requires the BOT's token with user:read:chat scope
-    // We use the bot's user access token from config
-    try {
-        const clientId = await getClientId();
-        const response = await axios({
-            method: 'post',
-            url: 'https://api.twitch.tv/helix/eventsub/subscriptions',
-            data: body,
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Client-ID': clientId,
-                'Content-Type': 'application/json'
-            },
-            timeout: 15000
-        });
-
+    // Use app access token (required for webhook subscriptions)
+    // The app must be categorized as "Chat Bot" in Twitch Developer Console
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
+    if (result.success) {
         logger.info({ broadcasterUserId, botUserId, type: 'channel.chat.message' }, 'Successfully subscribed to channel.chat.message');
-        return { success: true, data: response.data };
-    } catch (error) {
-        logger.error({
-            err: error.response ? error.response.data : error.message,
-            broadcasterUserId,
-            botUserId
-        }, 'Error subscribing to channel.chat.message');
-        return { success: false, error: error.message };
     }
+    return result;
 }
 
 /**
