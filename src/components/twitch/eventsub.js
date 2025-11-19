@@ -13,6 +13,12 @@ import { publishTtsEvent } from '../../lib/pubsub.js';
 import { processMessageUrls } from '../../lib/urlProcessor.js';
 import { convertEventSubToTags } from './eventSubToTags.js';
 import { processMessage as processCommand, hasPermission } from '../commands/commandProcessor.js';
+import { Firestore } from '@google-cloud/firestore';
+
+// Firestore for cross-instance EventSub deduplication
+const firestore = new Firestore();
+const processedEventSubIds = firestore.collection('processedEventSubMessages');
+const EVENTSUB_DEDUP_TTL_MS = 10 * 60 * 1000; // 10 minutes (match replay protection)
 
 // Idempotency and replay protection (in-memory window)
 const processedEventIds = new Map(); // messageId -> timestamp(ms)
@@ -30,9 +36,51 @@ function pruneOldProcessedIds(nowTs) {
 }
 
 /**
+ * Claim an EventSub message globally using Firestore
+ * Returns true if this instance successfully claimed it (should process)
+ * Returns false if another instance already claimed it (skip processing)
+ */
+async function claimEventSubMessageGlobal(messageId) {
+    const docRef = processedEventSubIds.doc(messageId);
+    const now = Date.now();
+
+    try {
+        const result = await firestore.runTransaction(async (tx) => {
+            const snap = await tx.get(docRef);
+            if (snap.exists) {
+                const data = snap.data() || {};
+                const expireAtMs = typeof data.expireAtMs === 'number' ? data.expireAtMs : 0;
+                if (expireAtMs > now) {
+                    // Already claimed by another instance
+                    logger.info({
+                        eventSubMessageId: messageId,
+                        ageMs: now - data.createdAtMs,
+                        claimedBy: data.instance || 'unknown'
+                    }, 'EventSub webhook already processed by another instance - skipping');
+                    return false;
+                }
+            }
+            // Claim it
+            tx.set(docRef, {
+                eventSubMessageId: messageId,
+                instance: process.env.K_REVISION || 'local',
+                createdAtMs: now,
+                expireAtMs: now + EVENTSUB_DEDUP_TTL_MS,
+            }, { merge: true });
+            return true;
+        });
+        return result;
+    } catch (err) {
+        // On Firestore error, fail-open to avoid message loss
+        logger.warn({ err, messageId }, 'EventSub global claim failed; proceeding without global dedupe');
+        return true;
+    }
+}
+
+/**
  * Check if an event should be processed (duplicate prevention + replay protection)
  */
-function shouldProcessEvent(req) {
+async function shouldProcessEvent(req) {
     const messageId = req.headers['twitch-eventsub-message-id'];
     const timestampHeader = req.headers['twitch-eventsub-message-timestamp'];
 
@@ -50,13 +98,19 @@ function shouldProcessEvent(req) {
         return false;
     }
 
-    // Idempotency: reject duplicate messages
+    // Idempotency: reject duplicate messages (local memory check first - fast path)
     if (processedEventIds.has(messageId)) {
-        logger.warn({ messageId }, 'Dropping duplicate EventSub message (already processed)');
+        logger.info({ messageId }, 'Dropping duplicate EventSub message (already processed by this instance)');
         return false;
     }
 
-    // Record this message ID and prune old ones
+    // Global Firestore claim (authoritative, prevents duplicate processing across instances)
+    const claimed = await claimEventSubMessageGlobal(messageId);
+    if (!claimed) {
+        return false; // Another instance already processed this
+    }
+
+    // Record this message ID in local memory and prune old ones
     processedEventIds.set(messageId, nowTs);
     if (processedEventIds.size > 1000) {
         pruneOldProcessedIds(nowTs);
@@ -127,8 +181,8 @@ export async function eventSubHandler(req, res, rawBody) {
 
     // Handle event notifications
     if (messageType === 'notification') {
-        // Check for duplicate/replay
-        if (!shouldProcessEvent(req)) {
+        // Check for duplicate/replay (now with global Firestore-based deduplication)
+        if (!(await shouldProcessEvent(req))) {
             return;
         }
 
