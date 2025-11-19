@@ -1,7 +1,7 @@
 // src/components/commands/tts/voice.js
 import { setGlobalUserPreference, clearGlobalUserPreference, getGlobalUserPreferences } from '../../tts/ttsState.js';
 import { getAvailableVoices } from '../../tts/ttsService.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 import say from './say.js';
 

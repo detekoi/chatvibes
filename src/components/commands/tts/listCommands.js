@@ -1,5 +1,5 @@
 // src/components/commands/tts/listCommands.js
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 
 export default {
     name: 'listCommands', // This will be mapped to 'commands' and 'help'

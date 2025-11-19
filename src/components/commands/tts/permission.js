@@ -1,6 +1,6 @@
 // src/components/commands/tts/permission.js
 import { setTtsState, getTtsState } from '../../tts/ttsState.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 
 export default {

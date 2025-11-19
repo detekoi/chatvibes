@@ -7,7 +7,7 @@ import {
     VALID_EMOTIONS,
     DEFAULT_TTS_SETTINGS
 } from '../../tts/ttsConstants.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 
 export default {

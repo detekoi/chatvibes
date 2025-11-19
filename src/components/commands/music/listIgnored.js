@@ -1,6 +1,6 @@
 // src/components/commands/music/listIgnored.js
 import { getMusicState } from '../../music/musicState.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 // Permission is handled by the main command handler in music.js for subcommands
 

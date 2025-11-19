@@ -5,7 +5,7 @@ import {
     getGlobalUserPreferences
 } from '../../tts/ttsState.js';
 import { VALID_LANGUAGE_BOOSTS } from '../../tts/ttsConstants.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 
 const docLink = 'https://docs.wildcat.chat/chatvibesdocs.html#language-boost';
 

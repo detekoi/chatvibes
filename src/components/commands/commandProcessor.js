@@ -2,9 +2,8 @@
 import logger from '../../lib/logger.js';
 // Import command handlers (assuming handlers/index.js exports an object/Map)
 import commandHandlers from './handlers/index.js';
-// We might need access to the IRC client to send command responses
-import { getIrcClient, isAnonymousMode } from '../twitch/ircClient.js';
 import { getTtsState } from '../tts/ttsState.js';
+import { enqueueMessage } from '../../lib/chatSender.js';
 
 
 const COMMAND_PREFIX = '!'; // Define the prefix for commands
@@ -18,7 +17,7 @@ function initializeCommandProcessor() {
     // Log registered commands
     const registeredCommands = Object.keys(commandHandlers);
     if (registeredCommands.length > 0) {
-         logger.info(`Registered commands: ${registeredCommands.join(', ')}`);
+        logger.info(`Registered commands: ${registeredCommands.join(', ')}`);
     } else {
         logger.warn('No command handlers found or loaded.');
     }
@@ -116,20 +115,12 @@ async function processMessage(channelNameNoHash, tags, message) {
     logger.debug({ permitted }, 'Base command permission check result');
 
     if (!permitted) {
-        // If base command permission fails, we should send a message here or ensure the handler does.
-        // For '!tts' and '!music', the base permission is 'everyone', so this block is typically skipped for them.
-        // The subcommand permission is handled *inside* the respective handler.
-        // However, if a base command itself required mod permission and failed, a message here would be good.
-        // For now, the "Oops" message below would catch if `hasPermission` threw an error.
-        // If `hasPermission` correctly returns false, the subcommand handler will deal with it.
         logger.warn(`User ${tags.username} lacks permission for base command !${commandName} in #${channelNameNoHash}`);
-        // Optionally, send a generic "no permission for base command" message if desired,
-        // but current structure relies on subcommand handlers for their specific messages.
         return null; // Return null if user lacks permission for base command
     }
 
-    // --- Check Bot Mode (Channel-level and Global) ---
-    // Determine effective anonymous mode by combining channel-level and global IRC connection mode
+    // --- Check Bot Mode (Channel-level) ---
+    // Determine effective anonymous mode
     let channelBotMode = 'anonymous'; // Default assumption
     try {
         const ttsState = await getTtsState(channelNameNoHash);
@@ -139,18 +130,16 @@ async function processMessage(channelNameNoHash, tags, message) {
     }
 
     const isChannelAnonymous = channelBotMode === 'anonymous';
-    const globalAnonymousMode = isAnonymousMode();
+    // We no longer have a global IRC client mode, so effective mode is just the channel mode
+    const effectiveAnonymousMode = isChannelAnonymous;
 
-    // Effective anonymous mode: true if EITHER channel wants bot-free OR global IRC is anonymous
-    const effectiveAnonymousMode = isChannelAnonymous || globalAnonymousMode;
+    logger.info(`Command !${commandName} for user ${tags.username} in #${channelNameNoHash} - Channel botMode: ${channelBotMode}, Effective anonymous: ${effectiveAnonymousMode}`);
 
-    logger.info(`Command !${commandName} for user ${tags.username} in #${channelNameNoHash} - Channel botMode: ${channelBotMode}, Global anonymous: ${globalAnonymousMode}, Effective anonymous: ${effectiveAnonymousMode}`);
+    // NOTE: We DO NOT block command execution in anonymous mode anymore, 
+    // because we want TTS commands to work even if the bot is "invisible".
+    // However, we will disable the ability to REPLY in chat.
 
-    // Block command execution if in effective anonymous mode (no chat responses possible)
-    if (effectiveAnonymousMode) {
-        logger.info(`Command !${commandName} blocked: channel ${channelNameNoHash} is in effective bot-free mode (channel: ${isChannelAnonymous}, global: ${globalAnonymousMode})`);
-        return null; // Don't execute command when bot cannot respond
-    }
+    const canReply = !effectiveAnonymousMode;
 
     // --- Execute Command ---
     try {
@@ -161,10 +150,33 @@ async function processMessage(channelNameNoHash, tags, message) {
             message: message, // Pass original message
             command: commandName, // Pass the executed command name for context within subcommand handlers
             replyToId: tags?.id || tags?.['message-id'] || null, // Add reply ID from message tags
-            ircClient: getIrcClient(),
-            canReply: !effectiveAnonymousMode, // Consistent with blocking logic
-            logger: logger
+            canReply: canReply,
+            logger: logger,
+            // Helper to send a message (conditionally based on mode)
+            say: async (text) => {
+                if (canReply) {
+                    await enqueueMessage(`#${channelNameNoHash}`, text);
+                } else {
+                    logger.debug({ channel: channelNameNoHash, text }, 'Suppressed chat reply due to anonymous mode');
+                }
+            },
+            // Helper to reply to the specific message (conditionally)
+            reply: async (text) => {
+                if (canReply) {
+                    await enqueueMessage(`#${channelNameNoHash}`, text, { replyToId: tags?.id || tags?.['message-id'] });
+                } else {
+                    logger.debug({ channel: channelNameNoHash, text }, 'Suppressed chat reply due to anonymous mode');
+                }
+            }
         };
+
+        // Backward compatibility for handlers that might try to use ircClient directly
+        // We provide a mock ircClient that uses our say/reply helpers
+        context.ircClient = {
+            say: async (chan, text) => context.say(text),
+            // raw: ... (not supported via Helix easily, ignore for now)
+        };
+
         await handler.execute(context);
         return commandName; // Return the processed command name
 
@@ -173,15 +185,14 @@ async function processMessage(channelNameNoHash, tags, message) {
             `Error executing command !${commandName}`);
 
         // Only send error message to chat if not in effective anonymous mode
-        if (!effectiveAnonymousMode) {
+        if (canReply) {
             try {
-                const ircClient = getIrcClient();
-                await ircClient.say(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${commandName}.`);
+                await enqueueMessage(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${commandName}.`);
             } catch (sayError) {
                 logger.error({ err: sayError }, 'Failed to send command execution error message to chat.');
             }
         } else {
-            logger.warn(`Cannot send error message to chat: bot is in effective anonymous mode (read-only).`);
+            logger.warn(`Cannot send error message to chat: bot is in effective anonymous mode.`);
         }
         return commandName; // Command was attempted, return command name
     }

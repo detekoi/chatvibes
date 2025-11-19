@@ -1,6 +1,6 @@
 // src/components/commands/handlers/tts.js
 import logger from '../../../lib/logger.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 // Import individual TTS command handlers
 import status from '../tts/status.js';
 import defaultVoice from '../tts/defaultVoice.js';

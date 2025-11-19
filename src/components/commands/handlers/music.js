@@ -1,6 +1,6 @@
 // src/components/commands/handlers/music.js
 import logger from '../../../lib/logger.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import { enqueueMusicGeneration, getMusicQueueStatus, clearMusicQueue } from '../../music/musicQueue.js';
 import { getMusicState, setMusicEnabled } from '../../music/musicState.js';
 import { hasPermission } from '../commandProcessor.js';

@@ -1,6 +1,6 @@
 // src/components/commands/tts/ignoreUser.js
 import { addIgnoredUser, removeIgnoredUser } from '../../tts/ttsState.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 // Removed helixClient and userExists for this simplified version, add back if used for other checks
 
 export default {

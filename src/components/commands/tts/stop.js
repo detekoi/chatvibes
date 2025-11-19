@@ -1,6 +1,6 @@
 // src/components/commands/tts/stop.js
 import * as ttsQueue from '../../tts/ttsQueue.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 import { hasPermission } from '../commandProcessor.js'; // Make sure this utility is available and works as expected
 

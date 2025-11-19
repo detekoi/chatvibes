@@ -1,5 +1,5 @@
 // src/components/commands/tts/voices.js
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 
 export default {
     name: 'voices',

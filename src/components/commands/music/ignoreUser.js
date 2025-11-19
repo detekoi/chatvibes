@@ -1,6 +1,6 @@
 // src/components/commands/music/ignoreUser.js
 import { addIgnoredUserMusic, removeIgnoredUserMusic, getMusicState } from '../../music/musicState.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import { hasPermission } from '../commandProcessor.js';
 
 export default {

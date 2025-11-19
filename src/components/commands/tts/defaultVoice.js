@@ -1,7 +1,7 @@
 // src/components/commands/tts/defaultvoice.js
 import { setTtsState, getTtsState } from '../../tts/ttsState.js';
 import { getAvailableVoices } from '../../tts/ttsService.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 import config from '../../../config/index.js'; // To get the system default voice
 

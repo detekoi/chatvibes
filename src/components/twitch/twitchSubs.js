@@ -49,12 +49,12 @@ async function getBroadcasterAccessToken(broadcasterUserId) {
         const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'chatvibestts';
         const secretResourceName = `projects/${projectId}/secrets/twitch-access-token-${broadcasterUserId}/versions/latest`;
         const accessToken = await getSecretValue(secretResourceName);
-        
+
         if (!accessToken) {
             logger.warn({ broadcasterUserId }, 'Broadcaster access token not found in Secret Manager');
             return null;
         }
-        
+
         return accessToken;
     } catch (error) {
         logger.error({ err: error, broadcasterUserId }, 'Error retrieving broadcaster access token');
@@ -306,7 +306,7 @@ export async function subscribeChannelFollow(broadcasterUserId) {
 
     // Use broadcaster token to get follower details (requires moderator:read:followers scope)
     const result = await makeHelixRequestWithBroadcasterToken('post', '/eventsub/subscriptions', body, broadcasterUserId);
-    
+
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.follow' }, 'Successfully subscribed to channel.follow (v2)');
     }
@@ -372,6 +372,41 @@ export async function subscribeChannelPointsRedemptionUpdate(broadcasterUserId) 
 }
 
 /**
+ * Subscribe to channel.chat.message events (chat messages)
+ * Requires user access token with user:read:chat scope
+ */
+export async function subscribeChannelChatMessage(broadcasterUserId) {
+    const { publicUrl, eventSubSecret } = config.twitch;
+    if (!publicUrl || !eventSubSecret) {
+        logger.error('Missing PUBLIC_URL or TWITCH_EVENTSUB_SECRET in config');
+        return { success: false, error: 'Missing configuration' };
+    }
+
+    const body = {
+        type: 'channel.chat.message',
+        version: '1',
+        condition: {
+            broadcaster_user_id: broadcasterUserId,
+            user_id: broadcasterUserId // The user_id is the user whose chat we want to read (the broadcaster)
+        },
+        transport: {
+            method: 'webhook',
+            callback: `${publicUrl}/twitch/event`,
+            secret: eventSubSecret
+        }
+    };
+
+    // This subscription requires the broadcaster's token with user:read:chat scope
+    // We use makeHelixRequestWithBroadcasterToken which handles retrieving the token
+    const result = await makeHelixRequestWithBroadcasterToken('post', '/eventsub/subscriptions', body, broadcasterUserId);
+
+    if (result.success) {
+        logger.info({ broadcasterUserId, type: 'channel.chat.message' }, 'Successfully subscribed to channel.chat.message');
+    }
+    return result;
+}
+
+/**
  * Subscribe a channel to all TTS-relevant events
  * @param {string} broadcasterUserId - The broadcaster's user ID
  * @param {object} options - Optional flags for which events to subscribe to
@@ -386,7 +421,8 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         raid = true,                // channel.raid
         follow = false,             // channel.follow (disabled by default - requires moderator scope)
         channelPointsAdd = true,    // channel.channel_points_custom_reward_redemption.add
-        channelPointsUpdate = true  // channel.channel_points_custom_reward_redemption.update
+        channelPointsUpdate = true, // channel.channel_points_custom_reward_redemption.update
+        chatMessage = true          // channel.chat.message (NEW: default true)
     } = options;
 
     const results = {
@@ -396,6 +432,15 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
     };
 
     // Subscribe to selected events
+    if (chatMessage) {
+        const result = await subscribeChannelChatMessage(broadcasterUserId);
+        if (result.success) {
+            results.successful.push('channel.chat.message');
+        } else {
+            results.failed.push({ type: 'channel.chat.message', error: result.error });
+        }
+    }
+
     if (subscribe) {
         const result = await subscribeChannelSubscribe(broadcasterUserId);
         if (result.success) {

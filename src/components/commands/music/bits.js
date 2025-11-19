@@ -1,7 +1,7 @@
 // src/components/commands/music/bits.js
 
 import { setBitsConfigMusic, getMusicState } from '../../music/musicState.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 
 export default {
     name: 'bits',

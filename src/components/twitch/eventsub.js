@@ -334,6 +334,42 @@ async function handleEventNotification(subscriptionType, event, channelName) {
             break;
         }
 
+        case 'channel.chat.message': {
+            // Chat message
+            const chatterUser = event.chatter_user_name || event.chatter_user_login || 'Someone';
+            const messageText = event.message?.text || '';
+
+            // We don't set ttsText here because chat messages need special processing (commands, filters, etc.)
+            // Instead, we'll handle this separately or pass it through with a specific type
+
+            // For now, we'll treat it as a potential TTS event, but we need to be careful not to double-process
+            // if we were still using IRC. Since we are migrating, this will be the primary source.
+
+            // We'll use a special type 'chat' for the Pub/Sub event so the TTS service knows to process it as chat
+            // (checking commands, user filters, etc.) rather than a raw system announcement.
+
+            logger.debug({ channelName, user: chatterUser, text: messageText }, 'Chat message event');
+
+            // Publish to Pub/Sub immediately with type 'chat'
+            // The TTS service/worker will handle command parsing and filtering
+            const sharedSessionInfo = await getSharedSessionInfo(channelName);
+
+            await publishTtsEvent(channelName, {
+                text: messageText,
+                user: chatterUser,
+                userId: event.chatter_user_id,
+                messageId: event.message_id,
+                isCheer: event.cheer !== null, // EventSub separates cheers, but chat message might have bits info? 
+                // Actually channel.chat.message has a 'cheer' field if it's a cheer.
+                // But we also have channel.cheer event. We should probably ignore cheers here to avoid duplicates?
+                // Or better, let the TTS service deduplicate based on ID if needed.
+                // For now, let's pass it as 'chat' type.
+                type: 'chat'
+            }, sharedSessionInfo);
+
+            return; // Return early as we've already published
+        }
+
         default:
             logger.warn({ type: subscriptionType, channelName }, 'Unhandled EventSub subscription type');
             return;
@@ -364,7 +400,7 @@ async function getBroadcasterIdByLogin(channelLogin) {
     if (broadcasterIdCache.has(channelLogin)) {
         return broadcasterIdCache.get(channelLogin);
     }
-    
+
     const { getUsersByLogin } = await import('./helixClient.js');
     const users = await getUsersByLogin([channelLogin]);
     if (users && users.length > 0) {
@@ -372,7 +408,7 @@ async function getBroadcasterIdByLogin(channelLogin) {
         broadcasterIdCache.set(channelLogin, broadcasterId);
         return broadcasterId;
     }
-    
+
     return null;
 }
 
@@ -397,7 +433,7 @@ async function getSharedSessionInfo(channelLogin) {
         }
 
         const channelLogins = session.participants.map(p => p.broadcaster_user_login);
-        
+
         return {
             sessionId,
             channels: channelLogins,
@@ -440,7 +476,7 @@ async function handleChannelPointsRedemption(subscriptionType, event) {
     // Get TTS config for this channel
     const ttsConfig = await getTtsState(channelLogin);
     const configuredRewardId = ttsConfig.channelPoints?.rewardId || ttsConfig.channelPointRewardId;
-    
+
     // Check if this is our TTS reward
     if (!configuredRewardId || rewardId !== configuredRewardId) {
         logger.debug({ channelLogin, rewardId, configuredRewardId }, 'Redemption is not for our TTS reward - ignoring');

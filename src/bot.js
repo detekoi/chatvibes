@@ -1,15 +1,14 @@
 // src/bot.js
 import config from './config/index.js';
-import { getAllowedChannels, isChannelAllowed, initializeAllowList } from './lib/allowList.js';
+import { initializeAllowList } from './lib/allowList.js';
 import logger from './lib/logger.js';
 
 // Core Twitch & Cloud
 import { initializeSecretManager } from './lib/secretManager.js';
-import { createIrcClient, connectIrcClient, getIrcClient, destroyIrcClient } from './components/twitch/ircClient.js';
 import { initializeHelixClient } from './components/twitch/helixClient.js';
 
 // ChatVibes TTS Components
-import { initializeTtsState, getTtsState } from './components/tts/ttsState.js';
+import { initializeTtsState } from './components/tts/ttsState.js';
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
 import { Firestore } from '@google-cloud/firestore';
@@ -17,53 +16,28 @@ import crypto from 'crypto';
 
 // Music Components
 import { initializeMusicQueues } from './components/music/musicQueue.js';
-import { initializeMusicState, getMusicState } from './components/music/musicState.js';
+import { initializeMusicState } from './components/music/musicState.js';
 
 // Command Processing
-import { initializeCommandProcessor, processMessage as processCommand, hasPermission } from './components/commands/commandProcessor.js';
-import { initializeIrcSender, clearMessageQueue } from './lib/ircSender.js';
+import { initializeCommandProcessor } from './components/commands/commandProcessor.js';
+import { initializeChatSender } from './lib/chatSender.js';
 import { createLeaderElection } from './lib/leaderElection.js';
 
-// URL Processing
-import { processMessageUrls } from './lib/urlProcessor.js';
-
 // Channel Management
-import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithIrc, listenForChannelChanges } from './components/twitch/channelManager.js';
+import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithEventSub, listenForChannelChanges } from './components/twitch/channelManager.js';
 
 // Pub/Sub for cross-instance TTS communication
-import { initializePubSub, publishTtsEvent, subscribeTtsEvents, closePubSub } from './lib/pubsub.js';
+import { initializePubSub, subscribeTtsEvents, closePubSub } from './lib/pubsub.js';
 
 // Shared chat session tracking
 import * as sharedChatManager from './components/twitch/sharedChatManager.js';
 import { getUsersByLogin } from './components/twitch/helixClient.js';
 
-let ircClientInstance = null;
+
 let channelChangeListener = null;
-let obsTokenChangeListener = null;
 let isShuttingDown = false;
 let leaderElection = null;
-let ircStartedByThisInstance = false;
-
-// IRC message de-duplication (guards against accidental double-handler registration or re-emits)
-const IRC_DEDUP_TTL_MS = 2 * 60 * 1000; // 2 minutes
-const processedIrcMessageIds = new Map();
-
-function isDuplicateIrcMessage(messageId) {
-    if (!messageId) return false;
-    const now = Date.now();
-    // Fast return if seen
-    if (processedIrcMessageIds.has(messageId)) {
-        return true;
-    }
-    // Housekeeping: purge old entries occasionally (amortized)
-    if (processedIrcMessageIds.size > 500) {
-        for (const [id, ts] of processedIrcMessageIds) {
-            if (now - ts > IRC_DEDUP_TTL_MS) processedIrcMessageIds.delete(id);
-        }
-    }
-    processedIrcMessageIds.set(messageId, now);
-    return false;
-}
+let eventSubStartedByThisInstance = false;
 
 // Pub/Sub event de-duplication (guards against overlapping revisions delivering same TTS event)
 const PUBSUB_DEDUP_TTL_MS = 30 * 1000; // 30 seconds
@@ -174,7 +148,7 @@ async function getSharedSessionInfo(channelNameNoHash) {
         }
 
         const channelLogins = session.participants.map(p => p.broadcaster_user_login);
-        
+
         return {
             sessionId,
             channels: channelLogins,
@@ -232,11 +206,6 @@ async function gracefulShutdown(signal) {
         logger.info('ChatVibes: No active Firestore channel change listener to clean up.');
     }
 
-    // OBS token change listener no longer used; tokens are written directly to ttsChannelConfigs by the web UI.
-
-    clearMessageQueue();
-    logger.info('ChatVibes: IRC message sender queue cleared.');
-
     // Persist TTS queues before shutdown to prevent message loss
     logger.info('ChatVibes: Persisting TTS queues to Firestore...');
     shutdownTasks.push(
@@ -251,17 +220,6 @@ async function gracefulShutdown(signal) {
         closePubSub()
             .then(() => { logger.info('ChatVibes: Pub/Sub resources closed.'); })
             .catch(err => { logger.error({ err }, 'ChatVibes: Error closing Pub/Sub.'); })
-    );
-
-    // Properly destroy the IRC client to clean up all event listeners
-    logger.info('ChatVibes: Destroying IRC client...');
-    shutdownTasks.push(
-        destroyIrcClient()
-            .then(() => {
-                ircClientInstance = null;
-                logger.info('ChatVibes: IRC client destroyed.');
-            })
-            .catch(err => { logger.error({ err }, 'ChatVibes: Error destroying IRC client.'); })
     );
 
     logger.info(`ChatVibes: Waiting for ${shutdownTasks.length} shutdown tasks to complete...`);
@@ -285,9 +243,6 @@ async function main() {
 
         // Initialize allow-list from secret if configured (before loading channels)
         await initializeAllowList();
-        
-        // Note: Periodic refresh disabled to allow scale-to-zero
-        // The allowlist will refresh on each bot restart (which happens when needed)
 
         logger.info('ChatVibes: Initializing TTS State (Firestore)...');
         await initializeTtsState();
@@ -300,7 +255,7 @@ async function main() {
 
         logger.info('ChatVibes: Initializing Channel Manager (Firestore)...');
         await initializeChannelManager();
-        
+
         logger.info('ChatVibes: Initializing Music Generation system (queues)...');
         initializeMusicQueues();
 
@@ -313,19 +268,12 @@ async function main() {
                 .split(',')
                 .map(ch => ch.trim().toLowerCase())
                 .filter(Boolean);
-            // Apply allow-list if present
-            const allowList = getAllowedChannels();
-            const filteredChannels = allowList.length > 0 ? envChannels.filter(ch => allowList.includes(ch)) : envChannels;
-            
+
             if (envChannels.length === 0) {
                 logger.fatal('ChatVibes: TWITCH_CHANNELS is empty or not set in .env for development. Please set it.');
                 process.exit(1);
             }
-            if (allowList.length > 0 && filteredChannels.length === 0) {
-                logger.fatal('ChatVibes: All configured dev channels are blocked by allow-list. Update ALLOWED_CHANNELS or TWITCH_CHANNELS.');
-                process.exit(1);
-            }
-            config.twitch.channels = [...new Set(filteredChannels)];
+            config.twitch.channels = [...new Set(envChannels)];
             logger.info(`ChatVibes: Loaded ${config.twitch.channels.length} channels from .env: [${config.twitch.channels.join(', ')}]`);
         } else {
             logger.info('ChatVibes: Cloud environment detected or not development. Loading channels from Firestore.');
@@ -351,8 +299,8 @@ async function main() {
         logger.info('ChatVibes: Initializing Command Processor for commands...');
         initializeCommandProcessor();
 
-        logger.info('ChatVibes: Initializing IRC Sender queue...');
-        initializeIrcSender();
+        logger.info('ChatVibes: Initializing Chat Sender queue...');
+        initializeChatSender();
 
         // Initialize Pub/Sub for cross-instance TTS communication
         logger.info('ChatVibes: Initializing Pub/Sub for TTS message distribution...');
@@ -377,327 +325,78 @@ async function main() {
             } else {
                 logger.debug(logData, 'Received TTS event from Pub/Sub, processing locally');
             }
-            
+
             // Pub/Sub dedupe: local memory check
             if (isDuplicatePubSubEvent(channelName, eventData)) {
-                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0,30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue (local cache)');
+                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0, 30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue (local cache)');
                 return;
             }
             // Pub/Sub dedupe: cross-instance Firestore claim (authoritative)
             const claimed = await claimTtsEventGlobal(channelName, eventData);
             if (!claimed) {
-                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0,30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue (global claim)');
+                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0, 30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue (global claim)');
                 return;
             }
             await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
         });
         logger.info('ChatVibes: Pub/Sub subscriber ready');
 
-        // Start the Web Server early (independent of IRC leadership)
+        // Start the Web Server early
         logger.info('ChatVibes: Initializing Web Server for OBS audio...');
         const { server: webServerInstance } = initializeWebServer();
         global.healthServer = webServerInstance;
 
-        // Functions to start/stop IRC subsystem under leader election
-        const startIrcSubsystem = async () => {
-            if (ircStartedByThisInstance) {
-                logger.info('ChatVibes: IRC subsystem already started by this instance.');
+        // Functions to start/stop EventSub subsystem under leader election
+        const startEventSubSubsystem = async () => {
+            if (eventSubStartedByThisInstance) {
+                logger.info('ChatVibes: EventSub subsystem already started by this instance.');
                 return;
             }
 
-            // Determine connection mode based on channel configurations
-            // If any channel requires authenticated mode, use authenticated connection
-            // Otherwise, default to anonymous mode (bot-free)
-            let connectionMode = 'anonymous'; // Default to bot-free mode
-            try {
-                const channels = config.twitch.channels || [];
-                for (const channelName of channels) {
-                    const ttsState = await getTtsState(channelName);
-                    if (ttsState.botMode === 'authenticated') {
-                        logger.info(`ChatVibes: Channel ${channelName} requires authenticated mode. Using authenticated IRC connection.`);
-                        connectionMode = 'authenticated';
-                        break; // If any channel needs auth, use auth for all
-                    }
-                }
-                logger.info(`ChatVibes: Determined IRC connection mode: ${connectionMode}`);
-            } catch (error) {
-                logger.error({ err: error }, 'ChatVibes: Error determining connection mode. Defaulting to anonymous.');
-                connectionMode = 'anonymous';
-            }
+            logger.info('ChatVibes: Starting EventSub subsystem (Subscription Management)...');
 
-            logger.info(`ChatVibes: Creating Twitch IRC Client instance in ${connectionMode} mode (leader acquired)...`);
-            ircClientInstance = await createIrcClient(config.twitch, connectionMode);
+            // Sync channels on connect
+            if (config.app.nodeEnv !== 'development') {
+                await syncManagedChannelsWithEventSub();
 
-            // --- Setup IRC Event Listeners ---
-            ircClientInstance.on('connected', async (address, port) => {
-                logger.info(`ChatVibes: Successfully connected to Twitch IRC: ${address}:${port}`);
-                if (config.app.nodeEnv !== 'development') {
-                    logger.info('ChatVibes: Performing initial channel sync before setting up listener.');
-                    // Sync channels FIRST, then set up listener
-                    // This prevents duplicate joins from the listener's initial snapshot
-                    await syncManagedChannelsWithIrc(ircClientInstance);
-
+                if (!channelChangeListener) {
                     logger.info('ChatVibes: Setting up Firestore channel change listener.');
-                    if (!channelChangeListener) {
-                        channelChangeListener = listenForChannelChanges(ircClientInstance);
-                    }
-                } else {
-                    logger.info('ChatVibes (DEV MODE): Relying on TMI.js auto-join for channels specified in client options.');
-                }
-            });
-
-            ircClientInstance.on('disconnected', (reason) => {
-                logger.warn(`ChatVibes: Disconnected from Twitch IRC: ${reason || 'Unknown reason'}`);
-                if (channelChangeListener) {
-                    channelChangeListener();
-                    channelChangeListener = null;
-                }
-            });
-
-            // --- MESSAGE HANDLER ---
-            ircClientInstance.on('message', async (channel, tags, message, self) => {
-            if (self) return;
-
-            // --- 1. PREPARATION ---
-            const channelNameNoHash = channel.substring(1).toLowerCase();
-            if (!isChannelAllowed(channelNameNoHash)) return;
-                // IRC de-duplication by message id (tmi.js provides a stable id for each message)
-                const msgId = tags?.id || tags?.['id'];
-                if (isDuplicateIrcMessage(msgId)) {
-                    logger.debug({ channel: channelNameNoHash, msgId }, 'IRC dedupe: Skipping duplicate chat message');
-                    return;
-                }
-            const username = tags.username?.toLowerCase();
-            const bits = parseInt(tags.bits, 10) || 0;
-
-            // Check for shared chat session
-            const sharedSessionInfo = await getSharedSessionInfo(channelNameNoHash);
-            if (sharedSessionInfo) {
-                logger.debug({
-                    channel: channelNameNoHash,
-                    sessionId: sharedSessionInfo.sessionId,
-                    sharedChannels: sharedSessionInfo.channels
-                }, `[SharedChat:${sharedSessionInfo.sessionId}] Processing message in shared session with: ${sharedSessionInfo.channels.join(', ')}`);
-            }
-
-            // NOTE: Channel Points redemptions are now handled exclusively via EventSub
-            // in eventsub.js (handleChannelPointsRedemption function).
-            // The old chat-based trigger has been removed to prevent duplicate TTS playback.
-            // If a custom-reward-id is present, it means some other reward was redeemed,
-            // so we ignore the message for TTS processing.
-            if (tags['custom-reward-id']) {
-                logger.debug({
-                    channelNameNoHash,
-                    rewardId: tags['custom-reward-id']
-                }, 'Channel Points redemption detected in chat - ignoring (handled by EventSub)');
-                return;
-            }
-
-            // NOTE: Subscription events (sub, resub, gift sub, raid) are now handled exclusively via EventSub
-            // to avoid duplicate TTS announcements. Filter out these system messages from IRC.
-            // IMPORTANT: Only filter events that have EventSub equivalents:
-            // - sub → channel.subscribe
-            // - resub → channel.subscription.message
-            // - subgift → channel.subscription.gift
-            // - anonsubgift → channel.subscription.gift (is_anonymous=true)
-            // - submysterygift → channel.subscription.gift
-            // - raid → channel.raid
-            // Events WITHOUT EventSub equivalents (DO NOT filter):
-            // - giftpaidupgrade, anongiftpaidupgrade (user upgrades gift sub to paid)
-            // - primepaidupgrade (user upgrades Prime sub to paid)
-            const systemMessageType = tags['msg-id'];
-            const eventSubManagedMessages = ['sub', 'resub', 'subgift', 'anonsubgift', 'submysterygift', 'raid'];
-            if (systemMessageType && eventSubManagedMessages.includes(systemMessageType)) {
-                logger.debug({
-                    channelNameNoHash,
-                    msgId: systemMessageType,
-                    username
-                }, 'System message detected in chat - ignoring (handled by EventSub)');
-                return;
-            }
-
-            // Clean the cheermote from the message if it has bits.
-            // Handle both "Cheer100 hello", "Cheer 100 hello", "!tts Cheer100 hello", and "!tts Cheer 100 hello" formats
-            let cleanMessage = message;
-            if (bits > 0) {
-                // Remove cheermotes from beginning: "Cheer100 hello" or "Cheer 100 hello" -> "hello"
-                cleanMessage = cleanMessage.replace(/^[\w]+\s*\d+\s*/, '').trim();
-                // Remove cheermotes after !tts: "!tts Cheer100 hello" or "!tts Cheer 100 hello" -> "!tts hello"
-                cleanMessage = cleanMessage.replace(/^(!tts\s+)[\w]+\s*\d+\s*/, '$1').trim();
-            }
-
-            if (!cleanMessage) return;
-
-            // --- 2. COMMAND PROCESSING ---
-            const processedCommandName = await processCommand(channelNameNoHash, tags, cleanMessage);
-
-            // --- 3. TTS PROCESSING ---
-            const ttsConfig = await getTtsState(channelNameNoHash);
-            const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
-
-            // If TTS is globally off for the channel or the user is on the ignore list, do no TTS.
-            if (!ttsConfig.engineEnabled || isTtsIgnored) {
-                return;
-            }
-
-            // Skip TTS processing for cheer messages in the regular handler - they'll be handled by the dedicated cheer handler
-            if (bits > 0) {
-                return;
-            }
-
-            // A. If a command was just run, decide if we should READ the command text aloud.
-            if (processedCommandName) {
-                // Requirement 3: Read !music commands aloud. 
-                if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
-                    // Process URLs based on channel configuration
-                    const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                    await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'command' }, sharedSessionInfo);
-                } else if (ttsConfig.mode === 'bits_points_only') {
-                    // In bits/points only mode, do not read commands
-                    return;
-                }
-            }
-            // B. If it was NOT a command, it's a regular chat message.
-            else {
-                // Handle regular chat messages according to the TTS mode.
-                if (ttsConfig.bitsModeEnabled) {
-                    // In bits mode, only messages with enough bits get read.
-                    if (bits > 0) {
-                        const minimumBits = ttsConfig.bitsMinimumAmount || 1;
-                        if (bits >= minimumBits) {
-                            // Process URLs based on channel configuration
-                            const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                            await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'cheer_tts' }, sharedSessionInfo);
-                        }
-                    }
-                    // If bits mode is on and it's a regular message (no bits), we do nothing.
-                } 
-                // Requirement 1: If bits mode is OFF, check for 'all' mode to read regular chat.
-                else if (ttsConfig.mode === 'all') {
-                    const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
-                    if (hasPermission(requiredPermission, tags, channelNameNoHash)) {
-                        // Process URLs based on channel configuration
-                        const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                        await publishTtsEvent(channelNameNoHash, { text: processedMessage, user: username, type: 'chat' }, sharedSessionInfo);
-                    }
-                } else if (ttsConfig.mode === 'bits_points_only') {
-                    // In bits/points only mode, ignore normal chat
-                    return;
-                }
-            }
-            });
-
-            // --- Event Handlers ---
-            // Note: subscription, resub, cheer, and raid events are handled by EventSub (eventsub.js)
-            // to avoid duplicate announcements. IRC handlers are kept only for reference.
-
-            // Handle cheer messages - both with and without text
-            ircClientInstance.on('cheer', async (channel, userstate, message) => {
-            const channelNameNoHash = channel.substring(1);
-            if (!isChannelAllowed(channelNameNoHash.toLowerCase())) return;
-                // De-duplication for cheer events as well
-                const cheerMsgId = userstate?.id || userstate?.['id'] || userstate?.['message-id'];
-                if (isDuplicateIrcMessage(cheerMsgId)) {
-                    logger.debug({ channel: channelNameNoHash.toLowerCase(), msgId: cheerMsgId }, 'IRC dedupe: Skipping duplicate cheer');
-                    return;
-                }
-            const username = userstate.username?.toLowerCase();
-            const bits = parseInt(userstate.bits, 10) || 0;
-            
-            // Check for shared session
-            const sharedSessionInfo = await getSharedSessionInfo(channelNameNoHash);
-            
-            // Clean the cheermote from the message - handle both "Cheer100" and "Cheer 100" formats
-            const cleanMessage = message.replace(/^[\w]+\s*\d+\s*/, '').trim();
-            
-            if (cleanMessage) {
-                // Skip processing if this is a !tts command, as it's already handled by the regular message handler
-                if (message.trim().toLowerCase().startsWith('!tts')) {
-                    return;
-                }
-
-                // Process cheer message with content - treat like a regular message but with bits
-                logger.info(`[CHEER EVENT] Channel: ${channel}, User: ${username}, Message: "${message}", Cleaned: "${cleanMessage}", Bits: ${bits}`);
-
-                // Command processing for cheer messages
-                const processedCommandName = await processCommand(channelNameNoHash, userstate, cleanMessage);
-                
-                // TTS processing for cheer messages
-                const ttsConfig = await getTtsState(channelNameNoHash);
-                const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
-                
-                if (ttsConfig.engineEnabled && !isTtsIgnored) {
-                    if (processedCommandName) {
-                        // Read commands aloud in 'all' mode or 'command' mode, but not in 'bits_points_only' mode
-                        if (processedCommandName !== 'tts' && (ttsConfig.mode === 'all' || ttsConfig.mode === 'command')) {
-                            await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'command' }, sharedSessionInfo);
-                        }
-                        // In bits_points_only mode, do not read commands
-                    } else {
-                        // For non-command cheer messages, respect the TTS mode
-                        if (ttsConfig.bitsModeEnabled) {
-                            const minimumBits = ttsConfig.bitsMinimumAmount || 1;
-                            if (bits >= minimumBits) {
-                                // In command mode, even with bits enabled, we should not read non-command cheer messages
-                                if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only') {
-                                    await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'cheer_tts' }, sharedSessionInfo);
-                                }
-                                // In command mode, non-command cheer messages should be ignored even with bits
-                            }
-                        } else if (ttsConfig.mode === 'all') {
-                            // Only read non-command cheer messages in 'all' mode, not in 'command' mode
-                            const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
-                            if (hasPermission(requiredPermission, userstate, channelNameNoHash)) {
-                                await publishTtsEvent(channelNameNoHash, { text: cleanMessage, user: username, type: 'chat' }, sharedSessionInfo);
-                            }
-                        } // else command mode or bits_points_only with bitsMode disabled => do nothing for non-command messages
-                    }
+                    channelChangeListener = listenForChannelChanges();
                 }
             } else {
-                // Cheer without message - event announcement handled by EventSub (eventsub.js)
-                // No action needed here to avoid duplicate announcements
+                logger.info('ChatVibes (DEV MODE): Skipping EventSub sync (assuming manual setup or ngrok).');
             }
-            });
 
-            // Raid events are handled by EventSub (eventsub.js) to avoid duplicate announcements
-
-            logger.info('ChatVibes: Connecting to Twitch IRC...');
-            await connectIrcClient();
-            ircClientInstance = getIrcClient();
-            ircStartedByThisInstance = true;
+            eventSubStartedByThisInstance = true;
         };
 
-        const stopIrcSubsystem = async () => {
-            if (!ircStartedByThisInstance) return;
+        const stopEventSubSubsystem = async () => {
+            if (!eventSubStartedByThisInstance) return;
             try {
-                logger.info('ChatVibes: Stopping IRC subsystem');
+                logger.info('ChatVibes: Stopping EventSub subsystem');
 
                 // Clean up channel listener first
                 if (channelChangeListener) {
-                    try { channelChangeListener(); } catch {}
+                    try { channelChangeListener(); } catch { }
                     channelChangeListener = null;
                 }
 
-                // Properly destroy the IRC client (removes all event listeners)
-                await destroyIrcClient();
-                ircClientInstance = null;
-
-                logger.info('ChatVibes: IRC subsystem stopped successfully');
+                logger.info('ChatVibes: EventSub subsystem stopped successfully');
             } catch (e) {
-                logger.warn({ err: e }, 'ChatVibes: Error while stopping IRC subsystem');
+                logger.warn({ err: e }, 'ChatVibes: Error while stopping EventSub subsystem');
             }
-            ircStartedByThisInstance = false;
+            eventSubStartedByThisInstance = false;
         };
 
-        // Start leader election to ensure only one active IRC processor
+        // Start leader election to ensure only one active EventSub manager
         if (config.app.nodeEnv === 'development') {
-            logger.info('ChatVibes (DEV MODE): Skipping leader election, starting IRC subsystem directly...');
-            await startIrcSubsystem();
+            logger.info('ChatVibes (DEV MODE): Skipping leader election, starting EventSub subsystem directly...');
+            await startEventSubSubsystem();
         } else {
             leaderElection = createLeaderElection();
             await leaderElection.start({
-                onStartedLeading: startIrcSubsystem,
-                onStoppedLeading: stopIrcSubsystem,
+                onStartedLeading: startEventSubSubsystem,
+                onStoppedLeading: stopEventSubSubsystem,
             });
         }
 

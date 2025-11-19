@@ -3,7 +3,7 @@ import logger from '../../lib/logger.js';
 import { generateMusic } from './musicServiceBridge.js';
 import { getMusicState } from './musicState.js';
 import { sendAudioToChannel } from '../web/server.js';
-import { enqueueMessage } from '../../lib/ircSender.js';
+import { enqueueMessage } from '../../lib/chatSender.js';
 
 const channelQueues = new Map();
 const MAX_MUSIC_QUEUE_LENGTH = 8; // Limit due to up to 60-second generation time

@@ -81,10 +81,21 @@ export class MockCollectionReference {
     // Simple implementation for testing
     const snapshot = {
       docChanges: () => [],
-      forEach: () => {}
+      forEach: () => { }
     };
     callback(snapshot);
-    return () => {}; // Unsubscribe function
+    return () => { }; // Unsubscribe function
+  }
+
+  limit(n) {
+    return this;
+  }
+
+  async add(data) {
+    const id = 'auto-id-' + Math.random().toString(36).substr(2, 9);
+    const docRef = this.doc(id);
+    await docRef.set(data);
+    return docRef;
   }
 }
 

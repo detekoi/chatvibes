@@ -1,5 +1,5 @@
 // src/components/commands/tts/preferences.js
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import { getTtsState } from '../../tts/ttsState.js';
 
 const WEB_UI_BASE_URL = process.env.WEB_UI_BASE_URL || 'https://tts.wildcat.chat';

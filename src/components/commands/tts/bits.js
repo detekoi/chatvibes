@@ -1,7 +1,7 @@
 // src/components/commands/tts/bits.js
 
 import { setBitsConfig, getTtsState } from '../../tts/ttsState.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 
 export default {
     name: 'bitsconfig',

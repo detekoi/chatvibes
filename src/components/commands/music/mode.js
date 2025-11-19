@@ -1,6 +1,6 @@
 // src/components/commands/music/mode.js
 import { setAllowedMusicRoles, getMusicState } from '../../music/musicState.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 
 export default {

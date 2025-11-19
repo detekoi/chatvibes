@@ -8,7 +8,7 @@ import {
     TTS_PITCH_MIN,
     TTS_PITCH_MAX
 } from '../../tts/ttsConstants.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 
 export default {
     name: 'pitch',

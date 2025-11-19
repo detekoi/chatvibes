@@ -1,7 +1,7 @@
 // src/components/commands/tts/emotion.js
 import { setGlobalUserPreference, clearGlobalUserPreference, getGlobalUserPreferences } from '../../tts/ttsState.js';
 import { VALID_EMOTIONS } from '../../tts/ttsConstants.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 
 
 export default {

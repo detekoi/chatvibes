@@ -1,6 +1,6 @@
 // src/components/commands/tts/status.js
 import { getTtsState } from '../../tts/ttsState.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 
 export default {
     name: 'status',

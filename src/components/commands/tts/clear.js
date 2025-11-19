@@ -1,6 +1,6 @@
 // src/components/commands/tts/clear.js
 import * as ttsQueue from '../../tts/ttsQueue.js';
-import { enqueueMessage } from '../../../lib/ircSender.js';
+import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 
 export default {
