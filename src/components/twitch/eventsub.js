@@ -402,7 +402,7 @@ async function handleEventNotification(subscriptionType, event, channelName) {
                     logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, do not read commands
-                    logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping command in bits_points_only mode');
+                    logger.info({ channel: channelName, mode: ttsConfig.mode }, 'Skipping command in bits_points_only mode');
                     return;
                 } else {
                     // Command mode or tts command - command handler already enqueued if needed
