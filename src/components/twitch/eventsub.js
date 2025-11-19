@@ -1,19 +1,19 @@
 // src/components/twitch/eventsub.js
-// EventSub webhook handler for TTS bot event announcements
+// EventSub webhook handler - Router pattern
+// Routes events to specialized handlers for better maintainability
 
 import crypto from 'crypto';
 import config from '../../config/index.js';
 import logger from '../../lib/logger.js';
 import { isChannelAllowed } from '../../lib/allowList.js';
-import * as ttsQueue from '../tts/ttsQueue.js';
 import { getTtsState } from '../tts/ttsState.js';
-import * as sharedChatManager from './sharedChatManager.js';
-import * as redemptionCache from './redemptionCache.js';
-import { publishTtsEvent } from '../../lib/pubsub.js';
-import { processMessageUrls } from '../../lib/urlProcessor.js';
-import { convertEventSubToTags } from './eventSubToTags.js';
-import { processMessage as processCommand, hasPermission } from '../commands/commandProcessor.js';
 import { Firestore } from '@google-cloud/firestore';
+
+// Import event handlers
+import { handleChatMessage } from './handlers/chatHandler.js';
+import { handleChannelPointsRedemption } from './handlers/redemptionHandler.js';
+import { handleNotification } from './handlers/notificationHandler.js';
+import * as sharedChatHandler from './handlers/sharedChatHandler.js';
 
 // Firestore for cross-instance EventSub deduplication
 const firestore = new Firestore();
@@ -153,11 +153,11 @@ function verifySignature(req, rawBody) {
 }
 
 /**
- * Main EventSub webhook handler
- * Processes webhook verification challenges and event notifications
+ * Main EventSub webhook handler (Router)
+ * Handles verification, deduplication, and routes events to specialized handlers
  */
 export async function eventSubHandler(req, res, rawBody) {
-    // Verify signature first
+    // 1. Verify signature first
     if (!verifySignature(req, rawBody)) {
         logger.warn('⚠️ Bad EventSub signature');
         res.writeHead(403).end();
@@ -167,7 +167,7 @@ export async function eventSubHandler(req, res, rawBody) {
     const notification = JSON.parse(rawBody);
     const messageType = req.headers['twitch-eventsub-message-type'];
 
-    // Handle webhook verification challenge
+    // 2. Handle webhook verification challenge
     if (messageType === 'webhook_callback_verification') {
         logger.info('✅ EventSub webhook verification challenge received');
         res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -179,123 +179,79 @@ export async function eventSubHandler(req, res, rawBody) {
     // For all other message types, respond 200 immediately
     res.writeHead(200).end();
 
-    // Handle event notifications
+    // 3. Handle event notifications
     if (messageType === 'notification') {
-        // Check for duplicate/replay (now with global Firestore-based deduplication)
+        // Check for duplicate/replay (with global Firestore-based deduplication)
         if (!(await shouldProcessEvent(req))) {
             return;
         }
 
         const { subscription, event } = notification;
+        const type = subscription.type;
 
-        // Handle shared chat events (processed separately from TTS events)
-        if (subscription.type === 'channel.shared_chat.begin') {
-            try {
-                const sessionId = event?.session_id;
-                const hostBroadcasterId = event?.host_broadcaster_user_id;
-                const participants = event?.participants || [];
-
-                if (!sessionId || !hostBroadcasterId) {
-                    logger.warn({ event }, 'ChatVibes: channel.shared_chat.begin missing required fields');
-                    return;
-                }
-
-                const channelLogins = participants.map(p => p.broadcaster_user_login);
-                logger.info({
-                    sessionId,
-                    hostBroadcasterId,
-                    participantCount: participants.length,
-                    channels: channelLogins
-                }, `ChatVibes: Shared chat session started: ${channelLogins.join(', ')}`);
-
-                sharedChatManager.addSession(sessionId, hostBroadcasterId, participants);
-            } catch (error) {
-                logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.begin');
+        // Route: Shared Chat events
+        if (type.startsWith('channel.shared_chat.')) {
+            if (type === 'channel.shared_chat.begin') {
+                await sharedChatHandler.onBegin(event);
+            } else if (type === 'channel.shared_chat.update') {
+                await sharedChatHandler.onUpdate(event);
+            } else if (type === 'channel.shared_chat.end') {
+                await sharedChatHandler.onEnd(event);
             }
             return;
         }
 
-        if (subscription.type === 'channel.shared_chat.update') {
+        // Route: Channel Points redemption events
+        // These don't require TTS events to be enabled, so we handle them separately
+        if (type.startsWith('channel.channel_points_custom_reward_redemption.')) {
             try {
-                const sessionId = event?.session_id;
-                const participants = event?.participants || [];
-
-                if (!sessionId) {
-                    logger.warn({ event }, 'ChatVibes: channel.shared_chat.update missing session_id');
-                    return;
-                }
-
-                const channelLogins = participants.map(p => p.broadcaster_user_login);
-                logger.info({
-                    sessionId,
-                    participantCount: participants.length,
-                    channels: channelLogins
-                }, `ChatVibes: Shared chat session updated: ${channelLogins.join(', ')}`);
-
-                sharedChatManager.updateSession(sessionId, participants);
+                await handleChannelPointsRedemption(type, event);
             } catch (error) {
-                logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.update');
+                logger.error({ err: error, type }, 'Error handling Channel Points redemption event');
             }
             return;
         }
 
-        if (subscription.type === 'channel.shared_chat.end') {
-            try {
-                const sessionId = event?.session_id;
-
-                if (!sessionId) {
-                    logger.warn({ event }, 'ChatVibes: channel.shared_chat.end missing session_id');
-                    return;
-                }
-
-                logger.info({ sessionId }, 'ChatVibes: Shared chat session ended');
-                sharedChatManager.removeSession(sessionId);
-            } catch (error) {
-                logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.end');
-            }
-            return;
-        }
-
-        // Handle Channel Points redemption events separately (they don't require TTS events to be enabled)
-        if (subscription.type === 'channel.channel_points_custom_reward_redemption.add' ||
-            subscription.type === 'channel.channel_points_custom_reward_redemption.update') {
-            try {
-                await handleChannelPointsRedemption(subscription.type, event);
-            } catch (error) {
-                logger.error({ err: error, type: subscription.type }, 'Error handling Channel Points redemption event');
-            }
-            return;
-        }
-
+        // Common check for TTS-related events: Is channel allowed?
         const channelName = (
             event?.broadcaster_user_name ||
             event?.broadcaster_user_login ||
             event?.to_broadcaster_user_name
         )?.toLowerCase();
 
-        // Verify channel is allowed
         if (!channelName || !(await isChannelAllowed(channelName))) {
-            logger.debug({ channelName, type: subscription.type }, 'EventSub event for non-allowed channel - ignoring');
+            logger.debug({ channelName, type }, 'EventSub event for non-allowed channel - ignoring');
             return;
         }
 
-        // Check if TTS events are enabled for this channel
+        // Route: Chat messages
+        if (type === 'channel.chat.message') {
+            try {
+                await handleChatMessage(event, channelName);
+            } catch (error) {
+                logger.error({ err: error, channelName }, 'Error handling chat message event');
+            }
+            return;
+        }
+
+        // For other event types, check if TTS events are enabled
         const ttsConfig = await getTtsState(channelName);
         if (!ttsConfig.engineEnabled || !ttsConfig.speakEvents) {
-            logger.debug({ channelName, type: subscription.type }, 'TTS events disabled for channel - ignoring EventSub event');
+            logger.debug({ channelName, type }, 'TTS events disabled for channel - ignoring EventSub event');
             return;
         }
 
-        logger.info({ channelName, type: subscription.type }, 'Processing EventSub event for TTS');
+        logger.info({ channelName, type }, 'Processing EventSub event for TTS');
 
+        // Route: Standard notifications (subs, raids, follows, cheers)
         try {
-            await handleEventNotification(subscription.type, event, channelName);
+            await handleNotification(type, event, channelName);
         } catch (error) {
-            logger.error({ err: error, type: subscription.type, channelName }, 'Error handling EventSub notification');
+            logger.error({ err: error, type, channelName }, 'Error handling EventSub notification');
         }
     }
 
-    // Handle revocation notifications
+    // 4. Handle revocation notifications
     if (messageType === 'revocation') {
         const { subscription } = notification;
         logger.warn({
@@ -304,587 +260,4 @@ export async function eventSubHandler(req, res, rawBody) {
             condition: subscription.condition
         }, 'EventSub subscription was revoked');
     }
-}
-
-/**
- * Handle individual event notifications and send to TTS queue
- */
-async function handleEventNotification(subscriptionType, event, channelName) {
-    let ttsText = null;
-    let username = 'event_tts'; // Default for events without specific user
-
-    switch (subscriptionType) {
-        case 'channel.subscribe': {
-            // New subscription
-            const subUser = event.user_name || event.user_login || 'Someone';
-            const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
-            ttsText = `${subUser} just subscribed${tier}!`;
-            username = subUser;
-            logger.info({ channelName, user: subUser, tier: event.tier }, 'New subscription event');
-            break;
-        }
-
-        case 'channel.subscription.message': {
-            // Resubscription with message
-            const resubUser = event.user_name || event.user_login || 'Someone';
-            const months = event.cumulative_months || event.duration_months || 0;
-            const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
-            const message = event.message?.text ? ` ${event.message.text}` : '';
-            ttsText = `${resubUser} resubscribed for ${months} months${tier}!${message}`;
-            username = resubUser;
-            logger.info({ channelName, user: resubUser, months, tier: event.tier }, 'Resubscription event');
-            break;
-        }
-
-        case 'channel.subscription.gift': {
-            // Gift subscription(s)
-            const gifterUser = event.user_name || event.user_login || 'An anonymous gifter';
-            const total = event.total || 1;
-            const tier = event.tier ? ` Tier ${event.tier / 1000}` : '';
-            const isAnonymous = event.is_anonymous;
-
-            if (isAnonymous || !event.user_name) {
-                ttsText = `${total} ${tier} gift ${total === 1 ? 'sub' : 'subs'} from an anonymous gifter!`;
-                username = 'anonymous_gifter';
-            } else {
-                ttsText = `${gifterUser} just gifted ${total} ${tier} ${total === 1 ? 'sub' : 'subs'}!`;
-                username = gifterUser;
-            }
-            logger.info({ channelName, gifter: gifterUser, total, tier: event.tier, isAnonymous }, 'Gift subscription event');
-            break;
-        }
-
-        case 'channel.cheer': {
-            // Bits cheer (without the message - message already handled by IRC cheer handler)
-            const cheerUser = event.user_name || event.user_login || 'Someone';
-            const bits = event.bits || 0;
-            const isAnonymous = event.is_anonymous;
-
-            if (isAnonymous) {
-                ttsText = `${bits} bits from an anonymous cheerer!`;
-                username = 'anonymous_cheerer';
-            } else {
-                ttsText = `${cheerUser} cheered ${bits} bits!`;
-                username = cheerUser;
-            }
-            logger.info({ channelName, user: cheerUser, bits, isAnonymous }, 'Cheer event');
-            break;
-        }
-
-        case 'channel.raid': {
-            // Incoming raid
-            const raiderUser = event.from_broadcaster_user_name || event.from_broadcaster_user_login || 'A streamer';
-            const viewers = event.viewers || 0;
-            ttsText = `${raiderUser} is raiding with ${viewers} ${viewers === 1 ? 'viewer' : 'viewers'}!`;
-            username = raiderUser;
-            logger.info({ channelName, raider: raiderUser, viewers }, 'Raid event');
-            break;
-        }
-
-        case 'channel.follow': {
-            // New follower (v2)
-            const followerUser = event.user_name || event.user_login || 'Someone';
-            ttsText = `${followerUser} just followed!`;
-            username = followerUser;
-            logger.info({ channelName, user: followerUser }, 'Follow event');
-            break;
-        }
-
-        case 'channel.chat.message': {
-            // Chat message - process with full filtering logic like the old IRC handler
-            const username = (event.chatter_user_login || event.chatter_user_name || 'Someone').toLowerCase();
-            const messageText = event.message?.text || '';
-            const bits = event.cheer?.bits || 0;
-
-            // Skip processing the bot's own messages to avoid infinite loops
-            const botUsername = config.twitch.username?.toLowerCase();
-            if (botUsername && username === botUsername) {
-                logger.debug({ user: username }, 'Skipping bot\'s own message');
-                return;
-            }
-
-            logger.debug({ channelName, user: username, text: messageText, bits }, 'Chat message event');
-
-            // Get shared session info
-            const sharedSessionInfo = await getSharedSessionInfo(channelName);
-
-            // Skip if channel points redemption (handled by EventSub channel.channel_points_custom_reward_redemption.add)
-            if (event.channel_points_custom_reward_id) {
-                logger.debug({
-                    channelName,
-                    rewardId: event.channel_points_custom_reward_id
-                }, 'Channel Points redemption detected - ignoring (handled by EventSub)');
-                return;
-            }
-
-            // Convert EventSub event to IRC-style tags for command processor
-            const tags = convertEventSubToTags(event);
-
-            // Clean the cheermote from the message if it has bits
-            let cleanMessage = messageText;
-            if (bits > 0) {
-                // Remove cheermotes from beginning: "Cheer100 hello" or "Cheer 100 hello" -> "hello"
-                cleanMessage = cleanMessage.replace(/^[\w]+\s*\d+\s*/, '').trim();
-                // Remove cheermotes after !tts: "!tts Cheer100 hello" or "!tts Cheer 100 hello" -> "!tts hello"
-                cleanMessage = cleanMessage.replace(/^(!tts\s+)[\w]+\s*\d+\s*/, '$1').trim();
-            }
-
-            if (!cleanMessage) return;
-
-            // --- COMMAND PROCESSING ---
-            const processedCommandName = await processCommand(channelName, tags, cleanMessage);
-
-            // --- TTS PROCESSING ---
-            const ttsConfig = await getTtsState(channelName);
-            const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
-
-            // If TTS is globally off for the channel or the user is on the ignore list, do no TTS
-            if (!ttsConfig.engineEnabled || isTtsIgnored) {
-                return;
-            }
-
-            // Skip TTS processing for cheer messages in the regular handler if they'll be handled separately
-            // (Note: EventSub provides cheer data in the same channel.chat.message event, not a separate cheer event)
-            // So we handle both regular messages and cheer messages here
-
-            // A. If a command was just run, decide if we should READ the command text aloud
-            if (processedCommandName) {
-                // Read non-tts commands aloud in 'all' mode
-                if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
-                    const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                    await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'command', messageId: event.message_id }, sharedSessionInfo);
-                    logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
-                } else if (ttsConfig.mode === 'bits_points_only') {
-                    // In bits/points only mode, do not read commands
-                    logger.info({ channel: channelName, mode: ttsConfig.mode }, 'Skipping command in bits_points_only mode');
-                    return;
-                } else {
-                    // Command mode or tts command - command handler already enqueued if needed
-                    logger.debug({ channel: channelName, command: processedCommandName, mode: ttsConfig.mode }, 'Command processed, not reading command text aloud');
-                }
-            }
-            // B. If it was NOT a command, it's a regular chat message or cheer
-            else {
-                // Handle messages with bits (cheers)
-                if (bits > 0) {
-                    const minimumBits = ttsConfig.bitsMinimumAmount || 1;
-                    if (bits >= minimumBits) {
-                        // Only process if in all mode or bits/points mode
-                        if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
-                            const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                            await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
-                            logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
-                        } else {
-                            logger.debug({ channel: channelName, bits, mode: ttsConfig.mode }, 'Skipping cheer - mode not compatible');
-                        }
-                    } else {
-                        logger.debug({ channel: channelName, bits, minimumBits }, 'Skipping cheer - insufficient bits');
-                    }
-                }
-                // Handle regular chat messages (no bits)
-                else if (ttsConfig.mode === 'all') {
-                    const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
-                    if (hasPermission(requiredPermission, tags, channelName)) {
-                        const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                        await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
-                        logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
-                    } else {
-                        logger.debug({ channel: channelName, user: username, requiredPermission, hasMod: tags.mod }, 'Skipping chat - insufficient permission');
-                    }
-                } else if (ttsConfig.mode === 'bits_points_only') {
-                    // In bits/points only mode, ignore normal chat without bits
-                    logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping regular chat in bits_points_only mode');
-                    return;
-                } else {
-                    // In 'command' mode, non-command messages are ignored
-                    logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping regular chat in command mode');
-                }
-            }
-
-            return;
-        }
-
-        default:
-            logger.warn({ type: subscriptionType, channelName }, 'Unhandled EventSub subscription type');
-            return;
-    }
-
-    // Publish to Pub/Sub for distribution to all instances
-    // This ensures shared chat sessions and multi-instance deployments work correctly
-    if (ttsText) {
-        logger.debug({ channelName, text: ttsText, user: username }, 'Publishing EventSub event to Pub/Sub for TTS');
-
-        // Get shared session info for distribution to all participating channels
-        const sharedSessionInfo = await getSharedSessionInfo(channelName);
-
-        await publishTtsEvent(channelName, {
-            text: ttsText,
-            user: username,
-            type: 'event'
-        }, sharedSessionInfo);
-    }
-}
-
-/**
- * Helper function to get broadcaster ID from cache (to avoid repeated lookups)
- */
-const broadcasterIdCache = new Map();
-
-async function getBroadcasterIdByLogin(channelLogin) {
-    if (broadcasterIdCache.has(channelLogin)) {
-        return broadcasterIdCache.get(channelLogin);
-    }
-
-    const { getUsersByLogin } = await import('./helixClient.js');
-    const users = await getUsersByLogin([channelLogin]);
-    if (users && users.length > 0) {
-        const broadcasterId = users[0].id;
-        broadcasterIdCache.set(channelLogin, broadcasterId);
-        return broadcasterId;
-    }
-
-    return null;
-}
-
-/**
- * Get shared session info for a channel
- */
-async function getSharedSessionInfo(channelLogin) {
-    try {
-        const broadcasterId = await getBroadcasterIdByLogin(channelLogin);
-        if (!broadcasterId) {
-            return null;
-        }
-
-        const sessionId = sharedChatManager.getSessionForChannel(broadcasterId);
-        if (!sessionId) {
-            return null;
-        }
-
-        const session = sharedChatManager.getSession(sessionId);
-        if (!session) {
-            return null;
-        }
-
-        const channelLogins = session.participants.map(p => p.broadcaster_user_login);
-
-        return {
-            sessionId,
-            channels: channelLogins,
-            participantCount: channelLogins.length
-        };
-    } catch (error) {
-        logger.warn({ err: error, channel: channelLogin }, 'Error getting shared session info for channel points redemption');
-        return null;
-    }
-}
-
-/**
- * Handle Channel Points custom reward redemption events
- * This is the NEW implementation that uses EventSub instead of chat messages
- */
-async function handleChannelPointsRedemption(subscriptionType, event) {
-    const channelLogin = (event?.broadcaster_user_login || event?.broadcaster_user_name)?.toLowerCase();
-    const rewardId = event?.reward?.id;
-    const redemptionId = event?.id;
-    const userInput = event?.user_input || '';
-    const userName = (event?.user_login || event?.user_name)?.toLowerCase();
-    const status = event?.status;
-
-    logger.debug({
-        type: subscriptionType,
-        channelLogin,
-        userName,
-        rewardId,
-        redemptionId,
-        status,
-        userInputPreview: userInput?.substring(0, 30)
-    }, 'Received Channel Points redemption event');
-
-    // Verify channel is allowed
-    if (!channelLogin || !(await isChannelAllowed(channelLogin))) {
-        logger.debug({ channelLogin, subscriptionType }, 'Channel Points event for non-allowed channel - ignoring');
-        return;
-    }
-
-    // Get TTS config for this channel
-    const ttsConfig = await getTtsState(channelLogin);
-    const configuredRewardId = ttsConfig.channelPoints?.rewardId || ttsConfig.channelPointRewardId;
-
-    // Check if this is our TTS reward
-    if (!configuredRewardId || rewardId !== configuredRewardId) {
-        logger.debug({ channelLogin, rewardId, configuredRewardId }, 'Redemption is not for our TTS reward - ignoring');
-        return;
-    }
-
-    // Check if Channel Points TTS is enabled
-    const enabledViaNewConfig = ttsConfig.channelPoints ? ttsConfig.channelPoints.enabled === true : true;
-    if (!enabledViaNewConfig || !ttsConfig.engineEnabled) {
-        logger.debug({ channelLogin }, 'Channel Points TTS is disabled for this channel - ignoring');
-        return;
-    }
-
-    // Check if user is ignored
-    const isIgnored = Array.isArray(ttsConfig.ignoredUsers) && ttsConfig.ignoredUsers.includes(userName);
-    if (isIgnored) {
-        logger.debug({ channelLogin, userName }, 'User is on ignore list - skipping TTS');
-        return;
-    }
-
-    // Handle redemption.add event
-    if (subscriptionType === 'channel.channel_points_custom_reward_redemption.add') {
-        if (status === 'unfulfilled') {
-            // Redemption is waiting for approval - add to cache
-            logger.info({
-                channelLogin,
-                userName,
-                redemptionId,
-                textPreview: userInput?.substring(0, 30)
-            }, 'Channel Points redemption pending approval - adding to cache');
-
-            // Store rewardId along with redemption for later rejection if needed
-            redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId);
-        } else if (status === 'fulfilled') {
-            // Redemption was auto-approved (Skip Queue enabled) - validate and play immediately
-            logger.info({
-                channelLogin,
-                userName,
-                redemptionId,
-                textPreview: userInput?.substring(0, 30)
-            }, 'Channel Points redemption auto-approved - validating and playing');
-
-            await processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId, rewardId);
-        }
-    }
-    // Handle redemption.update event
-    else if (subscriptionType === 'channel.channel_points_custom_reward_redemption.update') {
-        if (status === 'fulfilled') {
-            // Check if this redemption was in our cache (meaning it was waiting for approval)
-            const cachedRedemption = redemptionCache.getRedemption(redemptionId);
-
-            if (cachedRedemption) {
-                logger.info({
-                    channelLogin,
-                    userName,
-                    redemptionId,
-                    textPreview: cachedRedemption.userInput?.substring(0, 30)
-                }, 'Channel Points redemption approved by streamer - validating and playing TTS');
-
-                await processTtsRedemption(
-                    cachedRedemption.channelName,
-                    cachedRedemption.userInput,
-                    cachedRedemption.userName,
-                    ttsConfig,
-                    redemptionId,
-                    cachedRedemption.rewardId || rewardId
-                );
-
-                // Remove from cache after processing
-                redemptionCache.removeRedemption(redemptionId);
-            } else {
-                logger.debug({ redemptionId, channelLogin }, 'Redemption update for fulfilled status but not in cache - likely was auto-approved');
-            }
-        } else if (status === 'canceled') {
-            // Redemption was canceled - remove from cache if present
-            const existed = redemptionCache.removeRedemption(redemptionId);
-            if (existed) {
-                logger.info({ channelLogin, userName, redemptionId }, 'Channel Points redemption canceled - removed from cache');
-            }
-        }
-    }
-}
-
-/**
- * Get user access token for broadcaster from Firestore/Secret Manager
- * This retrieves the broadcaster's OAuth token with channel:manage:redemptions scope
- */
-async function getBroadcasterAccessToken(channelLogin) {
-    try {
-        // Dynamically import Firestore
-        const { getFirestore } = await import('firebase-admin/firestore');
-        const db = getFirestore();
-
-        // Get user document from managedChannels collection
-        const userDoc = await db.collection('managedChannels').doc(channelLogin).get();
-
-        if (!userDoc.exists) {
-            logger.warn({ channelLogin }, 'Broadcaster not found in managedChannels - cannot get user token');
-            return null;
-        }
-
-        const userData = userDoc.data();
-        const { twitchUserId, needsTwitchReAuth } = userData;
-
-        if (needsTwitchReAuth) {
-            logger.warn({ channelLogin }, 'Broadcaster needs to re-authenticate - cannot reject redemption');
-            return null;
-        }
-
-        if (!twitchUserId) {
-            logger.warn({ channelLogin }, 'Broadcaster missing twitchUserId');
-            return null;
-        }
-
-        // Get access token from Secret Manager using shared helper (with caching)
-        const { getSecretValue } = await import('../../lib/secretManager.js');
-        const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
-
-        if (!projectId) {
-            logger.warn('GOOGLE_CLOUD_PROJECT not set - cannot access Secret Manager');
-            return null;
-        }
-
-        const secretName = `projects/${projectId}/secrets/twitch-access-token-${twitchUserId}/versions/latest`;
-
-        try {
-            const accessToken = await getSecretValue(secretName);
-            if (accessToken) {
-                logger.debug({ channelLogin }, 'Retrieved broadcaster access token from Secret Manager');
-                return accessToken.trim();
-            } else {
-                logger.warn({ channelLogin, twitchUserId }, 'Failed to get broadcaster access token from Secret Manager');
-                return null;
-            }
-        } catch (secretError) {
-            logger.warn({
-                err: secretError,
-                channelLogin,
-                twitchUserId
-            }, 'Error getting broadcaster access token from Secret Manager');
-            return null;
-        }
-    } catch (error) {
-        logger.error({
-            err: error,
-            channelLogin
-        }, 'Error getting broadcaster access token');
-        return null;
-    }
-}
-
-/**
- * Reject a Channel Points redemption via Twitch API
- * Requires broadcaster's user access token with channel:manage:redemptions scope
- */
-async function rejectRedemption(channelLogin, redemptionId, rewardId, reason) {
-    try {
-        const { getUsersByLogin } = await import('./helixClient.js');
-        const { getClientId } = await import('./auth.js');
-
-        const users = await getUsersByLogin([channelLogin]);
-        if (!users || users.length === 0) {
-            logger.warn({ channelLogin }, 'Cannot reject redemption - broadcaster user ID not found');
-            return false;
-        }
-
-        const broadcasterId = users[0].id;
-
-        // Get broadcaster's user access token (not app access token!)
-        const token = await getBroadcasterAccessToken(channelLogin);
-        if (!token) {
-            logger.warn({
-                channelLogin,
-                redemptionId,
-                reason
-            }, 'Cannot reject redemption - broadcaster access token not available (may need to re-authenticate)');
-            return false;
-        }
-
-        const clientId = await getClientId();
-
-        const axios = (await import('axios')).default;
-        const url = `https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions?broadcaster_id=${encodeURIComponent(broadcasterId)}&reward_id=${encodeURIComponent(rewardId)}&id=${encodeURIComponent(redemptionId)}`;
-
-        await axios.patch(url, {
-            status: 'CANCELED'
-        }, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Client-ID': clientId,
-                'Content-Type': 'application/json'
-            },
-            timeout: 10000
-        });
-
-        logger.info({
-            channelLogin,
-            redemptionId,
-            reason
-        }, 'Rejected Channel Points redemption and refunded points');
-
-        return true;
-    } catch (error) {
-        logger.error({
-            err: error,
-            channelLogin,
-            redemptionId,
-            status: error.response?.status,
-            data: error.response?.data
-        }, 'Failed to reject Channel Points redemption via Twitch API');
-        return false;
-    }
-}
-
-/**
- * Process a TTS redemption (apply content policy and enqueue for playback)
- * Returns validation result: { ok: boolean, reason?: string }
- */
-async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId = null, rewardId = null) {
-    const redeemMessage = (userInput || '').trim();
-
-    if (redeemMessage.length === 0) {
-        logger.debug({ channelLogin, userName }, 'Empty redemption message - rejecting');
-        if (redemptionId && rewardId) {
-            await rejectRedemption(channelLogin, redemptionId, rewardId, 'Message is empty');
-        }
-        return { ok: false, reason: 'Message is empty' };
-    }
-
-    // Enforce content policy if configured
-    const policy = (ttsConfig.channelPoints && ttsConfig.channelPoints.contentPolicy) || {};
-    const blockLinks = policy.blockLinks !== false; // default block links
-    const bannedWords = Array.isArray(policy.bannedWords) ? policy.bannedWords : [];
-
-    // Note: Twitch enforces 500 character limit on redemption input, so we don't need to validate length here
-    // If a message exceeds 500 chars, Twitch won't allow the redemption in the first place
-
-    if (blockLinks && /\bhttps?:\/\//i.test(redeemMessage)) {
-        const reason = 'Message contains blocked link';
-        logger.info({ channelLogin, userName, redemptionId }, reason);
-        if (redemptionId && rewardId) {
-            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
-        }
-        return { ok: false, reason };
-    }
-
-    const lowered = redeemMessage.toLowerCase();
-    if (bannedWords.some(w => w && lowered.includes(String(w).toLowerCase()))) {
-        const reason = 'Message contains banned word';
-        logger.info({ channelLogin, userName, redemptionId }, reason);
-        if (redemptionId && rewardId) {
-            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
-        }
-        return { ok: false, reason };
-    }
-
-    // Process URLs based on channel configuration
-    const processedMessage = processMessageUrls(redeemMessage, ttsConfig.readFullUrls);
-
-    // Get shared session info
-    const sharedSessionInfo = await getSharedSessionInfo(channelLogin);
-
-    // Publish to Pub/Sub for distribution to all instances
-    logger.info({
-        channel: channelLogin,
-        user: userName,
-        textPreview: processedMessage.substring(0, 30)
-    }, 'Publishing Channel Points TTS redemption to Pub/Sub');
-
-    await publishTtsEvent(channelLogin, {
-        text: processedMessage,
-        user: userName,
-        type: 'reward'
-    }, sharedSessionInfo);
-
-    return { ok: true };
 }
