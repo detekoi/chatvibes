@@ -65,14 +65,14 @@ function isDuplicatePubSubEvent(channelName, eventData) {
         }
 
         if (lastTs && now - lastTs < PUBSUB_DEDUP_TTL_MS) {
-            logger.debug({
+            logger.info({
                 channel: channelName,
                 user,
                 textPreview: text?.substring(0, 30),
                 messageId,
                 key,
                 ageMs: now - lastTs
-            }, 'Pub/Sub dedupe: Blocked by local cache');
+            }, 'TTS message blocked: Duplicate detected in local cache (dedupe)');
             return true;
         }
 
@@ -110,14 +110,14 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
                 const data = snap.data() || {};
                 const expireAtMs = typeof data.expireAtMs === 'number' ? data.expireAtMs : 0;
                 if (expireAtMs > now) {
-                    logger.debug({
+                    logger.info({
                         channel: channelName,
                         user,
                         textPreview: text?.substring(0, 30),
                         messageId,
                         keyRaw,
                         ageMs: now - data.createdAtMs
-                    }, 'Pub/Sub dedupe: Blocked by global claim (Firestore)');
+                    }, 'TTS message blocked: Duplicate detected in global claim (Firestore dedupe)');
                     return false; // already claimed recently
                 }
             }
@@ -368,13 +368,13 @@ async function main() {
 
             // Pub/Sub dedupe: local memory check
             if (isDuplicatePubSubEvent(channelName, eventData)) {
-                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0, 30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue (local cache)');
+                logger.info({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0, 30) }, 'Skipping duplicate TTS enqueue (blocked by local cache)');
                 return;
             }
             // Pub/Sub dedupe: cross-instance Firestore claim (authoritative)
             const claimed = await claimTtsEventGlobal(channelName, eventData);
             if (!claimed) {
-                logger.debug({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0, 30) }, 'Pub/Sub dedupe: Skipping duplicate TTS enqueue (global claim)');
+                logger.info({ channel: channelName, user: eventData.user, textPreview: eventData.text?.substring(0, 30) }, 'Skipping duplicate TTS enqueue (blocked by global Firestore claim)');
                 return;
             }
             await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
