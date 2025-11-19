@@ -350,6 +350,11 @@ async function main() {
         logger.info('ChatVibes: Initializing Chat Sender queue...');
         initializeChatSender();
 
+        // Start the Web Server early
+        logger.info('ChatVibes: Initializing Web Server for OBS audio...');
+        const { server: webServerInstance, hasActiveClients } = initializeWebServer();
+        global.healthServer = webServerInstance;
+
         // Initialize Pub/Sub for cross-instance TTS communication
         logger.info('ChatVibes: Initializing Pub/Sub for TTS message distribution...');
         await initializePubSub();
@@ -359,6 +364,23 @@ async function main() {
         logger.info('ChatVibes: Setting up Pub/Sub subscriber for TTS events...');
         await subscribeTtsEvents(async (channelName, eventData, sharedSessionInfo) => {
             // This handler is called on ALL instances when a TTS event is published
+
+            // optimization: Check if this instance has active clients for this channel BEFORE dedup/claiming
+            // This prevents "idle" instances from claiming the event and then failing to play it
+            if (!hasActiveClients(channelName)) {
+                // If this is a shared session, check if ANY of the shared channels have clients on this instance
+                let hasSharedClients = false;
+                if (sharedSessionInfo && sharedSessionInfo.channels) {
+                    hasSharedClients = sharedSessionInfo.channels.some(ch => hasActiveClients(ch));
+                }
+
+                if (!hasSharedClients) {
+                    // Log at debug level to avoid noise in multi-instance setups
+                    // logger.debug({ channel: channelName }, 'Skipping TTS event - no active WebSocket clients on this instance');
+                    return;
+                }
+            }
+
             // The ttsQueue.enqueue will check if there are active WebSocket clients
             const logData = {
                 channel: channelName,
@@ -388,11 +410,6 @@ async function main() {
             await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
         });
         logger.info('ChatVibes: Pub/Sub subscriber ready');
-
-        // Start the Web Server early
-        logger.info('ChatVibes: Initializing Web Server for OBS audio...');
-        const { server: webServerInstance } = initializeWebServer();
-        global.healthServer = webServerInstance;
 
         // Functions to start/stop EventSub subsystem under leader election
         const startEventSubSubsystem = async () => {
