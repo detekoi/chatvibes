@@ -1,7 +1,7 @@
 // src/components/commands/tts/say.js
-import * as ttsQueue from '../../tts/ttsQueue.js';
 import { getTtsState } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
+import { publishTtsEvent } from '../../../lib/pubsub.js';
 import logger from '../../../lib/logger.js';
 
 export default {
@@ -28,7 +28,8 @@ export default {
 
         logger.info(`ChatVibes [${channelNameNoHash}]: User ${user.username} requested TTS say: "${messageToSay}"`);
 
-        await ttsQueue.enqueue(channelNameNoHash, {
+        // Publish to Pub/Sub for deduplication across instances
+        await publishTtsEvent(channelNameNoHash, {
             text: messageToSay,
             user: user.username,
             type: 'command_say'

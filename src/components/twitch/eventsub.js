@@ -399,9 +399,14 @@ async function handleEventNotification(subscriptionType, event, channelName) {
                 if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
                     const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
                     await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'command', messageId: event.message_id }, sharedSessionInfo);
+                    logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, do not read commands
+                    logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping command in bits_points_only mode');
                     return;
+                } else {
+                    // Command mode or tts command - command handler already enqueued if needed
+                    logger.debug({ channel: channelName, command: processedCommandName, mode: ttsConfig.mode }, 'Command processed, not reading command text aloud');
                 }
             }
             // B. If it was NOT a command, it's a regular chat message or cheer
@@ -414,7 +419,12 @@ async function handleEventNotification(subscriptionType, event, channelName) {
                         if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
                             const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
                             await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
+                            logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
+                        } else {
+                            logger.debug({ channel: channelName, bits, mode: ttsConfig.mode }, 'Skipping cheer - mode not compatible');
                         }
+                    } else {
+                        logger.debug({ channel: channelName, bits, minimumBits }, 'Skipping cheer - insufficient bits');
                     }
                 }
                 // Handle regular chat messages (no bits)
@@ -423,12 +433,18 @@ async function handleEventNotification(subscriptionType, event, channelName) {
                     if (hasPermission(requiredPermission, tags, channelName)) {
                         const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
                         await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
+                        logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
+                    } else {
+                        logger.debug({ channel: channelName, user: username, requiredPermission, hasMod: tags.mod }, 'Skipping chat - insufficient permission');
                     }
                 } else if (ttsConfig.mode === 'bits_points_only') {
                     // In bits/points only mode, ignore normal chat without bits
+                    logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping regular chat in bits_points_only mode');
                     return;
+                } else {
+                    // In 'command' mode, non-command messages are ignored
+                    logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping regular chat in command mode');
                 }
-                // In 'command' mode, non-command messages are ignored (this is the else case - do nothing)
             }
 
             return;
