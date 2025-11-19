@@ -373,13 +373,26 @@ export async function subscribeChannelPointsRedemptionUpdate(broadcasterUserId) 
 
 /**
  * Subscribe to channel.chat.message events (chat messages)
- * Requires user access token with user:read:chat scope
+ * Requires bot's user access token with user:read:chat scope
  */
 export async function subscribeChannelChatMessage(broadcasterUserId) {
-    const { publicUrl, eventSubSecret } = config.twitch;
+    const { publicUrl, eventSubSecret, accessToken } = config.twitch;
     if (!publicUrl || !eventSubSecret) {
         logger.error('Missing PUBLIC_URL or TWITCH_EVENTSUB_SECRET in config');
         return { success: false, error: 'Missing configuration' };
+    }
+
+    if (!accessToken) {
+        logger.error('Missing bot access token in config (required for channel.chat.message subscription)');
+        return { success: false, error: 'Missing bot access token' };
+    }
+
+    // Get the bot's user ID
+    const { getBotUserId } = await import('./chatClient.js');
+    const botUserId = await getBotUserId();
+    if (!botUserId) {
+        logger.error('Could not determine bot user ID for channel.chat.message subscription');
+        return { success: false, error: 'Could not determine bot user ID' };
     }
 
     const body = {
@@ -387,7 +400,7 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
         version: '1',
         condition: {
             broadcaster_user_id: broadcasterUserId,
-            user_id: broadcasterUserId // The user_id is the user whose chat we want to read (the broadcaster)
+            user_id: botUserId // The user_id is the bot's ID (the user whose token is being used)
         },
         transport: {
             method: 'webhook',
@@ -396,14 +409,32 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
         }
     };
 
-    // This subscription requires the broadcaster's token with user:read:chat scope
-    // We use makeHelixRequestWithBroadcasterToken which handles retrieving the token
-    const result = await makeHelixRequestWithBroadcasterToken('post', '/eventsub/subscriptions', body, broadcasterUserId);
+    // This subscription requires the BOT's token with user:read:chat scope
+    // We use the bot's user access token from config
+    try {
+        const clientId = await getClientId();
+        const response = await axios({
+            method: 'post',
+            url: 'https://api.twitch.tv/helix/eventsub/subscriptions',
+            data: body,
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Client-ID': clientId,
+                'Content-Type': 'application/json'
+            },
+            timeout: 15000
+        });
 
-    if (result.success) {
-        logger.info({ broadcasterUserId, type: 'channel.chat.message' }, 'Successfully subscribed to channel.chat.message');
+        logger.info({ broadcasterUserId, botUserId, type: 'channel.chat.message' }, 'Successfully subscribed to channel.chat.message');
+        return { success: true, data: response.data };
+    } catch (error) {
+        logger.error({
+            err: error.response ? error.response.data : error.message,
+            broadcasterUserId,
+            botUserId
+        }, 'Error subscribing to channel.chat.message');
+        return { success: false, error: error.message };
     }
-    return result;
 }
 
 /**
