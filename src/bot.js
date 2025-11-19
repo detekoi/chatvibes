@@ -47,18 +47,35 @@ function isDuplicatePubSubEvent(channelName, eventData) {
     try {
         const user = (eventData?.user || '').toLowerCase();
         const text = (eventData?.text || '').trim();
-        const key = `${channelName}|${user}|${text}`;
+        const messageId = eventData?.messageId || '';
+
+        // Use messageId if available (from EventSub), otherwise fall back to text-based dedup
+        const key = messageId
+            ? `${channelName}|${messageId}`
+            : `${channelName}|${user}|${text}`;
+
         const now = Date.now();
         const lastTs = recentPubSubKeys.get(key);
+
         // Cleanup occasionally to bound memory
         if (recentPubSubKeys.size > 1000) {
             for (const [k, ts] of recentPubSubKeys) {
                 if (now - ts > PUBSUB_DEDUP_TTL_MS) recentPubSubKeys.delete(k);
             }
         }
+
         if (lastTs && now - lastTs < PUBSUB_DEDUP_TTL_MS) {
+            logger.debug({
+                channel: channelName,
+                user,
+                textPreview: text?.substring(0, 30),
+                messageId,
+                key,
+                ageMs: now - lastTs
+            }, 'Pub/Sub dedupe: Blocked by local cache');
             return true;
         }
+
         recentPubSubKeys.set(key, now);
         return false;
     } catch (_) {
@@ -73,9 +90,13 @@ const processedEventsCollection = firestore.collection('processedTtsEvents');
 async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_TTL_MS) {
     const user = (eventData?.user || '').toLowerCase();
     const text = (eventData?.text || '').trim();
+    const messageId = eventData?.messageId || '';
     if (!channelName || !text) return true; // if missing data, do not block
 
-    const keyRaw = `${channelName}|${user}|${text}`;
+    // Use messageId if available (from EventSub), otherwise fall back to text-based dedup
+    const keyRaw = messageId
+        ? `${channelName}|${messageId}`
+        : `${channelName}|${user}|${text}`;
     const keyHash = crypto.createHash('sha1').update(keyRaw).digest('hex');
     const docRef = processedEventsCollection.doc(keyHash);
     const now = Date.now();
@@ -87,12 +108,21 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
                 const data = snap.data() || {};
                 const expireAtMs = typeof data.expireAtMs === 'number' ? data.expireAtMs : 0;
                 if (expireAtMs > now) {
+                    logger.debug({
+                        channel: channelName,
+                        user,
+                        textPreview: text?.substring(0, 30),
+                        messageId,
+                        keyRaw,
+                        ageMs: now - data.createdAtMs
+                    }, 'Pub/Sub dedupe: Blocked by global claim (Firestore)');
                     return false; // already claimed recently
                 }
             }
             tx.set(docRef, {
                 channel: channelName,
                 user,
+                messageId: messageId || null,
                 createdAtMs: now,
                 expireAtMs: now + ttlMs,
             }, { merge: true });
