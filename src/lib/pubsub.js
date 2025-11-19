@@ -68,18 +68,19 @@ export async function publishTtsEvent(channelName, eventData, sharedSessionInfo 
         const messageId = await topic.publishMessage({ data: dataBuffer });
         
         const logData = {
-            messageId,
+            pubsubMessageId: messageId,
             channel: channelName,
             user: eventData.user,
+            eventMessageId: eventData.messageId || 'N/A',
             textPreview: eventData.text?.substring(0, 30)
         };
 
         if (sharedSessionInfo) {
             logData.sessionId = sharedSessionInfo.sessionId;
             logData.sharedChannels = sharedSessionInfo.channels;
-            logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] Published TTS event to Pub/Sub for shared session`);
+            logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] Published TTS event to Pub/Sub (EventSub msgId: ${eventData.messageId || 'N/A'})`);
         } else {
-            logger.debug(logData, `Published TTS event to Pub/Sub`);
+            logger.debug(logData, `Published TTS event to Pub/Sub (EventSub msgId: ${eventData.messageId || 'N/A'})`);
         }
 
         return messageId;
@@ -135,8 +136,9 @@ export async function subscribeTtsEvents(handler) {
                 const { channelName, eventData, sharedSessionInfo, source } = data;
 
                 const logData = {
-                    messageId: message.id,
+                    pubsubMessageId: message.id,
                     channel: channelName,
+                    eventMessageId: eventData?.messageId || 'N/A',
                     source,
                     currentRevision: process.env.K_REVISION || 'local'
                 };
@@ -144,9 +146,9 @@ export async function subscribeTtsEvents(handler) {
                 if (sharedSessionInfo) {
                     logData.sessionId = sharedSessionInfo.sessionId;
                     logData.sharedChannels = sharedSessionInfo.channels;
-                    logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] Received TTS event from Pub/Sub for shared session`);
+                    logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] Received TTS event from Pub/Sub (EventSub msgId: ${eventData?.messageId || 'N/A'})`);
                 } else {
-                    logger.debug(logData, 'Received TTS event from Pub/Sub');
+                    logger.debug(logData, `Received TTS event from Pub/Sub (EventSub msgId: ${eventData?.messageId || 'N/A'})`);
                 }
 
                 // Call the handler with shared session info

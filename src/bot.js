@@ -50,6 +50,7 @@ function isDuplicatePubSubEvent(channelName, eventData) {
         const messageId = eventData?.messageId || '';
 
         // Use messageId if available (from EventSub), otherwise fall back to text-based dedup
+        const usingMessageId = !!messageId;
         const key = messageId
             ? `${channelName}|${messageId}`
             : `${channelName}|${user}|${text}`;
@@ -65,14 +66,16 @@ function isDuplicatePubSubEvent(channelName, eventData) {
         }
 
         if (lastTs && now - lastTs < PUBSUB_DEDUP_TTL_MS) {
+            const dedupMethod = usingMessageId ? 'messageId' : 'text-based';
             logger.info({
                 channel: channelName,
                 user,
                 textPreview: text?.substring(0, 30),
-                messageId,
-                key,
+                messageId: messageId || 'N/A',
+                dedupMethod,
+                keyPreview: key.substring(0, 80),
                 ageMs: now - lastTs
-            }, 'TTS message blocked: Duplicate detected in local cache (dedupe)');
+            }, `TTS message blocked: Duplicate detected in local cache (${dedupMethod} dedupe)`);
             return true;
         }
 
@@ -96,6 +99,7 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
     if (!channelName || (!messageId && !text)) return true; // if missing data, do not block
 
     // Use messageId if available (from EventSub), otherwise fall back to text-based dedup
+    const usingMessageId = !!messageId;
     const keyRaw = messageId
         ? `${channelName}|${messageId}`
         : `${channelName}|${user}|${text}`;
@@ -110,14 +114,16 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
                 const data = snap.data() || {};
                 const expireAtMs = typeof data.expireAtMs === 'number' ? data.expireAtMs : 0;
                 if (expireAtMs > now) {
+                    const dedupMethod = usingMessageId ? 'messageId' : 'text-based';
                     logger.info({
                         channel: channelName,
                         user,
                         textPreview: text?.substring(0, 30),
-                        messageId,
-                        keyRaw,
+                        messageId: messageId || 'N/A',
+                        dedupMethod,
+                        keyRawPreview: keyRaw.substring(0, 80),
                         ageMs: now - data.createdAtMs
-                    }, 'TTS message blocked: Duplicate detected in global claim (Firestore dedupe)');
+                    }, `TTS message blocked: Duplicate detected in global claim (${dedupMethod} Firestore dedupe)`);
                     return false; // already claimed recently
                 }
             }
