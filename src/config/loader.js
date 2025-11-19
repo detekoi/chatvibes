@@ -56,6 +56,7 @@ function loadConfig() {
             clientSecretPath: clientSecretPath, // Path to Secret Manager secret
             publicUrl: process.env.PUBLIC_URL, // EventSub webhook callback URL
             eventSubSecret: process.env.TWITCH_EVENTSUB_SECRET, // EventSub signature verification secret
+            accessToken: null, // Bot's user access token, populated at runtime by loadBotAccessToken()
         },
         security: {
             allowedChannels,

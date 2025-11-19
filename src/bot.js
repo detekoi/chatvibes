@@ -296,6 +296,14 @@ async function main() {
         logger.info('ChatVibes: Initializing Twitch Helix Client...');
         await initializeHelixClient();
 
+        // Load bot's access token into config for EventSub subscriptions
+        logger.info('ChatVibes: Loading bot access token...');
+        const { loadBotAccessToken } = await import('./components/twitch/ircAuthHelper.js');
+        const tokenLoaded = await loadBotAccessToken();
+        if (!tokenLoaded) {
+            logger.warn('ChatVibes: Bot access token not loaded. EventSub chat message subscriptions may fail.');
+        }
+
         logger.info('ChatVibes: Initializing Command Processor for commands...');
         initializeCommandProcessor();
 

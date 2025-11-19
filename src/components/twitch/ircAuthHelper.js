@@ -149,5 +149,25 @@ async function getValidIrcToken() {
     }
 }
 
-export { getValidIrcToken, refreshIrcToken }; // Export refreshIrcToken for potential manual trigger or error handling
+/**
+ * Load the bot's access token into the config for use by EventSub subscriptions.
+ * This should be called during bot initialization before attempting to create EventSub subscriptions.
+ * @returns {Promise<boolean>} True if the token was successfully loaded, false otherwise.
+ */
+async function loadBotAccessToken() {
+    logger.info('Loading bot access token into config...');
+    const token = await refreshIrcToken();
+
+    if (!token) {
+        logger.error('Failed to load bot access token');
+        return false;
+    }
+
+    // Store the token in config for use by EventSub subscriptions
+    config.twitch.accessToken = token;
+    logger.info('Bot access token loaded successfully');
+    return true;
+}
+
+export { getValidIrcToken, refreshIrcToken, loadBotAccessToken }; // Export refreshIrcToken for potential manual trigger or error handling
 
