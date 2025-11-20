@@ -97,7 +97,7 @@ async function exchangeCode(authCode) {
         });
         console.log('3. Restart your bot to use the new token');
         console.log('\nYou can verify the scopes by running:');
-        console.log('  node check-token-scopes.js');
+        console.log('  node scripts/check-token-scopes.js');
 
     } catch (error) {
         if (error.response) {
