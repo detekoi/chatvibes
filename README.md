@@ -20,8 +20,7 @@ For a complete list of available commands and voices, visit the documentation:
 
   * Reads Twitch chat messages aloud.
   * Announces Twitch events (subscriptions, cheers, raids, etc.).
-  * **Bot-Free Mode:** ChatVibes can now run in anonymous (bot-free) mode, reading chat without appearing as a bot in your viewer list. This is the default mode.
-  * **Optional Chat Commands:** Enable authenticated mode to have the bot respond to commands in chat (like !tts status or !myvoice).
+  * **Interactive or Silent Mode:** Configure whether the bot responds to chat commands or operates silently in the background.
   * **Monetization with Bits:** Optionally require users to cheer a minimum number of Bits to have their message read aloud (Bits → TTS) or to generate music.
   * **Channel Points → TTS:** Create a custom Twitch Channel Point reward that viewers can redeem with a message to have it read aloud by the TTS bot.
   * Customizable voices and speech parameters via Wavespeed AI API (minimax/speech-02-turbo model).
@@ -30,47 +29,27 @@ For a complete list of available commands and voices, visit the documentation:
   * Audio playback through an OBS browser source.
   * Designed for Google Cloud Run deployment.
 
-## Bot Modes: Anonymous vs Authenticated
+## How ChatVibes Works
 
-ChatVibes operates in two modes:
+ChatVibes uses Twitch's EventSub system to listen to your chat, which means the bot will appear in your channel's viewer list under "Chat Bots". This is required by Twitch's EventSub architecture and applies to all channels.
 
-### Anonymous Mode (Default - Bot-Free)
+### Chat Response Mode
 
-**How it works:** ChatVibes connects to your Twitch chat anonymously without appearing as a bot in your viewer list. It reads chat messages silently in the background.
+You can configure whether the bot responds to commands in chat:
 
-**Advantages:**
-- Cleaner viewer list (no bot account visible)
-- Simpler setup - no bot authorization needed
-- No rate limits or moderation concerns
-- Works immediately after adding the OBS browser source
+**Interactive Mode (Default):**
+- Bot responds to `!tts` commands in chat
+- Users can type commands like `!tts status`, `!myvoice`, `!tts voice <name>` to get immediate responses
+- Moderators can control TTS settings via chat commands
+- Provides instant feedback and acknowledgments
 
-**Limitations:**
-- Cannot respond to commands in chat (no !tts status, !myvoice, etc.)
-- No chat confirmations or error messages
-- Users must use the web dashboard for configuration
+**Silent Mode:**
+- Bot listens to chat but does not respond to commands
+- All configuration must be done via the web dashboard
+- Cleaner chat experience without bot responses
+- TTS still works normally - only command responses are disabled
 
-**When to use:** If you prefer a minimalist setup and don't need interactive chat commands.
-
-### Authenticated Mode (Optional - Bot with Chat Commands)
-
-**How it works:** A dedicated ChatVibes bot account joins your channel as a viewer and can read/send chat messages.
-
-**Advantages:**
-- Users can type !tts commands to get immediate responses
-- Commands like !tts status, !myvoice provide instant feedback in chat
-- Moderators can control TTS settings via chat
-- Bot can acknowledge configuration changes
-
-**Limitations:**
-- Bot appears in your viewer list
-- Requires bot authorization and channel join
-- May need moderator status to avoid rate limits
-
-**When to use:** If you want interactive chat commands and don't mind having a bot in your channel.
-
-### Switching Between Modes
-
-Contact the service admin or use the web dashboard to switch your channel between anonymous and authenticated modes. By default, all channels start in **anonymous mode**.
+You can toggle between these modes using the `botRespondsInChat` setting in the web dashboard or by contacting the service admin.
 
 ## Adding ChatVibes to Your Channel & Setup
 
