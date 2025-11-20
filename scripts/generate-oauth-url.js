@@ -43,7 +43,7 @@ async function generateOAuthUrl() {
         console.log('2. Authorize the application with the requested permissions');
         console.log('3. You will be redirected to a page with an authorization code');
         console.log('4. Use the script below to exchange the code for tokens:\n');
-        console.log('   node exchange-oauth-code.js <authorization_code>\n');
+        console.log('   node scripts/exchange-oauth-code.js <authorization_code>\n');
         console.log('5. The script will update the refresh token in Secret Manager\n');
         console.log('Required scopes:');
         requiredScopes.forEach(scope => {
