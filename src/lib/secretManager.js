@@ -108,6 +108,39 @@ async function addSecretVersion(secretResourceName, value) {
         // Invalidate cache for this secret (since we just updated it)
         invalidateSecretCache(secretResourceName);
 
+        // Auto-cleanup: Keep only the latest 2 versions enabled to reduce costs
+        // Google charges $0.06 per active secret version per month
+        try {
+            const VERSIONS_TO_KEEP = 2;
+            const [versions] = await smClient.listSecretVersions({
+                parent,
+                filter: 'state:ENABLED',
+            });
+
+            if (versions && versions.length > VERSIONS_TO_KEEP) {
+                // Sort by version number (descending - newest first)
+                const sortedVersions = versions.sort((a, b) => {
+                    const versionA = parseInt(a.name.split('/').pop());
+                    const versionB = parseInt(b.name.split('/').pop());
+                    return versionB - versionA;
+                });
+
+                const versionsToDisable = sortedVersions.slice(VERSIONS_TO_KEEP);
+                logger.info(`ChatVibes: Auto-cleanup - disabling ${versionsToDisable.length} old version(s) of ${parent.split('/').pop()}`);
+
+                for (const oldVersion of versionsToDisable) {
+                    try {
+                        await smClient.disableSecretVersion({ name: oldVersion.name });
+                    } catch (disableErr) {
+                        logger.warn({ err: disableErr, version: oldVersion.name }, 'ChatVibes: Failed to disable old secret version during auto-cleanup');
+                    }
+                }
+            }
+        } catch (cleanupErr) {
+            // Don't fail the entire operation if cleanup fails
+            logger.warn({ err: cleanupErr, secret: parent }, 'ChatVibes: Failed to auto-cleanup old secret versions (non-fatal)');
+        }
+
         return version;
     } catch (error) {
         logger.error({ err: error, secretName: secretResourceName }, 'ChatVibes: Failed to add new secret version.');
