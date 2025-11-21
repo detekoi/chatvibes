@@ -38,6 +38,7 @@ let channelChangeListener = null;
 let isShuttingDown = false;
 let leaderElection = null;
 let eventSubStartedByThisInstance = false;
+let tokenRefreshInterval = null;
 
 // Pub/Sub event de-duplication (guards against overlapping revisions delivering same TTS event)
 const PUBSUB_DEDUP_TTL_MS = 30 * 1000; // 30 seconds
@@ -246,6 +247,14 @@ async function gracefulShutdown(signal) {
         logger.info('ChatVibes: No active Firestore channel change listener to clean up.');
     }
 
+    // Clear token refresh interval
+    if (tokenRefreshInterval) {
+        logger.info('ChatVibes: Clearing token refresh interval...');
+        clearInterval(tokenRefreshInterval);
+        tokenRefreshInterval = null;
+        logger.info('ChatVibes: Token refresh interval cleared.');
+    }
+
     // Persist TTS queues before shutdown to prevent message loss
     logger.info('ChatVibes: Persisting TTS queues to Firestore...');
     shutdownTasks.push(
@@ -343,6 +352,26 @@ async function main() {
         if (!tokenLoaded) {
             logger.warn('ChatVibes: Bot access token not loaded. EventSub chat message subscriptions may fail.');
         }
+
+        // Set up periodic token refresh (every 3 hours)
+        // Twitch tokens typically expire after 4-6 hours, so 3 hours provides a safe buffer
+        const TOKEN_REFRESH_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
+        tokenRefreshInterval = setInterval(async () => {
+            logger.info('ChatVibes: Performing periodic bot access token refresh...');
+            try {
+                const refreshed = await loadBotAccessToken();
+                if (refreshed) {
+                    logger.info('ChatVibes: Periodic bot access token refresh successful');
+                } else {
+                    logger.error('ChatVibes: Periodic bot access token refresh failed');
+                }
+            } catch (error) {
+                logger.error({ err: error }, 'ChatVibes: Error during periodic bot access token refresh');
+            }
+        }, TOKEN_REFRESH_INTERVAL_MS);
+        tokenRefreshInterval.unref(); // Allow process to exit even if timer is pending
+
+        logger.info(`ChatVibes: Periodic token refresh scheduled (every ${TOKEN_REFRESH_INTERVAL_MS / 1000 / 60 / 60} hours)`);
 
         logger.info('ChatVibes: Initializing Command Processor for commands...');
         initializeCommandProcessor();
