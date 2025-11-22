@@ -274,12 +274,45 @@ async function getSharedChatSession(broadcasterId) {
     }
 }
 
+/**
+ * Fetches VIPs for a broadcaster.
+ * @param {string} broadcasterId - The broadcaster user ID to query.
+ * @returns {Promise<object[]>} A promise resolving to an array of VIP user objects.
+ */
+async function getVips(broadcasterId) {
+    if (!broadcasterId) {
+        logger.warn('getVips called with empty broadcaster ID.');
+        return [];
+    }
+
+    const client = getHelixClient(); // Ensures client is initialized
+    const params = new URLSearchParams();
+    params.append('broadcaster_id', broadcasterId);
+    params.append('first', '100'); // Max per page
+
+    logger.debug({ broadcasterId }, 'Fetching VIPs from Helix...');
+
+    try {
+        const response = await client.get('/channels/vips', { params });
+        // Spec: https://dev.twitch.tv/docs/api/reference#get-vips
+        return response.data?.data || [];
+    } catch (error) {
+        // Errors are already logged by the response interceptor
+        logger.error({
+            err: { message: error.message, code: error.code },
+            broadcasterId
+        }, 'Failed to get VIPs');
+        return [];
+    }
+}
+
 
 // Export initializer, getter, and specific API call functions
 export {
     initializeHelixClient,
     getHelixClient,
     getChannelInformation,
-    getUsersByLogin, // <-- Added export
+    getUsersByLogin,
     getSharedChatSession,
+    getVips, // <-- Added export
 };

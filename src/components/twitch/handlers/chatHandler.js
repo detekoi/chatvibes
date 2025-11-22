@@ -106,7 +106,13 @@ export async function handleChatMessage(event, channelName) {
         }
         // Handle regular chat messages (no bits)
         else if (ttsConfig.mode === 'all') {
-            const requiredPermission = ttsConfig.ttsPermissionLevel === 'mods' ? 'moderator' : 'everyone';
+            let requiredPermission = 'everyone';
+            if (ttsConfig.ttsPermissionLevel === 'mods') {
+                requiredPermission = 'moderator';
+            } else if (ttsConfig.ttsPermissionLevel === 'vip') {
+                requiredPermission = 'vip';
+            }
+
             if (hasPermission(requiredPermission, tags, channelName)) {
                 const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
                 await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'chat', messageId: event.message_id }, sharedSessionInfo);

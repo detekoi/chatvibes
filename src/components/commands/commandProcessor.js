@@ -73,6 +73,15 @@ function hasPermission(requiredPermission, tags, channelName) {
         return isModByTag || isModByBadge;
     }
 
+    // VIP check
+    if (permLevel === 'vip') {
+        const isVip = tags.vip === true || tags.badges?.vip === '1';
+        const isModByTag = tags.mod === true || tags.mod === '1';
+        const isModByBadge = tags.badges?.moderator === '1';
+        // VIPs, Mods, and Broadcaster can access VIP-level features
+        return isVip || isModByTag || isModByBadge || isBroadcaster;
+    }
+
     // If a future permLevel is 'broadcaster' and only broadcaster should access (not mods)
     if (permLevel === 'broadcaster') {
         return isBroadcaster;
