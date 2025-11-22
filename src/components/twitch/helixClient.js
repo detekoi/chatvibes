@@ -278,7 +278,17 @@ async function getSharedChatSession(broadcasterId) {
  * Fetches VIPs for a broadcaster.
  * @param {string} broadcasterId - The broadcaster user ID to query.
  * @returns {Promise<object[]>} A promise resolving to an array of VIP user objects.
+ * 
+ * NOTE: This function is currently NOT used in the live TTS system.
+ * VIP status is determined by checking the 'vip' badge in chat message tags,
+ * which is more performant and reliable than fetching the VIP list via API.
+ * 
+ * This function is kept here for potential future use cases such as:
+ * - Displaying a list of VIPs in the dashboard
+ * - Adding a !listvips command
+ * - Pre-warming a cache for VIP checks outside of message context
  */
+/*
 async function getVips(broadcasterId) {
     if (!broadcasterId) {
         logger.warn('getVips called with empty broadcaster ID.');
@@ -305,6 +315,7 @@ async function getVips(broadcasterId) {
         return [];
     }
 }
+*/
 
 
 // Export initializer, getter, and specific API call functions
@@ -314,5 +325,5 @@ export {
     getChannelInformation,
     getUsersByLogin,
     getSharedChatSession,
-    getVips, // <-- Added export
+    // getVips, // Commented out - not currently used (see function definition above)
 };
