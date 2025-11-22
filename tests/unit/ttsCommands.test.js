@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 
 describe('TTS Command Handlers', () => {
   let mockLogger;
-  let mockIrcSender;
+  let mockChatSender;
   let mockTtsQueue;
   let mockTtsState;
   let mockTtsService;
@@ -22,7 +22,7 @@ describe('TTS Command Handlers', () => {
       error: jest.fn()
     };
 
-    mockIrcSender = {
+    mockChatSender = {
       enqueueMessage: jest.fn()
     };
 
@@ -50,7 +50,7 @@ describe('TTS Command Handlers', () => {
       default: mockLogger
     }));
 
-    jest.unstable_mockModule('../../src/lib/ircSender.js', () => mockIrcSender);
+    jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
     jest.unstable_mockModule('../../src/components/tts/ttsQueue.js', () => mockTtsQueue);
     jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => mockTtsState);
     jest.unstable_mockModule('../../src/components/tts/ttsService.js', () => mockTtsService);
@@ -83,7 +83,7 @@ describe('TTS Command Handlers', () => {
       await stopCommand.default.execute(context);
 
       expect(mockTtsQueue.stopCurrentSpeech).toHaveBeenCalledWith('testchannel');
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('STOPPED'),
         { replyToId: '123' }
@@ -110,7 +110,7 @@ describe('TTS Command Handlers', () => {
       await stopCommand.default.execute(context);
 
       expect(mockTtsQueue.stopCurrentSpeech).toHaveBeenCalled();
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('STOPPED'),
         { replyToId: '123' }
@@ -136,7 +136,7 @@ describe('TTS Command Handlers', () => {
       await stopCommand.default.execute(context);
 
       expect(mockTtsQueue.stopCurrentSpeech).not.toHaveBeenCalled();
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('only stop your own'),
         { replyToId: '123' }
@@ -184,7 +184,7 @@ describe('TTS Command Handlers', () => {
       await stopCommand.default.execute(context);
 
       expect(mockTtsQueue.stopCurrentSpeech).toHaveBeenCalled();
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('stop signal'),
         { replyToId: '123' }
@@ -210,7 +210,7 @@ describe('TTS Command Handlers', () => {
       await stopCommand.default.execute(context);
 
       expect(mockTtsQueue.stopCurrentSpeech).not.toHaveBeenCalled();
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('Nothing appears'),
         { replyToId: '123' }
@@ -237,7 +237,7 @@ describe('TTS Command Handlers', () => {
       await clearCommand.default.execute(context);
 
       expect(mockTtsQueue.clearQueue).toHaveBeenCalledWith('testchannel');
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('CLEARED'),
         { replyToId: '123' }
@@ -295,7 +295,7 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('Friendly_Person'),
         { replyToId: '123' }
@@ -314,7 +314,7 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining("haven't set"),
         { replyToId: '123' }
@@ -337,7 +337,7 @@ describe('TTS Command Handlers', () => {
         'testuser',
         'voiceId'
       );
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('reset'),
         { replyToId: '123' }
@@ -402,7 +402,7 @@ describe('TTS Command Handlers', () => {
         'voiceId',
         'Friendly_Person'
       );
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('Friendly_Person'),
         { replyToId: '123' }
@@ -470,7 +470,7 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('Could not set'),
         { replyToId: '123' }
@@ -489,7 +489,7 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockIrcSender.enqueueMessage).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('Could not reset'),
         { replyToId: '123' }

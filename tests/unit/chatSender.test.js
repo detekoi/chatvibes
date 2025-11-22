@@ -23,6 +23,12 @@ const mockTimeUtils = {
 };
 jest.unstable_mockModule('../../src/lib/timeUtils.js', () => mockTimeUtils);
 
+// Mock ttsState
+const mockTtsState = {
+    getTtsState: jest.fn(),
+};
+jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => mockTtsState);
+
 // Import module under test
 const { enqueueMessage, clearMessageQueue, initializeChatSender } = await import('../../src/lib/chatSender.js');
 
@@ -30,6 +36,8 @@ describe('chatSender.js', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         clearMessageQueue();
+        // Default to allowing bot responses
+        mockTtsState.getTtsState.mockResolvedValue({ botRespondsInChat: true });
     });
 
     it('should queue and send a message', async () => {
@@ -40,7 +48,7 @@ describe('chatSender.js', () => {
         // Since processing is async and we mocked sleep, we might need to wait a tick
         await new Promise(resolve => setTimeout(resolve, 10));
 
-        expect(mockChatClient.sendMessage).toHaveBeenCalledWith('#testchannel', 'Hello World');
+        expect(mockChatClient.sendMessage).toHaveBeenCalledWith('#testchannel', 'Hello World', { replyToId: null });
     });
 
     it('should truncate long messages', async () => {
@@ -51,7 +59,7 @@ describe('chatSender.js', () => {
         await new Promise(resolve => setTimeout(resolve, 10));
 
         const expectedMessage = 'a'.repeat(497) + '...';
-        expect(mockChatClient.sendMessage).toHaveBeenCalledWith('#testchannel', expectedMessage);
+        expect(mockChatClient.sendMessage).toHaveBeenCalledWith('#testchannel', expectedMessage, { replyToId: null });
     });
 
     it('should handle send failures gracefully', async () => {
@@ -73,7 +81,7 @@ describe('chatSender.js', () => {
         await new Promise(resolve => setTimeout(resolve, 10));
 
         expect(mockChatClient.sendMessage).toHaveBeenCalledTimes(2);
-        expect(mockChatClient.sendMessage).toHaveBeenNthCalledWith(1, '#testchannel', 'Msg 1');
-        expect(mockChatClient.sendMessage).toHaveBeenNthCalledWith(2, '#testchannel', 'Msg 2');
+        expect(mockChatClient.sendMessage).toHaveBeenNthCalledWith(1, '#testchannel', 'Msg 1', { replyToId: null });
+        expect(mockChatClient.sendMessage).toHaveBeenNthCalledWith(2, '#testchannel', 'Msg 2', { replyToId: null });
     });
 });

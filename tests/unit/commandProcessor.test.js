@@ -6,7 +6,7 @@ import { jest } from '@jest/globals';
 describe('commandProcessor module', () => {
   let commandProcessor;
   let mockLogger;
-  let mockIrcClient;
+  let mockChatSender;
 
   beforeEach(async () => {
     jest.resetModules();
@@ -19,18 +19,16 @@ describe('commandProcessor module', () => {
       error: jest.fn()
     };
 
-    // Mock IRC client
-    mockIrcClient = {
-      say: jest.fn().mockResolvedValue(undefined)
+    // Mock chat sender
+    mockChatSender = {
+      enqueueMessage: jest.fn().mockResolvedValue(undefined)
     };
 
     jest.unstable_mockModule('../../src/lib/logger.js', () => ({
       default: mockLogger
     }));
 
-    jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-      getIrcClient: jest.fn(() => mockIrcClient)
-    }));
+    jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
     // Mock command handlers - will be customized per test
     jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
@@ -248,9 +246,7 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient)
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {}
@@ -287,9 +283,7 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient)
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {
@@ -316,9 +310,7 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient)
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {
@@ -349,9 +341,7 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient)
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {
@@ -392,9 +382,7 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient)
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {
@@ -426,9 +414,7 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient)
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {
@@ -460,13 +446,7 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      const mockIrc = {
-        say: jest.fn().mockResolvedValue(undefined)
-      };
-
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrc)
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {
@@ -483,7 +463,7 @@ describe('commandProcessor module', () => {
       );
 
       expect(mockLogger.error).toHaveBeenCalled();
-      expect(mockIrc.say).toHaveBeenCalledWith(
+      expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#channel',
         'Oops! Something went wrong trying to run !error.'
       );
@@ -502,9 +482,7 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient)
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {
@@ -525,15 +503,14 @@ describe('commandProcessor module', () => {
           message: '!test arg1 arg2',
           command: 'test',
           replyToId: 'msg123',
-          ircClient: mockIrcClient,
           logger: mockLogger
         })
       );
     });
   });
 
-  describe('bot-free mode blocking', () => {
-    test('should block command execution when channel is in bot-free mode (anonymous)', async () => {
+  describe('bot responses in chat setting', () => {
+    test('should execute command when botRespondsInChat is false (commands still work)', async () => {
       const mockHandler = {
         execute: jest.fn().mockResolvedValue(undefined),
         permission: 'everyone'
@@ -545,58 +522,11 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient),
-        isAnonymousMode: jest.fn(() => false) // Global IRC is authenticated
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
         getTtsState: jest.fn(() => Promise.resolve({
-          botMode: 'anonymous' // Channel is in bot-free mode
-        }))
-      }));
-
-      jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
-        default: {
-          'tts': mockHandler
-        }
-      }));
-
-      commandProcessor = await import('../../src/components/commands/commandProcessor.js');
-
-      const result = await commandProcessor.processMessage(
-        'testchannel',
-        { username: 'user', id: 'msg123' },
-        '!tts test'
-      );
-
-      expect(mockHandler.execute).not.toHaveBeenCalled();
-      expect(result).toBeNull();
-      expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Command !tts blocked: channel testchannel is in bot-free mode')
-      );
-    });
-
-    test('should allow command execution when channel is in authenticated mode', async () => {
-      const mockHandler = {
-        execute: jest.fn().mockResolvedValue(undefined),
-        permission: 'everyone'
-      };
-
-      jest.resetModules();
-
-      jest.unstable_mockModule('../../src/lib/logger.js', () => ({
-        default: mockLogger
-      }));
-
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient),
-        isAnonymousMode: jest.fn(() => false) // Global IRC is authenticated
-      }));
-
-      jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
-        getTtsState: jest.fn(() => Promise.resolve({
-          botMode: 'authenticated' // Channel allows bot commands
+          botRespondsInChat: false // Bot doesn't respond in chat, but commands still execute
         }))
       }));
 
@@ -618,7 +548,7 @@ describe('commandProcessor module', () => {
       expect(result).toBe('tts');
     });
 
-    test('should default to anonymous mode if getTtsState fails', async () => {
+    test('should execute command when botRespondsInChat is true', async () => {
       const mockHandler = {
         execute: jest.fn().mockResolvedValue(undefined),
         permission: 'everyone'
@@ -630,10 +560,45 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient),
-        isAnonymousMode: jest.fn(() => false)
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
+
+      jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
+        getTtsState: jest.fn(() => Promise.resolve({
+          botRespondsInChat: true // Bot responds in chat
+        }))
       }));
+
+      jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
+        default: {
+          'tts': mockHandler
+        }
+      }));
+
+      commandProcessor = await import('../../src/components/commands/commandProcessor.js');
+
+      const result = await commandProcessor.processMessage(
+        'testchannel',
+        { username: 'user', id: 'msg123' },
+        '!tts test'
+      );
+
+      expect(mockHandler.execute).toHaveBeenCalled();
+      expect(result).toBe('tts');
+    });
+
+    test('should still execute command if getTtsState fails (defaults to no chat responses)', async () => {
+      const mockHandler = {
+        execute: jest.fn().mockResolvedValue(undefined),
+        permission: 'everyone'
+      };
+
+      jest.resetModules();
+
+      jest.unstable_mockModule('../../src/lib/logger.js', () => ({
+        default: mockLogger
+      }));
+
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
         getTtsState: jest.fn(() => Promise.reject(new Error('Firestore error')))
@@ -653,19 +618,19 @@ describe('commandProcessor module', () => {
         '!tts test'
       );
 
-      // Should block because it defaults to anonymous mode on error
-      expect(mockHandler.execute).not.toHaveBeenCalled();
-      expect(result).toBeNull();
+      // Should still execute command, but defaults to canReply=false
+      expect(mockHandler.execute).toHaveBeenCalled();
+      expect(result).toBe('tts');
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           err: expect.any(Error),
           channel: 'testchannel'
         }),
-        expect.stringContaining('Error fetching channel botMode')
+        expect.stringContaining('Error fetching channel settings')
       );
     });
 
-    test('should block when global IRC is anonymous even if channel botMode is authenticated', async () => {
+    test('should pass canReply=false to context when botRespondsInChat is false', async () => {
       const mockHandler = {
         execute: jest.fn().mockResolvedValue(undefined),
         permission: 'everyone'
@@ -677,14 +642,11 @@ describe('commandProcessor module', () => {
         default: mockLogger
       }));
 
-      jest.unstable_mockModule('../../src/components/twitch/ircClient.js', () => ({
-        getIrcClient: jest.fn(() => mockIrcClient),
-        isAnonymousMode: jest.fn(() => true) // Global IRC is anonymous
-      }));
+      jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
       jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
         getTtsState: jest.fn(() => Promise.resolve({
-          botMode: 'authenticated' // This shouldn't matter when global is anonymous
+          botRespondsInChat: false
         }))
       }));
 
@@ -702,10 +664,13 @@ describe('commandProcessor module', () => {
         '!tts test'
       );
 
-      // Should still execute since we only block on channel-level anonymous mode
-      // The global anonymous mode is for when NO channels have auth
-      expect(mockHandler.execute).not.toHaveBeenCalled();
-      expect(result).toBeNull();
+      expect(mockHandler.execute).toHaveBeenCalled();
+      expect(mockHandler.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canReply: false
+        })
+      );
+      expect(result).toBe('tts');
     });
   });
 });

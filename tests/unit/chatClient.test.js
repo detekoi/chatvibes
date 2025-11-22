@@ -32,14 +32,29 @@ jest.unstable_mockModule('../../src/lib/logger.js', () => ({
 jest.unstable_mockModule('../../src/config/index.js', () => ({
     default: {
         twitch: {
-            username: 'botuser'
+            username: 'botuser',
+            accessToken: 'oauth:test-token'
         }
+    }
+}));
+
+// Mock auth
+jest.unstable_mockModule('../../src/components/twitch/auth.js', () => ({
+    getClientId: jest.fn(() => Promise.resolve('test-client-id'))
+}));
+
+// Mock axios directly for API calls
+jest.unstable_mockModule('axios', () => ({
+    default: {
+        post: jest.fn(),
+        get: jest.fn()
     }
 }));
 
 // Import the module under test
 const { sendMessage, getBotUserId, _resetCache } = await import('../../src/components/twitch/chatClient.js');
 const { getUsersByLogin } = await import('../../src/components/twitch/helixClient.js');
+const axios = await import('axios');
 
 describe('chatClient.js', () => {
     beforeEach(() => {
@@ -78,48 +93,71 @@ describe('chatClient.js', () => {
 
     describe('sendMessage', () => {
         it('should send a message successfully', async () => {
-            // Mock broadcaster ID lookup (it calls getUsersByLogin again for the channel)
-            // FIRST call is for channel (broadcaster)
-            getUsersByLogin.mockResolvedValueOnce([{ id: 'broadcaster-id-2', login: 'targetchannel' }])
-                // SECOND call is for bot ID (inside getBotUserId)
-                .mockResolvedValueOnce([{ id: 'bot-id-1', login: 'botuser' }]);
+            // Mock broadcaster ID lookup (it calls getUsersByLogin for the channel)
+            getUsersByLogin.mockResolvedValueOnce([{ id: 'broadcaster-id-2', login: 'targetchannel' }]);
 
-            mockAxios.post.mockResolvedValue({ status: 200 });
+            // Mock bot ID lookup (inside getBotUserId)
+            getUsersByLogin.mockResolvedValueOnce([{ id: 'bot-id-1', login: 'botuser' }]);
+
+            // Mock successful API response
+            axios.default.post.mockResolvedValue({
+                status: 200,
+                data: {
+                    data: [{
+                        is_sent: true
+                    }]
+                }
+            });
 
             const success = await sendMessage('targetchannel', 'Hello World');
 
             expect(success).toBe(true);
-            expect(mockAxios.post).toHaveBeenCalledWith('/chat/messages', {
-                broadcaster_id: 'broadcaster-id-2',
-                sender_id: 'bot-id-1',
-                message: 'Hello World'
-            });
+            expect(axios.default.post).toHaveBeenCalledWith(
+                'https://api.twitch.tv/helix/chat/messages',
+                {
+                    broadcaster_id: 'broadcaster-id-2',
+                    sender_id: 'bot-id-1',
+                    message: 'Hello World'
+                },
+                {
+                    headers: {
+                        'Authorization': 'Bearer test-token',
+                        'Client-Id': 'test-client-id',
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
         });
 
         it('should fail if bot ID cannot be retrieved', async () => {
-            getUsersByLogin.mockResolvedValue([]); // No bot user found
+            // First call for broadcaster succeeds
+            getUsersByLogin.mockResolvedValueOnce([{ id: 'broadcaster-id-2', login: 'targetchannel' }]);
+            // Second call for bot fails
+            getUsersByLogin.mockResolvedValueOnce([]);
 
             const success = await sendMessage('targetchannel', 'Hello');
 
             expect(success).toBe(false);
-            expect(mockAxios.post).not.toHaveBeenCalled();
+            expect(axios.default.post).not.toHaveBeenCalled();
         });
 
         it('should fail if broadcaster ID cannot be retrieved', async () => {
-            getUsersByLogin.mockResolvedValueOnce([{ id: 'bot-id-1', login: 'botuser' }])
-                .mockResolvedValueOnce([]); // No broadcaster found
+            // First call for broadcaster fails
+            getUsersByLogin.mockResolvedValueOnce([]);
 
             const success = await sendMessage('targetchannel', 'Hello');
 
             expect(success).toBe(false);
-            expect(mockAxios.post).not.toHaveBeenCalled();
+            expect(axios.default.post).not.toHaveBeenCalled();
         });
 
         it('should handle API errors gracefully', async () => {
-            getUsersByLogin.mockResolvedValueOnce([{ id: 'bot-id-1', login: 'botuser' }])
-                .mockResolvedValueOnce([{ id: 'broadcaster-id-2', login: 'targetchannel' }]);
+            // Mock broadcaster ID lookup
+            getUsersByLogin.mockResolvedValueOnce([{ id: 'broadcaster-id-2', login: 'targetchannel' }]);
+            // Mock bot ID lookup
+            getUsersByLogin.mockResolvedValueOnce([{ id: 'bot-id-1', login: 'botuser' }]);
 
-            mockAxios.post.mockRejectedValue(new Error('API Error'));
+            axios.default.post.mockRejectedValue(new Error('API Error'));
 
             const success = await sendMessage('targetchannel', 'Hello');
 
