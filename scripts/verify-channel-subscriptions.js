@@ -43,7 +43,7 @@ async function verifyChannelSubscriptions() {
         // Build a map of broadcaster_user_id -> subscription types
         const subsByBroadcaster = new Map();
         allSubscriptions.forEach(sub => {
-            const broadcasterId = sub.condition.broadcaster_user_id || sub.condition.to_broadcaster_user_id;
+            const broadcasterId = sub.condition?.broadcaster_user_id || sub.condition?.to_broadcaster_user_id;
             if (broadcasterId) {
                 if (!subsByBroadcaster.has(broadcasterId)) {
                     subsByBroadcaster.set(broadcasterId, new Set());
@@ -132,6 +132,7 @@ async function verifyChannelSubscriptions() {
         }
 
     } catch (error) {
+        logger.error({ err: error }, 'Error during verification');
         console.error('❌ Error:', error.message);
         process.exit(1);
     }
