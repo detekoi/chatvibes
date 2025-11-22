@@ -392,17 +392,17 @@ async function handleAllowListRefresh(req, res) {
         // Simple auth check - require a secret header for basic security
         const authHeader = req.headers['x-admin-secret'];
         const expectedSecret = process.env.ADMIN_REFRESH_SECRET || 'change-me-in-production';
-        
+
         if (!authHeader || authHeader !== expectedSecret) {
             return sendErrorResponse(res, 401, 'Invalid admin credentials', req);
         }
 
         logger.info('[AllowList] Admin refresh endpoint called');
         await refreshAllowListOnDemand();
-        
-        sendJsonResponse(res, 200, { 
-            success: true, 
-            message: 'Allowlist refreshed successfully' 
+
+        sendJsonResponse(res, 200, {
+            success: true,
+            message: 'Allowlist refreshed successfully'
         });
     } catch (error) {
         logger.error({ err: error }, 'Error refreshing allowlist via admin endpoint');
@@ -425,7 +425,7 @@ async function validateTtsSetting(key, value) {
         case 'mode':
             return ['all', 'command', 'bits_points_only'].includes(value);
         case 'ttsPermissionLevel':
-            return ['everyone', 'mods'].includes(value);
+            return ['everyone', 'mods', 'vip'].includes(value);
         case 'emotion':
             return VALID_EMOTIONS.includes(value.toLowerCase());
         case 'languageBoost':
@@ -621,7 +621,7 @@ export function initializeWebServer() {
     function heartbeat() {
         this.isAlive = true;
     }
-    
+
     const heartbeatInterval = setInterval(() => {
         wssInstance.clients.forEach((ws) => {
             if (ws.isAlive === false) {
@@ -799,7 +799,7 @@ export function sendAudioToChannel(channelName, audioUrlOrCommand) {
     if (!clients || clients.size === 0) {
         // It's normal for this to happen if OBS source isn't open for that channel.
         // Change to debug if this log is too noisy.
-        logger.info(`No active TTS WebSocket clients for channel: ${lowerChannelName}. Audio not sent: ${audioUrlOrCommand.substring(0,50)}`);
+        logger.info(`No active TTS WebSocket clients for channel: ${lowerChannelName}. Audio not sent: ${audioUrlOrCommand.substring(0, 50)}`);
         return;
     }
 
@@ -809,7 +809,7 @@ export function sendAudioToChannel(channelName, audioUrlOrCommand) {
     };
     const message = JSON.stringify(messagePayload);
 
-    logger.debug(`Sending to ${clients.size} client(s) for channel ${lowerChannelName}: ${message.substring(0,100)}...`);
+    logger.debug(`Sending to ${clients.size} client(s) for channel ${lowerChannelName}: ${message.substring(0, 100)}...`);
     clients.forEach(ws => {
         if (ws.readyState === WebSocket.OPEN) { // WebSocket.OPEN (class property)
             ws.send(message);
@@ -836,7 +836,7 @@ async function handleEventSubSetup(req, res) {
         req.on('end', async () => {
             try {
                 const { channelLogin, userId } = JSON.parse(body);
-                
+
                 if (!channelLogin) {
                     return sendErrorResponse(res, 400, 'Missing channelLogin', req);
                 }
@@ -845,7 +845,7 @@ async function handleEventSubSetup(req, res) {
 
                 // Import EventSub subscription functions
                 const { subscribeChannelToTtsEvents } = await import('../twitch/twitchSubs.js');
-                
+
                 // Subscribe to all TTS events for this channel
                 const result = await subscribeChannelToTtsEvents(userId, {
                     subscribe: true,      // channel.subscribe
@@ -856,11 +856,11 @@ async function handleEventSubSetup(req, res) {
                     follow: true          // channel.follow (enabled for all tiers, assuming scope is present)
                 });
 
-                logger.info({ 
-                    channelLogin, 
-                    userId, 
-                    successful: result.successful.length, 
-                    failed: result.failed.length 
+                logger.info({
+                    channelLogin,
+                    userId,
+                    successful: result.successful.length,
+                    failed: result.failed.length
                 }, 'EventSub setup completed');
 
                 sendJsonResponse(res, 200, {
