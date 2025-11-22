@@ -582,12 +582,38 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         }
     }
 
+    // Log completion summary
     logger.info({
         broadcasterUserId,
         successful: results.successful.length,
         failed: results.failed.length,
         types: results.successful
     }, 'TTS EventSub subscriptions completed');
+
+    // Log failures prominently, especially critical ones
+    if (results.failed.length > 0) {
+        const chatMessageFailed = results.failed.find(f => f.type === 'channel.chat.message');
+
+        if (chatMessageFailed) {
+            // CRITICAL: channel.chat.message is essential for receiving chat
+            logger.error({
+                broadcasterUserId,
+                error: chatMessageFailed.error,
+                type: 'channel.chat.message'
+            }, 'CRITICAL: Failed to subscribe to channel.chat.message - channel will not receive chat messages!');
+        }
+
+        // Log all other failures as warnings
+        results.failed.forEach(failure => {
+            if (failure.type !== 'channel.chat.message') {
+                logger.warn({
+                    broadcasterUserId,
+                    type: failure.type,
+                    error: failure.error
+                }, `EventSub subscription failed: ${failure.type}`);
+            }
+        });
+    }
 
     return results;
 }
