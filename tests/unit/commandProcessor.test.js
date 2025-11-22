@@ -448,6 +448,12 @@ describe('commandProcessor module', () => {
 
       jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
+      jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
+        getTtsState: jest.fn(() => Promise.resolve({
+          botRespondsInChat: true // Enable chat responses so error message can be sent
+        }))
+      }));
+
       jest.unstable_mockModule('../../src/components/commands/handlers/index.js', () => ({
         default: {
           'error': mockHandler
