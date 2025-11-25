@@ -73,7 +73,8 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
   logger.debug({ input, endpoint: WAVESPEED_ENDPOINT }, 'Sending TTS request to Wavespeed AI');
 
   // Add timeout to prevent hanging indefinitely
-  const WAVESPEED_TIMEOUT_MS = 60000; // 60 seconds
+  // Most requests complete in 2-5 seconds, so 15 seconds is generous
+  const WAVESPEED_TIMEOUT_MS = 15000; // 15 seconds
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
   });
