@@ -171,6 +171,11 @@ async function attemptGeneration302(text, voiceId, options) {
     const audioUrl = result.data.url;
     logger.info({ outputUrl: audioUrl }, 'TTS audio generated successfully via 302.ai');
     return audioUrl;
+  } else if (result.data && result.data.audio) {
+    // Some endpoints return 'audio' instead of 'url'
+    const audioUrl = result.data.audio;
+    logger.info({ outputUrl: audioUrl }, 'TTS audio generated successfully via 302.ai (audio field)');
+    return audioUrl;
   } else if (result.url) {
     // Some endpoints might return url directly
     const audioUrl = result.url;

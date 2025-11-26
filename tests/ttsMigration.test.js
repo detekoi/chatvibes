@@ -54,6 +54,24 @@ describe('TTS Migration', () => {
             }));
         });
 
+        it('should handle 302.ai response with data.audio field', async () => {
+            axios.mockResolvedValue({
+                data: {
+                    data: {
+                        audio: 'https://302.ai/audio-alt.mp3',
+                        status: 2
+                    },
+                    base_resp: {
+                        status_msg: 'success'
+                    }
+                }
+            });
+
+            const url = await generateSpeech('Hello', 'English_expressive_narrator');
+
+            expect(url).toBe('https://302.ai/audio-alt.mp3');
+        });
+
         it('should call Wavespeed endpoint for legacy voice', async () => {
             axios.mockResolvedValue({
                 data: {
