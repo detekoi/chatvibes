@@ -15,63 +15,45 @@ let cachedClientId = null;
 let cachedClientSecret = null;
 
 /**
- * Get Client ID, loading from Secret Manager if not in environment
+ * Get Client ID from environment (mounted from Secret Manager in production)
  * @returns {Promise<string>}
  */
 async function getClientId() {
     if (cachedClientId) {
         return cachedClientId;
     }
-    
-    if (config.twitch.clientId) {
-        cachedClientId = config.twitch.clientId;
-        return cachedClientId;
+
+    // Read from environment variable (mounted by Cloud Run from Secret Manager)
+    cachedClientId = process.env.TWITCH_CLIENT_ID || config.twitch.clientId;
+
+    if (!cachedClientId) {
+        logger.fatal('ChatVibes: TWITCH_CLIENT_ID not found in environment');
+        throw new Error('TWITCH_CLIENT_ID not configured');
     }
-    
-    // Load from Secret Manager
-    try {
-        const { getSecretValue } = await import('../../lib/secretManager.js');
-        logger.info('ChatVibes: Loading Twitch Client ID from Secret Manager...');
-        cachedClientId = await getSecretValue(config.twitch.clientIdSecretPath);
-        if (!cachedClientId) {
-            throw new Error('Failed to load Client ID from Secret Manager');
-        }
-        logger.info('ChatVibes: Successfully loaded Twitch Client ID from Secret Manager');
-        return cachedClientId;
-    } catch (error) {
-        logger.fatal({ err: error }, 'ChatVibes: Failed to load Twitch Client ID');
-        throw error;
-    }
+
+    logger.debug('ChatVibes: Using Twitch Client ID from environment');
+    return cachedClientId;
 }
 
 /**
- * Get Client Secret, loading from Secret Manager if not in environment
+ * Get Client Secret from environment (mounted from Secret Manager in production)
  * @returns {Promise<string>}
  */
 async function getClientSecret() {
     if (cachedClientSecret) {
         return cachedClientSecret;
     }
-    
-    if (config.twitch.clientSecret) {
-        cachedClientSecret = config.twitch.clientSecret;
-        return cachedClientSecret;
+
+    // Read from environment variable (mounted by Cloud Run from Secret Manager)
+    cachedClientSecret = process.env.TWITCH_CLIENT_SECRET || config.twitch.clientSecret;
+
+    if (!cachedClientSecret) {
+        logger.fatal('ChatVibes: TWITCH_CLIENT_SECRET not found in environment');
+        throw new Error('TWITCH_CLIENT_SECRET not configured');
     }
-    
-    // Load from Secret Manager
-    try {
-        const { getSecretValue } = await import('../../lib/secretManager.js');
-        logger.info('ChatVibes: Loading Twitch Client Secret from Secret Manager...');
-        cachedClientSecret = await getSecretValue(config.twitch.clientSecretPath);
-        if (!cachedClientSecret) {
-            throw new Error('Failed to load Client Secret from Secret Manager');
-        }
-        logger.info('ChatVibes: Successfully loaded Twitch Client Secret from Secret Manager');
-        return cachedClientSecret;
-    } catch (error) {
-        logger.fatal({ err: error }, 'ChatVibes: Failed to load Twitch Client Secret');
-        throw error;
-    }
+
+    logger.debug('ChatVibes: Using Twitch Client Secret from environment');
+    return cachedClientSecret;
 }
 
 /**
