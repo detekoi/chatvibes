@@ -205,6 +205,10 @@ async function handleApiRequest(req, res) {
             return handleAllowListRefresh(req, res);
         }
 
+        if (req.url.startsWith('/api/tts/test')) {
+            return handleTtsTest(req, res);
+        }
+
         // All other API endpoints require verification
         await verifyChannelAccess(req, res, async () => {
             const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
@@ -228,7 +232,7 @@ async function handleApiRequest(req, res) {
 async function handleVoicesEndpoint(req, res) {
     try {
         // Try to fetch actual voices from TTS service
-        const { getAvailableVoices } = await import('../tts/ttsService.js');
+        const { getAvailableVoices, generateSpeech } = await import('../tts/ttsService.js');
         const voiceList = await getAvailableVoices();
 
         if (voiceList && voiceList.length > 0) {
@@ -253,6 +257,56 @@ async function handleVoicesEndpoint(req, res) {
             'Determined_Man', 'Lovely_Girl', 'Decent_Boy', 'Elegant_Man'
         ];
         sendJsonResponse(res, 200, { success: true, voices: fallbackVoices }, req);
+    }
+}
+
+// TTS Test endpoint handler
+async function handleTtsTest(req, res) {
+    if (req.method !== 'POST') {
+        return sendErrorResponse(res, 405, 'Method not allowed', req);
+    }
+
+    // Verify JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return sendErrorResponse(res, 401, 'Authorization token is required', req);
+    }
+
+    const token = authHeader.split(' ')[1];
+    try {
+        jwt.verify(token, JWT_SECRET_KEY, {
+            audience: 'chatvibes-api',
+            issuer: 'chatvibes-auth'
+        });
+    } catch (error) {
+        return sendErrorResponse(res, 401, 'Invalid or expired token', req);
+    }
+
+    try {
+        const body = await parseJsonBody(req);
+        const { text, voiceId, pitch, speed, emotion, languageBoost, englishNormalization } = body;
+
+        if (!text) {
+            return sendErrorResponse(res, 400, 'Text is required', req);
+        }
+
+        // Import generateSpeech dynamically
+        const { generateSpeech } = await import('../tts/ttsService.js');
+
+        // Generate audio
+        const audioUrl = await generateSpeech(text, voiceId, {
+            pitch,
+            speed,
+            emotion,
+            languageBoost,
+            englishNormalization
+        });
+
+        sendJsonResponse(res, 200, { success: true, audioUrl }, req);
+
+    } catch (error) {
+        logger.error({ err: error }, 'TTS Test generation failed');
+        sendErrorResponse(res, 500, error.message || 'Failed to generate audio', req);
     }
 }
 
