@@ -164,5 +164,37 @@ describe('TTS Migration', () => {
                 url: expect.stringContaining('wavespeed.ai')
             }));
         });
+
+        it('should sanitize parameters when falling back to Wavespeed', async () => {
+            // First call (302.ai) fails
+            axios.mockRejectedValueOnce(new Error('302.ai API error'));
+
+            // Second call (Wavespeed) succeeds
+            axios.mockResolvedValueOnce({
+                data: {
+                    data: {
+                        outputs: ['https://wavespeed.ai/fallback-sanitized.mp3'],
+                        status: 'completed'
+                    }
+                }
+            });
+
+            // Use parameters supported by 302 but NOT Wavespeed
+            const url = await generateSpeech('Hello', 'English_expressive_narrator', {
+                languageBoost: 'Bulgarian', // Unsupported by Wavespeed
+                emotion: 'fluent'           // Unsupported by Wavespeed
+            });
+
+            expect(url).toBe('https://wavespeed.ai/fallback-sanitized.mp3');
+
+            // Verify Wavespeed call used sanitized parameters
+            expect(axios).toHaveBeenNthCalledWith(2, expect.objectContaining({
+                url: expect.stringContaining('wavespeed.ai'),
+                data: expect.objectContaining({
+                    language_boost: 'auto', // Sanitized from 'Bulgarian'
+                    emotion: 'neutral'      // Mapped from 'fluent'
+                })
+            }));
+        });
     });
 });
