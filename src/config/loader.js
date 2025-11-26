@@ -7,8 +7,8 @@ const projectRoot = process.cwd();
 const envPath = path.resolve(projectRoot, '.env');
 
 if (fs.existsSync(envPath)) {
-  console.log(`[ConfigLoader] Loading .env file from: ${envPath}`);
-  dotenv.config({ path: envPath });
+    console.log(`[ConfigLoader] Loading .env file from: ${envPath}`);
+    dotenv.config({ path: envPath });
 }
 
 function loadConfig() {
@@ -38,11 +38,11 @@ function loadConfig() {
     const clientId = process.env.TWITCH_CLIENT_ID || null;
     const clientSecret = process.env.TWITCH_CLIENT_SECRET || null;
 
-        // Secret Manager paths for production deployment (unified with web UI)
-        const clientIdSecretPath = process.env.TWITCH_CLIENT_ID_SECRET_NAME ||
-            'projects/906125386407/secrets/twitch-client-id/versions/latest';
-        const clientSecretPath = process.env.TWITCH_CLIENT_SECRET_NAME ||
-            'projects/906125386407/secrets/twitch-client-secret/versions/latest';
+    // Secret Manager paths for production deployment (unified with web UI)
+    const clientIdSecretPath = process.env.TWITCH_CLIENT_ID_SECRET_NAME ||
+        'projects/906125386407/secrets/twitch-client-id/versions/latest';
+    const clientSecretPath = process.env.TWITCH_CLIENT_SECRET_NAME ||
+        'projects/906125386407/secrets/twitch-client-secret/versions/latest';
 
     const config = {
         twitch: {
@@ -70,7 +70,9 @@ function loadConfig() {
             wavespeedEndpoint: process.env.WAVESPEED_API_ENDPOINT || 'https://api.wavespeed.ai/api/v3/minimax/speech-02-turbo',
             defaultEnglishNormalization: false,
             defaultLanguageBoost: process.env.TTS_DEFAULT_LANGUAGE_BOOST || 'auto',
-            },
+            t302ApiKey: process.env['302_KEY'],
+            t302Endpoint: process.env.T302_API_ENDPOINT || 'https://api.302.ai/minimaxi/v1/t2a_v2',
+        },
         app: {
             logLevel: process.env.LOG_LEVEL || 'info',
             prettyLog: process.env.PINO_PRETTY_LOGGING === 'true',
