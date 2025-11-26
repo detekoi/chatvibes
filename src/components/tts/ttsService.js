@@ -133,7 +133,12 @@ async function attemptGeneration(text, voiceId, input, options) {
 /**
  * Internal function to attempt TTS generation via 302.ai
  */
-async function attemptGeneration302(text, voiceId, options) {
+async function attemptGeneration302(text, voiceId, options = {}) {
+  const apiKey = config.tts.t302ApiKey;
+  if (!apiKey) {
+    throw new Error('302.ai API key is missing');
+  }
+
   const T302_TIMEOUT_MS = 30000; // 30 seconds
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => reject(new Error('302.ai API request timed out')), T302_TIMEOUT_MS);
