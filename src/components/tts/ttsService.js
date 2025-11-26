@@ -38,6 +38,73 @@ function mapLanguageBoost(languageBoost) {
     return languageBoost;
 }
 
+/**
+ * Internal function to attempt TTS generation (used by retry logic)
+ */
+async function attemptGeneration(text, voiceId, input, options) {
+  // Add timeout to prevent hanging indefinitely
+  // Most requests complete in 2-5 seconds, so 15 seconds is generous
+  const WAVESPEED_TIMEOUT_MS = 15000; // 15 seconds
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
+  });
+
+  const requestConfig = {
+    method: 'POST',
+    url: WAVESPEED_ENDPOINT,
+    headers: {
+      'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    data: input
+  };
+
+  // Add abort signal support if provided
+  if (options.signal) {
+    requestConfig.signal = options.signal;
+  }
+
+  const response = await Promise.race([
+    axios(requestConfig),
+    timeoutPromise
+  ]);
+
+  // Check if the request was aborted during the API call
+  if (options.signal && options.signal.aborted) {
+    logger.info({ endpoint: WAVESPEED_ENDPOINT, text }, 'Wavespeed AI request was aborted while awaiting.');
+    throw new DOMException('Aborted by user', 'AbortError');
+  }
+
+  const result = response.data;
+
+  // Wavespeed API wraps the response in a data object
+  const data = result.data || result;
+
+  // Handle sync mode response - the output should be available immediately
+  if (data.status === 'completed' && data.outputs && data.outputs.length > 0) {
+      const audioUrl = data.outputs[0];
+      logger.info({ outputUrl: audioUrl, predictionId: data.id }, 'TTS audio generated successfully via Wavespeed AI');
+      return audioUrl;
+  } else if (data.status === 'failed') {
+      logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned failed status.');
+
+      // Provide specific error messages based on the failure reason
+      if (data.error && data.error.includes("you don't have access to this voice_id")) {
+          throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
+      }
+
+      if (data.error && data.error.includes("voice_id")) {
+          throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
+      }
+
+      throw new Error(`TTS generation failed: ${data.error || 'Unknown error'}`);
+  } else {
+      // In sync mode, we should always get completed or failed status
+      logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned unexpected status or missing outputs.');
+      throw new Error(`Wavespeed AI API returned unexpected response format. Status: ${data.status || 'unknown'}`);
+  }
+}
+
 export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId || 'Friendly_Person', options = {}) {
   logger.info({
     logKey: "TTS_GENERATE_SPEECH_CALLED",
@@ -72,104 +139,76 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
 
   logger.debug({ input, endpoint: WAVESPEED_ENDPOINT }, 'Sending TTS request to Wavespeed AI');
 
-  // Add timeout to prevent hanging indefinitely
-  // Most requests complete in 2-5 seconds, so 15 seconds is generous
-  const WAVESPEED_TIMEOUT_MS = 15000; // 15 seconds
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
-  });
+  // Retry logic: try once, retry on timeout
+  const MAX_RETRIES = 1;
+  let lastError = null;
 
-  try {
-    const requestConfig = {
-      method: 'POST',
-      url: WAVESPEED_ENDPOINT,
-      headers: {
-        'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      data: input
-    };
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const audioUrl = await attemptGeneration(text, voiceId, input, options);
 
-    // Add abort signal support if provided
-    if (options.signal) {
-      requestConfig.signal = options.signal;
-    }
+      // Log successful retry
+      if (attempt > 0) {
+        logger.info({ attempt, text: text.substring(0, 30) }, 'TTS generation succeeded after retry');
+      }
 
-    const response = await Promise.race([
-      axios(requestConfig),
-      timeoutPromise
-    ]);
+      return audioUrl;
+    } catch (error) {
+      lastError = error;
 
-    // Check if the request was aborted during the API call
-    if (options.signal && options.signal.aborted) {
-      logger.info({ endpoint: WAVESPEED_ENDPOINT, text }, 'Wavespeed AI request was aborted while awaiting.');
-      throw new DOMException('Aborted by user', 'AbortError');
-    }
-
-    const result = response.data;
-
-    // Wavespeed API wraps the response in a data object
-    const data = result.data || result;
-
-    // Handle sync mode response - the output should be available immediately
-    if (data.status === 'completed' && data.outputs && data.outputs.length > 0) {
-        const audioUrl = data.outputs[0];
-        logger.info({ outputUrl: audioUrl, predictionId: data.id }, 'TTS audio generated successfully via Wavespeed AI');
-        return audioUrl;
-    } else if (data.status === 'failed') {
-        logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned failed status.');
-        
-        // Provide specific error messages based on the failure reason
-        if (data.error && data.error.includes("you don't have access to this voice_id")) {
-            throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
-        }
-        
-        if (data.error && data.error.includes("voice_id")) {
-            throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
-        }
-        
-        throw new Error(`TTS generation failed: ${data.error || 'Unknown error'}`);
-    } else {
-        // In sync mode, we should always get completed or failed status
-        logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned unexpected status or missing outputs.');
-        throw new Error(`Wavespeed AI API returned unexpected response format. Status: ${data.status || 'unknown'}`);
-    }
-  } catch (error) {
-    if (error.name === 'AbortError' || error.name === 'CanceledError') {
+      // Don't retry on abort or non-timeout errors
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
         logger.info({ text, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI API call aborted in generateSpeech.');
         throw error;
-    }
+      }
 
-    // Log detailed error information
-    const logError = {
+      // Check if this is a timeout error that we should retry
+      const isTimeout = error.message && error.message.includes('timed out');
+      const shouldRetry = isTimeout && attempt < MAX_RETRIES;
+
+      if (shouldRetry) {
+        logger.warn({
+          attempt: attempt + 1,
+          maxRetries: MAX_RETRIES + 1,
+          text: text.substring(0, 30)
+        }, `Wavespeed API timeout - retrying (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
+        continue;
+      }
+
+      // No more retries or non-retryable error - handle the error
+      const logError = {
         message: error.message,
         name: error.name,
         stack: error.stack,
         response: error.response?.data
-    };
-    logger.error({ err: logError, text, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI API error in generateSpeech');
-    
-    // Provide specific error messages based on Wavespeed API response
-    if (error.response?.data) {
+      };
+      logger.error({ err: logError, text, endpoint: WAVESPEED_ENDPOINT, attempts: attempt + 1 }, 'Wavespeed AI API error in generateSpeech');
+
+      // Provide specific error messages based on Wavespeed API response
+      if (error.response?.data) {
         const apiError = error.response.data;
-        
+
         // Check for specific Wavespeed error messages
         if (apiError.message && apiError.message.includes("you don't have access to this voice_id")) {
-            throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
+          throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
         }
-        
+
         if (apiError.message && apiError.message.includes("voice_id")) {
-            throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
+          throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
         }
-        
+
         if (apiError.message) {
-            throw new Error(`TTS generation failed: ${apiError.message}`);
+          throw new Error(`TTS generation failed: ${apiError.message}`);
         }
+      }
+
+      // Fallback to generic error
+      throw new Error(`Failed to generate speech via Wavespeed AI API: ${error.message}`);
     }
-    
-    // Fallback to generic error
-    throw new Error(`Failed to generate speech via Wavespeed AI API: ${error.message}`);
   }
+
+  // This should never be reached, but just in case
+  throw lastError || new Error('TTS generation failed for unknown reason');
 }
 
 /**
