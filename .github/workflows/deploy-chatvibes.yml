@@ -103,7 +103,7 @@ jobs:
             TWITCH_CLIENT_ID=${{ env.TWITCH_CLIENT_ID_SECRET }}:latest,\
             TWITCH_CLIENT_SECRET=${{ env.TWITCH_CLIENT_SECRET_SECRET }}:latest,\
             WAVESPEED_API_KEY=${{ env.WAVESPEED_API_KEY_SECRET }}:latest,\
-            302_KEY=${{ env.T302_API_KEY_SECRET }}:latest,\
+            T302_API_KEY=${{ env.T302_API_KEY_SECRET }}:latest,\
             TWITCH_CHANNELS=${{ env.TWITCH_CHANNELS_SECRET }}:latest,\
             TWITCH_EVENTSUB_SECRET=${{ env.TWITCH_EVENTSUB_SECRET_NAME }}:latest" \
             --labels="managed-by=github-actions,repository=${{ github.repository_owner }}_${{ github.event.repository.name }},commit-sha=${{ github.sha }}" \
