@@ -4,9 +4,13 @@ import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 import { TTS_SPEED_DEFAULT, TTS_PITCH_DEFAULT } from './ttsConstants.js';
 import { getAllVoices, getVoicesByLanguage } from './wavespeedVoices.js';
+import { getProviderForVoice } from './voiceMigration.js';
 
 const WAVESPEED_API_KEY = config.tts.wavespeedApiKey;
 const WAVESPEED_ENDPOINT = config.tts.wavespeedEndpoint;
+
+const T302_API_KEY = config.tts.t302ApiKey;
+const T302_ENDPOINT = config.tts.t302Endpoint;
 
 let cachedVoiceList = null;
 let lastVoiceListFetchTime = 0;
@@ -18,11 +22,11 @@ const VOICE_LIST_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
  * @returns {string} - Mapped emotion value
  */
 function mapEmotion(emotion) {
-    // Wavespeed doesn't support "auto", map to "neutral"
-    if (emotion === 'auto') {
-        return 'neutral';
-    }
-    return emotion;
+  // Wavespeed doesn't support "auto", map to "neutral"
+  if (emotion === 'auto') {
+    return 'neutral';
+  }
+  return emotion;
 }
 
 /**
@@ -31,11 +35,11 @@ function mapEmotion(emotion) {
  * @returns {string} - Mapped language boost value
  */
 function mapLanguageBoost(languageBoost) {
-    // Map legacy values to Wavespeed format
-    if (languageBoost === 'None' || languageBoost === 'Automatic') {
-        return 'auto';
-    }
-    return languageBoost;
+  // Map legacy values to Wavespeed format
+  if (languageBoost === 'None' || languageBoost === 'Automatic') {
+    return 'auto';
+  }
+  return languageBoost;
 }
 
 /**
@@ -82,26 +86,99 @@ async function attemptGeneration(text, voiceId, input, options) {
 
   // Handle sync mode response - the output should be available immediately
   if (data.status === 'completed' && data.outputs && data.outputs.length > 0) {
-      const audioUrl = data.outputs[0];
-      logger.info({ outputUrl: audioUrl, predictionId: data.id }, 'TTS audio generated successfully via Wavespeed AI');
-      return audioUrl;
+    const audioUrl = data.outputs[0];
+    logger.info({ outputUrl: audioUrl, predictionId: data.id }, 'TTS audio generated successfully via Wavespeed AI');
+    return audioUrl;
   } else if (data.status === 'failed') {
-      logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned failed status.');
+    logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned failed status.');
 
-      // Provide specific error messages based on the failure reason
-      if (data.error && data.error.includes("you don't have access to this voice_id")) {
-          throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
-      }
+    // Provide specific error messages based on the failure reason
+    if (data.error && data.error.includes("you don't have access to this voice_id")) {
+      throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
+    }
 
-      if (data.error && data.error.includes("voice_id")) {
-          throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
-      }
+    if (data.error && data.error.includes("voice_id")) {
+      throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
+    }
 
-      throw new Error(`TTS generation failed: ${data.error || 'Unknown error'}`);
+    throw new Error(`TTS generation failed: ${data.error || 'Unknown error'}`);
   } else {
-      // In sync mode, we should always get completed or failed status
-      logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned unexpected status or missing outputs.');
-      throw new Error(`Wavespeed AI API returned unexpected response format. Status: ${data.status || 'unknown'}`);
+    // In sync mode, we should always get completed or failed status
+    logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned unexpected status or missing outputs.');
+    throw new Error(`Wavespeed AI API returned unexpected response format. Status: ${data.status || 'unknown'}`);
+  }
+}
+
+/**
+ * Internal function to attempt TTS generation via 302.ai
+ */
+async function attemptGeneration302(text, voiceId, options) {
+  const T302_TIMEOUT_MS = 30000; // 30 seconds
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('302.ai API request timed out')), T302_TIMEOUT_MS);
+  });
+
+  const input = {
+    model: 'speech-2.6-turbo',
+    text,
+    stream: false,
+    voice_setting: {
+      voice_id: voiceId,
+      speed: options.speed ?? TTS_SPEED_DEFAULT,
+      vol: options.volume ?? 1.0,
+      pitch: options.pitch ?? TTS_PITCH_DEFAULT,
+      emotion: mapEmotion(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral'),
+      text_normalization: options.englishNormalization !== undefined ? options.englishNormalization : false,
+    },
+    audio_setting: {
+      sample_rate: options.sampleRate ?? 32000,
+      bitrate: options.bitrate ?? 128000,
+      format: options.format ?? 'mp3',
+      channel: options.channel === 'mono' ? 1 : options.channel === 'stereo' ? 2 : 1,
+    },
+    language_boost: mapLanguageBoost(options.languageBoost ?? config.tts?.defaultLanguageBoost ?? 'auto'),
+    output_format: 'url'
+  };
+
+  const requestConfig = {
+    method: 'POST',
+    url: T302_ENDPOINT,
+    headers: {
+      'Authorization': `Bearer ${T302_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    data: input
+  };
+
+  if (options.signal) {
+    requestConfig.signal = options.signal;
+  }
+
+  const response = await Promise.race([
+    axios(requestConfig),
+    timeoutPromise
+  ]);
+
+  if (options.signal && options.signal.aborted) {
+    logger.info({ endpoint: T302_ENDPOINT, text }, '302.ai request was aborted while awaiting.');
+    throw new DOMException('Aborted by user', 'AbortError');
+  }
+
+  const result = response.data;
+
+  // 302.ai response structure check
+  if (result.data && result.data.url) {
+    const audioUrl = result.data.url;
+    logger.info({ outputUrl: audioUrl }, 'TTS audio generated successfully via 302.ai');
+    return audioUrl;
+  } else if (result.url) {
+    // Some endpoints might return url directly
+    const audioUrl = result.url;
+    logger.info({ outputUrl: audioUrl }, 'TTS audio generated successfully via 302.ai (direct url)');
+    return audioUrl;
+  } else {
+    logger.error({ result, endpoint: T302_ENDPOINT }, '302.ai returned unexpected response format.');
+    throw new Error(`302.ai API returned unexpected response format: ${JSON.stringify(result)}`);
   }
 }
 
@@ -111,10 +188,10 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     textToGenerate: text,
     voiceIdForTTS: voiceId,
     optionsSummary: {
-        speed: options.speed,
-        pitch: options.pitch,
-        emotion: options.emotion,
-        languageBoost: options.languageBoost
+      speed: options.speed,
+      pitch: options.pitch,
+      emotion: options.emotion,
+      languageBoost: options.languageBoost
     },
     timestamp_ms: Date.now()
   }, `TTS_GENERATE_SPEECH_CALLED for text: "${text.substring(0, 30)}...", Voice: ${voiceId}`);
@@ -128,8 +205,8 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     emotion: mapEmotion(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral'),
     language_boost: mapLanguageBoost(options.languageBoost ?? config.tts?.defaultLanguageBoost ?? 'auto'),
     english_normalization: options.englishNormalization !== undefined
-        ? options.englishNormalization
-        : false,
+      ? options.englishNormalization
+      : false,
     sample_rate: options.sampleRate ?? 32000,
     bitrate: options.bitrate ?? 128000,
     channel: options.channel === 'mono' ? '1' : options.channel === 'stereo' ? '2' : '1',
@@ -137,7 +214,11 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     enable_sync_mode: true, // Enable sync mode for lowest latency
   };
 
-  logger.debug({ input, endpoint: WAVESPEED_ENDPOINT }, 'Sending TTS request to Wavespeed AI');
+  const provider = getProviderForVoice(voiceId);
+  const is302 = provider === '302';
+  const endpoint = is302 ? T302_ENDPOINT : WAVESPEED_ENDPOINT;
+
+  logger.debug({ input: is302 ? '302.ai input hidden' : input, endpoint, provider }, `Sending TTS request to ${provider}`);
 
   // Retry logic: try once, retry on timeout
   const MAX_RETRIES = 1;
@@ -145,7 +226,12 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const audioUrl = await attemptGeneration(text, voiceId, input, options);
+      let audioUrl;
+      if (is302) {
+        audioUrl = await attemptGeneration302(text, voiceId, options);
+      } else {
+        audioUrl = await attemptGeneration(text, voiceId, input, options);
+      }
 
       // Log successful retry
       if (attempt > 0) {
@@ -158,7 +244,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
 
       // Don't retry on abort or non-timeout errors
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        logger.info({ text, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI API call aborted in generateSpeech.');
+        logger.info({ text, endpoint }, `${provider} API call aborted in generateSpeech.`);
         throw error;
       }
 
@@ -171,7 +257,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
           attempt: attempt + 1,
           maxRetries: MAX_RETRIES + 1,
           text: text.substring(0, 30)
-        }, `Wavespeed API timeout - retrying (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
+        }, `${provider} API timeout - retrying (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
         continue;
       }
 
@@ -182,7 +268,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
         stack: error.stack,
         response: error.response?.data
       };
-      logger.error({ err: logError, text, endpoint: WAVESPEED_ENDPOINT, attempts: attempt + 1 }, 'Wavespeed AI API error in generateSpeech');
+      logger.error({ err: logError, text, endpoint, attempts: attempt + 1 }, `${provider} API error in generateSpeech`);
 
       // Provide specific error messages based on Wavespeed API response
       if (error.response?.data) {
@@ -203,7 +289,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
       }
 
       // Fallback to generic error
-      throw new Error(`Failed to generate speech via Wavespeed AI API: ${error.message}`);
+      throw new Error(`Failed to generate speech via ${provider} API: ${error.message}`);
     }
   }
 
@@ -217,35 +303,35 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
  * @returns {Array} - Array of voice objects
  */
 export async function getAvailableVoices(forceRefresh = false) {
-    const now = Date.now();
+  const now = Date.now();
 
-    // If force refresh is requested and cache is stale, try to fetch from schema API
-    if (forceRefresh && (now - lastVoiceListFetchTime > VOICE_LIST_CACHE_DURATION)) {
-        logger.info('Forcing voice list refresh from Wavespeed schema API.');
-        try {
-            const freshVoices = await _fetchVoiceListFromSchema();
-            if (freshVoices && freshVoices.length > 0) {
-                cachedVoiceList = freshVoices;
-                lastVoiceListFetchTime = now;
-                logger.info(`Successfully refreshed ${cachedVoiceList.length} voices from schema API.`);
-                return cachedVoiceList;
-            }
-        } catch (error) {
-            logger.warn({ err: error }, 'Failed to refresh voice list from schema API, falling back to hardcoded list.');
-        }
-    }
-
-    // Return cached list if available and fresh
-    if (cachedVoiceList && (now - lastVoiceListFetchTime < VOICE_LIST_CACHE_DURATION)) {
-        logger.debug('Returning cached voice list.');
+  // If force refresh is requested and cache is stale, try to fetch from schema API
+  if (forceRefresh && (now - lastVoiceListFetchTime > VOICE_LIST_CACHE_DURATION)) {
+    logger.info('Forcing voice list refresh from Wavespeed schema API.');
+    try {
+      const freshVoices = await _fetchVoiceListFromSchema();
+      if (freshVoices && freshVoices.length > 0) {
+        cachedVoiceList = freshVoices;
+        lastVoiceListFetchTime = now;
+        logger.info(`Successfully refreshed ${cachedVoiceList.length} voices from schema API.`);
         return cachedVoiceList;
+      }
+    } catch (error) {
+      logger.warn({ err: error }, 'Failed to refresh voice list from schema API, falling back to hardcoded list.');
     }
+  }
 
-    // Otherwise, use hardcoded voice list
-    logger.info('Loading voices from hardcoded list.');
-    cachedVoiceList = getAllVoices();
-    lastVoiceListFetchTime = now;
+  // Return cached list if available and fresh
+  if (cachedVoiceList && (now - lastVoiceListFetchTime < VOICE_LIST_CACHE_DURATION)) {
+    logger.debug('Returning cached voice list.');
     return cachedVoiceList;
+  }
+
+  // Otherwise, use hardcoded voice list
+  logger.info('Loading voices from hardcoded list.');
+  cachedVoiceList = getAllVoices();
+  lastVoiceListFetchTime = now;
+  return cachedVoiceList;
 }
 
 /**
@@ -254,45 +340,45 @@ export async function getAvailableVoices(forceRefresh = false) {
  * @private
  */
 async function _fetchVoiceListFromSchema() {
-    const schemaUrl = 'https://wavespeed.ai/center/default/api/v1/model_schema/minimax/speech-02-turbo';
-    logger.info(`Attempting to fetch voice list from schema: ${schemaUrl}`);
+  const schemaUrl = 'https://wavespeed.ai/center/default/api/v1/model_schema/minimax/speech-02-turbo';
+  logger.info(`Attempting to fetch voice list from schema: ${schemaUrl}`);
 
-    try {
-        const response = await axios.get(schemaUrl, {
-            timeout: 10000 // 10 second timeout
-        });
+  try {
+    const response = await axios.get(schemaUrl, {
+      timeout: 10000 // 10 second timeout
+    });
 
-        // The schema is a JSON object - we need to extract voice IDs from the voice_id field's x-enum
-        const schema = response.data;
+    // The schema is a JSON object - we need to extract voice IDs from the voice_id field's x-enum
+    const schema = response.data;
 
-        // Navigate to the voice_id parameter in the schema
-        if (schema.input_schema &&
-            schema.input_schema.properties &&
-            schema.input_schema.properties.voice_id &&
-            schema.input_schema.properties.voice_id['x-enum']) {
+    // Navigate to the voice_id parameter in the schema
+    if (schema.input_schema &&
+      schema.input_schema.properties &&
+      schema.input_schema.properties.voice_id &&
+      schema.input_schema.properties.voice_id['x-enum']) {
 
-            const voiceIds = schema.input_schema.properties.voice_id['x-enum'];
+      const voiceIds = schema.input_schema.properties.voice_id['x-enum'];
 
-            logger.info(`Fetched ${voiceIds.length} voice IDs from schema.`);
+      logger.info(`Fetched ${voiceIds.length} voice IDs from schema.`);
 
-            // Convert to voice objects with metadata
-            return voiceIds.map(id => {
-                const voice = getAllVoices().find(v => v.id === id);
-                return voice || {
-                    id,
-                    name: id.replace(/[_-]/g, ' ').replace(/\b\w/g, chr => chr.toUpperCase()),
-                    language: 'Unknown',
-                    type: 'Pre-trained'
-                };
-            });
-        } else {
-            logger.warn('Schema API response missing expected voice_id x-enum field.');
-            return [];
-        }
-    } catch (error) {
-        logger.error({ err: error }, 'Failed to fetch voice list from Wavespeed schema API.');
-        throw error;
+      // Convert to voice objects with metadata
+      return voiceIds.map(id => {
+        const voice = getAllVoices().find(v => v.id === id);
+        return voice || {
+          id,
+          name: id.replace(/[_-]/g, ' ').replace(/\b\w/g, chr => chr.toUpperCase()),
+          language: 'Unknown',
+          type: 'Pre-trained'
+        };
+      });
+    } else {
+      logger.warn('Schema API response missing expected voice_id x-enum field.');
+      return [];
     }
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to fetch voice list from Wavespeed schema API.');
+    throw error;
+  }
 }
 
 /**
@@ -300,5 +386,5 @@ async function _fetchVoiceListFromSchema() {
  * @returns {Object} - Object with languages as keys and voice arrays as values
  */
 export function getVoicesGroupedByLanguage() {
-    return getVoicesByLanguage();
+  return getVoicesByLanguage();
 }
