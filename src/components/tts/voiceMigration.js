@@ -182,3 +182,12 @@ export function getProviderForVoice(voiceId) {
     }
     return 'wavespeed';
 }
+
+// Supported language boost options for 302.ai (speech-2.6-turbo)
+export const T302_LANGUAGE_BOOST_OPTIONS = [
+    "Chinese", "Chinese,Yue", "English", "Arabic", "Russian", "Spanish", "French", "Portuguese",
+    "German", "Turkish", "Dutch", "Ukrainian", "Vietnamese", "Indonesian", "Japanese", "Italian",
+    "Korean", "Thai", "Polish", "Romanian", "Greek", "Czech", "Finnish", "Hindi", "Bulgarian",
+    "Danish", "Hebrew", "Malay", "Persian", "Slovak", "Swedish", "Croatian", "Filipino",
+    "Hungarian", "Norwegian", "Slovenian", "Catalan", "Nynorsk", "Tamil", "Afrikaans", "auto"
+];

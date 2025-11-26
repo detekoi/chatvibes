@@ -1,0 +1,488 @@
+# Voice Availability Report
+
+## Summary
+- **Total Unique Voices**: 475
+- **Available on Both (02 & 2.6)**: 329
+- **Only on Wavespeed (02)**: 143
+- **Only on 302.ai (2.6)**: 3
+
+## Voices on Both Models (02 & 2.6)
+- Arabic_CalmWoman
+- Arabic_FriendlyGuy
+- Arrogant_Miss
+- Cantonese_CuteGirl
+- Cantonese_GentleLady
+- Cantonese_KindWoman
+- Cantonese_PlayfulMan
+- Chinese (Mandarin)_BashfulGirl
+- Chinese (Mandarin)_Crisp_Girl
+- Chinese (Mandarin)_Cute_Spirit
+- Chinese (Mandarin)_ExplorativeGirl
+- Chinese (Mandarin)_Gentle_Senior
+- Chinese (Mandarin)_Gentle_Youth
+- Chinese (Mandarin)_Gentleman
+- Chinese (Mandarin)_HK_Flight_Attendant
+- Chinese (Mandarin)_Humorous_Elder
+- Chinese (Mandarin)_IntellectualGirl
+- Chinese (Mandarin)_Kind-hearted_Antie
+- Chinese (Mandarin)_Kind-hearted_Elder
+- Chinese (Mandarin)_Laid_BackGirl
+- Chinese (Mandarin)_Lyrical_Voice
+- Chinese (Mandarin)_Male_Announcer
+- Chinese (Mandarin)_Mature_Woman
+- Chinese (Mandarin)_News_Anchor
+- Chinese (Mandarin)_Pure-hearted_Boy
+- Chinese (Mandarin)_Radio_Host
+- Chinese (Mandarin)_Reliable_Executive
+- Chinese (Mandarin)_Sincere_Adult
+- Chinese (Mandarin)_Soft_Girl
+- Chinese (Mandarin)_Southern_Young_Man
+- Chinese (Mandarin)_Straightforward_Boy
+- Chinese (Mandarin)_Stubborn_Friend
+- Chinese (Mandarin)_Sweet_Lady
+- Chinese (Mandarin)_Unrestrained_Young_Man
+- Chinese (Mandarin)_Warm-HeartedAunt
+- Chinese (Mandarin)_Warm_Bestie
+- Chinese (Mandarin)_Warm_Girl
+- Chinese (Mandarin)_Warm_HeartedGirl
+- Chinese (Mandarin)_Wise_Women
+- Dutch_bossy_leader
+- Dutch_kindhearted_girl
+- English_AnimeCharacter
+- English_AssertiveQueen
+- English_Aussie_Bloke
+- English_BossyLeader
+- English_CalmWoman
+- English_CaptivatingStoryteller
+- English_Comedian
+- English_ConfidentWoman
+- English_Debator
+- English_DecentYoungMan
+- English_Deep-VoicedGentleman
+- English_Diligent_Man
+- English_FriendlyPerson
+- English_Gentle-voiced_man
+- English_Graceful_Lady
+- English_ImposingManner
+- English_Jovialman
+- English_Kind-heartedGirl
+- English_LovelyGirl
+- English_ManWithDeepVoice
+- English_MatureBoss
+- English_MaturePartner
+- English_PassionateWarrior
+- English_PatientMan
+- English_PlayfulGirl
+- English_ReservedYoungMan
+- English_SadTeen
+- English_SentimentalLady
+- English_SereneWoman
+- English_Soft-spokenGirl
+- English_Steadymentor
+- English_StressedLady
+- English_Strong-WilledBoy
+- English_Trustworth_Man
+- English_Upbeat_Woman
+- English_UpsetGirl
+- English_WhimsicalGirl
+- English_WiseScholar
+- English_Wiselady
+- English_captivating_female1
+- English_compelling_lady1
+- English_expressive_narrator
+- English_magnetic_voiced_man
+- English_radiant_girl
+- French_CasualMan
+- French_FemaleAnchor
+- French_Female_News Anchor
+- French_MaleNarrator
+- French_Male_Speech_New
+- French_MovieLeadFemale
+- German_FriendlyMan
+- German_PlayfulMan
+- German_SweetLady
+- Greek_female_1_sample1
+- Greek_female_2_sample3
+- Indonesian_BossyLeader
+- Indonesian_CalmWoman
+- Indonesian_CaringMan
+- Indonesian_CharmingGirl
+- Indonesian_ConfidentWoman
+- Indonesian_DeterminedBoy
+- Indonesian_GentleGirl
+- Indonesian_ReservedYoungMan
+- Indonesian_SweetGirl
+- Italian_BraveHeroine
+- Italian_DiligentLeader
+- Italian_Narrator
+- Italian_WanderingSorcerer
+- Japanese_CalmLady
+- Japanese_ColdQueen
+- Japanese_DecisivePrincess
+- Japanese_DependableWoman
+- Japanese_DominantMan
+- Japanese_GenerousIzakayaOwner
+- Japanese_GentleButler
+- Japanese_GracefulMaiden
+- Japanese_InnocentBoy
+- Japanese_IntellectualSenior
+- Japanese_KindLady
+- Japanese_LoyalKnight
+- Japanese_OptimisticYouth
+- Japanese_SeriousCommander
+- Japanese_SportyStudent
+- Korean_AirheadedGirl
+- Korean_AthleticGirl
+- Korean_AthleticStudent
+- Korean_BraveAdventurer
+- Korean_BraveFemaleWarrior
+- Korean_BraveYouth
+- Korean_CalmGentleman
+- Korean_CalmLady
+- Korean_CaringWoman
+- Korean_CharmingElderSister
+- Korean_CharmingSister
+- Korean_CheerfulBoyfriend
+- Korean_CheerfulCoolJunior
+- Korean_CheerfulLittleSister
+- Korean_ChildhoodFriendGirl
+- Korean_CockyGuy
+- Korean_ColdGirl
+- Korean_ColdYoungMan
+- Korean_ConfidentBoss
+- Korean_ConsiderateSenior
+- Korean_DecisiveQueen
+- Korean_DominantMan
+- Korean_ElegantPrincess
+- Korean_EnchantingSister
+- Korean_EnthusiasticTeen
+- Korean_FriendlyBigSister
+- Korean_GentleBoss
+- Korean_GentleWoman
+- Korean_HaughtyLady
+- Korean_InnocentBoy
+- Korean_IntellectualMan
+- Korean_IntellectualSenior
+- Korean_LonelyWarrior
+- Korean_MatureLady
+- Korean_MysteriousGirl
+- Korean_OptimisticYouth
+- Korean_PlayboyCharmer
+- Korean_PossessiveMan
+- Korean_QuirkyGirl
+- Korean_ReliableSister
+- Korean_ReliableYouth
+- Korean_SassyGirl
+- Korean_ShyGirl
+- Korean_SoothingLady
+- Korean_StrictBoss
+- Korean_SweetGirl
+- Korean_ThoughtfulWoman
+- Korean_WiseElf
+- Korean_WiseTeacher
+- Polish_female_1_sample1
+- Polish_female_2_sample3
+- Polish_male_1_sample4
+- Polish_male_2_sample3
+- Portuguese_AngryMan
+- Portuguese_AnimeCharacter
+- Portuguese_Arnold
+- Portuguese_AssertiveQueen
+- Portuguese_AttractiveGirl
+- Portuguese_BossyLeader
+- Portuguese_CalmLeader
+- Portuguese_CaptivatingStoryteller
+- Portuguese_CaringGirlfriend
+- Portuguese_CharmingLady
+- Portuguese_CharmingQueen
+- Portuguese_CharmingSanta
+- Portuguese_ChattyGirl
+- Portuguese_Comedian
+- Portuguese_CompellingGirl
+- Portuguese_ConfidentWoman
+- Portuguese_Conscientiousinstructor
+- Portuguese_Debator
+- Portuguese_Deep-VoicedGentleman
+- Portuguese_DeterminedManager
+- Portuguese_Dramatist
+- Portuguese_ElegantGirl
+- Portuguese_EnergeticBoy
+- Portuguese_FascinatingBoy
+- Portuguese_FragileBoy
+- Portuguese_FrankLady
+- Portuguese_FriendlyNeighbor
+- Portuguese_Fussyhostess
+- Portuguese_GentleTeacher
+- Portuguese_Ghost
+- Portuguese_Godfather
+- Portuguese_GorgeousLady
+- Portuguese_GrimReaper
+- Portuguese_Grinch
+- Portuguese_HumorousElder
+- Portuguese_InspiringLady
+- Portuguese_Jovialman
+- Portuguese_Kind-heartedGirl
+- Portuguese_LovelyLady
+- Portuguese_MaturePartner
+- Portuguese_Narrator
+- Portuguese_NaughtySchoolgirl
+- Portuguese_PassionateWarrior
+- Portuguese_PlayfulGirl
+- Portuguese_PlayfulSpirit
+- Portuguese_Pompouslady
+- Portuguese_PowerfulSoldier
+- Portuguese_PowerfulVeteran
+- Portuguese_RationalMan
+- Portuguese_ReliableMan
+- Portuguese_ReservedYoungMan
+- Portuguese_RomanticHusband
+- Portuguese_Rudolph
+- Portuguese_SadTeen
+- Portuguese_SantaClaus
+- Portuguese_SensibleManager
+- Portuguese_SentimentalLady
+- Portuguese_SereneElder
+- Portuguese_SereneWoman
+- Portuguese_SmartYoungGirl
+- Portuguese_Steadymentor
+- Portuguese_StressedLady
+- Portuguese_StrictBoss
+- Portuguese_Strong-WilledBoy
+- Portuguese_SweetGirl
+- Portuguese_TheatricalActor
+- Portuguese_ThoughtfulLady
+- Portuguese_ThoughtfulMan
+- Portuguese_ToughBoss
+- Portuguese_UpsetGirl
+- Portuguese_WhimsicalGirl
+- Portuguese_WiseScholar
+- Portuguese_Wiselady
+- Robot_Armor
+- Romanian_female_1_sample4
+- Romanian_female_2_sample1
+- Romanian_male_1_sample2
+- Romanian_male_2_sample1
+- Russian_AmbitiousWoman
+- Russian_AttractiveGuy
+- Russian_Bad-temperedBoy
+- Russian_BrightHeroine
+- Russian_CrazyQueen
+- Russian_HandsomeChildhoodFriend
+- Russian_PessimisticGirl
+- Russian_ReliableMan
+- Spanish_AngryMan
+- Spanish_AnimeCharacter
+- Spanish_Arnold
+- Spanish_AssertiveQueen
+- Spanish_BossyLeader
+- Spanish_CaptivatingStoryteller
+- Spanish_CaringGirlfriend
+- Spanish_ChattyGirl
+- Spanish_Comedian
+- Spanish_CompellingGirl
+- Spanish_ConfidentWoman
+- Spanish_Debator
+- Spanish_Deep-tonedMan
+- Spanish_DeterminedManager
+- Spanish_EnergeticBoy
+- Spanish_FrankLady
+- Spanish_Fussyhostess
+- Spanish_Ghost
+- Spanish_HumorousElder
+- Spanish_Intonategirl
+- Spanish_Jovialman
+- Spanish_Kind-heartedGirl
+- Spanish_MaturePartner
+- Spanish_Narrator
+- Spanish_PassionateWarrior
+- Spanish_PowerfulSoldier
+- Spanish_PowerfulVeteran
+- Spanish_RationalMan
+- Spanish_ReliableMan
+- Spanish_ReservedYoungMan
+- Spanish_RomanticHusband
+- Spanish_Rudolph
+- Spanish_SantaClaus
+- Spanish_SensibleManager
+- Spanish_SereneElder
+- Spanish_SereneWoman
+- Spanish_SincereTeen
+- Spanish_SophisticatedLady
+- Spanish_Steadymentor
+- Spanish_StrictBoss
+- Spanish_Strong-WilledBoy
+- Spanish_ThoughtfulLady
+- Spanish_ThoughtfulMan
+- Spanish_ToughBoss
+- Spanish_WhimsicalGirl
+- Spanish_WiseScholar
+- Spanish_Wiselady
+- Thai_female_1_sample1
+- Thai_female_2_sample2
+- Thai_male_1_sample8
+- Thai_male_2_sample2
+- Turkish_CalmWoman
+- Turkish_Trustworthyman
+- Ukrainian_CalmWoman
+- Ukrainian_WiseScholar
+- Vietnamese_kindhearted_girl
+- czech_female_2_v2
+- czech_female_5_v7
+- czech_male_1_v1
+- finnish_female_4_v1
+- finnish_male_1_v2
+- finnish_male_3_v1
+- greek_male_1a_v1
+- hindi_female_1_v2
+- hindi_female_2_v1
+- hindi_male_1_v2
+
+## Voices Only on Wavespeed (speech-02-turbo)
+- Abbess
+- Afrikaans_female_1_v1
+- Afrikaans_male_1_v1
+- BritishChild_female_1_v1
+- BritishChild_male_1_v1
+- Bulgarian_female_1_v1
+- Bulgarian_male_2_v1
+- Calm_Woman
+- Cantonese_IndifferentStaff
+- Cantonese_Narrator
+- Cantonese_ProfessionalHost（F)
+- Cantonese_ProfessionalHost（M)
+- Cantonese_WiselProfessor
+- Casual_Guy
+- Catalan_female_1_v1
+- Catalan_male_1_v1
+- Croatian_female_1_v1
+- Croatian_male_1_v1
+- Danish_female_1_v1
+- Danish_male_1_v1
+- Decent_Boy
+- Deep_Voice_Man
+- Determined_Man
+- Elegant_Man
+- English_Abbess
+- English_AttractiveGirl
+- English_CharmingQueen
+- English_Cute_Girl
+- English_DecentBoy
+- English_Deep-tonedMan
+- English_DeterminedMan
+- English_Explanatory_Man
+- English_FriendlyNeighbor
+- English_Friendly_Female_3
+- English_GentleTeacher
+- English_GorgeousLady
+- English_Honest_Man
+- English_Husky_MetalHead
+- English_Insightful_Speaker
+- English_Lively_Male_10
+- English_Lively_Male_11
+- English_LovelyLady
+- English_Lucky_Robot
+- English_Magnetic_Male_12
+- English_Magnetic_Male_2
+- English_Persuasive_Man
+- English_Sharp_Commentator
+- English_Steady_Female_1
+- English_Steady_Female_5
+- English_Sweet_Female_4
+- English_ThoughtfulMan
+- English_Whispering_girl_v3
+- English_energetic_male_1
+- English_intellect_female_1
+- English_patient_man_v1
+- English_witty_female_1
+- Exuberant_Girl
+- Filipino_female_1_v1
+- Filipino_male_1_v1
+- French_Female Journalist
+- French_Female_Speech_New
+- Friendly_Person
+- Hebrew_female_1_v1
+- Hebrew_male_1_v1
+- Hungarian_female_1_v1
+- Hungarian_male_1_v1
+- Imposing_Manner
+- Inspirational_girl
+- Italian_ArrogantPrincess
+- Italian_AthleticStudent
+- Italian_ReliableMan
+- Japanese_Whisper_Belle
+- Korean_BossyMan
+- Korean_PowerfulGirl
+- Lively_Girl
+- Lovely_Girl
+- Malay_female_1_v1
+- Malay_female_2_v1
+- Malay_male_1_v1
+- Norwegian_female_1_v1
+- Norwegian_male_1_v1
+- Nynorsk_female_1_v1
+- Nynorsk_male_1_v1
+- Patient_Man
+- Persian_female_1_v1
+- Persian_male_1_v1
+- Portuguese_AnxiousMan
+- Portuguese_CuteElf
+- Portuguese_Deep-tonedMan
+- Portuguese_EnergeticGirl
+- Portuguese_FunnyGuy
+- Portuguese_Matureresearcher
+- Portuguese_Nuttylady
+- Portuguese_Optimisticyouth
+- Slovak_female_1_v1
+- Slovak_male_1_v1
+- Slovenian_female_1_v2
+- Slovenian_male_1_v1
+- Spanish_CharmingQueen
+- Spanish_ElegantGirl
+- Spanish_FascinatingBoy
+- Spanish_FragileBoy
+- Spanish_FriendlyNeighbor
+- Spanish_FunnyGuy
+- Spanish_Nuttylady
+- Spanish_PlayfulSpirit
+- Spanish_Soft-spokenGirl
+- Spanish_TheatricalActor
+- Spanish_UpsetGirl
+- Swedish_female_1_v1
+- Swedish_male_1_v1
+- Sweet_Girl_2
+- Tamil_female_1_v1
+- Tamil_male_1_v1
+- Thai_Optimistic_girl
+- Thai_Tender_Woman
+- Vietnamese_Serene_Man
+- Vietnamese_female_4_v1
+- Vietnamese_male_1_v2
+- Wise_Woman
+- Young_Knight
+- angry_pirate_1
+- conversational_female_1_v1
+- conversational_female_2_v1
+- hunyin_6
+- massive_kind_troll
+- moss_audio_076697ad-7144-11f0-a447-9613c873494c
+- moss_audio_19dbb103-7350-11f0-ad20-f2bc95e89150
+- moss_audio_4f4172f4-737b-11f0-9540-7ef9b4b62566
+- moss_audio_570551b1-735c-11f0-b236-0adeeecad052
+- moss_audio_62ca20b0-7380-11f0-99be-fe40dd2a5fe8
+- moss_audio_6dc281eb-713c-11f0-a447-9613c873494c
+- moss_audio_737a299c-734a-11f0-918f-4e0486034804
+- moss_audio_7c7e7ae2-7356-11f0-9540-7ef9b4b62566
+- moss_audio_a0d611da-737c-11f0-ad20-f2bc95e89150
+- moss_audio_ad5baf92-735f-11f0-8263-fe5a2fe98ec8
+- moss_audio_c12a59b9-7115-11f0-a447-9613c873494c
+- moss_audio_cedfd4d2-736d-11f0-99be-fe40dd2a5fe8
+- movie_trailer_deep
+- peace_and_ease
+- socialmedia_female_1_v1
+- whisper_man
+- whisper_woman_1
+
+## Voices Only on 302.ai (speech-2.6-turbo)
+- Cantonese_ProfessionalHost (F)
+- Cantonese_ProfessionalHost (M)
+- English_Whispering_girl

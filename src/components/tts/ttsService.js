@@ -4,7 +4,7 @@ import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 import { TTS_SPEED_DEFAULT, TTS_PITCH_DEFAULT } from './ttsConstants.js';
 import { getAllVoices, getVoicesByLanguage } from './wavespeedVoices.js';
-import { getProviderForVoice } from './voiceMigration.js';
+import { getProviderForVoice, T302_LANGUAGE_BOOST_OPTIONS } from './voiceMigration.js';
 
 const WAVESPEED_API_KEY = config.tts.wavespeedApiKey;
 const WAVESPEED_ENDPOINT = config.tts.wavespeedEndpoint;
@@ -52,6 +52,23 @@ async function attemptGeneration(text, voiceId, input, options) {
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
   });
+
+  // Safe languages for Wavespeed (speech-02-turbo)
+  // Excludes languages supported by 2.6 but not 02 (e.g. Bulgarian, Danish, etc.)
+  const WAVESPEED_SAFE_LANGUAGES = [
+    "Chinese", "Chinese,Yue", "English", "Arabic", "Russian", "Spanish", "French", "Portuguese",
+    "German", "Turkish", "Dutch", "Ukrainian", "Vietnamese", "Indonesian", "Japanese", "Italian",
+    "Korean", "Thai", "Polish", "Romanian", "Greek", "Czech", "Finnish", "Hindi", "auto"
+  ];
+
+  // Sanitize language_boost for Wavespeed
+  if (input.language_boost && !WAVESPEED_SAFE_LANGUAGES.includes(input.language_boost)) {
+    logger.warn({
+      original: input.language_boost,
+      voiceId
+    }, 'Language boost not supported by Wavespeed, falling back to auto');
+    input.language_boost = 'auto';
+  }
 
   const requestConfig = {
     method: 'POST',

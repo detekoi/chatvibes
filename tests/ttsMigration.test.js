@@ -92,5 +92,47 @@ describe('TTS Migration', () => {
                 })
             }));
         });
+
+        it('should sanitize unsupported language boost for Wavespeed', async () => {
+            axios.mockResolvedValue({
+                data: {
+                    data: {
+                        outputs: ['https://wavespeed.ai/audio.mp3'],
+                        status: 'completed'
+                    }
+                }
+            });
+
+            // 'Bulgarian' is supported by 302 but not Wavespeed
+            await generateSpeech('Hello', 'Wise_Woman', { languageBoost: 'Bulgarian' });
+
+            expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+                url: expect.stringContaining('wavespeed.ai'),
+                data: expect.objectContaining({
+                    voice_id: 'Wise_Woman',
+                    language_boost: 'auto'
+                })
+            }));
+        });
+
+        it('should allow supported language boost for 302.ai', async () => {
+            axios.mockResolvedValue({
+                data: {
+                    data: {
+                        url: 'https://302.ai/audio.mp3'
+                    }
+                }
+            });
+
+            // 'Bulgarian' is supported by 302
+            await generateSpeech('Hello', 'English_expressive_narrator', { languageBoost: 'Bulgarian' });
+
+            expect(axios).toHaveBeenCalledWith(expect.objectContaining({
+                url: expect.stringContaining('302.ai'),
+                data: expect.objectContaining({
+                    language_boost: 'Bulgarian'
+                })
+            }));
+        });
     });
 });
