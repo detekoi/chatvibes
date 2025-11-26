@@ -2,8 +2,8 @@
 
 ## Summary
 - **Total Unique Voices**: 475
-- **Available on Both (02 & 2.6)**: 329
-- **Only on Wavespeed (02)**: 143
+- **Available on Both (02 & 2.6)**: 331
+- **Only on Wavespeed (02)**: 141
 - **Only on 302.ai (2.6)**: 3
 
 ## Voices on Both Models (02 & 2.6)
@@ -14,6 +14,8 @@
 - Cantonese_GentleLady
 - Cantonese_KindWoman
 - Cantonese_PlayfulMan
+- Cantonese_ProfessionalHost（F)
+- Cantonese_ProfessionalHost（M)
 - Chinese (Mandarin)_BashfulGirl
 - Chinese (Mandarin)_Crisp_Girl
 - Chinese (Mandarin)_Cute_Spirit
@@ -348,8 +350,6 @@
 - Calm_Woman
 - Cantonese_IndifferentStaff
 - Cantonese_Narrator
-- Cantonese_ProfessionalHost（F)
-- Cantonese_ProfessionalHost（M)
 - Cantonese_WiselProfessor
 - Casual_Guy
 - Catalan_female_1_v1

@@ -14,6 +14,8 @@ describe('TTS Migration', () => {
     describe('getProviderForVoice', () => {
         it('should return 302 for supported voices', () => {
             expect(getProviderForVoice('English_expressive_narrator')).toBe('302');
+            expect(getProviderForVoice('Cantonese_ProfessionalHost (F)')).toBe('302');
+            expect(getProviderForVoice('Cantonese_ProfessionalHost（F)')).toBe('302'); // Full-width parenthesis
             expect(getProviderForVoice('Chinese (Mandarin)_Reliable_Executive')).toBe('302');
         });
 

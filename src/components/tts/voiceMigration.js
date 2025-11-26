@@ -49,7 +49,7 @@ export const T302_SUPPORTED_VOICE_IDS = [
     "Japanese_SportyStudent", "Japanese_InnocentBoy", "Japanese_GracefulMaiden",
 
     // Cantonese
-    "Cantonese_ProfessionalHost (F)", "Cantonese_GentleLady", "Cantonese_ProfessionalHost (M)",
+    "Cantonese_ProfessionalHost (F)", "Cantonese_ProfessionalHost（F)", "Cantonese_GentleLady", "Cantonese_ProfessionalHost (M)", "Cantonese_ProfessionalHost（M)",
     "Cantonese_PlayfulMan", "Cantonese_CuteGirl", "Cantonese_KindWoman",
 
     // Korean
