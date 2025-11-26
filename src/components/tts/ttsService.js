@@ -26,6 +26,10 @@ function mapEmotion(emotion) {
   if (emotion === 'auto') {
     return 'neutral';
   }
+  // Wavespeed doesn't support "fluent", map to "neutral"
+  if (emotion === 'fluent') {
+    return 'neutral';
+  }
   return emotion;
 }
 
@@ -242,7 +246,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
 
   logger.debug({ input: is302 ? '302.ai input hidden' : input, endpoint, provider }, `Sending TTS request to ${provider}`);
 
-  // Retry logic: try once, retry on timeout
+  // Retry logic: try once, retry on timeout or fallback to Wavespeed
   const MAX_RETRIES = 1;
   let lastError = null;
 
@@ -250,36 +254,46 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     try {
       let audioUrl;
       if (is302) {
-        audioUrl = await attemptGeneration302(text, voiceId, options);
+        // If this is a retry and the provider is 302, we might want to fallback to Wavespeed
+        // But only if the voice is actually supported by Wavespeed (which they all are currently)
+        if (attempt > 0) {
+          logger.warn({ text: text.substring(0, 30) }, 'Falling back to Wavespeed API after 302.ai failure');
+          audioUrl = await attemptGeneration(text, voiceId, input, options);
+        } else {
+          audioUrl = await attemptGeneration302(text, voiceId, options);
+        }
       } else {
         audioUrl = await attemptGeneration(text, voiceId, input, options);
       }
 
       // Log successful retry
       if (attempt > 0) {
-        logger.info({ attempt, text: text.substring(0, 30) }, 'TTS generation succeeded after retry');
+        logger.info({ attempt, text: text.substring(0, 30), provider: is302 && attempt > 0 ? 'wavespeed (fallback)' : provider }, 'TTS generation succeeded after retry');
       }
 
       return audioUrl;
     } catch (error) {
       lastError = error;
 
-      // Don't retry on abort or non-timeout errors
+      // Don't retry on abort
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
         logger.info({ text, endpoint }, `${provider} API call aborted in generateSpeech.`);
         throw error;
       }
 
-      // Check if this is a timeout error that we should retry
+      // Determine if we should retry/fallback
+      // For 302.ai, we always try to fallback to Wavespeed on error (timeout or otherwise)
+      // For Wavespeed, we retry only on timeout
       const isTimeout = error.message && error.message.includes('timed out');
-      const shouldRetry = isTimeout && attempt < MAX_RETRIES;
+      const shouldRetry = (is302 && attempt < MAX_RETRIES) || (isTimeout && attempt < MAX_RETRIES);
 
       if (shouldRetry) {
         logger.warn({
           attempt: attempt + 1,
           maxRetries: MAX_RETRIES + 1,
-          text: text.substring(0, 30)
-        }, `${provider} API timeout - retrying (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
+          text: text.substring(0, 30),
+          error: error.message
+        }, `${provider} API error/timeout - retrying/falling back (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
         continue;
       }
 

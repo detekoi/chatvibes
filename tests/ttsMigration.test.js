@@ -136,5 +136,33 @@ describe('TTS Migration', () => {
                 })
             }));
         });
+
+        it('should fallback to Wavespeed if 302.ai fails', async () => {
+            // First call (302.ai) fails
+            axios.mockRejectedValueOnce(new Error('302.ai API request timed out'));
+
+            // Second call (Wavespeed) succeeds
+            axios.mockResolvedValueOnce({
+                data: {
+                    data: {
+                        outputs: ['https://wavespeed.ai/audio-fallback.mp3'],
+                        status: 'completed'
+                    }
+                }
+            });
+
+            const url = await generateSpeech('Hello', 'English_expressive_narrator');
+
+            expect(url).toBe('https://wavespeed.ai/audio-fallback.mp3');
+            expect(axios).toHaveBeenCalledTimes(2);
+            // First call to 302
+            expect(axios).toHaveBeenNthCalledWith(1, expect.objectContaining({
+                url: expect.stringContaining('302.ai')
+            }));
+            // Second call to Wavespeed
+            expect(axios).toHaveBeenNthCalledWith(2, expect.objectContaining({
+                url: expect.stringContaining('wavespeed.ai')
+            }));
+        });
     });
 });
