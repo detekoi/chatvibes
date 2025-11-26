@@ -139,13 +139,6 @@ async function attemptGeneration302(text, voiceId, options = {}) {
     throw new Error('302.ai API key is missing');
   }
 
-  // Debug log for key issues - logging length and first 4 chars to verify correct secret injection
-  // Using INFO level temporarily to ensure visibility in production logs
-  logger.info({
-    keyLength: apiKey.length,
-    keyStart: apiKey.substring(0, 4) + '***'
-  }, 'Attempting 302.ai generation with key');
-
   const T302_TIMEOUT_MS = 30000; // 30 seconds
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => reject(new Error('302.ai API request timed out')), T302_TIMEOUT_MS);
