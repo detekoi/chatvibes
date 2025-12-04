@@ -39,6 +39,7 @@ import {
 } from '../tts/ttsConstants.js';
 
 import { getSecretValue } from '../../lib/secretManager.js'; // Import your secret manager helper
+import { handleSecretCleanup } from './cleanupEndpoint.js'; // Automated secret cleanup
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -203,6 +204,10 @@ async function handleApiRequest(req, res) {
 
         if (req.url.startsWith('/api/admin/refresh-allowlist')) {
             return handleAllowListRefresh(req, res);
+        }
+
+        if (req.url.startsWith('/api/admin/secret-cleanup')) {
+            return handleSecretCleanup(req, res);
         }
 
         if (req.url.startsWith('/api/tts/test')) {
