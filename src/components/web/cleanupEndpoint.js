@@ -49,6 +49,7 @@ async function cleanupSecretVersions(secretName) {
 
 /**
  * HTTP handler for cleanup endpoint (called by Cloud Scheduler)
+ * Automatically cleans up old secret versions to reduce storage costs
  */
 export async function handleSecretCleanup(req, res) {
     // Verify request is from Cloud Scheduler (check for cron header)
