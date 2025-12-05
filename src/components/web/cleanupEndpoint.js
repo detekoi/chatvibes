@@ -57,8 +57,10 @@ export async function handleSecretCleanup(req, res) {
                             req.headers['user-agent']?.includes('Google-Cloud-Scheduler');
 
     if (!isCloudScheduler) {
-        logger.warn({ ip: req.ip, headers: req.headers }, 'Unauthorized cleanup request');
-        return res.status(403).json({ error: 'Forbidden' });
+        logger.warn({ ip: req.socket.remoteAddress, headers: req.headers }, 'Unauthorized cleanup request');
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Forbidden' }));
+        return;
     }
 
     logger.info('Starting automated secret cleanup...');
@@ -85,15 +87,19 @@ export async function handleSecretCleanup(req, res) {
             versionsKept: totalKept,
         }, 'Secret cleanup completed');
 
-        res.status(200).json({
+        const responseData = {
             success: true,
             secretsProcessed: results.length,
             versionsDisabled: totalDisabled,
             versionsKept: totalKept,
             results: results.filter(r => r.disabled > 0), // Only show secrets that had versions disabled
-        });
+        };
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(responseData));
     } catch (error) {
         logger.error({ err: error }, 'Failed to run secret cleanup');
-        res.status(500).json({ error: 'Cleanup failed', message: error.message });
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Cleanup failed', message: error.message }));
     }
 }
