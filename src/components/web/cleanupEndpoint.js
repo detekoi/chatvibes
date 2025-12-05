@@ -48,25 +48,10 @@ async function cleanupSecretVersions(secretName) {
 }
 
 /**
- * HTTP handler for cleanup endpoint (called by Cloud Scheduler)
- * Automatically cleans up old secret versions to reduce storage costs
+ * Perform the actual cleanup work asynchronously
  */
-export async function handleSecretCleanup(req, res) {
-    // Verify request is from Cloud Scheduler (check for cron header)
-    const isCloudScheduler = req.headers['x-cloudscheduler'] === 'true' ||
-                            req.headers['user-agent']?.includes('Google-Cloud-Scheduler');
-
-    if (!isCloudScheduler) {
-        logger.warn({ ip: req.socket.remoteAddress, headers: req.headers }, 'Unauthorized cleanup request');
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Forbidden' }));
-        return;
-    }
-
-    logger.info('Starting automated secret cleanup...');
-
+async function performCleanup() {
     try {
-        // List all secrets
         const [secrets] = await client.listSecrets({
             parent: `projects/${PROJECT_ID}`,
         });
@@ -86,20 +71,42 @@ export async function handleSecretCleanup(req, res) {
             versionsDisabled: totalDisabled,
             versionsKept: totalKept,
         }, 'Secret cleanup completed');
-
-        const responseData = {
-            success: true,
-            secretsProcessed: results.length,
-            versionsDisabled: totalDisabled,
-            versionsKept: totalKept,
-            results: results.filter(r => r.disabled > 0), // Only show secrets that had versions disabled
-        };
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(responseData));
     } catch (error) {
         logger.error({ err: error }, 'Failed to run secret cleanup');
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Cleanup failed', message: error.message }));
     }
+}
+
+/**
+ * HTTP handler for cleanup endpoint (called by Cloud Scheduler)
+ * Automatically cleans up old secret versions to reduce storage costs
+ *
+ * Returns 202 Accepted immediately and performs cleanup asynchronously
+ * to avoid Cloud Scheduler timeouts
+ */
+export async function handleSecretCleanup(req, res) {
+    // Verify request is from Cloud Scheduler (check for cron header)
+    const isCloudScheduler = req.headers['x-cloudscheduler'] === 'true' ||
+                            req.headers['user-agent']?.includes('Google-Cloud-Scheduler');
+
+    if (!isCloudScheduler) {
+        logger.warn({ ip: req.socket.remoteAddress, headers: req.headers }, 'Unauthorized cleanup request');
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Forbidden' }));
+        return;
+    }
+
+    logger.info('Starting automated secret cleanup...');
+
+    // Respond immediately with 202 Accepted to avoid Cloud Scheduler timeout
+    res.writeHead(202, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+        success: true,
+        message: 'Cleanup started',
+        status: 'processing'
+    }));
+
+    // Perform cleanup asynchronously (don't await)
+    performCleanup().catch(err => {
+        logger.error({ err }, 'Async cleanup failed');
+    });
 }
