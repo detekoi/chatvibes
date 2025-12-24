@@ -16,6 +16,12 @@ export async function handleNotification(subscriptionType, event, channelName) {
     switch (subscriptionType) {
         case 'channel.subscribe': {
             // New subscription
+            // Skip if this is a gift subscription - the channel.subscription.gift event will handle it
+            if (event.is_gift) {
+                logger.debug({ channelName, user: event.user_name }, 'Skipping gift subscription - will be announced by channel.subscription.gift event');
+                return;
+            }
+
             const subUser = event.user_name || event.user_login || 'Someone';
             const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
             ttsText = `${subUser} just subscribed${tier}!`;
