@@ -7,7 +7,7 @@ import config from '../../config/index.js';
 import logger from '../../lib/logger.js';
 import { isChannelAllowed } from '../../lib/allowList.js';
 import { getTtsState } from '../tts/ttsState.js';
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, Timestamp } from '@google-cloud/firestore';
 
 // Import event handlers
 import { handleChatMessage } from './handlers/chatHandler.js';
@@ -43,18 +43,26 @@ function pruneOldProcessedIds(nowTs) {
 async function claimEventSubMessageGlobal(messageId) {
     const docRef = processedEventSubIds.doc(messageId);
     const now = Date.now();
+    const expireAt = Timestamp.fromMillis(now + EVENTSUB_DEDUP_TTL_MS);
 
     try {
         const result = await firestore.runTransaction(async (tx) => {
             const snap = await tx.get(docRef);
             if (snap.exists) {
                 const data = snap.data() || {};
-                const expireAtMs = typeof data.expireAtMs === 'number' ? data.expireAtMs : 0;
-                if (expireAtMs > now) {
+                // Check both old (expireAtMs) and new (expireAt) formats for backward compatibility
+                let expired = true;
+                if (data.expireAt instanceof Timestamp) {
+                    expired = data.expireAt.toMillis() <= now;
+                } else if (typeof data.expireAtMs === 'number') {
+                    expired = data.expireAtMs <= now;
+                }
+
+                if (!expired) {
                     // Already claimed by another instance
                     logger.info({
                         eventSubMessageId: messageId,
-                        ageMs: now - data.createdAtMs,
+                        ageMs: now - (data.createdAtMs || 0),
                         claimedBy: data.instance || 'unknown'
                     }, 'EventSub webhook already processed by another instance - skipping');
                     return false;
@@ -65,7 +73,7 @@ async function claimEventSubMessageGlobal(messageId) {
                 eventSubMessageId: messageId,
                 instance: process.env.K_REVISION || 'local',
                 createdAtMs: now,
-                expireAtMs: now + EVENTSUB_DEDUP_TTL_MS,
+                expireAt: expireAt, // Firestore Timestamp for TTL policy
             }, { merge: true });
             return true;
         });

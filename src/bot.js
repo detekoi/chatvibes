@@ -11,7 +11,7 @@ import { initializeHelixClient } from './components/twitch/helixClient.js';
 import { initializeTtsState } from './components/tts/ttsState.js';
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, Timestamp } from '@google-cloud/firestore';
 import crypto from 'crypto';
 
 
@@ -104,14 +104,22 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
     const keyHash = crypto.createHash('sha1').update(keyRaw).digest('hex');
     const docRef = processedEventsCollection.doc(keyHash);
     const now = Date.now();
+    const expireAt = Timestamp.fromMillis(now + ttlMs);
 
     try {
         const result = await firestore.runTransaction(async (tx) => {
             const snap = await tx.get(docRef);
             if (snap.exists) {
                 const data = snap.data() || {};
-                const expireAtMs = typeof data.expireAtMs === 'number' ? data.expireAtMs : 0;
-                if (expireAtMs > now) {
+                // Check both old (expireAtMs) and new (expireAt) formats for backward compatibility
+                let expired = true;
+                if (data.expireAt instanceof Timestamp) {
+                    expired = data.expireAt.toMillis() <= now;
+                } else if (typeof data.expireAtMs === 'number') {
+                    expired = data.expireAtMs <= now;
+                }
+
+                if (!expired) {
                     const dedupMethod = usingMessageId ? 'messageId' : 'text-based';
                     const keyDisplay = keyRaw.substring(0, 80);
                     logger.info({
@@ -121,7 +129,7 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
                         messageId: messageId || 'N/A',
                         dedupMethod,
                         keyRawPreview: keyDisplay,
-                        ageMs: now - data.createdAtMs
+                        ageMs: now - (data.createdAtMs || 0)
                     }, `TTS message blocked: Duplicate in Firestore (${dedupMethod}) - msgId: ${messageId || 'NONE'} - key: ${keyDisplay}`);
                     return false; // already claimed recently
                 }
@@ -131,7 +139,7 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
                 user,
                 messageId: messageId || null,
                 createdAtMs: now,
-                expireAtMs: now + ttlMs,
+                expireAt: expireAt, // Firestore Timestamp for TTL policy
             }, { merge: true });
             return true;
         });
