@@ -505,6 +505,12 @@ async function validateTtsSetting(key, value) {
             // Allow any string voice ID - validation will happen in TTS service
             return typeof value === 'string' && value.length > 0;
         default:
+            if (key.startsWith('voiceVolumes.')) {
+                const volume = parseFloat(value);
+                // Minimax range is (0, 10], treating 0 as invalid to be safe, though 0 might mute. 
+                // Let's allow 0.1 to 10 based on earlier info.
+                return !isNaN(volume) && volume > 0 && volume <= 10;
+            }
             logger.warn(`Unknown TTS setting key: ${key}`);
             return false;
     }

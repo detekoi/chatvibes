@@ -97,23 +97,25 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         pitch: (globalUserPrefs.pitch ?? userPitch) ?? channelConfig.pitch ?? DEFAULT_TTS_SETTINGS.pitch,
         emotion: globalUserPrefs.emotion || userEmotion || channelConfig.emotion || DEFAULT_TTS_SETTINGS.emotion,
         languageBoost: globalUserPrefs.languageBoost || userLanguage || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
-        volume: channelConfig.volume || DEFAULT_TTS_SETTINGS.volume,
+        languageBoost: globalUserPrefs.languageBoost || userLanguage || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
+        volume: (channelConfig.voiceVolumes && channelConfig.voiceVolumes[globalUserPrefs.voiceId || userVoice || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId])
+            || channelConfig.volume || DEFAULT_TTS_SETTINGS.volume,
         englishNormalization: (globalUserPrefs.englishNormalization ?? userEnglishNorm) ?? (channelConfig.englishNormalization !== undefined
-                                ? channelConfig.englishNormalization
-                                : DEFAULT_TTS_SETTINGS.englishNormalization),
+            ? channelConfig.englishNormalization
+            : DEFAULT_TTS_SETTINGS.englishNormalization),
         sampleRate: channelConfig.sampleRate || DEFAULT_TTS_SETTINGS.sampleRate,
         bitrate: channelConfig.bitrate || DEFAULT_TTS_SETTINGS.bitrate,
         channel: channelConfig.channel || DEFAULT_TTS_SETTINGS.channel,
         ...voiceOptions // Allow direct voiceOptions to override
     };
-     if (voiceOptions.languageBoost) { // Ensure direct pass-through overrides if specified
+    if (voiceOptions.languageBoost) { // Ensure direct pass-through overrides if specified
         finalVoiceOptions.languageBoost = voiceOptions.languageBoost;
     }
-    
+
     logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: VoiceID='${finalVoiceOptions.voiceId}', Emotion='${finalVoiceOptions.emotion}', Speed=${finalVoiceOptions.speed}, Pitch=${finalVoiceOptions.pitch}, LanguageBoost='${finalVoiceOptions.languageBoost}'`);
 
     cq.queue.push({ type, text, user, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo });
-    logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0,20)}..." Queue size: ${cq.queue.length}`);
+    logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
 }
 
@@ -151,25 +153,25 @@ export async function processQueue(channelName) {
     const controller = new AbortController();
     cq.currentSpeechController = controller; // Assign new controller for the current speech generation
 
-    logger.info(`[${channelName}] Processing TTS for ${cq.currentUserSpeaking} (Voice: ${event.voiceConfig.voiceId}, Emotion: ${event.voiceConfig.emotion}, Lang: ${event.voiceConfig.languageBoost}): "${event.text.substring(0,30)}..."`);
+    logger.info(`[${channelName}] Processing TTS for ${cq.currentUserSpeaking} (Voice: ${event.voiceConfig.voiceId}, Emotion: ${event.voiceConfig.emotion}, Lang: ${event.voiceConfig.languageBoost}): "${event.text.substring(0, 30)}..."`);
 
     try {
         const audioUrl = await generateSpeech(event.text, event.voiceConfig.voiceId, { ...event.voiceConfig, signal: controller.signal });
-        
+
         // Check if this specific generation was aborted
         if (controller.signal.aborted) {
-            logger.info(`[${channelName}] Speech generation for "${event.text.substring(0,30)}..." by ${cq.currentUserSpeaking} was aborted while processing.`);
+            logger.info(`[${channelName}] Speech generation for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} was aborted while processing.`);
             // currentSpeechUrl is already null, currentUserSpeaking will be cleared in finally if controller matches
         } else if (audioUrl) {
-            cq.currentSpeechUrl = audioUrl; 
+            cq.currentSpeechUrl = audioUrl;
             // currentUserSpeaking is already set for this audio
-            
+
             // Send audio to all channels in shared session if applicable
             if (event.sharedSessionInfo && event.sharedSessionInfo.channels && event.sharedSessionInfo.channels.length > 0) {
                 const sessionId = event.sharedSessionInfo.sessionId;
                 const channels = event.sharedSessionInfo.channels;
                 logger.info(`[SharedChat:${sessionId}] Sending audio to ${channels.length} channels: ${channels.join(', ')}`);
-                
+
                 // Send to all participating channels
                 for (const targetChannel of channels) {
                     if (hasActiveClients(targetChannel)) {
@@ -186,17 +188,17 @@ export async function processQueue(channelName) {
             }
         } else {
             // No URL and not aborted - issue in generateSpeech or Wavespeed API
-            logger.warn(`[${channelName}] generateSpeech returned no URL for "${event.text.substring(0,30)}..." by ${cq.currentUserSpeaking} and was not aborted.`);
+            logger.warn(`[${channelName}] generateSpeech returned no URL for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} and was not aborted.`);
             // currentSpeechUrl remains null, currentUserSpeaking will be cleared in finally if controller matches
         }
     } catch (error) {
         if (error.name === 'AbortError') {
-            logger.info(`[${channelName}] Speech generation fetch aborted for "${event.text.substring(0,30)}..." by ${cq.currentUserSpeaking}.`);
+            logger.info(`[${channelName}] Speech generation fetch aborted for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking}.`);
         } else {
-            logger.error({ err: error, channel: channelName, eventText: event.text.substring(0,30) }, 'Error processing TTS event in queue');
+            logger.error({ err: error, channel: channelName, eventText: event.text.substring(0, 30) }, 'Error processing TTS event in queue');
         }
         // Ensure currentSpeechUrl is null on error. currentUserSpeaking will be cleared in finally if the controller matches.
-        cq.currentSpeechUrl = null; 
+        cq.currentSpeechUrl = null;
     } finally {
         // Only nullify the controller if it's the one we just used for this task
         // and it hasn't already been nulled by a concurrent stopCurrentSpeech call.
@@ -212,9 +214,9 @@ export async function processQueue(channelName) {
         }
 
         cq.isProcessing = false;
-        
+
         if (!cq.isPaused && cq.queue.length > 0) {
-            setTimeout(() => processQueue(channelName), 500); 
+            setTimeout(() => processQueue(channelName), 500);
         } else if (!cq.isPaused && cq.queue.length === 0) {
             // Queue is empty.
             // If currentSpeechUrl is null (last item failed/aborted), currentUserSpeaking should also be null.
@@ -250,7 +252,7 @@ export async function stopCurrentSpeech(channelName) {
         cq.currentUserSpeaking = null;   // Clear the associated speaker
         stoppedSomethingSignificant = true;
     }
-    
+
     // If nothing was actively being generated or tracked as playing by the server,
     // still send a stop signal to the client as a precaution.
     if (!stoppedSomethingSignificant) {
@@ -258,7 +260,7 @@ export async function stopCurrentSpeech(channelName) {
         sendAudioToChannel(channelName, 'STOP_CURRENT_AUDIO');
         // Do not set stoppedSomethingSignificant = true here, as the server didn't actively stop its own tracked process.
     }
-    
+
     return stoppedSomethingSignificant;
 }
 

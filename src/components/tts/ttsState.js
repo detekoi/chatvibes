@@ -121,8 +121,8 @@ export async function getTtsState(channelName) {
 export async function getChannelTtsConfig(channelName) {
     const fullState = await getTtsState(channelName);
     // Extract only TTS parameters
-    const { voiceId, speed, volume, pitch, emotion, englishNormalization, sampleRate, bitrate, channel, languageBoost } = fullState;
-    return { voiceId, speed, volume, pitch, emotion, languageBoost, englishNormalization, sampleRate, bitrate, channel };
+    const { voiceId, speed, volume, pitch, emotion, englishNormalization, sampleRate, bitrate, channel, languageBoost, voiceVolumes } = fullState;
+    return { voiceId, speed, volume, pitch, emotion, languageBoost, englishNormalization, sampleRate, bitrate, channel, voiceVolumes: voiceVolumes || {} };
 }
 
 export async function setTtsState(channelName, key, value) {
@@ -594,6 +594,40 @@ export async function clearUserSpeedPreference(channelName, username) {
     } catch (error) {
         if (error.code === 5) { return true; }
         logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS speed preference.');
+        return false;
+    }
+}
+
+// --- Functions for Voice Volumes ---
+export async function getVoiceVolumes(channelName) {
+    const config = await getTtsState(channelName);
+    return config.voiceVolumes || {};
+}
+
+export async function setVoiceVolume(channelName, voiceId, volume) {
+    const parsedVolume = parseFloat(volume);
+    if (isNaN(parsedVolume) || parsedVolume <= 0 || parsedVolume > 10) {
+        logger.warn(`[${channelName}] Attempt to set invalid volume '${volume}' for voice ${voiceId}.`);
+        return false;
+    }
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        // Use dot notation for nested update in Firestore
+        await docRef.set({
+            voiceVolumes: { [voiceId]: parsedVolume },
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        logger.info(`[${channelName}] Voice volume updated for ${voiceId}: ${parsedVolume}`);
+
+        // Update cache
+        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        if (!currentConfig.voiceVolumes) currentConfig.voiceVolumes = {};
+        currentConfig.voiceVolumes[voiceId] = parsedVolume;
+        channelConfigsCache.set(channelName, currentConfig);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, voiceId, volume }, 'Failed to set voice volume in Firestore.');
         return false;
     }
 }
