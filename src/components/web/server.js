@@ -289,7 +289,7 @@ async function handleTtsTest(req, res) {
 
     try {
         const body = await parseJsonBody(req);
-        const { text, voiceId, pitch, speed, emotion, languageBoost, englishNormalization } = body;
+        const { text, voiceId, pitch, speed, volume, emotion, languageBoost, englishNormalization } = body;
 
         if (!text) {
             return sendErrorResponse(res, 400, 'Text is required', req);
@@ -302,6 +302,7 @@ async function handleTtsTest(req, res) {
         const audioUrl = await generateSpeech(text, voiceId, {
             pitch,
             speed,
+            volume,
             emotion,
             languageBoost,
             englishNormalization
