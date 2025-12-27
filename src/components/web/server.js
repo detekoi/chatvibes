@@ -784,7 +784,15 @@ export function initializeWebServer() {
                 // Clear any previous auth failures on successful auth
                 authFailures.delete(clientIP);
             } else {
-                logger.warn({ channel: channelName, clientIP }, "Rejecting WS connection: Token mismatch.");
+                logger.warn({
+                    channel: channelName,
+                    clientIP,
+                    tokenSource,
+                    urlTokenLength: tokenFromUrl?.length,
+                    storedTokenLength: storedToken?.length,
+                    urlTokenPreview: tokenFromUrl?.substring(0, 5),
+                    storedTokenPreview: storedToken?.substring(0, 5)
+                }, "Rejecting WS connection: Token mismatch.");
                 recordAuthFailure(clientIP);
                 ws.close(1008, 'Invalid token');
                 return;
