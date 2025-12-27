@@ -750,27 +750,37 @@ export function initializeWebServer() {
         // --- New Token Validation Logic ---
         try {
             const channelConfig = await getTtsState(channelName);
-            const secretName = channelConfig?.obsSocketSecretName;
 
-            if (!secretName) {
-                logger.error({ channel: channelName, configKeys: Object.keys(channelConfig || {}) }, "Rejecting WS connection: No OBS token secret is configured for this channel.");
+            // Check for direct token in Firestore first (preferred for new setup)
+            let storedToken = channelConfig?.obsSocketToken;
+            let tokenSource = 'firestore';
+
+            // Fallback to Secret Manager if not in Firestore
+            if (!storedToken) {
+                const secretName = channelConfig?.obsSocketSecretName;
+                if (secretName) {
+                    logger.debug({ channel: channelName, secretName }, "Retrieving OBS token from Secret Manager");
+                    storedToken = await getSecretValue(secretName);
+                    tokenSource = 'secret-manager';
+
+                    if (!storedToken) {
+                        logger.error({ channel: channelName, secretName }, "Rejecting WS connection: Failed to retrieve token from Secret Manager.");
+                        ws.close(1011, 'Configuration error: Token not found');
+                        recordAuthFailure(clientIP);
+                        return;
+                    }
+                }
+            }
+
+            if (!storedToken) {
+                logger.error({ channel: channelName, configKeys: Object.keys(channelConfig || {}) }, "Rejecting WS connection: No OBS token configured (checked Firestore and Secret Manager).");
                 ws.close(1008, 'Configuration error: No token configured');
                 recordAuthFailure(clientIP);
                 return;
             }
 
-            logger.debug({ channel: channelName, secretName }, "Retrieving OBS token for authentication");
-            const storedToken = await getSecretValue(secretName);
-
-            if (!storedToken) {
-                logger.error({ channel: channelName, secretName }, "Rejecting WS connection: Failed to retrieve token from Secret Manager.");
-                ws.close(1011, 'Configuration error: Token not found');
-                recordAuthFailure(clientIP);
-                return;
-            }
-
             if (storedToken === tokenFromUrl) {
-                logger.info(`WebSocket client authenticated for channel: ${channelName}`);
+                logger.info(`WebSocket client authenticated for channel: ${channelName} (via ${tokenSource})`);
                 // Clear any previous auth failures on successful auth
                 authFailures.delete(clientIP);
             } else {

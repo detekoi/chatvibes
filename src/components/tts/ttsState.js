@@ -212,6 +212,31 @@ export async function setObsSocketSecretName(channelName, secretName) {
         return false;
     }
 }
+
+/**
+ * Sets the OBS WebSocket token directly in Firestore for a channel.
+ * @param {string} channelName - The name of the channel.
+ * @param {string} token - The token string.
+ * @returns {Promise<boolean>}
+ */
+export async function setObsSocketToken(channelName, token) {
+    if (!db) db = new Firestore();
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.set({
+            obsSocketToken: token,
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        logger.info(`[${channelName}] OBS WebSocket token has been set (Firestore).`);
+        // Update cache
+        const currentConfig = await getTtsState(channelName);
+        channelConfigsCache.set(channelName, { ...currentConfig, obsSocketToken: token });
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName }, 'Failed to set OBS socket token in Firestore.');
+        return false;
+    }
+}
 // Functions for managing ignored users
 export async function addIgnoredUser(channelName, username) {
     const lowerUser = username.toLowerCase();
@@ -228,9 +253,9 @@ export async function addIgnoredUser(channelName, username) {
         }
         channelConfigsCache.set(channelName, config);
         return true;
-    } catch (error) { 
+    } catch (error) {
         logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to add user to TTS ignore list in Firestore.');
-        return false; 
+        return false;
     }
 }
 
@@ -321,7 +346,7 @@ export async function clearUserEmotionPreference(channelName, username) {
         // It might fail if the field doesn't exist, which is fine.
         if (error.code === 5) { // Firestore: NOT_FOUND (usually if trying to delete a non-existent field path directly)
             logger.debug(`[${channelName}] No specific emotion preference to clear for user ${lowerUser}.`);
-             // Ensure cache reflects this state
+            // Ensure cache reflects this state
             const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
             if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
                 delete currentConfig.userPreferences[lowerUser].emotion;
