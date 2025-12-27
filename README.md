@@ -85,7 +85,7 @@ Approved streamers can add or remove the ChatVibes Text-to-Speech (TTS) bot from
 
       * By default, ChatVibes is in **"all messages" mode**, where it reads most chat from all users. You can use the `!tts permission` and `!tts mode` commands to change this behavior. See [Commands](#command-documentation)
       * You can trigger TTS with a command like `!tts <your message>` or `!tts say <your message>`.
-      * The bot also supports **Bits → TTS** and **Bits-for-Music** modes, where messages are only read or music is only generated if they are accompanied by a cheer that meets a channel-configurable minimum amount.
+      * The bot also supports **Bits → TTS** mode, where messages are only read if they are accompanied by a cheer that meets a channel-configurable minimum amount.
       * **Channel Points → TTS:** Viewers can redeem a custom Channel Point reward with a message to have it read aloud. See [Channel Points → TTS](#channel-points--tts) section below.
       * Please refer to the [main ChatVibes documentation](https://detekoi.github.io/chatvibesdocs.html) for details on setting up TTS triggers and customizing voice options.
       * The repository for the ChatVibes web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
@@ -522,67 +522,5 @@ All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also docu
 * **Description:** Immediately enqueues the provided message for TTS. This works in both `all` and `command` modes. It uses the requesting user's preferences (or channel defaults) for voice, pitch, speed, and emotion.
 * **Permission:** Everyone
 * **Usage:** `!tts Welcome everyone to the stream!` or `!tts say Welcome everyone!`
-
------
-  
-### Music Generation Commands
-
-**`!music <prompt>`**
-* **Description:** Generates a short piece of music based on your prompt. If Bits-for-Music mode is on, the message must be accompanied by a cheer of the minimum required amount.
-* **Permission:** Configurable by mods (default: everyone, can be mods only). User must not be on music ignore list.
-* **Usage:** `!music epic orchestral battle theme`
-
-**`!music on|off`**
-* **Description:** (Mod only) Enables or disables the music generation feature for the channel.
-* **Permission:** Moderator
-* **Usage:** `!music on` or `!music off`
-
-**`!music mode <all|mods>`**
-* **Description:** (Mod only) Sets who can use the `!music <prompt>` command.
-    * `all`: Everyone can generate music.
-    * `mods`: Only moderators and the broadcaster can generate music.
-* **Permission:** Moderator
-* **Usage:** `!music mode all` or `!music mode mods`
-
-**`!music bits [on|off|min <amount>]`**
-* **Description:** (Mod only) Configures Bits-for-Music. When enabled, users must cheer with their prompt to generate music.
-    * `on`: Enables Bits-for-Music mode.
-    * `off`: Disables Bits-for-Music mode.
-    * `min <amount>`: Sets the minimum number of Bits required (e.g., `min 100`).
-* **Permission:** Moderator
-* **Usage:**
-    * `!music bits on`
-    * `!music bits off`
-    * `!music bits min 100`
-    * `!music bits` (displays current status)
-
-**`!music status`**
-* **Description:** Shows the current status of music generation (enabled/disabled, mode, queue length, bits mode).
-* **Permission:** Everyone
-* **Usage:** `!music status`
-
-**`!music clear`**
-* **Description:** (Mod only) Clears all pending music generation requests from the queue.
-* **Permission:** Moderator
-* **Usage:** `!music clear`
-
-**`!music ignore <username>`** / **`!music ignore add <username>`**
-* **Description:**
-    * **For any user:** Allows you to add *yourself* to the music ignore list. Your `!music <prompt>` requests will be ignored. Use `!music ignore yourusername` or `!music ignore add yourusername`.
-    * **For Moderators/Broadcaster:** Allows you to add *any specified Twitch user* to the music ignore list.
-* **Permission:** Everyone (to add themselves), Moderator (to add others)
-* **Usage:**
-    * `!music ignore yourusername` (if you want to ignore yourself)
-    * `!music ignore add SomeOtherUser` (if you are a mod/broadcaster)
-
-**`!music ignore del <username>`** (Aliases: `delete`, `rem`, `remove`)
-* **Description:** (Mod only) Removes the specified Twitch user from the music ignore list.
-* **Permission:** Moderator
-* **Usage:** `!music ignore del SomeUser`
-
-**`!music ignored`**
-* **Description:** (Mod only) Lists all users currently on the music ignore list for the channel.
-* **Permission:** Moderator
-* **Usage:** `!music ignored`
 
 </details>

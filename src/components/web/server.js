@@ -18,15 +18,6 @@ import {
     removeIgnoredUser
 } from '../tts/ttsState.js';
 
-// Import Music state management functions
-import {
-    getMusicState,
-    setMusicEnabled,
-    setAllowedMusicRoles,
-    addIgnoredUserMusic,
-    removeIgnoredUserMusic,
-    setBitsConfigMusic
-} from '../music/musicState.js';
 
 // Import constants for validation
 import {
@@ -221,10 +212,6 @@ async function handleApiRequest(req, res) {
                 await handleTtsSettings(req, res, req.channelName, req.method);
             } else if (pathname.includes('/api/tts/ignore')) {
                 await handleTtsIgnore(req, res, req.channelName, req.method);
-            } else if (pathname.includes('/api/music/settings')) {
-                await handleMusicSettings(req, res, req.channelName, req.method);
-            } else if (pathname.includes('/api/music/ignore')) {
-                await handleMusicIgnore(req, res, req.channelName, req.method);
             } else {
                 applyCors(req, res);
                 sendErrorResponse(res, 404, 'API endpoint not found', req);
@@ -370,70 +357,6 @@ async function handleTtsIgnore(req, res, channelName, method) {
         const success = await removeIgnoredUser(channelName, username);
         if (success) {
             sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from ignore list` }, req);
-        } else {
-            sendErrorResponse(res, 500, 'Failed to remove user from ignore list', req);
-        }
-    } else {
-        sendErrorResponse(res, 405, 'Method not allowed', req);
-    }
-}
-
-// Music Settings handlers
-async function handleMusicSettings(req, res, channelName, method) {
-    if (method === 'GET') {
-        // Force refresh from Firestore to get latest data (in case web UI made changes)
-        const settings = await getMusicState(channelName, true);
-        sendJsonResponse(res, 200, { success: true, settings }, req);
-    } else if (method === 'PUT') {
-        const body = await parseJsonBody(req);
-        const { key, value } = body;
-
-        let success = false;
-        if (key === 'enabled') {
-            success = await setMusicEnabled(channelName, value);
-        } else if (key === 'allowedRoles') {
-            success = await setAllowedMusicRoles(channelName, value);
-        } else if (key === 'bitsConfig') {
-            success = await setBitsConfigMusic(channelName, value);
-        } else {
-            return sendErrorResponse(res, 400, `Unknown music setting: ${key}`, req);
-        }
-
-        if (success) {
-            sendJsonResponse(res, 200, { success: true, message: 'Music setting updated successfully' }, req);
-        } else {
-            sendErrorResponse(res, 500, 'Failed to update music setting', req);
-        }
-    } else {
-        sendErrorResponse(res, 405, 'Method not allowed', req);
-    }
-}
-
-// Music Ignore list handlers
-async function handleMusicIgnore(req, res, channelName, method) {
-    if (method === 'POST') {
-        const body = await parseJsonBody(req);
-        const { username } = body;
-        if (!username) {
-            return sendErrorResponse(res, 400, 'Username required', req);
-        }
-
-        const success = await addIgnoredUserMusic(channelName, username);
-        if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `User ${username} added to music ignore list` }, req);
-        } else {
-            sendErrorResponse(res, 500, 'Failed to add user to music ignore list', req);
-        }
-    } else if (method === 'DELETE') {
-        const body = await parseJsonBody(req);
-        const { username } = body;
-        if (!username) {
-            return sendErrorResponse(res, 400, 'Username required', req);
-        }
-
-        const success = await removeIgnoredUserMusic(channelName, username);
-        if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from music ignore list` }, req);
         } else {
             sendErrorResponse(res, 500, 'Failed to remove user from ignore list', req);
         }

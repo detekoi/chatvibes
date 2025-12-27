@@ -83,9 +83,6 @@ function loadConfig() {
             allowedChannelsSecretName: process.env.ALLOWED_CHANNELS_SECRET_NAME,
             jwtSecret: process.env.JWT_SECRET || process.env.JWT_SECRET_KEY, // Support both env var names
         },
-        music: {
-            replicateApiToken: process.env.REPLICATE_API_TOKEN,
-        }
     };
 
     if (!config.tts.wavespeedApiKey && config.app.nodeEnv !== 'test') {

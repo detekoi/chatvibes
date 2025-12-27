@@ -14,9 +14,6 @@ import { initializeWebServer } from './components/web/server.js';
 import { Firestore } from '@google-cloud/firestore';
 import crypto from 'crypto';
 
-// Music Components
-import { initializeMusicQueues } from './components/music/musicQueue.js';
-import { initializeMusicState } from './components/music/musicState.js';
 
 // Command Processing
 import { initializeCommandProcessor } from './components/commands/commandProcessor.js';
@@ -290,14 +287,8 @@ async function main() {
         logger.info('ChatVibes: Restoring TTS queues from previous session...');
         await ttsQueue.restoreAllQueues();
 
-        logger.info('ChatVibes: Initializing Music State (Firestore)...');
-        await initializeMusicState();
-
         logger.info('ChatVibes: Initializing Channel Manager (Firestore)...');
         await initializeChannelManager();
-
-        logger.info('ChatVibes: Initializing Music Generation system (queues)...');
-        initializeMusicQueues();
 
         // --- Load Twitch Channels ---
         // Use env-based channels locally (development) and Firestore when deployed on Cloud Run.
