@@ -16,6 +16,7 @@ async function generateOAuthUrl() {
 
         // Define all required scopes for the bot
         const requiredScopes = [
+            'user:bot',            // Required for Chat Bot apps
             // Chat functionality (EventSub and IRC)
             'user:read:chat',      // Required for channel.chat.message EventSub subscriptions
             'user:write:chat',     // Required for sending chat messages via Helix API
@@ -35,6 +36,7 @@ async function generateOAuthUrl() {
 
         console.log('\n=== Bot Re-authentication Instructions ===\n');
         console.log('Your bot is missing the following scopes:');
+        console.log('  - user:bot');
         console.log('  - user:read:chat');
         console.log('  - user:write:chat');
         console.log('\nTo fix this, you need to re-authenticate your bot:\n');

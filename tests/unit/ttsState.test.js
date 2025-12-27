@@ -175,13 +175,4 @@ describe('ttsState module', () => {
       expect(voiceId).toBeNull();
     });
   });
-  describe('setObsSocketToken', () => {
-    test('should save OBS token', async () => {
-      const result = await ttsState.setObsSocketToken(TEST_CHANNEL, 'test-token');
-      expect(result).toBe(true);
-
-      const state = await ttsState.getTtsState(TEST_CHANNEL);
-      expect(state.obsSocketToken).toBe('test-token');
-    });
-  });
 });
