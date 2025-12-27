@@ -20,8 +20,6 @@ async function generateOAuthUrl() {
             // Chat functionality (EventSub and IRC)
             'user:read:chat',      // Required for channel.chat.message EventSub subscriptions
             'user:write:chat',     // Required for sending chat messages via Helix API
-            'chat:read',           // Legacy IRC chat reading (keep for compatibility)
-            'chat:edit',           // Legacy IRC chat sending (keep for compatibility)
 
             // Event tracking
             'bits:read',                      // For bit/cheer events

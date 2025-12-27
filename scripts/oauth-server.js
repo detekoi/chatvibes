@@ -113,8 +113,6 @@ async function startServer() {
         'user:bot',            // Required for Chat Bot apps (NEW!)
         'user:read:chat',
         'user:write:chat',
-        'chat:read',
-        'chat:edit',
         'bits:read',
         'channel:read:subscriptions',
         'moderator:read:followers',
