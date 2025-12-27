@@ -231,6 +231,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     text,
     voice_id: voiceId,
     speed: options.speed ?? TTS_SPEED_DEFAULT,
+    vol: options.volume ?? 1.0,
     volume: options.volume ?? 1.0,
     pitch: options.pitch ?? TTS_PITCH_DEFAULT,
     emotion: mapEmotion(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral'),
