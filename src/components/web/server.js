@@ -610,9 +610,9 @@ httpServer.setTimeout(0);
 
 // Rate limiting for failed authentication attempts
 const authFailures = new Map(); // clientIP -> { count, lastAttempt }
-const MAX_AUTH_FAILURES = 5;
+const MAX_AUTH_FAILURES = 50; // Relaxed for debugging
 const AUTH_FAILURE_WINDOW_MS = 60000; // 1 minute
-const AUTH_LOCKOUT_MS = 300000; // 5 minutes after max failures
+const AUTH_LOCKOUT_MS = 5000; // 5 seconds (relaxed for debugging)
 
 function checkRateLimit(clientIP) {
     const now = Date.now();
