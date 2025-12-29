@@ -244,7 +244,21 @@ export async function eventSubHandler(req, res, rawBody) {
 
         // For other event types, check if TTS events are enabled
         const ttsConfig = await getTtsState(channelName);
-        if (!ttsConfig.engineEnabled || !ttsConfig.speakEvents) {
+
+        // Granular check for cheer events
+        if (type === 'channel.cheer') {
+            // Check speakCheerEvents (default to true/speakEvents logic if undefined for backward compatibility)
+            const speakCheers = ttsConfig.speakCheerEvents !== undefined
+                ? ttsConfig.speakCheerEvents
+                : (ttsConfig.speakEvents !== false); // Fallback to main toggle if not set
+
+            if (!ttsConfig.engineEnabled || !speakCheers) {
+                logger.debug({ channelName, type }, 'TTS cheer events disabled for channel - ignoring EventSub event');
+                return;
+            }
+        }
+        // Standard check for other events
+        else if (!ttsConfig.engineEnabled || !ttsConfig.speakEvents) {
             logger.debug({ channelName, type }, 'TTS events disabled for channel - ignoring EventSub event');
             return;
         }

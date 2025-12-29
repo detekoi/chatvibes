@@ -43,13 +43,25 @@ export async function handleChatMessage(event, channelName) {
     // Convert EventSub event to IRC-style tags for command processor
     const tags = convertEventSubToTags(event);
 
-    // Clean the cheermote from the message if it has bits
+    // Clean the cheermote from the message using fragments if available (EventSub)
     let cleanMessage = messageText;
+
     if (bits > 0) {
-        // Remove cheermotes from beginning: "Cheer100 hello" or "Cheer 100 hello" -> "hello"
-        cleanMessage = cleanMessage.replace(/^[\w]+\s*\d+\s*/, '').trim();
-        // Remove cheermotes after !tts: "!tts Cheer100 hello" or "!tts Cheer 100 hello" -> "!tts hello"
-        cleanMessage = cleanMessage.replace(/^(!tts\s+)[\w]+\s*\d+\s*/, '$1').trim();
+        if (event.message && event.message.fragments) {
+            // New logic: filter out cheermote fragments entirely
+            // This handles "Cheer100 hello Cheer100" -> " hello " -> "hello"
+            cleanMessage = event.message.fragments
+                .filter(f => f.type === 'text')
+                .map(f => f.text)
+                .join('')
+                .trim();
+        } else {
+            // Fallback for cases where fragments might not be populated (though they should be for EventSub)
+            // Remove cheermotes from beginning: "Cheer100 hello" or "Cheer 100 hello" -> "hello"
+            cleanMessage = cleanMessage.replace(/^[\w]+\s*\d+\s*/, '').trim();
+            // Remove cheermotes after !tts: "!tts Cheer100 hello" or "!tts Cheer 100 hello" -> "!tts hello"
+            cleanMessage = cleanMessage.replace(/^(!tts\s+)[\w]+\s*\d+\s*/, '$1').trim();
+        }
     }
 
     if (!cleanMessage) return;
