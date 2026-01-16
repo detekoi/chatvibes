@@ -140,9 +140,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
   }
 
   const T302_TIMEOUT_MS = 30000; // 30 seconds
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('302.ai API request timed out')), T302_TIMEOUT_MS);
-  });
+  const startTime = Date.now();
 
   const input = {
     model: 'speech-2.6-turbo',
@@ -154,7 +152,6 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       vol: options.volume ?? 1.0,
       pitch: options.pitch ?? TTS_PITCH_DEFAULT,
       emotion: mapEmotion(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral'),
-      text_normalization: options.englishNormalization !== undefined ? options.englishNormalization : false,
     },
     audio_setting: {
       sample_rate: options.sampleRate ?? 32000,
@@ -166,6 +163,21 @@ async function attemptGeneration302(text, voiceId, options = {}) {
     output_format: 'url'
   };
 
+  // Log request details for debugging
+  logger.info({
+    logKey: '302_API_REQUEST',
+    endpoint: T302_ENDPOINT,
+    voiceId,
+    textLength: text.length,
+    textPreview: text.substring(0, 50),
+    requestParams: {
+      model: input.model,
+      voice_setting: input.voice_setting,
+      audio_setting: input.audio_setting,
+      language_boost: input.language_boost
+    }
+  }, `302.ai API request starting for voice ${voiceId}`);
+
   const requestConfig = {
     method: 'POST',
     url: T302_ENDPOINT,
@@ -173,43 +185,65 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       'Authorization': `Bearer ${T302_API_KEY}`,
       'Content-Type': 'application/json'
     },
-    data: input
+    data: input,
+    timeout: T302_TIMEOUT_MS
   };
 
   if (options.signal) {
     requestConfig.signal = options.signal;
   }
 
-  const response = await Promise.race([
-    axios(requestConfig),
-    timeoutPromise
-  ]);
+  try {
+    const response = await axios(requestConfig);
+    const durationMs = Date.now() - startTime;
 
-  if (options.signal && options.signal.aborted) {
-    logger.info({ endpoint: T302_ENDPOINT, text }, '302.ai request was aborted while awaiting.');
-    throw new DOMException('Aborted by user', 'AbortError');
-  }
+    if (options.signal && options.signal.aborted) {
+      logger.info({ endpoint: T302_ENDPOINT, text, durationMs }, '302.ai request was aborted while awaiting.');
+      throw new DOMException('Aborted by user', 'AbortError');
+    }
 
-  const result = response.data;
+    const result = response.data;
 
-  // 302.ai response structure check
-  if (result.data && result.data.url) {
-    const audioUrl = result.data.url;
-    logger.info({ outputUrl: audioUrl }, 'TTS audio generated successfully via 302.ai');
-    return audioUrl;
-  } else if (result.data && result.data.audio) {
-    // Some endpoints return 'audio' instead of 'url'
-    const audioUrl = result.data.audio;
-    logger.info({ outputUrl: audioUrl }, 'TTS audio generated successfully via 302.ai (audio field)');
-    return audioUrl;
-  } else if (result.url) {
-    // Some endpoints might return url directly
-    const audioUrl = result.url;
-    logger.info({ outputUrl: audioUrl }, 'TTS audio generated successfully via 302.ai (direct url)');
-    return audioUrl;
-  } else {
-    logger.error({ result, endpoint: T302_ENDPOINT }, '302.ai returned unexpected response format.');
-    throw new Error(`302.ai API returned unexpected response format: ${JSON.stringify(result)}`);
+    // 302.ai response structure check
+    if (result.data && result.data.url) {
+      const audioUrl = result.data.url;
+      logger.info({ outputUrl: audioUrl, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai');
+      return audioUrl;
+    } else if (result.data && result.data.audio) {
+      // Some endpoints return 'audio' instead of 'url'
+      const audioUrl = result.data.audio;
+      logger.info({ outputUrl: audioUrl, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai (audio field)');
+      return audioUrl;
+    } else if (result.url) {
+      // Some endpoints might return url directly
+      const audioUrl = result.url;
+      logger.info({ outputUrl: audioUrl, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai (direct url)');
+      return audioUrl;
+    } else {
+      logger.error({ result, endpoint: T302_ENDPOINT, durationMs }, '302.ai returned unexpected response format.');
+      throw new Error(`302.ai API returned unexpected response format: ${JSON.stringify(result)}`);
+    }
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.includes('timeout'));
+
+    logger.error({
+      logKey: '302_API_ERROR',
+      endpoint: T302_ENDPOINT,
+      voiceId,
+      textLength: text.length,
+      durationMs,
+      isTimeout,
+      errorCode: error.code,
+      errorMessage: error.message,
+      responseStatus: error.response?.status,
+      responseData: error.response?.data
+    }, `302.ai API error after ${durationMs}ms: ${error.message}`);
+
+    if (isTimeout) {
+      throw new Error('302.ai API request timed out');
+    }
+    throw error;
   }
 }
 
