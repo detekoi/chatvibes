@@ -146,9 +146,10 @@ async function verifyChannelAccess(req, res, next) {
     }
 
     try {
+        // Support migration: Allow both new WildcatTTS and legacy ChatVibes tokens
         const decoded = jwt.verify(token, JWT_SECRET_KEY, {
-            audience: 'chatvibes-api',
-            issuer: 'chatvibes-auth'
+            audience: ['wildcat-tts-api', 'chatvibes-api'],
+            issuer: ['wildcat-tts-auth', 'chatvibes-auth']
         });
 
         if (!decoded?.userLogin) {
@@ -224,7 +225,7 @@ async function handleApiRequest(req, res) {
 async function handleVoicesEndpoint(req, res) {
     try {
         // Try to fetch actual voices from TTS service
-        const { getAvailableVoices, generateSpeech } = await import('../tts/ttsService.js');
+        const { getAvailableVoices } = await import('../tts/ttsService.js');
         const voiceList = await getAvailableVoices();
 
         if (voiceList && voiceList.length > 0) {
@@ -267,8 +268,8 @@ async function handleTtsTest(req, res) {
     const token = authHeader.split(' ')[1];
     try {
         jwt.verify(token, JWT_SECRET_KEY, {
-            audience: 'chatvibes-api',
-            issuer: 'chatvibes-auth'
+            audience: ['wildcat-tts-api', 'chatvibes-api'],
+            issuer: ['wildcat-tts-auth', 'chatvibes-auth']
         });
     } catch (error) {
         return sendErrorResponse(res, 401, 'Invalid or expired token', req);
