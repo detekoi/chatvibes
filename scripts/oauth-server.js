@@ -2,9 +2,9 @@
 // Simple local server to handle OAuth callback for bot authentication
 import express from 'express';
 import axios from 'axios';
-import { getClientId, getClientSecret } from './src/components/twitch/auth.js';
-import { addSecretVersion } from './src/lib/secretManager.js';
-import config from './src/config/index.js';
+import { getClientId, getClientSecret } from '../src/components/twitch/auth.js';
+import { addSecretVersion } from '../src/lib/secretManager.js';
+import config from '../src/config/index.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -139,7 +139,7 @@ async function startServer() {
             <body>
                 <h1>🤖 Bot OAuth Authentication</h1>
                 <div class="info">
-                    <p><strong>Important:</strong> Make sure you are logged into Twitch as the <code>chatvibesbot</code> account before clicking the button below.</p>
+                    <p><strong>Important:</strong> Make sure you are logged into Twitch as the <code>WildcatTTS</code> account before clicking the button below.</p>
                 </div>
                 <p>Click the button below to authorize the bot with the required scopes:</p>
                 <ul>
@@ -286,7 +286,7 @@ async function startServer() {
     server = app.listen(PORT, () => {
         console.log('\n=== Bot OAuth Server Started ===\n');
         console.log(`1. Open your browser and go to: http://localhost:${PORT}`);
-        console.log('2. Make sure you are logged into Twitch as the bot account (chatvibesbot)');
+        console.log('2. Make sure you are logged into Twitch as the bot account (WildcatTTS)');
         console.log('3. Click the "Authorize Bot on Twitch" button');
         console.log('4. The server will automatically process the authorization code\n');
         console.log('Server is running on http://localhost:' + PORT);
