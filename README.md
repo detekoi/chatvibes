@@ -12,9 +12,9 @@ ChatVibes is a Twitch bot that reads chat messages and events aloud using Text-t
 
 For a complete list of available commands and voices, visit the documentation:
 
-  * [Commands Documentation](https://detekoi.github.io/chatvibesdocs.html#commands)
-  * [Voices Documentation](https://detekoi.github.io/chatvibesdocs.html#voices)
-  * [Language Support Documentation](https://detekoi.github.io/chatvibesdocs.html#language-boost)
+  * [Commands Documentation](https://docs.wildcat.chat/wildcatttsdocs.html#commands)
+  * [Voices Documentation](https://docs.wildcat.chat/wildcatttsdocs.html#voices)
+  * [Language Support Documentation](https://docs.wildcat.chat/wildcatttsdocs.html#language-boost)
 
 ## Features
 
@@ -53,7 +53,7 @@ You can toggle between these modes using the `botRespondsInChat` setting in the 
 
 ## Adding ChatVibes to Your Channel & Setup
 
-**Note:** Access is currently invite-only. If you haven't been approved, you'll see an access denied message. [Request access here](https://detekoi.github.io/#contact-me).
+**Note:** Access is currently invite-only. If you haven't been approved, you'll see an access denied message. [Request access here](https://docs.wildcat.chat/#contact-me).
 
 Approved streamers can add or remove the ChatVibes Text-to-Speech (TTS) bot from their channel and configure it for their streaming software using the web interface:
 
@@ -87,7 +87,7 @@ Approved streamers can add or remove the ChatVibes Text-to-Speech (TTS) bot from
       * You can trigger TTS with a command like `!tts <your message>` or `!tts say <your message>`.
       * The bot also supports **Bits → TTS** mode, where messages are only read if they are accompanied by a cheer that meets a channel-configurable minimum amount.
       * **Channel Points → TTS:** Viewers can redeem a custom Channel Point reward with a message to have it read aloud. See [Channel Points → TTS](#channel-points--tts) section below.
-      * Please refer to the [main ChatVibes documentation](https://detekoi.github.io/chatvibesdocs.html) for details on setting up TTS triggers and customizing voice options.
+      * Please refer to the [main ChatVibes documentation](https://docs.wildcat.chat/wildcatttsdocs.html) for details on setting up TTS triggers and customizing voice options.
       * The repository for the ChatVibes web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
 
 ## Channel Points → TTS
@@ -258,7 +258,7 @@ The Channel Points → TTS feature works with all TTS modes:
 
 ## Command Documentation
 
-All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also documented here: [https://detekoi.github.io/chatvibesdocs.html\#commands](https://detekoi.github.io/chatvibesdocs.html#commands)
+All TTS commands are prefixed with `!tts`. For example, `!tts status`. Also documented here: [https://docs.wildcat.chat/wildcatttsdocs.html\#commands](https://docs.wildcat.chat/wildcatttsdocs.html#commands)
 
 <details>
 <summary>Click to expand command documentation.</summary>

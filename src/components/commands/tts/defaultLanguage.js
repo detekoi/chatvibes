@@ -9,7 +9,7 @@ import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 
 const commandUsage = '!tts defaultlanguage <language|reset>'; // Define usage string
-const docLink = 'https://docs.wildcat.chat/chatvibesdocs.html#language-boost';
+const docLink = 'https://docs.wildcat.chat/wildcatttsdocs.html#language-boost';
 
 export default {
     name: 'defaultlanguage',

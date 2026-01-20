@@ -27,7 +27,7 @@ async function getClientId() {
     cachedClientId = process.env.TWITCH_CLIENT_ID || config.twitch.clientId;
 
     if (!cachedClientId) {
-        logger.fatal('ChatVibes: TWITCH_CLIENT_ID not found in environment');
+        logger.fatal('WildcatTTS: TWITCH_CLIENT_ID not found in environment');
         throw new Error('TWITCH_CLIENT_ID not configured');
     }
 
@@ -82,7 +82,7 @@ async function fetchNewAppAccessToken() {
         params.append('client_id', clientId);
         params.append('client_secret', clientSecret);
         params.append('grant_type', 'client_credentials');
-        
+
         const response = await axios.post(TOKEN_URL, params, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'

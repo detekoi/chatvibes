@@ -7,7 +7,7 @@ import logger from './lib/logger.js';
 import { initializeSecretManager } from './lib/secretManager.js';
 import { initializeHelixClient } from './components/twitch/helixClient.js';
 
-// ChatVibes TTS Components
+// WildcatTTS TTS Components
 import { initializeTtsState } from './components/tts/ttsState.js';
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
@@ -200,7 +200,7 @@ async function getSharedSessionInfo(channelNameNoHash) {
             participantCount: channelLogins.length
         };
     } catch (error) {
-        logger.warn({ err: error, channel: channelNameNoHash }, 'ChatVibes: Error getting shared session info');
+        logger.warn({ err: error, channel: channelNameNoHash }, 'WildcatTTS: Error getting shared session info');
         return null;
     }
 }
@@ -276,11 +276,11 @@ async function gracefulShutdown(signal) {
 
 async function main() {
     try {
-        const packageName = 'chatvibes-tts';
+        const packageName = 'wildcat-tts';
         const packageVersion = '1.0.0';
         logger.info(`Starting ${packageName} v${packageVersion}...`);
         logger.info(`Node Env: ${config.app.nodeEnv}, Log Level: ${config.app.logLevel}`);
-        logger.info(`Project ID: ${process.env.GOOGLE_CLOUD_PROJECT || 'ChatVibesTTS (Hardcoded fallback - Set GOOGLE_CLOUD_PROJECT)'}`);
+        logger.info(`Project ID: ${process.env.GOOGLE_CLOUD_PROJECT || 'WildcatTTS (Hardcoded fallback - Set GOOGLE_CLOUD_PROJECT)'}`);
 
         // Initialize core components
         logger.info('ChatVibes: Initializing Secret Manager...');
@@ -489,7 +489,7 @@ process.on('uncaughtException', (error) => {
 });
 process.on('unhandledRejection', (reason, promise) => {
     const errorReason = reason instanceof Error ? { message: reason.message, stack: reason.stack } : reason;
-    logger.error({ reason: errorReason, promise }, 'ChatVibes: Unhandled Rejection at Promise');
+    logger.error({ reason: errorReason, promise }, 'WildcatTTS: Unhandled Rejection at Promise');
 });
 
 main();

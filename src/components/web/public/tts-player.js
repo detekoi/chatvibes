@@ -36,9 +36,9 @@ const CLIENT_PING_INTERVAL_MS = 25000; // 25s to stay under common 30s LB idle t
 
 function connectWebSocket() {
     if (!channelName && wsProtocol === 'ws:') { // Only show alert for local dev if channel is missing
-        alert("OBS Browser Source URL needs '?channel=yourchannelname' at the end for ChatVibes TTS to work!");
+        alert("OBS Browser Source URL needs '?channel=yourchannelname' at the end for WildcatTTS to work!");
     } else if (!channelName) {
-         console.error("CRITICAL: OBS Browser Source URL is missing '?channel=yourchannelname'. TTS will not function for a specific channel.");
+        console.error("CRITICAL: OBS Browser Source URL is missing '?channel=yourchannelname'. TTS will not function for a specific channel.");
     }
 
     ws = new WebSocket(wsUrl);
@@ -92,7 +92,7 @@ function connectWebSocket() {
                     console.log('TTS WebSocket received STOP_CURRENT_AUDIO command');
                     stopCurrentAudio(); // More specific stop
                 } else {
-                     console.warn('TTS WebSocket received non-JSON message:', event.data);
+                    console.warn('TTS WebSocket received non-JSON message:', event.data);
                 }
             } else {
                 console.error('TTS WebSocket received unparseable message:', event.data, e);
@@ -131,7 +131,7 @@ function playNextInQueue() {
     isPlaying = true;
     const audioUrl = audioQueue.shift();
     console.log('Player: Attempting to play audio:', audioUrl);
-    
+
     // Set volume based on content type (music vs TTS)
     // Music files are typically .wav format, TTS is typically .mp3
     if (audioUrl.includes('.wav')) {
@@ -141,7 +141,7 @@ function playNextInQueue() {
         // TTS content
         audioPlayer.volume = 1.0;
     }
-    
+
     audioPlayer.src = audioUrl;
     audioPlayer.play()
         .then(() => console.log('Player: Playback started for:', audioUrl))
