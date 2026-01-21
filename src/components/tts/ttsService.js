@@ -53,8 +53,9 @@ async function attemptGeneration(text, voiceId, input, options) {
   // Add timeout to prevent hanging indefinitely
   // Most requests complete in 2-5 seconds, so 15 seconds is generous
   const WAVESPEED_TIMEOUT_MS = 15000; // 15 seconds
+  let timeoutId;
   const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
+    timeoutId = setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
   });
 
   // Safe languages for Wavespeed (speech-02-turbo)
@@ -89,10 +90,15 @@ async function attemptGeneration(text, voiceId, input, options) {
     requestConfig.signal = options.signal;
   }
 
-  const response = await Promise.race([
-    axios(requestConfig),
-    timeoutPromise
-  ]);
+  let response;
+  try {
+    response = await Promise.race([
+      axios(requestConfig),
+      timeoutPromise
+    ]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   // Check if the request was aborted during the API call
   if (options.signal && options.signal.aborted) {
