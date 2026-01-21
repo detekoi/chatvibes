@@ -1,7 +1,7 @@
 // src/components/twitch/channelManager.js
 import { Firestore } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
-import { setObsSocketSecretName } from '../tts/ttsState.js';
+
 import { getAllowedChannels } from '../../lib/allowList.js';
 
 // --- Firestore Client Initialization ---

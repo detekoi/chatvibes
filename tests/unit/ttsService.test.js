@@ -373,7 +373,7 @@ describe('ttsService module', () => {
     test('should support abort signal', async () => {
       const controller = new AbortController();
 
-      mockAxios.mockImplementation(async (config) => {
+      mockAxios.mockImplementation(async (_config) => {
         controller.abort();
         const error = new Error('Request aborted');
         error.name = 'AbortError';
@@ -392,7 +392,7 @@ describe('ttsService module', () => {
     test('should handle abort during API call', async () => {
       const controller = new AbortController();
 
-      mockAxios.mockImplementation(async (config) => {
+      mockAxios.mockImplementation(async (_config) => {
         // Simulate abort during request
         setTimeout(() => controller.abort(), 10);
         return new Promise((resolve) => {
@@ -517,7 +517,7 @@ describe('ttsService module', () => {
         }
       });
 
-      const voices = await ttsService.getAvailableVoices(true);
+      await ttsService.getAvailableVoices(true);
 
       expect(mockAxios.get).toHaveBeenCalledWith(
         expect.stringContaining('model_schema'),

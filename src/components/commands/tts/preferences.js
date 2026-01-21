@@ -11,9 +11,8 @@ export default {
     aliases: ['prefs'],
     permission: 'everyone',
     execute: async (context) => {
-        const { channel, user, replyToId } = context;
+        const { channel, replyToId } = context;
         const channelNameNoHash = channel.substring(1).toLowerCase();
-        const username = user.username;
 
         try {
             const ttsState = await getTtsState(channelNameNoHash);

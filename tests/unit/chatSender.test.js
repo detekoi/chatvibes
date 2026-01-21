@@ -30,7 +30,7 @@ const mockTtsState = {
 jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => mockTtsState);
 
 // Import module under test
-const { enqueueMessage, clearMessageQueue, initializeChatSender } = await import('../../src/lib/chatSender.js');
+const { enqueueMessage, clearMessageQueue } = await import('../../src/lib/chatSender.js');
 
 describe('chatSender.js', () => {
     beforeEach(() => {

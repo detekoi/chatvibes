@@ -3,7 +3,7 @@
 
 import axios from 'axios';
 import { getHelixClient, getUsersByLogin } from './helixClient.js';
-import { refreshIrcToken } from './ircAuthHelper.js';
+
 import { getClientId } from './auth.js';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';

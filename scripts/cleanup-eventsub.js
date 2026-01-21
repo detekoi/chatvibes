@@ -2,9 +2,9 @@
 // Script to list and clean up old EventSub subscriptions
 
 import 'dotenv/config';
-import { initializeHelixClient } from './src/components/twitch/helixClient.js';
-import { getEventSubSubscriptions, deleteEventSubSubscription } from './src/components/twitch/twitchSubs.js';
-import logger from './src/lib/logger.js';
+import { initializeHelixClient } from '../src/components/twitch/helixClient.js';
+import { getEventSubSubscriptions, deleteEventSubSubscription } from '../src/components/twitch/twitchSubs.js';
+
 
 const CURRENT_URL = 'https://chatvibes-tts-service-906125386407.us-central1.run.app/twitch/event';
 const OLD_URL = 'https://chatvibes-tts-service-h7kj56ct4q-uc.a.run.app/twitch/event';

@@ -3,7 +3,9 @@
 // For existing channels: Sets to 'authenticated' (preserves current bot behavior)
 // New channels will use 'anonymous' as the default from ttsConstants.js
 
+// eslint-disable-next-line import/no-unresolved
 import { initializeApp } from 'firebase-admin/app';
+// eslint-disable-next-line import/no-unresolved
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Use Application Default Credentials (ADC) from gcloud auth

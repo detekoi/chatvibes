@@ -1,8 +1,8 @@
 // create-all-chat-subscriptions.js
 // Create channel.chat.message subscriptions for all broadcaster IDs
-import { subscribeChannelChatMessage } from './src/components/twitch/twitchSubs.js';
-import { initializeHelixClient } from './src/components/twitch/helixClient.js';
-import { loadBotAccessToken } from './src/components/twitch/ircAuthHelper.js';
+import { subscribeChannelChatMessage } from '../src/components/twitch/twitchSubs.js';
+import { initializeHelixClient } from '../src/components/twitch/helixClient.js';
+import { loadBotAccessToken } from '../src/components/twitch/ircAuthHelper.js';
 
 const broadcasterIds = ['129295549', '117295040', '1191328651'];
 

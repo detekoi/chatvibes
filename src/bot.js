@@ -27,8 +27,7 @@ import { initializeChannelManager, getActiveManagedChannels, syncManagedChannels
 import { initializePubSub, subscribeTtsEvents, closePubSub } from './lib/pubsub.js';
 
 // Shared chat session tracking
-import * as sharedChatManager from './components/twitch/sharedChatManager.js';
-import { getUsersByLogin } from './components/twitch/helixClient.js';
+
 
 
 let channelChangeListener = null;
@@ -156,54 +155,14 @@ export function getIsShuttingDown() {
     return isShuttingDown;
 }
 
-// Cache for broadcaster IDs to avoid repeated API calls
-const broadcasterIdCache = new Map();
+
 
 /**
  * Helper function to get shared session info for a channel
  * @param {string} channelNameNoHash - Channel name without #
  * @returns {Promise<object|null>} Shared session info or null
  */
-async function getSharedSessionInfo(channelNameNoHash) {
-    try {
-        // Get broadcaster ID (cached)
-        let broadcasterId = broadcasterIdCache.get(channelNameNoHash);
-        if (!broadcasterId) {
-            const users = await getUsersByLogin([channelNameNoHash]);
-            if (users && users.length > 0) {
-                broadcasterId = users[0].id;
-                broadcasterIdCache.set(channelNameNoHash, broadcasterId);
-            }
-        }
 
-        if (!broadcasterId) {
-            return null;
-        }
-
-        // Check if in shared session
-        const sessionId = sharedChatManager.getSessionForChannel(broadcasterId);
-        if (!sessionId) {
-            return null;
-        }
-
-        // Get session details
-        const session = sharedChatManager.getSession(sessionId);
-        if (!session) {
-            return null;
-        }
-
-        const channelLogins = session.participants.map(p => p.broadcaster_user_login);
-
-        return {
-            sessionId,
-            channels: channelLogins,
-            participantCount: channelLogins.length
-        };
-    } catch (error) {
-        logger.warn({ err: error, channel: channelNameNoHash }, 'WildcatTTS: Error getting shared session info');
-        return null;
-    }
-}
 
 async function gracefulShutdown(signal) {
     if (isShuttingDown) {
@@ -445,7 +404,7 @@ async function main() {
 
                 // Clean up channel listener first
                 if (channelChangeListener) {
-                    try { channelChangeListener(); } catch { }
+                    try { channelChangeListener(); } catch { /* ignore */ }
                     channelChangeListener = null;
                 }
 

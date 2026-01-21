@@ -36,6 +36,14 @@ export default [
       '**/public/**',
     ],
   },
+  {
+    files: ['**/tests/**/*.js', '**/*.test.js', '**/*.spec.js', '**/testVoices.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
+    },
+  },
   // Browser override for public assets
   {
     files: ['**/src/components/web/public/**/*.js'],

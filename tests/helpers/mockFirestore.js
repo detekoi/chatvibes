@@ -87,7 +87,7 @@ export class MockCollectionReference {
     return () => { }; // Unsubscribe function
   }
 
-  limit(n) {
+  limit(_n) {
     return this;
   }
 

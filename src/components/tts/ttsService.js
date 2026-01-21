@@ -4,7 +4,7 @@ import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 import { TTS_SPEED_DEFAULT, TTS_PITCH_DEFAULT } from './ttsConstants.js';
 import { getAllVoices, getVoicesByLanguage } from './wavespeedVoices.js';
-import { getProviderForVoice, T302_LANGUAGE_BOOST_OPTIONS } from './voiceMigration.js';
+import { getProviderForVoice } from './voiceMigration.js';
 
 const WAVESPEED_API_KEY = config.tts.wavespeedApiKey;
 const WAVESPEED_ENDPOINT = config.tts.wavespeedEndpoint;

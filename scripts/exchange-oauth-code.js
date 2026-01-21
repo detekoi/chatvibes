@@ -2,9 +2,9 @@
 // Script to exchange OAuth authorization code for tokens and update Secret Manager
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { getClientId, getClientSecret } from './src/components/twitch/auth.js';
-import { addSecretVersion } from './src/lib/secretManager.js';
-import config from './src/config/index.js';
+import { getClientId, getClientSecret } from '../src/components/twitch/auth.js';
+import { addSecretVersion } from '../src/lib/secretManager.js';
+import config from '../src/config/index.js';
 
 dotenv.config();
 

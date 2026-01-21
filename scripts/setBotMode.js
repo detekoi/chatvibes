@@ -3,7 +3,9 @@
 // Usage: node scripts/setBotMode.js <channelName> <botMode>
 // Example: node scripts/setBotMode.js parfaittest anonymous
 
+// eslint-disable-next-line import/no-unresolved
 import { initializeApp } from 'firebase-admin/app';
+// eslint-disable-next-line import/no-unresolved
 import { getFirestore } from 'firebase-admin/firestore';
 
 // Use Application Default Credentials (ADC) from gcloud auth

@@ -1,7 +1,7 @@
 // generate-oauth-url.js
 // Script to generate the OAuth URL for bot authentication with required scopes
 import dotenv from 'dotenv';
-import { getClientId } from './src/components/twitch/auth.js';
+import { getClientId } from '../src/components/twitch/auth.js';
 
 dotenv.config();
 

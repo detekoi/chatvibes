@@ -3,7 +3,7 @@
 import { subscribeChannelChatMessage } from '../src/components/twitch/twitchSubs.js';
 import { getUsersByLogin, initializeHelixClient } from '../src/components/twitch/helixClient.js';
 import { loadBotAccessToken } from '../src/components/twitch/ircAuthHelper.js';
-import config from '../src/config/index.js';
+
 
 const channelName = process.argv[2];
 

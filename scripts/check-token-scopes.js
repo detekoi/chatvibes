@@ -2,7 +2,7 @@
 // Script to validate the bot's access token and check its scopes
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { getValidIrcToken } from './src/components/twitch/ircAuthHelper.js';
+import { getValidIrcToken } from '../src/components/twitch/ircAuthHelper.js';
 
 dotenv.config();
 

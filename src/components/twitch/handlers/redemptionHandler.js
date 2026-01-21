@@ -131,6 +131,7 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
 async function getBroadcasterAccessToken(channelLogin) {
     try {
         // Dynamically import Firestore
+        // eslint-disable-next-line import/no-unresolved
         const { getFirestore } = await import('firebase-admin/firestore');
         const db = getFirestore();
 

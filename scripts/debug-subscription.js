@@ -1,12 +1,12 @@
 
 import 'dotenv/config'; // Load .env if present
-import { subscribeChannelChatMessage } from './src/components/twitch/twitchSubs.js';
-import { getBotUserId } from './src/components/twitch/chatClient.js';
-import { getUsersByLogin } from './src/components/twitch/helixClient.js';
-import { initializeHelixClient } from './src/components/twitch/helixClient.js';
-import { getClientId } from './src/components/twitch/auth.js';
-import logger from './src/lib/logger.js';
-import config from './src/config/index.js';
+import { subscribeChannelChatMessage } from '../src/components/twitch/twitchSubs.js';
+import { getBotUserId } from '../src/components/twitch/chatClient.js';
+import { getUsersByLogin } from '../src/components/twitch/helixClient.js';
+import { initializeHelixClient } from '../src/components/twitch/helixClient.js';
+import { getClientId } from '../src/components/twitch/auth.js';
+
+import config from '../src/config/index.js';
 
 async function debugSubscription() {
     try {

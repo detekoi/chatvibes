@@ -8,7 +8,7 @@ const SUBSCRIPTION_PREFIX = 'chatvibes-tts-sub';
 let pubsubClient = null;
 let topic = null;
 let subscription = null;
-let messageHandler = null;
+
 
 /**
  * Initialize Pub/Sub client and ensure topic exists
@@ -28,7 +28,7 @@ export async function initializePubSub() {
         // Get or create topic
         topic = pubsubClient.topic(TOPIC_NAME);
         const [topicExists] = await topic.exists();
-        
+
         if (!topicExists) {
             logger.info(`Creating Pub/Sub topic: ${TOPIC_NAME}`);
             await pubsubClient.createTopic(TOPIC_NAME);
@@ -66,7 +66,7 @@ export async function publishTtsEvent(channelName, eventData, sharedSessionInfo 
 
         const dataBuffer = Buffer.from(JSON.stringify(message));
         const messageId = await topic.publishMessage({ data: dataBuffer });
-        
+
         const logData = {
             pubsubMessageId: messageId,
             channel: channelName,
@@ -105,8 +105,8 @@ export async function subscribeTtsEvents(handler) {
     }
 
     try {
-        messageHandler = handler;
-        
+
+
         // Create a unique subscription name for this instance
         // Each instance gets its own subscription so all instances receive all messages
         const instanceId = process.env.K_REVISION || 'local';
@@ -114,7 +114,7 @@ export async function subscribeTtsEvents(handler) {
         const subscriptionName = `${SUBSCRIPTION_PREFIX}-${instanceId}-${randomSuffix}`;
 
         logger.info(`Creating Pub/Sub subscription: ${subscriptionName}`);
-        
+
         // Create subscription with auto-delete after 24 hours of inactivity (minimum allowed)
         [subscription] = await topic.createSubscription(subscriptionName, {
             expirationPolicy: {
@@ -182,7 +182,7 @@ export async function closePubSub() {
         if (subscription) {
             logger.info('Closing Pub/Sub subscription');
             await subscription.close();
-            
+
             // Delete the subscription to clean up
             try {
                 await subscription.delete();
@@ -190,7 +190,7 @@ export async function closePubSub() {
             } catch (deleteError) {
                 logger.warn({ err: deleteError }, 'Failed to delete subscription (may not exist)');
             }
-            
+
             subscription = null;
         }
 

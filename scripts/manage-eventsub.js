@@ -12,7 +12,7 @@ import {
 import { getUsersByLogin } from '../src/components/twitch/helixClient.js';
 import { initializeHelixClient } from '../src/components/twitch/helixClient.js';
 import { initializeChannelManager } from '../src/components/twitch/channelManager.js';
-import config from '../src/config/index.js';
+
 import logger from '../src/lib/logger.js';
 
 /**
