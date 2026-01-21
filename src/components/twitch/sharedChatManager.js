@@ -21,7 +21,7 @@ const channelToSession = new Map();
  */
 export function addSession(sessionId, hostChannelId, participants = []) {
     if (!sessionId || !hostChannelId) {
-        logger.warn('ChatVibes: addSession called with missing sessionId or hostChannelId');
+        logger.warn('WildcatTTS: addSession called with missing sessionId or hostChannelId');
         return;
     }
 
@@ -47,7 +47,7 @@ export function addSession(sessionId, hostChannelId, participants = []) {
         hostChannelId,
         participantCount: channelIds.size,
         channels: channelLogins
-    }, `ChatVibes: Shared chat session added/updated: ${channelLogins.join(', ')}`);
+    }, `WildcatTTS: Shared chat session added/updated: ${channelLogins.join(', ')}`);
 }
 
 /**
@@ -58,7 +58,7 @@ export function addSession(sessionId, hostChannelId, participants = []) {
 export function updateSession(sessionId, participants = []) {
     const session = activeSessions.get(sessionId);
     if (!session) {
-        logger.warn({ sessionId }, 'ChatVibes: updateSession called for non-existent session');
+        logger.warn({ sessionId }, 'WildcatTTS: updateSession called for non-existent session');
         return;
     }
 
@@ -84,7 +84,7 @@ export function updateSession(sessionId, participants = []) {
         sessionId,
         participantCount: channelIds.size,
         channels: channelLogins
-    }, `ChatVibes: Shared chat session updated: ${channelLogins.join(', ')}`);
+    }, `WildcatTTS: Shared chat session updated: ${channelLogins.join(', ')}`);
 }
 
 /**
@@ -94,7 +94,7 @@ export function updateSession(sessionId, participants = []) {
 export function removeSession(sessionId) {
     const session = activeSessions.get(sessionId);
     if (!session) {
-        logger.debug({ sessionId }, 'ChatVibes: removeSession called for non-existent session');
+        logger.debug({ sessionId }, 'WildcatTTS: removeSession called for non-existent session');
         return;
     }
 
@@ -109,7 +109,7 @@ export function removeSession(sessionId) {
     logger.info({
         sessionId,
         channels: channelLogins
-    }, `ChatVibes: Shared chat session removed: ${channelLogins.join(', ')}`);
+    }, `WildcatTTS: Shared chat session removed: ${channelLogins.join(', ')}`);
 }
 
 /**
@@ -174,6 +174,6 @@ export function getSessionChannelLogins(sessionId) {
 export function clearAllSessions() {
     activeSessions.clear();
     channelToSession.clear();
-    logger.info('ChatVibes: All shared chat sessions cleared');
+    logger.info('WildcatTTS: All shared chat sessions cleared');
 }
 

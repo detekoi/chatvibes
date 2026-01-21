@@ -1,4 +1,4 @@
-name: Deploy ChatVibes TTS to Cloud Run
+name: Deploy WildcatTTS TTS to Cloud Run
 
 on:
   push:
@@ -31,7 +31,7 @@ env:
   NODE_ENV: 'production'
   LOG_LEVEL: 'info'
   PINO_PRETTY_LOGGING: 'false'
-  TWITCH_BOT_USERNAME: 'ChatVibesBot'
+  TWITCH_BOT_USERNAME: 'WildcatTTS'
   GOOGLE_CLOUD_PROJECT_ENV: 'chatvibestts' # Explicitly set for the application
   # Full path to the secret containing the bot's refresh token
   TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH: 'projects/906125386407/secrets/twitch-bot-refresh-token/versions/latest'
@@ -53,7 +53,7 @@ env:
 
 jobs:
   deploy:
-    name: Build and Deploy ChatVibes TTS
+    name: Build and Deploy WildcatTTS TTS
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'

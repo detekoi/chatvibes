@@ -26,7 +26,7 @@ export default {
             return;
         }
 
-        logger.info(`ChatVibes [${channelNameNoHash}]: User ${user.username} requested TTS say: "${messageToSay}"`);
+        logger.info(`WildcatTTS [${channelNameNoHash}]: User ${user.username} requested TTS say: "${messageToSay}"`);
 
         // Publish to Pub/Sub for deduplication across instances
         await publishTtsEvent(channelNameNoHash, {

@@ -30,7 +30,7 @@ export default {
         if (success) {
             const statusMessage = `TTS engine has been ${enableTTS ? 'ENABLED' : 'DISABLED'}.`;
             enqueueMessage(channel, statusMessage, { replyToId });
-            logger.info(`ChatVibes [${channelNameNoHash}]: ${statusMessage} by ${user.username}.`);
+            logger.info(`WildcatTTS [${channelNameNoHash}]: ${statusMessage} by ${user.username}.`);
         } else {
             enqueueMessage(channel, `Could not change TTS engine state at this time.`, { replyToId });
         }

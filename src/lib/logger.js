@@ -73,10 +73,10 @@ const prettyOptions = {
 const logger = pino(usePrettyPrint ? prettyOptions : jsonOptions);
 
 if (usePrettyPrint) {
-    logger.info('ChatVibes: Pretty logging enabled for development.');
+    logger.info('WildcatTTS: Pretty logging enabled for development.');
 } else {
     logger.info({ configLogLevel: config.app.logLevel, serviceName: 'chatvibes-tts' }, // Updated name
-     `ChatVibes: Logger initialized (JSON format) at level: ${config.app.logLevel}`);
+     `WildcatTTS: Logger initialized (JSON format) at level: ${config.app.logLevel}`);
 }
 
 export default logger;

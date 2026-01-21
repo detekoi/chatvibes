@@ -15,7 +15,7 @@ export async function onBegin(event) {
         const participants = event?.participants || [];
 
         if (!sessionId || !hostBroadcasterId) {
-            logger.warn({ event }, 'ChatVibes: channel.shared_chat.begin missing required fields');
+            logger.warn({ event }, 'WildcatTTS: channel.shared_chat.begin missing required fields');
             return;
         }
 
@@ -25,11 +25,11 @@ export async function onBegin(event) {
             hostBroadcasterId,
             participantCount: participants.length,
             channels: channelLogins
-        }, `ChatVibes: Shared chat session started: ${channelLogins.join(', ')}`);
+        }, `WildcatTTS: Shared chat session started: ${channelLogins.join(', ')}`);
 
         sharedChatManager.addSession(sessionId, hostBroadcasterId, participants);
     } catch (error) {
-        logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.begin');
+        logger.error({ err: error }, 'WildcatTTS: Error handling channel.shared_chat.begin');
     }
 }
 
@@ -43,7 +43,7 @@ export async function onUpdate(event) {
         const participants = event?.participants || [];
 
         if (!sessionId) {
-            logger.warn({ event }, 'ChatVibes: channel.shared_chat.update missing session_id');
+            logger.warn({ event }, 'WildcatTTS: channel.shared_chat.update missing session_id');
             return;
         }
 
@@ -52,11 +52,11 @@ export async function onUpdate(event) {
             sessionId,
             participantCount: participants.length,
             channels: channelLogins
-        }, `ChatVibes: Shared chat session updated: ${channelLogins.join(', ')}`);
+        }, `WildcatTTS: Shared chat session updated: ${channelLogins.join(', ')}`);
 
         sharedChatManager.updateSession(sessionId, participants);
     } catch (error) {
-        logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.update');
+        logger.error({ err: error }, 'WildcatTTS: Error handling channel.shared_chat.update');
     }
 }
 
@@ -69,13 +69,13 @@ export async function onEnd(event) {
         const sessionId = event?.session_id;
 
         if (!sessionId) {
-            logger.warn({ event }, 'ChatVibes: channel.shared_chat.end missing session_id');
+            logger.warn({ event }, 'WildcatTTS: channel.shared_chat.end missing session_id');
             return;
         }
 
-        logger.info({ sessionId }, 'ChatVibes: Shared chat session ended');
+        logger.info({ sessionId }, 'WildcatTTS: Shared chat session ended');
         sharedChatManager.removeSession(sessionId);
     } catch (error) {
-        logger.error({ err: error }, 'ChatVibes: Error handling channel.shared_chat.end');
+        logger.error({ err: error }, 'WildcatTTS: Error handling channel.shared_chat.end');
     }
 }

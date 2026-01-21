@@ -28,7 +28,7 @@ export async function getBotUserId() {
         }
         return null;
     } catch (error) {
-        logger.error({ err: error }, 'ChatVibes: Error fetching bot user ID.');
+        logger.error({ err: error }, 'WildcatTTS: Error fetching bot user ID.');
         return null;
     }
 }

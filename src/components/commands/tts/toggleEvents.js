@@ -34,7 +34,7 @@ export default {
 
         if (success) {
             enqueueMessage(channel, `TTS for events has been turned ${enableEvents ? 'ON' : 'OFF'}.`, { replyToId });
-            logger.info(`ChatVibes [${channelNameNoHash}]: TTS events ${enableEvents ? 'enabled' : 'disabled'} by ${user.username}.`);
+            logger.info(`WildcatTTS [${channelNameNoHash}]: TTS events ${enableEvents ? 'enabled' : 'disabled'} by ${user.username}.`);
         } else {
             enqueueMessage(channel, `Could not toggle TTS for events.`, { replyToId });
         }

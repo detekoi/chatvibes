@@ -1,7 +1,7 @@
 {
     "name": "chatvibes-tts",
     "version": "1.0.0",
-    "description": "A Twitch TTS bot that reads chat aloud for ChatVibes.",
+    "description": "A Twitch TTS bot that reads chat aloud for WildcatTTS.",
     "main": "src/bot.js",
     "type": "module",
     "scripts": {

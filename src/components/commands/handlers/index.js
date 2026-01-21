@@ -12,9 +12,9 @@ const commandHandlers = {
 
 const loadedCommands = Object.keys(commandHandlers);
 if (loadedCommands.length > 0) {
-    logger.debug(`ChatVibes: Successfully loaded base command handlers for: ${loadedCommands.join(', ')}`);
+    logger.debug(`WildcatTTS: Successfully loaded base command handlers for: ${loadedCommands.join(', ')}`);
 } else {
-     logger.warn('ChatVibes: No base command handlers were imported or mapped in handlers/index.js');
+     logger.warn('WildcatTTS: No base command handlers were imported or mapped in handlers/index.js');
 }
 
 export default commandHandlers;

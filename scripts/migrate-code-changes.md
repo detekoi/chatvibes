@@ -19,7 +19,7 @@ async function getClientId() {
     // Load from Secret Manager
     try {
         const { getSecretValue } = await import('../../lib/secretManager.js');
-        logger.info('ChatVibes: Loading Twitch Client ID from Secret Manager...');
+        logger.info('WildcatTTS: Loading Twitch Client ID from Secret Manager...');
         cachedClientId = await getSecretValue(config.twitch.clientIdSecretPath);
         // ...
     }

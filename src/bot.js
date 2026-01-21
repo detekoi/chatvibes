@@ -166,70 +166,70 @@ export function getIsShuttingDown() {
 
 async function gracefulShutdown(signal) {
     if (isShuttingDown) {
-        logger.warn(`ChatVibes: Shutdown already in progress. Signal ${signal} received again. Please wait or force quit if necessary.`);
+        logger.warn(`WildcatTTS: Shutdown already in progress. Signal ${signal} received again. Please wait or force quit if necessary.`);
         return;
     }
     isShuttingDown = true;
-    logger.info(`ChatVibes: Received ${signal}. Starting graceful shutdown...`);
+    logger.info(`WildcatTTS: Received ${signal}. Starting graceful shutdown...`);
     const shutdownTasks = [];
 
     // Stop the web server
     if (global.healthServer) {
-        logger.info('ChatVibes: Closing web server...');
+        logger.info('WildcatTTS: Closing web server...');
         shutdownTasks.push(
             new Promise((resolve, reject) => {
                 global.healthServer.close((err) => {
                     if (err) {
-                        logger.error({ err }, 'ChatVibes: Error closing web server.');
+                        logger.error({ err }, 'WildcatTTS: Error closing web server.');
                         reject(err);
                     } else {
-                        logger.info('ChatVibes: Web server closed.');
+                        logger.info('WildcatTTS: Web server closed.');
                         resolve();
                     }
                 });
                 setTimeout(() => {
-                    logger.warn('ChatVibes: Web server close timed out. Forcing resolution.');
+                    logger.warn('WildcatTTS: Web server close timed out. Forcing resolution.');
                     resolve();
                 }, 3000).unref();
             })
         );
     } else {
-        logger.warn('ChatVibes: Web server (global.healthServer) not found during shutdown.');
+        logger.warn('WildcatTTS: Web server (global.healthServer) not found during shutdown.');
     }
 
     if (channelChangeListener && typeof channelChangeListener === 'function') {
         try {
-            logger.info('ChatVibes: Cleaning up Firestore channel change listener...');
+            logger.info('WildcatTTS: Cleaning up Firestore channel change listener...');
             channelChangeListener();
             channelChangeListener = null;
-            logger.info('ChatVibes: Firestore channel change listener cleaned up.');
+            logger.info('WildcatTTS: Firestore channel change listener cleaned up.');
         } catch (error) {
-            logger.error({ err: error }, 'ChatVibes: Error cleaning up Firestore channel change listener.');
+            logger.error({ err: error }, 'WildcatTTS: Error cleaning up Firestore channel change listener.');
         }
     } else {
-        logger.info('ChatVibes: No active Firestore channel change listener to clean up.');
+        logger.info('WildcatTTS: No active Firestore channel change listener to clean up.');
     }
 
     // Persist TTS queues before shutdown to prevent message loss
-    logger.info('ChatVibes: Persisting TTS queues to Firestore...');
+    logger.info('WildcatTTS: Persisting TTS queues to Firestore...');
     shutdownTasks.push(
         ttsQueue.persistAllQueues()
-            .then(() => { logger.info('ChatVibes: TTS queues persisted successfully.'); })
-            .catch(err => { logger.error({ err }, 'ChatVibes: Error persisting TTS queues.'); })
+            .then(() => { logger.info('WildcatTTS: TTS queues persisted successfully.'); })
+            .catch(err => { logger.error({ err }, 'WildcatTTS: Error persisting TTS queues.'); })
     );
 
     // Close Pub/Sub subscription and client
-    logger.info('ChatVibes: Closing Pub/Sub resources...');
+    logger.info('WildcatTTS: Closing Pub/Sub resources...');
     shutdownTasks.push(
         closePubSub()
-            .then(() => { logger.info('ChatVibes: Pub/Sub resources closed.'); })
-            .catch(err => { logger.error({ err }, 'ChatVibes: Error closing Pub/Sub.'); })
+            .then(() => { logger.info('WildcatTTS: Pub/Sub resources closed.'); })
+            .catch(err => { logger.error({ err }, 'WildcatTTS: Error closing Pub/Sub.'); })
     );
 
-    logger.info(`ChatVibes: Waiting for ${shutdownTasks.length} shutdown tasks to complete...`);
+    logger.info(`WildcatTTS: Waiting for ${shutdownTasks.length} shutdown tasks to complete...`);
     await Promise.allSettled(shutdownTasks);
 
-    logger.info('ChatVibes: Graceful shutdown sequence complete. Exiting process.');
+    logger.info('WildcatTTS: Graceful shutdown sequence complete. Exiting process.');
     process.exit(0);
 }
 
@@ -242,88 +242,88 @@ async function main() {
         logger.info(`Project ID: ${process.env.GOOGLE_CLOUD_PROJECT || 'WildcatTTS (Hardcoded fallback - Set GOOGLE_CLOUD_PROJECT)'}`);
 
         // Initialize core components
-        logger.info('ChatVibes: Initializing Secret Manager...');
+        logger.info('WildcatTTS: Initializing Secret Manager...');
         initializeSecretManager();
 
         // Initialize allow-list from secret if configured (before loading channels)
         await initializeAllowList();
 
-        logger.info('ChatVibes: Initializing TTS State (Firestore)...');
+        logger.info('WildcatTTS: Initializing TTS State (Firestore)...');
         await initializeTtsState();
 
-        logger.info('ChatVibes: Restoring TTS queues from previous session...');
+        logger.info('WildcatTTS: Restoring TTS queues from previous session...');
         await ttsQueue.restoreAllQueues();
 
-        logger.info('ChatVibes: Initializing Channel Manager (Firestore)...');
+        logger.info('WildcatTTS: Initializing Channel Manager (Firestore)...');
         await initializeChannelManager();
 
         // --- Load Twitch Channels ---
         // Use env-based channels locally (development) and Firestore when deployed on Cloud Run.
         const isCloudRun = !!(process.env.K_SERVICE || process.env.K_REVISION || process.env.K_CONFIGURATION);
         if (!isCloudRun && config.app.nodeEnv === 'development') {
-            logger.info('ChatVibes: Local development detected. Using TWITCH_CHANNELS from .env');
+            logger.info('WildcatTTS: Local development detected. Using TWITCH_CHANNELS from .env');
             const envChannels = (process.env.TWITCH_CHANNELS || '')
                 .split(',')
                 .map(ch => ch.trim().toLowerCase())
                 .filter(Boolean);
 
             if (envChannels.length === 0) {
-                logger.fatal('ChatVibes: TWITCH_CHANNELS is empty or not set in .env for development. Please set it.');
+                logger.fatal('WildcatTTS: TWITCH_CHANNELS is empty or not set in .env for development. Please set it.');
                 process.exit(1);
             }
             config.twitch.channels = [...new Set(envChannels)];
-            logger.info(`ChatVibes: Loaded ${config.twitch.channels.length} channels from .env: [${config.twitch.channels.join(', ')}]`);
+            logger.info(`WildcatTTS: Loaded ${config.twitch.channels.length} channels from .env: [${config.twitch.channels.join(', ')}]`);
         } else {
-            logger.info('ChatVibes: Cloud environment detected or not development. Loading channels from Firestore.');
+            logger.info('WildcatTTS: Cloud environment detected or not development. Loading channels from Firestore.');
             try {
                 const managedChannels = await getActiveManagedChannels();
                 if (managedChannels && managedChannels.length > 0) {
                     config.twitch.channels = [...new Set(managedChannels)];
-                    logger.info(`ChatVibes: Loaded ${config.twitch.channels.length} channels from Firestore.`);
+                    logger.info(`WildcatTTS: Loaded ${config.twitch.channels.length} channels from Firestore.`);
                 } else {
-                    logger.warn('ChatVibes: No active channels found in Firestore managedChannels collection. Bot will wait for dynamic joins.');
+                    logger.warn('WildcatTTS: No active channels found in Firestore managedChannels collection. Bot will wait for dynamic joins.');
                     config.twitch.channels = [];
                 }
             } catch (error) {
-                logger.error({ err: error }, 'ChatVibes: Error loading channels from Firestore.');
+                logger.error({ err: error }, 'WildcatTTS: Error loading channels from Firestore.');
                 config.twitch.channels = [];
             }
         }
         if (!config.twitch.channels) config.twitch.channels = [];
 
-        logger.info('ChatVibes: Initializing Twitch Helix Client...');
+        logger.info('WildcatTTS: Initializing Twitch Helix Client...');
         await initializeHelixClient();
 
         // Load bot's access token into config for EventSub subscriptions
-        logger.info('ChatVibes: Loading bot access token...');
+        logger.info('WildcatTTS: Loading bot access token...');
         const { loadBotAccessToken } = await import('./components/twitch/ircAuthHelper.js');
         const tokenLoaded = await loadBotAccessToken();
         if (!tokenLoaded) {
-            logger.warn('ChatVibes: Bot access token not loaded. EventSub chat message subscriptions may fail.');
+            logger.warn('WildcatTTS: Bot access token not loaded. EventSub chat message subscriptions may fail.');
         }
 
         // Note: We rely on reactive 401 error handling in chatClient.js for token refresh
         // This allows the bot to shut down when idle to save costs, and tokens are
         // refreshed on-demand when they expire (following Twitch's recommended approach)
 
-        logger.info('ChatVibes: Initializing Command Processor for commands...');
+        logger.info('WildcatTTS: Initializing Command Processor for commands...');
         initializeCommandProcessor();
 
-        logger.info('ChatVibes: Initializing Chat Sender queue...');
+        logger.info('WildcatTTS: Initializing Chat Sender queue...');
         initializeChatSender();
 
         // Start the Web Server early
-        logger.info('ChatVibes: Initializing Web Server for OBS audio...');
+        logger.info('WildcatTTS: Initializing Web Server for OBS audio...');
         const { server: webServerInstance, hasActiveClients } = initializeWebServer();
         global.healthServer = webServerInstance;
 
         // Initialize Pub/Sub for cross-instance TTS communication
-        logger.info('ChatVibes: Initializing Pub/Sub for TTS message distribution...');
+        logger.info('WildcatTTS: Initializing Pub/Sub for TTS message distribution...');
         await initializePubSub();
 
         // Subscribe to TTS events from Pub/Sub
         // All instances subscribe, but only process if they have active WebSocket clients
-        logger.info('ChatVibes: Setting up Pub/Sub subscriber for TTS events...');
+        logger.info('WildcatTTS: Setting up Pub/Sub subscriber for TTS events...');
         await subscribeTtsEvents(async (channelName, eventData, sharedSessionInfo) => {
             // This handler is called on ALL instances when a TTS event is published
 
@@ -371,27 +371,27 @@ async function main() {
             }
             await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
         });
-        logger.info('ChatVibes: Pub/Sub subscriber ready');
+        logger.info('WildcatTTS: Pub/Sub subscriber ready');
 
         // Functions to start/stop EventSub subsystem under leader election
         const startEventSubSubsystem = async () => {
             if (eventSubStartedByThisInstance) {
-                logger.info('ChatVibes: EventSub subsystem already started by this instance.');
+                logger.info('WildcatTTS: EventSub subsystem already started by this instance.');
                 return;
             }
 
-            logger.info('ChatVibes: Starting EventSub subsystem (Subscription Management)...');
+            logger.info('WildcatTTS: Starting EventSub subsystem (Subscription Management)...');
 
             // Sync channels on connect
             if (config.app.nodeEnv !== 'development') {
                 await syncManagedChannelsWithEventSub();
 
                 if (!channelChangeListener) {
-                    logger.info('ChatVibes: Setting up Firestore channel change listener.');
+                    logger.info('WildcatTTS: Setting up Firestore channel change listener.');
                     channelChangeListener = listenForChannelChanges();
                 }
             } else {
-                logger.info('ChatVibes (DEV MODE): Skipping EventSub sync (assuming manual setup or ngrok).');
+                logger.info('WildcatTTS (DEV MODE): Skipping EventSub sync (assuming manual setup or ngrok).');
             }
 
             eventSubStartedByThisInstance = true;
@@ -400,7 +400,7 @@ async function main() {
         const stopEventSubSubsystem = async () => {
             if (!eventSubStartedByThisInstance) return;
             try {
-                logger.info('ChatVibes: Stopping EventSub subsystem');
+                logger.info('WildcatTTS: Stopping EventSub subsystem');
 
                 // Clean up channel listener first
                 if (channelChangeListener) {
@@ -408,16 +408,16 @@ async function main() {
                     channelChangeListener = null;
                 }
 
-                logger.info('ChatVibes: EventSub subsystem stopped successfully');
+                logger.info('WildcatTTS: EventSub subsystem stopped successfully');
             } catch (e) {
-                logger.warn({ err: e }, 'ChatVibes: Error while stopping EventSub subsystem');
+                logger.warn({ err: e }, 'WildcatTTS: Error while stopping EventSub subsystem');
             }
             eventSubStartedByThisInstance = false;
         };
 
         // Start leader election to ensure only one active EventSub manager
         if (config.app.nodeEnv === 'development') {
-            logger.info('ChatVibes (DEV MODE): Skipping leader election, starting EventSub subsystem directly...');
+            logger.info('WildcatTTS (DEV MODE): Skipping leader election, starting EventSub subsystem directly...');
             await startEventSubSubsystem();
         } else {
             leaderElection = createLeaderElection();
@@ -427,10 +427,10 @@ async function main() {
             });
         }
 
-        logger.info(`ChatVibes: Bot username: ${config.twitch.username}.`);
+        logger.info(`WildcatTTS: Bot username: ${config.twitch.username}.`);
 
     } catch (error) {
-        logger.fatal({ err: error, stack: error.stack }, 'ChatVibes: Fatal error during initialization.');
+        logger.fatal({ err: error, stack: error.stack }, 'WildcatTTS: Fatal error during initialization.');
         process.exit(1);
     }
 }
@@ -439,9 +439,9 @@ async function main() {
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 process.on('uncaughtException', (error) => {
-    logger.fatal({ err: error, stack: error.stack }, 'ChatVibes: Uncaught Exception!');
+    logger.fatal({ err: error, stack: error.stack }, 'WildcatTTS: Uncaught Exception!');
     gracefulShutdown('UNCAUGHT_EXCEPTION').catch(err => {
-        logger.error({ err: err.stack }, 'ChatVibes: Error during graceful shutdown from uncaught exception.');
+        logger.error({ err: err.stack }, 'WildcatTTS: Error during graceful shutdown from uncaught exception.');
         process.exit(1);
     });
     setTimeout(() => process.exit(1), 10000).unref();

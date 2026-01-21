@@ -1,8 +1,8 @@
-# ChatVibes - Twitch Text-to-Speech Bot
+# WildcatTTS - Twitch Text-to-Speech Bot
 
-ChatVibes is a Twitch bot that reads chat messages and events aloud using Text-to-Speech (TTS), controllable via chat commands. It's designed to be deployed on Google Cloud Run and integrates with OBS via a browser source for audio playback.
+WildcatTTS is a Twitch bot that reads chat messages and events aloud using Text-to-Speech (TTS), controllable via chat commands. It's designed to be deployed on Google Cloud Run and integrates with OBS via a browser source for audio playback.
 
-> **Important:** Access to the cloud version of ChatVibes is currently invite-only via an allow-list. The self-serve web dashboard is disabled for unapproved channels. If you'd like to try the bot, please contact me via [this contact form](https://detekoi.github.io/#contact-me).
+> **Important:** Access to the cloud version of WildcatTTS is currently invite-only via an allow-list. The self-serve web dashboard is disabled for unapproved channels. If you'd like to try the bot, please contact me via [this contact form](https://detekoi.github.io/#contact-me).
 
 **[Streamer Dashboard →](https://chatvibestts.web.app/)** *(invite-only)*
 
@@ -29,9 +29,9 @@ For a complete list of available commands and voices, visit the documentation:
   * Audio playback through an OBS browser source.
   * Designed for Google Cloud Run deployment.
 
-## How ChatVibes Works
+## How WildcatTTS Works
 
-ChatVibes uses Twitch's EventSub system to listen to your chat, which means the bot will appear in your channel's viewer list under "Chat Bots". This is required by Twitch's EventSub architecture and applies to all channels.
+WildcatTTS uses Twitch's EventSub system to listen to your chat, which means the bot will appear in your channel's viewer list under "Chat Bots". This is required by Twitch's EventSub architecture and applies to all channels.
 
 ### Chat Response Mode
 
@@ -51,52 +51,52 @@ You can configure whether the bot responds to commands in chat:
 
 You can toggle between these modes using the `botRespondsInChat` setting in the web dashboard or by contacting the service admin.
 
-## Adding ChatVibes to Your Channel & Setup
+## Adding WildcatTTS to Your Channel & Setup
 
 **Note:** Access is currently invite-only. If you haven't been approved, you'll see an access denied message. [Request access here](https://docs.wildcat.chat/#contact-me).
 
-Approved streamers can add or remove the ChatVibes Text-to-Speech (TTS) bot from their channel and configure it for their streaming software using the web interface:
+Approved streamers can add or remove the WildcatTTS Text-to-Speech (TTS) bot from their channel and configure it for their streaming software using the web interface:
 
-1.  **Visit the ChatVibes Management Portal** *(invite-only)*:
+1.  **Visit the WildcatTTS Management Portal** *(invite-only)*:
 
-      * Go to [ChatVibes Management Portal](https://chatvibestts.web.app/)
+      * Go to [WildcatTTS Management Portal](https://chatvibestts.web.app/)
       * Click on "Login with Twitch"
 
 2.  **Authorize the Application**:
 
-      * You'll be redirected to Twitch to authorize ChatVibes to access necessary information.
+      * You'll be redirected to Twitch to authorize WildcatTTS to access necessary information.
       * Review and grant the required permissions. This process is secure and uses Twitch's official OAuth flow.
 
 3.  **Manage the Bot & Access Setup Instructions**:
 
       * Once logged in, you'll see your dashboard.
-      * Use the "Add Bot to My Channel" button to have ChatVibes join your channel.
+      * Use the "Add Bot to My Channel" button to have WildcatTTS join your channel.
       * If you wish to remove it, use the "Remove Bot from My Channel" button.
-      * On the dashboard, you will also find **OBS Setup Instructions** which include your unique TTS URL for adding ChatVibes audio to your stream.
+      * On the dashboard, you will also find **OBS Setup Instructions** which include your unique TTS URL for adding WildcatTTS audio to your stream.
 
 4.  **Bot Joining Time & Configuration**:
 
       * After adding the bot, it should join your Twitch channel within a few minutes.
       * For the TTS to function, you **must** add the provided TTS URL (from the OBS Setup Instructions on your dashboard) as a Browser Source in your streaming software (OBS, Streamlabs, etc.) and ensure audio monitoring is correctly configured as per the instructions.
       * If the bot doesn't seem to be active or responding to TTS triggers after setup, first double-check your OBS browser source and audio settings. Then, try removing and re-adding the bot via the dashboard.
-      * Granting the bot moderator status (`/mod YourChatVibesBotName`) can sometimes help it avoid chat filters or rate limits, though it's not always required for basic TTS functionality. (Replace `YourChatVibesBotName` with your bot's actual Twitch username).
+      * Granting the bot moderator status (`/mod YourWildcatTTSBotName`) can sometimes help it avoid chat filters or rate limits, though it's not always required for basic TTS functionality. (Replace `YourWildcatTTSBotName` with your bot's actual Twitch username).
 
 5.  **How TTS is Triggered**:
 
-      * By default, ChatVibes is in **"all messages" mode**, where it reads most chat from all users. You can use the `!tts permission` and `!tts mode` commands to change this behavior. See [Commands](#command-documentation)
+      * By default, WildcatTTS is in **"all messages" mode**, where it reads most chat from all users. You can use the `!tts permission` and `!tts mode` commands to change this behavior. See [Commands](#command-documentation)
       * You can trigger TTS with a command like `!tts <your message>` or `!tts say <your message>`.
       * The bot also supports **Bits → TTS** mode, where messages are only read if they are accompanied by a cheer that meets a channel-configurable minimum amount.
       * **Channel Points → TTS:** Viewers can redeem a custom Channel Point reward with a message to have it read aloud. See [Channel Points → TTS](#channel-points--tts) section below.
-      * Please refer to the [main ChatVibes documentation](https://docs.wildcat.chat/wildcatttsdocs.html) for details on setting up TTS triggers and customizing voice options.
-      * The repository for the ChatVibes web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
+      * Please refer to the [main WildcatTTS documentation](https://docs.wildcat.chat/wildcatttsdocs.html) for details on setting up TTS triggers and customizing voice options.
+      * The repository for the WildcatTTS web UI is [here](https://github.com/detekoi/chatvibes-web-ui).
 
 ## Channel Points → TTS
 
-ChatVibes supports creating a custom Twitch Channel Point reward that viewers can redeem with a message to have it read aloud by the TTS bot. This provides an alternative way for viewers to trigger TTS without using chat commands.
+WildcatTTS supports creating a custom Twitch Channel Point reward that viewers can redeem with a message to have it read aloud by the TTS bot. This provides an alternative way for viewers to trigger TTS without using chat commands.
 
 ### How It Works
 
-1. **Streamer Setup**: In the ChatVibes dashboard, go to the "Channel Points → TTS" section and enable the feature.
+1. **Streamer Setup**: In the WildcatTTS dashboard, go to the "Channel Points → TTS" section and enable the feature.
 2. **Reward Creation**: The bot automatically creates a custom Channel Point reward on your Twitch channel with configurable settings.
 3. **Viewer Redemption**: Viewers can redeem the reward with a custom message, which gets read aloud by the TTS bot.
 4. **Content Policy**: The system includes built-in content filtering (length limits, link blocking, banned words) to help maintain stream quality.
@@ -147,7 +147,7 @@ The Channel Points → TTS feature works with all TTS modes:
 
 1.  **Node.js:** Version 18.x or later recommended.
 2.  **npm:** Comes with Node.js.
-3.  **Twitch Account for the Bot:** It's highly recommended to create a dedicated Twitch account for ChatVibes. (Centralized cloud service coming soon.)
+3.  **Twitch Account for the Bot:** It's highly recommended to create a dedicated Twitch account for WildcatTTS. (Centralized cloud service coming soon.)
 4.  **Twitch Application:**
       * Register a new application on the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
       * Set the "OAuth Redirect URLs" to something like `http://localhost:3000/auth/twitch/callback` (even if not used by this specific TTS bot directly, it's good practice for Twitch apps).
@@ -179,7 +179,7 @@ The Channel Points → TTS feature works with all TTS modes:
 3.  **Create `.env` File:**
     Copy `.env.example` to `.env` and fill in the required values:
 
-      * `TWITCH_BOT_USERNAME`: The Twitch username for your bot (e.g., "ChatVibesBot").
+      * `TWITCH_BOT_USERNAME`: The Twitch username for your bot (e.g., "WildcatTTSBot").
       * `TWITCH_CHANNELS`: For local development only - comma-separated list of Twitch channels to join initially (e.g., "yourchannel,anotherchannel").
       * `TWITCH_CLIENT_ID`: Your Twitch application's Client ID.
       * `TWITCH_CLIENT_SECRET`: Your Twitch application's Client Secret.
@@ -251,7 +251,7 @@ The Channel Points → TTS feature works with all TTS modes:
 ## OBS Browser Source Setup
 
 1.  In OBS, add a new "Browser" source.
-2.  Set the URL to your unique TTS URL from the ChatVibes dashboard (for cloud instances) or `http://localhost:8080/?channel=yourchannelname` for local development.
+2.  Set the URL to your unique TTS URL from the WildcatTTS dashboard (for cloud instances) or `http://localhost:8080/?channel=yourchannelname` for local development.
 3.  Set Width and Height as needed (e.g., 300x100, can be small as it's audio-only).
 4.  **Important:** After adding the source, right-click it in OBS, select "Interact". A window will pop up showing the page. If you see a button like "Click to Enable TTS Audio", click it once to allow the browser to play audio. This is required due to browser autoplay policies.
 5.  **Audio Setup:** In the Audio Mixer section of OBS, click the three dots (⋮) next to the browser source's audio track, select "Advanced Audio Properties", and set "Audio Monitoring" to "Monitor and Output". This allows the streamer to hear the TTS audio.

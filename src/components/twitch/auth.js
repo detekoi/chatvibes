@@ -31,7 +31,7 @@ async function getClientId() {
         throw new Error('TWITCH_CLIENT_ID not configured');
     }
 
-    logger.debug('ChatVibes: Using Twitch Client ID from environment');
+    logger.debug('WildcatTTS: Using Twitch Client ID from environment');
     return cachedClientId;
 }
 
@@ -48,11 +48,11 @@ async function getClientSecret() {
     cachedClientSecret = process.env.TWITCH_CLIENT_SECRET || config.twitch.clientSecret;
 
     if (!cachedClientSecret) {
-        logger.fatal('ChatVibes: TWITCH_CLIENT_SECRET not found in environment');
+        logger.fatal('WildcatTTS: TWITCH_CLIENT_SECRET not found in environment');
         throw new Error('TWITCH_CLIENT_SECRET not configured');
     }
 
-    logger.debug('ChatVibes: Using Twitch Client Secret from environment');
+    logger.debug('WildcatTTS: Using Twitch Client Secret from environment');
     return cachedClientSecret;
 }
 
@@ -61,7 +61,7 @@ async function getClientSecret() {
  * @returns {Promise<string|null>} The new app access token or null on failure.
  */
 async function fetchNewAppAccessToken() {
-    logger.info('ChatVibes Twitch Auth: Attempting to fetch new app access token...'); // ChatVibes
+    logger.info('WildcatTTS Twitch Auth: Attempting to fetch new app access token...'); // WildcatTTS
     try {
         const clientId = await getClientId();
         const clientSecret = await getClientSecret();
@@ -73,7 +73,7 @@ async function fetchNewAppAccessToken() {
         // }
 
         if (!clientId || !clientSecret) {
-            logger.error('ChatVibes Twitch Auth: Missing Client ID or Client Secret for app access token generation.');
+            logger.error('WildcatTTS Twitch Auth: Missing Client ID or Client Secret for app access token generation.');
             return null;
         }
 
@@ -94,15 +94,15 @@ async function fetchNewAppAccessToken() {
             appAccessToken = response.data.access_token;
             // Calculate expiry time: current time + (expires_in seconds * 1000 for ms)
             tokenExpiryTime = Date.now() + (response.data.expires_in * 1000);
-            logger.info(`ChatVibes Twitch Auth: New app access token fetched successfully. Expires in: ${response.data.expires_in}s`);
+            logger.info(`WildcatTTS Twitch Auth: New app access token fetched successfully. Expires in: ${response.data.expires_in}s`);
             return appAccessToken;
         } else {
-            logger.error({ responseData: response.data }, 'ChatVibes Twitch Auth: Failed to get app access token from Twitch response.');
+            logger.error({ responseData: response.data }, 'WildcatTTS Twitch Auth: Failed to get app access token from Twitch response.');
             return null;
         }
     } catch (error) {
         const errResponse = error.response ? { status: error.response.status, data: error.response.data } : {};
-        logger.error({ err: error.message, response: errResponse }, 'ChatVibes Twitch Auth: Error fetching new app access token.');
+        logger.error({ err: error.message, response: errResponse }, 'WildcatTTS Twitch Auth: Error fetching new app access token.');
         appAccessToken = null; // Invalidate token on error
         tokenExpiryTime = 0;
         return null;
@@ -117,11 +117,11 @@ async function fetchNewAppAccessToken() {
  */
 async function validateToken() {
     if (!appAccessToken) {
-        logger.warn('ChatVibes Twitch Auth: No app access token available for validation.');
+        logger.warn('WildcatTTS Twitch Auth: No app access token available for validation.');
         return false;
     }
     if (Date.now() >= (tokenExpiryTime - (TOKEN_REFRESH_BUFFER_SECONDS * 1000))) {
-        logger.info('ChatVibes Twitch Auth: App access token is expired or nearing expiry.');
+        logger.info('WildcatTTS Twitch Auth: App access token is expired or nearing expiry.');
         return false;
     }
     // For more robust validation, you could call Twitch's validate endpoint,
@@ -131,13 +131,13 @@ async function validateToken() {
     //     const response = await axios.get('https://id.twitch.tv/oauth2/validate', {
     //         headers: { Authorization: `OAuth ${appAccessToken}` },
     //     });
-    //     logger.debug('ChatVibes Twitch Auth: Token validated successfully by Twitch endpoint.');
+    //     logger.debug('WildcatTTS Twitch Auth: Token validated successfully by Twitch endpoint.');
     //     return true;
     // } catch (error) {
-    //     logger.warn({ err: error.message }, 'ChatVibes Twitch Auth: Token validation failed via Twitch endpoint.');
+    //     logger.warn({ err: error.message }, 'WildcatTTS Twitch Auth: Token validation failed via Twitch endpoint.');
     //     return false;
     // }
-    logger.debug('ChatVibes Twitch Auth: App access token is considered valid (exists and not expired).');
+    logger.debug('WildcatTTS Twitch Auth: App access token is considered valid (exists and not expired).');
     return true;
 }
 
@@ -148,10 +148,10 @@ async function validateToken() {
  */
 async function getAppAccessToken() {
     if (await validateToken()) { // Checks for existence and expiry
-        logger.debug('ChatVibes Twitch Auth: Using existing valid app access token.');
+        logger.debug('WildcatTTS Twitch Auth: Using existing valid app access token.');
         return appAccessToken;
     }
-    logger.info('ChatVibes Twitch Auth: Existing app access token invalid or missing. Fetching a new one.');
+    logger.info('WildcatTTS Twitch Auth: Existing app access token invalid or missing. Fetching a new one.');
     return await fetchNewAppAccessToken();
 }
 
@@ -159,7 +159,7 @@ async function getAppAccessToken() {
  * Clears the cached app access token, forcing a refresh on next request.
  */
 function clearCachedAppAccessToken() {
-    logger.info('ChatVibes Twitch Auth: Cached app access token cleared.');
+    logger.info('WildcatTTS Twitch Auth: Cached app access token cleared.');
     appAccessToken = null;
     tokenExpiryTime = 0;
 }

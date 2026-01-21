@@ -14,6 +14,6 @@ export default {
 
         await ttsQueue.clearQueue(channelNameNoHash);
         enqueueMessage(channel, `TTS queue has been CLEARED.`, { replyToId });
-        logger.info(`ChatVibes [${channelNameNoHash}]: TTS queue cleared by ${user.username}.`);
+        logger.info(`WildcatTTS [${channelNameNoHash}]: TTS queue cleared by ${user.username}.`);
     },
 };

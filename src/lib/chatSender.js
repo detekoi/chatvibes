@@ -18,30 +18,30 @@ async function _processMessageQueue() {
     }
 
     isSending = true;
-    logger.debug(`ChatVibes: Starting Chat sender queue processing (length: ${messageQueue.length})`);
+    logger.debug(`WildcatTTS: Starting Chat sender queue processing (length: ${messageQueue.length})`);
 
     while (messageQueue.length > 0) {
         const { channel, text, replyToId } = messageQueue.shift();
-        logger.debug(`ChatVibes: Sending queued message to ${channel}: "${text.substring(0, 30)}..."`);
+        logger.debug(`WildcatTTS: Sending queued message to ${channel}: "${text.substring(0, 30)}..."`);
 
         try {
             const success = await sendMessage(channel, text, { replyToId });
             if (!success) {
-                logger.warn({ channel, text: text.substring(0, 30) }, 'ChatVibes: Failed to send message via Helix.');
+                logger.warn({ channel, text: text.substring(0, 30) }, 'WildcatTTS: Failed to send message via Helix.');
             }
             await sleep(SEND_INTERVAL_MS);
         } catch (error) {
-            logger.error({ err: error, channel, text: `"${text.substring(0, 30)}..."` }, 'ChatVibes: Error in message queue processing.');
+            logger.error({ err: error, channel, text: `"${text.substring(0, 30)}..."` }, 'WildcatTTS: Error in message queue processing.');
             await sleep(SEND_INTERVAL_MS);
         }
     }
 
-    logger.debug('ChatVibes: Chat sender queue processed.');
+    logger.debug('WildcatTTS: Chat sender queue processed.');
     isSending = false;
 }
 
 export function initializeChatSender() {
-    logger.info('ChatVibes: Initializing Chat Sender...');
+    logger.info('WildcatTTS: Initializing Chat Sender...');
 }
 
 /**
@@ -54,7 +54,7 @@ export function initializeChatSender() {
  */
 export async function enqueueMessage(channel, text, options = {}) {
     if (!channel || !text || typeof channel !== 'string' || typeof text !== 'string' || text.trim().length === 0) {
-        logger.warn({ channel, text }, 'ChatVibes: Attempted to queue invalid message.');
+        logger.warn({ channel, text }, 'WildcatTTS: Attempted to queue invalid message.');
         return;
     }
 
@@ -63,11 +63,11 @@ export async function enqueueMessage(channel, text, options = {}) {
     try {
         const ttsState = await getTtsState(channelName);
         if (!ttsState.botRespondsInChat) {
-            logger.debug({ channel: channelName }, 'ChatVibes: Bot responses disabled for channel - message not queued');
+            logger.debug({ channel: channelName }, 'WildcatTTS: Bot responses disabled for channel - message not queued');
             return;
         }
     } catch (error) {
-        logger.error({ err: error, channel: channelName }, 'ChatVibes: Error checking botRespondsInChat setting - message not queued');
+        logger.error({ err: error, channel: channelName }, 'WildcatTTS: Error checking botRespondsInChat setting - message not queued');
         return;
     }
 
@@ -75,19 +75,19 @@ export async function enqueueMessage(channel, text, options = {}) {
     const replyToId = options.replyToId || null;
 
     if (finalText.length > MAX_MESSAGE_LENGTH) {
-        logger.warn(`ChatVibes: Message too long (${finalText.length} chars), truncating before queueing.`);
+        logger.warn(`WildcatTTS: Message too long (${finalText.length} chars), truncating before queueing.`);
         finalText = finalText.substring(0, MAX_MESSAGE_LENGTH - 3) + '...';
     }
 
     messageQueue.push({ channel, text: finalText, replyToId });
-    logger.debug(`ChatVibes: Message queued for ${channel}. Queue size: ${messageQueue.length}`);
+    logger.debug(`WildcatTTS: Message queued for ${channel}. Queue size: ${messageQueue.length}`);
 
     if (!isSending) {
-        _processMessageQueue().catch(err => logger.error({ err }, "ChatVibes: Error in _processMessageQueue trigger"));
+        _processMessageQueue().catch(err => logger.error({ err }, "WildcatTTS: Error in _processMessageQueue trigger"));
     }
 }
 
 export function clearMessageQueue() {
-    logger.info(`ChatVibes: Clearing Chat message queue (${messageQueue.length} messages).`);
+    logger.info(`WildcatTTS: Clearing Chat message queue (${messageQueue.length} messages).`);
     messageQueue.length = 0;
 }

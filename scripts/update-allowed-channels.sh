@@ -2,7 +2,7 @@
 
 # This script updates the 'allowed-channels' secret in Google Cloud Secret Manager
 # with the contents of 'channels.txt' located at the repository root.
-# It is intended for the ChatVibes (tts-twitch) project.
+# It is intended for the WildcatTTS (tts-twitch) project.
 
 set -euo pipefail
 

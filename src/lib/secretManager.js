@@ -13,25 +13,25 @@ const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes default
  */
 function initializeSecretManager() {
     if (client) {
-        logger.warn('ChatVibes: Secret Manager client already initialized.'); // Updated name
+        logger.warn('WildcatTTS: Secret Manager client already initialized.'); // Updated name
         return;
     }
     try {
-        logger.info('ChatVibes: Initializing Google Cloud Secret Manager client...'); // Updated name
+        logger.info('WildcatTTS: Initializing Google Cloud Secret Manager client...'); // Updated name
         client = new SecretManagerServiceClient();
-        logger.info('ChatVibes: Secret Manager client initialized successfully.'); // Updated name
+        logger.info('WildcatTTS: Secret Manager client initialized successfully.'); // Updated name
     } catch (error) {
-        logger.fatal({ err: error }, 'ChatVibes: Failed to initialize Secret Manager client. Ensure ADC or credentials are configured.'); // Updated name
+        logger.fatal({ err: error }, 'WildcatTTS: Failed to initialize Secret Manager client. Ensure ADC or credentials are configured.'); // Updated name
         throw error;
     }
 }
 
 function getSecretManagerClient() {
     if (!client) {
-        logger.warn('ChatVibes: Secret Manager client accessed before explicit initialization. Attempting lazy init.'); // Updated
+        logger.warn('WildcatTTS: Secret Manager client accessed before explicit initialization. Attempting lazy init.'); // Updated
         initializeSecretManager();
         if (!client) { // Check again after attempting lazy init
-             throw new Error('ChatVibes: Secret Manager client could not be initialized after lazy attempt.'); // Updated
+             throw new Error('WildcatTTS: Secret Manager client could not be initialized after lazy attempt.'); // Updated
         }
     }
     return client;
@@ -39,7 +39,7 @@ function getSecretManagerClient() {
 
 async function getSecretValue(secretResourceName, cacheTtlMs = DEFAULT_CACHE_TTL_MS) {
     if (!secretResourceName) {
-        logger.error('ChatVibes: getSecretValue called with empty secretResourceName.'); // Updated
+        logger.error('WildcatTTS: getSecretValue called with empty secretResourceName.'); // Updated
         return null;
     }
 
@@ -47,43 +47,43 @@ async function getSecretValue(secretResourceName, cacheTtlMs = DEFAULT_CACHE_TTL
     const now = Date.now();
     const cached = secretCache.get(secretResourceName);
     if (cached && cached.expiresAt > now) {
-        logger.debug(`ChatVibes: Using cached secret: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+        logger.debug(`WildcatTTS: Using cached secret: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
         return cached.value;
     }
 
     const smClient = getSecretManagerClient();
     try {
-        logger.debug(`ChatVibes: Accessing secret: ${secretResourceName}`); // Updated
+        logger.debug(`WildcatTTS: Accessing secret: ${secretResourceName}`); // Updated
         const [version] = await smClient.accessSecretVersion({
             name: secretResourceName,
         });
 
         if (!version.payload?.data) {
-            logger.warn(`ChatVibes: Secret payload data is missing for ${secretResourceName}.`); // Updated
+            logger.warn(`WildcatTTS: Secret payload data is missing for ${secretResourceName}.`); // Updated
             return null;
         }
 
         const secretValue = version.payload.data.toString('utf8');
-        logger.info(`ChatVibes: Successfully retrieved secret: ${secretResourceName.split('/secrets/')[1].split('/')[0]} (version: ${secretResourceName.split('/').pop()})`); // Updated
+        logger.info(`WildcatTTS: Successfully retrieved secret: ${secretResourceName.split('/secrets/')[1].split('/')[0]} (version: ${secretResourceName.split('/').pop()})`); // Updated
 
         // Cache the secret value
         secretCache.set(secretResourceName, {
             value: secretValue,
             expiresAt: now + cacheTtlMs
         });
-        logger.debug(`ChatVibes: Cached secret for ${cacheTtlMs}ms: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+        logger.debug(`WildcatTTS: Cached secret for ${cacheTtlMs}ms: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
 
         return secretValue;
     } catch (error) {
         const GcpError = error; // For type hinting if using TS later
         logger.error(
             { err: { message: GcpError.message, code: GcpError.code }, secretName: secretResourceName },
-            `ChatVibes: Failed to access secret version ${secretResourceName}. Check permissions and secret existence.` // Updated
+            `WildcatTTS: Failed to access secret version ${secretResourceName}. Check permissions and secret existence.` // Updated
         );
         if (GcpError.code === 5) {
-             logger.error(`ChatVibes: Secret or version not found: ${secretResourceName}`); // Updated
+             logger.error(`WildcatTTS: Secret or version not found: ${secretResourceName}`); // Updated
         } else if (GcpError.code === 7) {
-             logger.error(`ChatVibes: Permission denied accessing secret: ${secretResourceName}. Check IAM roles.`); // Updated
+             logger.error(`WildcatTTS: Permission denied accessing secret: ${secretResourceName}. Check IAM roles.`); // Updated
         }
         return null;
     }
@@ -91,19 +91,19 @@ async function getSecretValue(secretResourceName, cacheTtlMs = DEFAULT_CACHE_TTL
 
 async function addSecretVersion(secretResourceName, value) {
     if (!secretResourceName) {
-        logger.error('ChatVibes: addSecretVersion called with empty secretResourceName.');
+        logger.error('WildcatTTS: addSecretVersion called with empty secretResourceName.');
         return null;
     }
     const smClient = getSecretManagerClient();
     try {
         // Remove /versions/... if present to get the parent secret resource
         const parent = secretResourceName.replace(/\/versions\/.*$/, '');
-        logger.info(`ChatVibes: Adding new secret version to: ${parent}`);
+        logger.info(`WildcatTTS: Adding new secret version to: ${parent}`);
         const [version] = await smClient.addSecretVersion({
             parent,
             payload: { data: Buffer.from(value, 'utf8') }
         });
-        logger.info(`ChatVibes: New secret version added: ${version.name}`);
+        logger.info(`WildcatTTS: New secret version added: ${version.name}`);
 
         // Invalidate cache for this secret (since we just updated it)
         invalidateSecretCache(secretResourceName);
@@ -126,24 +126,24 @@ async function addSecretVersion(secretResourceName, value) {
                 });
 
                 const versionsToDisable = sortedVersions.slice(VERSIONS_TO_KEEP);
-                logger.info(`ChatVibes: Auto-cleanup - disabling ${versionsToDisable.length} old version(s) of ${parent.split('/').pop()}`);
+                logger.info(`WildcatTTS: Auto-cleanup - disabling ${versionsToDisable.length} old version(s) of ${parent.split('/').pop()}`);
 
                 for (const oldVersion of versionsToDisable) {
                     try {
                         await smClient.disableSecretVersion({ name: oldVersion.name });
                     } catch (disableErr) {
-                        logger.warn({ err: disableErr, version: oldVersion.name }, 'ChatVibes: Failed to disable old secret version during auto-cleanup');
+                        logger.warn({ err: disableErr, version: oldVersion.name }, 'WildcatTTS: Failed to disable old secret version during auto-cleanup');
                     }
                 }
             }
         } catch (cleanupErr) {
             // Don't fail the entire operation if cleanup fails
-            logger.warn({ err: cleanupErr, secret: parent }, 'ChatVibes: Failed to auto-cleanup old secret versions (non-fatal)');
+            logger.warn({ err: cleanupErr, secret: parent }, 'WildcatTTS: Failed to auto-cleanup old secret versions (non-fatal)');
         }
 
         return version;
     } catch (error) {
-        logger.error({ err: error, secretName: secretResourceName }, 'ChatVibes: Failed to add new secret version.');
+        logger.error({ err: error, secretName: secretResourceName }, 'WildcatTTS: Failed to add new secret version.');
         return null;
     }
 }
@@ -154,7 +154,7 @@ async function addSecretVersion(secretResourceName, value) {
 function invalidateSecretCache(secretResourceName) {
     const deleted = secretCache.delete(secretResourceName);
     if (deleted) {
-        logger.debug(`ChatVibes: Invalidated cache for secret: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+        logger.debug(`WildcatTTS: Invalidated cache for secret: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
     }
 }
 
@@ -164,7 +164,7 @@ function invalidateSecretCache(secretResourceName) {
 function clearSecretCache() {
     const count = secretCache.size;
     secretCache.clear();
-    logger.info(`ChatVibes: Cleared ${count} secrets from cache`);
+    logger.info(`WildcatTTS: Cleared ${count} secrets from cache`);
 }
 
 export { initializeSecretManager, getSecretValue, getSecretManagerClient, addSecretVersion, invalidateSecretCache, clearSecretCache };

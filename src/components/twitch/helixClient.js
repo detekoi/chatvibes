@@ -228,7 +228,7 @@ async function getUsersByLogin(loginNames) {
  */
 async function getSharedChatSession(broadcasterId) {
     if (!broadcasterId) {
-        logger.warn('ChatVibes: getSharedChatSession called with empty broadcaster ID.');
+        logger.warn('WildcatTTS: getSharedChatSession called with empty broadcaster ID.');
         return null;
     }
 
@@ -236,7 +236,7 @@ async function getSharedChatSession(broadcasterId) {
     const params = new URLSearchParams();
     params.append('broadcaster_id', broadcasterId);
 
-    logger.debug({ broadcasterId }, 'ChatVibes: Fetching shared chat session information from Helix...');
+    logger.debug({ broadcasterId }, 'WildcatTTS: Fetching shared chat session information from Helix...');
 
     try {
         const response = await client.get('/shared_chat/session', { params });
@@ -250,16 +250,16 @@ async function getSharedChatSession(broadcasterId) {
                 broadcasterId,
                 sessionId: sessionData.session_id,
                 participantCount: sessionData.participants?.length || 0
-            }, 'ChatVibes: Channel is in shared chat session');
+            }, 'WildcatTTS: Channel is in shared chat session');
         } else {
-            logger.debug({ broadcasterId }, 'ChatVibes: Channel is not in a shared chat session');
+            logger.debug({ broadcasterId }, 'WildcatTTS: Channel is not in a shared chat session');
         }
 
         return sessionData;
     } catch (error) {
         // If the channel is not in a shared chat session, the API returns 404
         if (error.response?.status === 404) {
-            logger.debug({ broadcasterId }, 'ChatVibes: Channel is not in a shared chat session (404)');
+            logger.debug({ broadcasterId }, 'WildcatTTS: Channel is not in a shared chat session (404)');
             return null;
         }
 
@@ -267,7 +267,7 @@ async function getSharedChatSession(broadcasterId) {
         logger.error({
             err: { message: error.message, code: error.code },
             broadcasterId
-        }, 'ChatVibes: Failed to get shared chat session information');
+        }, 'WildcatTTS: Failed to get shared chat session information');
 
         // Return null for graceful degradation
         return null;

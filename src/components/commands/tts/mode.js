@@ -31,7 +31,7 @@ export default {
 
         if (success) {
             enqueueMessage(channel, `TTS mode set to: ${newMode}.`, { replyToId });
-            logger.info(`ChatVibes [${channelNameNoHash}]: TTS mode set to ${newMode} by ${user.username}.`);
+            logger.info(`WildcatTTS [${channelNameNoHash}]: TTS mode set to ${newMode} by ${user.username}.`);
         } else {
             enqueueMessage(channel, `Could not set TTS mode.`, { replyToId });
         }

@@ -146,7 +146,7 @@ async function verifyChannelAccess(req, res, next) {
     }
 
     try {
-        // Support migration: Allow both new WildcatTTS and legacy ChatVibes tokens
+        // Support migration: Allow both new WildcatTTS and legacy WildcatTTS tokens
         const decoded = jwt.verify(token, JWT_SECRET_KEY, {
             audience: ['wildcat-tts-api', 'chatvibes-api'],
             issuer: ['wildcat-tts-auth', 'chatvibes-auth']
@@ -590,12 +590,12 @@ function recordAuthFailure(clientIP) {
 
 export function initializeWebServer() {
     if (wssInstance) {
-        logger.warn('ChatVibes TTS WebServer already initialized.');
+        logger.warn('WildcatTTS TTS WebServer already initialized.');
         return { server: httpServer, wss: wssInstance, sendAudioToChannel, hasActiveClients };
     }
 
     wssInstance = new WebSocketServer({ server: httpServer });
-    logger.info(`ChatVibes TTS WebSocket Server initialized and attached to HTTP server.`);
+    logger.info(`WildcatTTS TTS WebSocket Server initialized and attached to HTTP server.`);
 
     // Cleanup rate limit records every 10 minutes
     setInterval(() => {
@@ -740,7 +740,7 @@ export function initializeWebServer() {
             channelClients.set(channelName, new Set());
         }
         channelClients.get(channelName).add(ws);
-        ws.send(JSON.stringify({ type: 'registered', channel: channelName, message: 'Successfully registered with ChatVibes TTS WebSocket.' }));
+        ws.send(JSON.stringify({ type: 'registered', channel: channelName, message: 'Successfully registered with WildcatTTS TTS WebSocket.' }));
 
         ws.on('message', (message) => {
             try {
@@ -776,7 +776,7 @@ export function initializeWebServer() {
     });
 
     httpServer.listen(PORT, () => {
-        logger.info(`ChatVibes Web Server (for TTS OBS Source) listening on http://localhost:${PORT}`);
+        logger.info(`WildcatTTS Web Server (for TTS OBS Source) listening on http://localhost:${PORT}`);
     });
 
     wssInstance.on('close', () => {
@@ -798,7 +798,7 @@ export function hasActiveClients(channelName) {
 
 export function sendAudioToChannel(channelName, audioUrlOrCommand) {
     if (!wssInstance) {
-        logger.warn('ChatVibes TTS WebSocket server not initialized. Cannot send audio.');
+        logger.warn('WildcatTTS TTS WebSocket server not initialized. Cannot send audio.');
         return;
     }
     const lowerChannelName = channelName.toLowerCase(); // Ensure consistency

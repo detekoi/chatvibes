@@ -1,6 +1,6 @@
-# ChatVibes TTS Test Suite
+# WildcatTTS TTS Test Suite
 
-Comprehensive test suite for the ChatVibes TTS bot, including unit tests, integration tests, and test utilities.
+Comprehensive test suite for the WildcatTTS TTS bot, including unit tests, integration tests, and test utilities.
 
 ## Table of Contents
 

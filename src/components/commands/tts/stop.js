@@ -61,7 +61,7 @@ export default {
         if (stopped) {
             // This means stopCurrentSpeech either aborted generation or cleared a known URL
             enqueueMessage(channel, `Current TTS speech/generation has been STOPPED.`, { replyToId });
-            logger.info(`ChatVibes [${channelNameNoHash}]: TTS stopped by ${invokingUsername}. Original speaker was: ${userWhoseSpeechIsPlaying || 'N/A'}.`);
+            logger.info(`WildcatTTS [${channelNameNoHash}]: TTS stopped by ${invokingUsername}. Original speaker was: ${userWhoseSpeechIsPlaying || 'N/A'}.`);
         } else {
             // This means stopCurrentSpeech found no active controller and no active URL on server side.
             // (It still sent a STOP_CURRENT_AUDIO to the client as a precaution).
