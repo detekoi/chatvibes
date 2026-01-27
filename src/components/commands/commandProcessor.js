@@ -66,11 +66,13 @@ function hasPermission(requiredPermission, tags, channelName) {
     }
 
     // Moderator check specifically for 'moderator' permission level
+    // Note: Lead Moderators (introduced by Twitch) have either 'moderator' or 'lead_moderator' badge
     if (permLevel === 'moderator') {
         const isModByTag = tags.mod === true || tags.mod === '1';
-        const isModByBadge = tags.badges?.moderator === '1'; // Corrected: was user.badges, now tags.badges
+        const isModByBadge = tags.badges?.moderator === '1';
+        const isLeadMod = tags.badges?.lead_moderator === '1';
         // Broadcaster is already covered above, so mods don't need explicit isBroadcaster check here
-        return isModByTag || isModByBadge;
+        return isModByTag || isModByBadge || isLeadMod;
     }
 
     // VIP check
@@ -78,8 +80,9 @@ function hasPermission(requiredPermission, tags, channelName) {
         const isVip = tags.vip === true || tags.badges?.vip === '1';
         const isModByTag = tags.mod === true || tags.mod === '1';
         const isModByBadge = tags.badges?.moderator === '1';
-        // VIPs, Mods, and Broadcaster can access VIP-level features
-        return isVip || isModByTag || isModByBadge || isBroadcaster;
+        const isLeadMod = tags.badges?.lead_moderator === '1';
+        // VIPs, Mods, Lead Mods, and Broadcaster can access VIP-level features
+        return isVip || isModByTag || isModByBadge || isLeadMod || isBroadcaster;
     }
 
     // If a future permLevel is 'broadcaster' and only broadcaster should access (not mods)
