@@ -78,6 +78,8 @@ export async function handleChatMessage(event, channelName) {
         return;
     }
 
+    const userId = event.chatter_user_id || event.user_id; // Extract User ID
+
     // Skip TTS processing for cheer messages in the regular handler if they'll be handled separately
     // (Note: EventSub provides cheer data in the same channel.chat.message event, not a separate cheer event)
     // So we handle both regular messages and cheer messages here
@@ -87,7 +89,7 @@ export async function handleChatMessage(event, channelName) {
         // Read non-tts commands aloud in 'all' mode
         if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
             const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-            await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'command', messageId: event.message_id }, sharedSessionInfo);
+            await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'command', messageId: event.message_id }, sharedSessionInfo);
             logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
         } else if (ttsConfig.mode === 'bits_points_only') {
             // In bits/points only mode, do not read commands
@@ -107,7 +109,7 @@ export async function handleChatMessage(event, channelName) {
                 // Only process if in all mode or bits/points mode
                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
                     const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                    await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
+                    await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
                     logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
                 } else {
                     logger.debug({ channel: channelName, bits, mode: ttsConfig.mode }, 'Skipping cheer - mode not compatible');
@@ -127,7 +129,7 @@ export async function handleChatMessage(event, channelName) {
 
             if (hasPermission(requiredPermission, tags, channelName)) {
                 const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
-                await publishTtsEvent(channelName, { text: processedMessage, user: username, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
+                await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
                 logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
             } else {
                 logger.debug({ channel: channelName, user: username, requiredPermission, hasMod: tags.mod }, 'Skipping chat - insufficient permission');

@@ -79,16 +79,18 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     let userLanguage = null;
     let userEnglishNorm = null;
 
+    const userId = eventData.userId; // Extract User ID from eventData
+
     if (user && allowViewerPrefs) {
         // Fetch global prefs first
-        globalUserPrefs = await getGlobalUserPreferences(user);
+        globalUserPrefs = await getGlobalUserPreferences(user, userId);
         // Keep legacy per-channel overrides for backward compatibility
-        userEmotion = await getUserEmotionPreference(channelName, user);
-        userVoice = await getUserVoicePreference(channelName, user);
-        userPitch = await getUserPitchPreference(channelName, user);
-        userSpeed = await getUserSpeedPreference(channelName, user);
-        userLanguage = await getUserLanguagePreference(channelName, user);
-        userEnglishNorm = await getUserEnglishNormalizationPreference(channelName, user);
+        userEmotion = await getUserEmotionPreference(channelName, user, userId);
+        userVoice = await getUserVoicePreference(channelName, user, userId);
+        userPitch = await getUserPitchPreference(channelName, user, userId);
+        userSpeed = await getUserSpeedPreference(channelName, user, userId);
+        userLanguage = await getUserLanguagePreference(channelName, user, userId);
+        userEnglishNorm = await getUserEnglishNormalizationPreference(channelName, user, userId);
     }
 
     const finalVoiceOptions = {
