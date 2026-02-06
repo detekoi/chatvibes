@@ -194,7 +194,7 @@ export async function clearGlobalUserPreference(username, key) {
  * Uses userId as primary key with username as fallback for backward compatibility.
  * @param {string} username - The username (used as fallback)
  * @param {string} userId - The Twitch User ID (primary key)
- * @returns {Promise<boolean>} - Whether to skip emotes (defaults to false)
+ * @returns {Promise<boolean|null>} - Whether to skip emotes, or null if not set (allows channel default fallback)
  */
 export async function getUserSkipEmotesPreference(username, userId) {
     if (!db) db = new Firestore();
@@ -203,7 +203,11 @@ export async function getUserSkipEmotesPreference(username, userId) {
         if (userId) {
             const userIdDoc = await db.collection(USER_PREFS_COLLECTION).doc(userId).get();
             if (userIdDoc.exists) {
-                return userIdDoc.data()?.skipEmotes ?? false;
+                const data = userIdDoc.data();
+                // Return the value if explicitly set, otherwise null
+                if (data?.skipEmotes !== undefined) {
+                    return !!data.skipEmotes;
+                }
             }
         }
         // Fallback to username
@@ -211,13 +215,17 @@ export async function getUserSkipEmotesPreference(username, userId) {
             const lowerUser = username.toLowerCase();
             const usernameDoc = await db.collection(USER_PREFS_COLLECTION).doc(lowerUser).get();
             if (usernameDoc.exists) {
-                return usernameDoc.data()?.skipEmotes ?? false;
+                const data = usernameDoc.data();
+                // Return the value if explicitly set, otherwise null
+                if (data?.skipEmotes !== undefined) {
+                    return !!data.skipEmotes;
+                }
             }
         }
-        return false;
+        return null; // No preference set, allows channel default fallback
     } catch (error) {
         logger.error({ err: error, user: username, userId }, 'Failed to get skipEmotes preference.');
-        return false;
+        return null;
     }
 }
 

@@ -5,7 +5,7 @@ import logger from '../../../lib/logger.js';
 import config from '../../../config/index.js';
 import { convertEventSubToTags } from '../eventSubToTags.js';
 import { processMessage as processCommand, hasPermission } from '../../commands/commandProcessor.js';
-import { getTtsState, getUserSkipEmotesPreference } from '../../tts/ttsState.js';
+import { getTtsState } from '../../tts/ttsState.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { processMessageUrls } from '../../../lib/urlProcessor.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
@@ -80,8 +80,8 @@ export async function handleChatMessage(event, channelName) {
 
     const userId = event.chatter_user_id || event.user_id; // Extract User ID
 
-    // Check if user wants to skip emotes in TTS
-    const skipEmotes = await getUserSkipEmotesPreference(username, userId);
+    // Use channel-level skipEmotes setting (controlled by streamer only)
+    const skipEmotes = ttsConfig.skipEmotes || false;
 
     /**
      * Filter emotes from message text if skipEmotes is enabled.
