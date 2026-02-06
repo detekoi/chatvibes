@@ -190,6 +190,39 @@ export async function clearGlobalUserPreference(username, key) {
 }
 
 /**
+ * Gets the user's skipEmotes preference from global preferences.
+ * Uses userId as primary key with username as fallback for backward compatibility.
+ * @param {string} username - The username (used as fallback)
+ * @param {string} userId - The Twitch User ID (primary key)
+ * @returns {Promise<boolean>} - Whether to skip emotes (defaults to false)
+ */
+export async function getUserSkipEmotesPreference(username, userId) {
+    if (!db) db = new Firestore();
+    try {
+        // Try userId first (primary)
+        if (userId) {
+            const userIdDoc = await db.collection(USER_PREFS_COLLECTION).doc(userId).get();
+            if (userIdDoc.exists) {
+                return userIdDoc.data()?.skipEmotes ?? false;
+            }
+        }
+        // Fallback to username
+        if (username) {
+            const lowerUser = username.toLowerCase();
+            const usernameDoc = await db.collection(USER_PREFS_COLLECTION).doc(lowerUser).get();
+            if (usernameDoc.exists) {
+                return usernameDoc.data()?.skipEmotes ?? false;
+            }
+        }
+        return false;
+    } catch (error) {
+        logger.error({ err: error, user: username, userId }, 'Failed to get skipEmotes preference.');
+        return false;
+    }
+}
+
+/**
+
  * Sets the OBS WebSocket token secret name for a channel.
  * @param {string} channelName - The name of the channel.
  * @param {string} secretName - The full resource name of the secret in Secret Manager.

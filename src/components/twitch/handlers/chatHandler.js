@@ -5,7 +5,7 @@ import logger from '../../../lib/logger.js';
 import config from '../../../config/index.js';
 import { convertEventSubToTags } from '../eventSubToTags.js';
 import { processMessage as processCommand, hasPermission } from '../../commands/commandProcessor.js';
-import { getTtsState } from '../../tts/ttsState.js';
+import { getTtsState, getUserSkipEmotesPreference } from '../../tts/ttsState.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { processMessageUrls } from '../../../lib/urlProcessor.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
@@ -80,6 +80,26 @@ export async function handleChatMessage(event, channelName) {
 
     const userId = event.chatter_user_id || event.user_id; // Extract User ID
 
+    // Check if user wants to skip emotes in TTS
+    const skipEmotes = await getUserSkipEmotesPreference(username, userId);
+
+    /**
+     * Filter emotes from message text if skipEmotes is enabled.
+     * Uses fragments to filter out emote and cheermote types, keeping text and mentions.
+     * @param {string} text - The original message text
+     * @returns {string} - Text with emotes removed if skipEmotes enabled, otherwise original
+     */
+    const filterEmotes = (text) => {
+        if (!skipEmotes || !event.message?.fragments) {
+            return text;
+        }
+        return event.message.fragments
+            .filter(f => f.type === 'text' || f.type === 'mention')
+            .map(f => f.text)
+            .join('')
+            .trim() || text; // Fallback to original if result is empty
+    };
+
     // Skip TTS processing for cheer messages in the regular handler if they'll be handled separately
     // (Note: EventSub provides cheer data in the same channel.chat.message event, not a separate cheer event)
     // So we handle both regular messages and cheer messages here
@@ -88,7 +108,7 @@ export async function handleChatMessage(event, channelName) {
     if (processedCommandName) {
         // Read non-tts commands aloud in 'all' mode
         if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
-            const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+            const processedMessage = processMessageUrls(filterEmotes(cleanMessage), ttsConfig.readFullUrls);
             await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'command', messageId: event.message_id }, sharedSessionInfo);
             logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
         } else if (ttsConfig.mode === 'bits_points_only') {
@@ -108,7 +128,7 @@ export async function handleChatMessage(event, channelName) {
             if (bits >= minimumBits) {
                 // Only process if in all mode or bits/points mode
                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
-                    const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+                    const processedMessage = processMessageUrls(filterEmotes(cleanMessage), ttsConfig.readFullUrls);
                     await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
                     logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
                 } else {
@@ -128,7 +148,7 @@ export async function handleChatMessage(event, channelName) {
             }
 
             if (hasPermission(requiredPermission, tags, channelName)) {
-                const processedMessage = processMessageUrls(cleanMessage, ttsConfig.readFullUrls);
+                const processedMessage = processMessageUrls(filterEmotes(cleanMessage), ttsConfig.readFullUrls);
                 await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
                 logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
             } else {
