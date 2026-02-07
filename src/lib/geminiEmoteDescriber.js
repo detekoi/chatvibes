@@ -7,8 +7,8 @@ const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
 const EMOTE_IMAGE_FORMAT = 'static/dark/3.0'; // 'static' forces PNG even for animated emotes (Gemini rejects GIFs)
 const GEMINI_TIMEOUT_MS = 8000;
-const GEMINI_CONCURRENCY = 3; // Max parallel Gemini calls to avoid rate limits
-const MAX_UNIQUE_EMOTES = 8; // Cap on unique emotes to describe per message
+const GEMINI_CONCURRENCY = 4; // Max parallel Gemini calls to avoid rate limits
+const MAX_UNIQUE_EMOTES = 24; // Cap on unique emotes to describe per message
 
 // In-memory cache: emoteId -> { description, cachedAt }
 const descriptionCache = new Map();
@@ -307,8 +307,30 @@ export async function processMessageWithEmoteDescriptions(fragments) {
                 }
                 i = lookahead;
             } else {
-                // Description failed — skip this emote
-                i++;
+                // Description failed — fall back to reading the emote name
+                // Still collapse consecutive runs of the same emote
+                let count = 1;
+                let lookahead = i + 1;
+                while (lookahead < fragments.length) {
+                    const next = fragments[lookahead];
+                    if (next.type === 'text' && !next.text.trim()) {
+                        lookahead++;
+                        continue;
+                    }
+                    if (next.type === 'emote' && next.emote?.id === emoteId) {
+                        count++;
+                        lookahead++;
+                        continue;
+                    }
+                    break;
+                }
+
+                if (count > 1) {
+                    outputParts.push(`${count} ${frag.text}`);
+                } else {
+                    outputParts.push(frag.text);
+                }
+                i = lookahead;
             }
         } else {
             // Text or mention fragment — keep as-is
