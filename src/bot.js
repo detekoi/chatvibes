@@ -9,6 +9,7 @@ import { initializeHelixClient } from './components/twitch/helixClient.js';
 
 // WildcatTTS TTS Components
 import { initializeTtsState } from './components/tts/ttsState.js';
+import { initGeminiClient } from './lib/geminiEmoteDescriber.js';
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
@@ -250,6 +251,10 @@ async function main() {
 
         logger.info('WildcatTTS: Initializing TTS State (Firestore)...');
         await initializeTtsState();
+
+        // Initialize Gemini for AI-powered emote descriptions
+        logger.info('WildcatTTS: Initializing Gemini client for emote descriptions...');
+        initGeminiClient(process.env.GEMINI_API_KEY);
 
         logger.info('WildcatTTS: Restoring TTS queues from previous session...');
         await ttsQueue.restoreAllQueues();

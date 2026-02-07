@@ -190,13 +190,22 @@ export async function clearGlobalUserPreference(username, key) {
 }
 
 /**
- * Gets the user's skipEmotes preference from global preferences.
+ * Valid emote mode values.
+ * - 'read': Read raw emote names aloud
+ * - 'skip': Filter out emotes from TTS
+ * - 'describe': Use AI to describe emotes visually
+ */
+export const VALID_EMOTE_MODES = ['read', 'skip', 'describe'];
+
+/**
+ * Gets the user's emoteMode preference from global preferences.
  * Uses userId as primary key with username as fallback for backward compatibility.
+ * Handles migration from legacy skipEmotes boolean field.
  * @param {string} username - The username (used as fallback)
  * @param {string} userId - The Twitch User ID (primary key)
- * @returns {Promise<boolean|null>} - Whether to skip emotes, or null if not set (allows channel default fallback)
+ * @returns {Promise<string|null>} - 'read' | 'skip' | 'describe' | null (allows channel default fallback)
  */
-export async function getUserSkipEmotesPreference(username, userId) {
+export async function getUserEmoteModePreference(username, userId) {
     if (!db) db = new Firestore();
     try {
         // Try userId first (primary)
@@ -204,9 +213,13 @@ export async function getUserSkipEmotesPreference(username, userId) {
             const userIdDoc = await db.collection(USER_PREFS_COLLECTION).doc(userId).get();
             if (userIdDoc.exists) {
                 const data = userIdDoc.data();
-                // Return the value if explicitly set, otherwise null
+                // Check new emoteMode field first
+                if (data?.emoteMode !== undefined && VALID_EMOTE_MODES.includes(data.emoteMode)) {
+                    return data.emoteMode;
+                }
+                // Backward compat: migrate legacy skipEmotes boolean
                 if (data?.skipEmotes !== undefined) {
-                    return !!data.skipEmotes;
+                    return data.skipEmotes ? 'skip' : 'read';
                 }
             }
         }
@@ -216,15 +229,19 @@ export async function getUserSkipEmotesPreference(username, userId) {
             const usernameDoc = await db.collection(USER_PREFS_COLLECTION).doc(lowerUser).get();
             if (usernameDoc.exists) {
                 const data = usernameDoc.data();
-                // Return the value if explicitly set, otherwise null
+                // Check new emoteMode field first
+                if (data?.emoteMode !== undefined && VALID_EMOTE_MODES.includes(data.emoteMode)) {
+                    return data.emoteMode;
+                }
+                // Backward compat: migrate legacy skipEmotes boolean
                 if (data?.skipEmotes !== undefined) {
-                    return !!data.skipEmotes;
+                    return data.skipEmotes ? 'skip' : 'read';
                 }
             }
         }
         return null; // No preference set, allows channel default fallback
     } catch (error) {
-        logger.error({ err: error, user: username, userId }, 'Failed to get skipEmotes preference.');
+        logger.error({ err: error, user: username, userId }, 'Failed to get emoteMode preference.');
         return null;
     }
 }
