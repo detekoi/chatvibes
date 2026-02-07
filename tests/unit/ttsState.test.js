@@ -184,4 +184,51 @@ describe('ttsState module', () => {
       expect(state.obsSocketToken).toBe('test-token');
     });
   });
+
+  describe('banned words management', () => {
+    beforeEach(async () => {
+      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL);
+      await channelDoc.set(mockChannelConfig);
+      await ttsState.initializeTtsState();
+    });
+
+    test('addBannedWord should add word to config', async () => {
+      const result = await ttsState.addBannedWord(TEST_CHANNEL, 'badword');
+      expect(result).toBe(true);
+
+      const state = await ttsState.getTtsState(TEST_CHANNEL);
+      expect(state.bannedWords).toContain('badword');
+    });
+
+    test('addBannedWord should store words lowercase', async () => {
+      await ttsState.addBannedWord(TEST_CHANNEL, 'BadWord');
+
+      const state = await ttsState.getTtsState(TEST_CHANNEL);
+      expect(state.bannedWords).toContain('badword');
+      expect(state.bannedWords).not.toContain('BadWord');
+    });
+
+    test('removeBannedWord should remove word from config', async () => {
+      await ttsState.addBannedWord(TEST_CHANNEL, 'badword');
+      const result = await ttsState.removeBannedWord(TEST_CHANNEL, 'badword');
+      expect(result).toBe(true);
+
+      const state = await ttsState.getTtsState(TEST_CHANNEL);
+      expect(state.bannedWords || []).not.toContain('badword');
+    });
+
+    test('addBannedWord should not duplicate existing words', async () => {
+      await ttsState.addBannedWord(TEST_CHANNEL, 'badword');
+      await ttsState.addBannedWord(TEST_CHANNEL, 'badword');
+
+      const state = await ttsState.getTtsState(TEST_CHANNEL);
+      const count = state.bannedWords.filter(w => w === 'badword').length;
+      expect(count).toBe(1);
+    });
+
+    test('addBannedWord should reject empty strings', async () => {
+      const result = await ttsState.addBannedWord(TEST_CHANNEL, '  ');
+      expect(result).toBe(false);
+    });
+  });
 });

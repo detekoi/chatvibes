@@ -73,9 +73,14 @@ export async function handleChatMessage(event, channelName) {
     // --- TTS PROCESSING ---
     const ttsConfig = await getTtsState(channelName);
     const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
+    const containsBannedWord = ttsConfig.bannedWords?.length > 0 &&
+        ttsConfig.bannedWords.some(w => messageText.toLowerCase().includes(w));
 
-    // If TTS is globally off for the channel or the user is on the ignore list, do no TTS
-    if (!ttsConfig.engineEnabled || isTtsIgnored) {
+    // If TTS is globally off, user is ignored, or message contains banned word, skip TTS
+    if (!ttsConfig.engineEnabled || isTtsIgnored || containsBannedWord) {
+        if (containsBannedWord) {
+            logger.debug({ channelName, user: username }, 'Skipping message containing banned word');
+        }
         return;
     }
 

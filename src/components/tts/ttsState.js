@@ -338,6 +338,52 @@ export async function removeIgnoredUser(channelName, username) {
     }
 }
 
+// Functions for managing banned words/phrases
+export async function addBannedWord(channelName, word) {
+    const lowerWord = word.toLowerCase().trim();
+    if (!lowerWord) return false;
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.set({
+            bannedWords: FieldValue.arrayUnion(lowerWord),
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+        // Update cache
+        const config = await getTtsState(channelName);
+        if (!config.bannedWords) config.bannedWords = [];
+        if (!config.bannedWords.includes(lowerWord)) {
+            config.bannedWords.push(lowerWord);
+        }
+        channelConfigsCache.set(channelName, config);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, word: lowerWord }, 'Failed to add banned word in Firestore.');
+        return false;
+    }
+}
+
+export async function removeBannedWord(channelName, word) {
+    const lowerWord = word.toLowerCase().trim();
+    if (!lowerWord) return false;
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    try {
+        await docRef.update({
+            bannedWords: FieldValue.arrayRemove(lowerWord),
+            updatedAt: FieldValue.serverTimestamp()
+        });
+        // Update cache
+        const config = await getTtsState(channelName);
+        if (config.bannedWords) {
+            config.bannedWords = config.bannedWords.filter(w => w !== lowerWord);
+        }
+        channelConfigsCache.set(channelName, config);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, word: lowerWord }, 'Failed to remove banned word from Firestore.');
+        return false;
+    }
+}
+
 // Get user-specific emotion preference
 export async function getUserEmotionPreference(channelName, username) {
     const lowerUser = username.toLowerCase();

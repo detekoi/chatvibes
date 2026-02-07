@@ -15,7 +15,9 @@ import {
     getTtsState,
     setTtsState,
     addIgnoredUser,
-    removeIgnoredUser
+    removeIgnoredUser,
+    addBannedWord,
+    removeBannedWord
 } from '../tts/ttsState.js';
 
 
@@ -213,6 +215,8 @@ async function handleApiRequest(req, res) {
                 await handleTtsSettings(req, res, req.channelName, req.method);
             } else if (pathname.includes('/api/tts/ignore')) {
                 await handleTtsIgnore(req, res, req.channelName, req.method);
+            } else if (pathname.includes('/api/tts/banned-words')) {
+                await handleTtsBannedWords(req, res, req.channelName, req.method);
             } else {
                 applyCors(req, res);
                 sendErrorResponse(res, 404, 'API endpoint not found', req);
@@ -366,6 +370,39 @@ async function handleTtsIgnore(req, res, channelName, method) {
     }
 }
 
+// TTS Banned words handlers
+async function handleTtsBannedWords(req, res, channelName, method) {
+    if (method === 'POST') {
+        const body = await parseJsonBody(req);
+        const { word } = body;
+        if (!word || typeof word !== 'string' || !word.trim()) {
+            return sendErrorResponse(res, 400, 'Word or phrase required', req);
+        }
+
+        const success = await addBannedWord(channelName, word);
+        if (success) {
+            sendJsonResponse(res, 200, { success: true, message: `Word/phrase added to banned list` }, req);
+        } else {
+            sendErrorResponse(res, 500, 'Failed to add word to banned list', req);
+        }
+    } else if (method === 'DELETE') {
+        const body = await parseJsonBody(req);
+        const { word } = body;
+        if (!word || typeof word !== 'string' || !word.trim()) {
+            return sendErrorResponse(res, 400, 'Word or phrase required', req);
+        }
+
+        const success = await removeBannedWord(channelName, word);
+        if (success) {
+            sendJsonResponse(res, 200, { success: true, message: `Word/phrase removed from banned list` }, req);
+        } else {
+            sendErrorResponse(res, 500, 'Failed to remove word from banned list', req);
+        }
+    } else {
+        sendErrorResponse(res, 405, 'Method not allowed', req);
+    }
+}
+
 // Admin endpoint for refreshing allowlist
 async function handleAllowListRefresh(req, res) {
     if (req.method !== 'POST') {
@@ -435,6 +472,9 @@ async function validateTtsSetting(key, value) {
                 // Minimax range is (0, 10], treating 0 as invalid to be safe, though 0 might mute. 
                 // Let's allow 0.1 to 10 based on earlier info.
                 return !isNaN(volume) && volume > 0 && volume <= 10;
+            }
+            if (key === 'bannedWords') {
+                return Array.isArray(value) && value.every(w => typeof w === 'string');
             }
             logger.warn(`Unknown TTS setting key: ${key}`);
             return false;
