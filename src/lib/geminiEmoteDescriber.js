@@ -157,6 +157,98 @@ async function describeSingleEmote(emoteId, emoteName) {
 }
 
 /**
+ * Describe multiple emotes in a single Gemini vision call.
+ * Sends all images together with a numbered prompt for efficient batch processing.
+ * @param {Array<[string, string]>} emoteEntries - Array of [emoteId, emoteName] pairs
+ * @returns {Promise<Map<string, string>>} Map of emoteId -> description
+ */
+async function describeBatchEmotes(emoteEntries) {
+    const results = new Map();
+    if (!genAI || emoteEntries.length === 0) return results;
+
+    // Separate cached vs uncached 
+    const uncached = [];
+    for (const [emoteId, emoteName] of emoteEntries) {
+        const cached = getCachedDescription(emoteId);
+        if (cached) {
+            results.set(emoteId, cached);
+        } else {
+            uncached.push([emoteId, emoteName]);
+        }
+    }
+
+    if (uncached.length === 0) return results;
+
+    // Fetch all images in parallel
+    const imagePromises = uncached.map(([emoteId]) => fetchEmoteImage(emoteId));
+    const images = await Promise.all(imagePromises);
+
+    // Filter to only emotes with successful image fetches
+    const withImages = [];
+    for (let i = 0; i < uncached.length; i++) {
+        if (images[i]) {
+            withImages.push({ emoteId: uncached[i][0], emoteName: uncached[i][1], imageData: images[i] });
+        } else {
+            logger.info({ emoteId: uncached[i][0], emoteName: uncached[i][1] }, 'Emote image fetch failed — cannot describe');
+        }
+    }
+
+    if (withImages.length === 0) return results;
+
+    // Build multi-image prompt
+    const contentParts = [];
+    for (let i = 0; i < withImages.length; i++) {
+        contentParts.push({
+            inlineData: {
+                mimeType: withImages[i].imageData.mimeType,
+                data: withImages[i].imageData.data.toString('base64'),
+            },
+        });
+    }
+
+    const emoteList = withImages.map((e, i) => `${i + 1}. "${e.emoteName}"`).join('\n');
+    contentParts.push({
+        text: `Describe each Twitch emote in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. Do NOT include the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
+    });
+
+    try {
+        const batchTimeout = Math.max(GEMINI_TIMEOUT_MS, withImages.length * 2000 + 5000);
+        const response = await Promise.race([
+            genAI.models.generateContent({
+                model: GEMINI_MODEL,
+                contents: contentParts,
+            }),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Gemini batch timeout')), batchTimeout)
+            ),
+        ]);
+
+        const text = response.text?.trim();
+        if (text) {
+            // Parse numbered responses: "1. description\n2. description\n..."
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            for (const line of lines) {
+                const match = line.match(/^(\d+)\.\s*(.+)/);
+                if (match) {
+                    const idx = parseInt(match[1], 10) - 1;
+                    const desc = match[2].replace(/^["']|["']$/g, '').trim();
+                    if (idx >= 0 && idx < withImages.length && desc) {
+                        const emoteId = withImages[idx].emoteId;
+                        cacheDescription(emoteId, desc);
+                        results.set(emoteId, desc);
+                    }
+                }
+            }
+            logger.debug({ requested: withImages.length, described: results.size - (emoteEntries.length - uncached.length) }, 'Batch emote description complete');
+        }
+    } catch (error) {
+        logger.info({ err: error.message, emoteCount: withImages.length }, 'Batch Gemini emote description failed');
+    }
+
+    return results;
+}
+
+/**
  * Process emote fragments from an EventSub message and generate
  * natural-language descriptions for TTS.
  * 
@@ -245,24 +337,16 @@ export async function processMessageWithEmoteDescriptions(fragments) {
 
     const emoteEntries = Array.from(uniqueEmoteIds.entries()).slice(0, MAX_UNIQUE_EMOTES);
 
-    // Process in batches to avoid overwhelming Gemini API
-    const descriptions = new Array(emoteEntries.length).fill(null);
-    for (let batch = 0; batch < emoteEntries.length; batch += GEMINI_CONCURRENCY) {
-        const batchEntries = emoteEntries.slice(batch, batch + GEMINI_CONCURRENCY);
-        const batchResults = await Promise.all(
-            batchEntries.map(([emoteId, name]) => describeSingleEmote(emoteId, name))
-        );
-        for (let j = 0; j < batchResults.length; j++) {
-            descriptions[batch + j] = batchResults[j];
-        }
-    }
-
-    // Build emoteId -> description map
-    const descriptionMap = new Map();
-    for (let i = 0; i < emoteEntries.length; i++) {
-        if (descriptions[i]) {
-            descriptionMap.set(emoteEntries[i][0], descriptions[i]);
-        }
+    // Use batch multi-image call for efficiency (1 API call for all emotes)
+    let descriptionMap;
+    if (emoteEntries.length === 1) {
+        // Single emote — direct call is faster
+        descriptionMap = new Map();
+        const desc = await describeSingleEmote(emoteEntries[0][0], emoteEntries[0][1]);
+        if (desc) descriptionMap.set(emoteEntries[0][0], desc);
+    } else {
+        // 2+ emotes — send all images in a single Gemini call
+        descriptionMap = await describeBatchEmotes(emoteEntries);
     }
 
     if (descriptionMap.size === 0) {
