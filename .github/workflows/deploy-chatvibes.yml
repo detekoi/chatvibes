@@ -43,13 +43,14 @@ env:
   # TTS_DEFAULT_SPEED: '1.0'
 
   # --- Secret Manager Secret Names (short names, latest version assumed) ---
-  # These names will be used in --set-secrets to map them to environment variables
   TWITCH_CLIENT_ID_SECRET: 'twitch-client-id'
   TWITCH_CLIENT_SECRET_SECRET: 'twitch-client-secret'
   WAVESPEED_API_KEY_SECRET: 'WAVESPEED_API_KEY'
   T302_API_KEY_SECRET: '302_KEY'
-  TWITCH_CHANNELS_SECRET: 'chatvibes-initial-channels' # For initial channels
-  TWITCH_EVENTSUB_SECRET_NAME: 'twitch-eventsub-secret' # EventSub webhook signature secret
+  TWITCH_CHANNELS_SECRET: 'chatvibes-initial-channels'
+  TWITCH_EVENTSUB_SECRET_NAME: 'twitch-eventsub-secret'
+  GEMINI_API_KEY_SECRET: 'GEMINI_API_KEY'
+
 
 jobs:
   deploy:
@@ -105,14 +106,11 @@ jobs:
             WAVESPEED_API_KEY=${{ env.WAVESPEED_API_KEY_SECRET }}:latest,\
             T302_API_KEY=${{ env.T302_API_KEY_SECRET }}:latest,\
             TWITCH_CHANNELS=${{ env.TWITCH_CHANNELS_SECRET }}:latest,\
-            TWITCH_EVENTSUB_SECRET=${{ env.TWITCH_EVENTSUB_SECRET_NAME }}:latest" \
+            TWITCH_EVENTSUB_SECRET=${{ env.TWITCH_EVENTSUB_SECRET_NAME }}:latest,\
+            GEMINI_API_KEY=${{ env.GEMINI_API_KEY_SECRET }}:latest" \
             --labels="managed-by=github-actions,repository=${{ github.repository_owner }}_${{ github.event.repository.name }},commit-sha=${{ github.sha }}" \
             --format="get(status.url)"
         env:
-          # Make GitHub Actions secrets available to this step if needed for other gcloud commands,
-          # though for --set-secrets, gcloud uses the secret names from Secret Manager directly.
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Example
-          # YOUR_SPECIFIC_SECRET: ${{ secrets.YOUR_SPECIFIC_SECRET }} # Example
           CLOUDSDK_CORE_DISABLE_PROMPTS: 1
 
       - name: Show Deployment URL
