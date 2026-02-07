@@ -121,7 +121,7 @@ async function describeSingleEmote(emoteId, emoteName) {
     }
 
     try {
-        const prompt = `Describe this Twitch emote named "${emoteName}" in 2-6 words for text-to-speech. Focus on what it depicts (emotion, action, character). Be concise and natural-sounding. Do NOT include the word "emote" in your response. Reply with ONLY the short description, no quotes or extra text.`;
+        const prompt = `Describe this Twitch emote "${emoteName}" in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
 
         const response = await Promise.race([
             genAI.models.generateContent({
@@ -141,7 +141,7 @@ async function describeSingleEmote(emoteId, emoteName) {
             ),
         ]);
 
-        const description = response.text?.trim();
+        const description = response.text?.trim().replace(/[.!?,;:]+$/g, '');
         if (description) {
             cacheDescription(emoteId, description);
             logger.debug({ emoteId, emoteName, description }, 'Emote described by Gemini');
@@ -206,7 +206,7 @@ async function describeBatchEmotes(emoteEntries) {
 
     const emoteList = withImages.map((e, i) => `${i + 1}. "${e.emoteName}"`).join('\n');
     contentParts.push({
-        text: `Describe each Twitch emote in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. Do NOT include the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
+        text: `Describe each Twitch emote in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
     });
 
     try {
@@ -229,7 +229,7 @@ async function describeBatchEmotes(emoteEntries) {
                 const match = line.match(/^(\d+)\.\s*(.+)/);
                 if (match) {
                     const idx = parseInt(match[1], 10) - 1;
-                    const desc = match[2].replace(/^["']|["']$/g, '').trim();
+                    const desc = match[2].replace(/^["']|["']$/g, '').replace(/[.!?,;:]+$/g, '').trim();
                     if (idx >= 0 && idx < withImages.length && desc) {
                         const emoteId = withImages[idx].emoteId;
                         cacheDescription(emoteId, desc);
