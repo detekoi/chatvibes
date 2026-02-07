@@ -5,7 +5,7 @@ import logger from './logger.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
-const EMOTE_IMAGE_FORMAT = 'default/dark/3.0'; // 3x resolution for better AI recognition
+const EMOTE_IMAGE_FORMAT = 'static/dark/2.0'; // 'static' forces PNG even for animated emotes (Gemini rejects GIFs)
 const GEMINI_TIMEOUT_MS = 8000;
 
 // In-memory cache: emoteId -> { description, cachedAt }
@@ -64,9 +64,11 @@ async function fetchEmoteImage(emoteId) {
         }
         const arrayBuffer = await response.arrayBuffer();
         const contentType = response.headers.get('content-type') || 'image/png';
+        // Ensure we never send GIF to Gemini (shouldn't happen with 'static' theme, but safety check)
+        const safeMimeType = contentType.includes('gif') ? 'image/png' : contentType;
         return {
             data: Buffer.from(arrayBuffer),
-            mimeType: contentType,
+            mimeType: safeMimeType,
         };
     } catch (error) {
         logger.debug({ err: error, emoteId }, 'Error fetching emote image');
