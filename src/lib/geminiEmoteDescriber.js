@@ -207,9 +207,9 @@ export async function describeEmoteFragments(fragments) {
         }
 
         if (count > 1) {
-            parts.push(`${count} emotes of ${desc}`);
+            parts.push(`${count} emotes: ${desc}`);
         } else {
-            parts.push(`emote of ${desc}`);
+            parts.push(`emote: ${desc}`);
         }
     }
 
@@ -301,9 +301,9 @@ export async function processMessageWithEmoteDescriptions(fragments) {
                 }
 
                 if (count > 1) {
-                    outputParts.push(`${count} emotes of ${desc}`);
+                    outputParts.push(`${count} emotes: ${desc}`);
                 } else {
-                    outputParts.push(`emote of ${desc}`);
+                    outputParts.push(`emote: ${desc}`);
                 }
                 i = lookahead;
             } else {
