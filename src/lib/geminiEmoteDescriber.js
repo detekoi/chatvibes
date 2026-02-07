@@ -270,20 +270,31 @@ export async function processMessageWithEmoteDescriptions(fragments) {
             const desc = descriptionMap.get(emoteId);
 
             if (desc) {
-                // Count consecutive runs of the same emote
+                // Count consecutive runs of the same emote, skipping whitespace-only fragments between them
                 let count = 1;
-                while (i + count < fragments.length &&
-                    fragments[i + count].type === 'emote' &&
-                    fragments[i + count].emote?.id === emoteId) {
-                    count++;
+                let lookahead = i + 1;
+                while (lookahead < fragments.length) {
+                    const next = fragments[lookahead];
+                    // Skip whitespace-only text fragments between emotes
+                    if (next.type === 'text' && !next.text.trim()) {
+                        lookahead++;
+                        continue;
+                    }
+                    // Check if the next non-whitespace fragment is the same emote
+                    if (next.type === 'emote' && next.emote?.id === emoteId) {
+                        count++;
+                        lookahead++;
+                        continue;
+                    }
+                    break;
                 }
 
                 if (count > 1) {
-                    outputParts.push(`${count} ${desc} emotes`);
+                    outputParts.push(`${count} emotes of ${desc}`);
                 } else {
-                    outputParts.push(desc);
+                    outputParts.push(`emote of ${desc}`);
                 }
-                i += count;
+                i = lookahead;
             } else {
                 // Description failed — skip this emote
                 i++;
