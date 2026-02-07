@@ -5,7 +5,7 @@ import logger from './logger.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
-const EMOTE_IMAGE_FORMAT = 'static/dark/2.0'; // 'static' forces PNG even for animated emotes (Gemini rejects GIFs)
+const EMOTE_IMAGE_FORMAT = 'static/dark/3.0'; // 'static' forces PNG even for animated emotes (Gemini rejects GIFs)
 const GEMINI_TIMEOUT_MS = 8000;
 
 // In-memory cache: emoteId -> { description, cachedAt }
@@ -121,7 +121,7 @@ async function describeSingleEmote(emoteId, emoteName) {
     }
 
     try {
-        const prompt = `Describe this Twitch emote named "${emoteName}" in 2-6 words for text-to-speech. Focus on what it depicts (emotion, action, character). Be concise and natural-sounding. Reply with ONLY the short description, no quotes or extra text.`;
+        const prompt = `Describe this Twitch emote named "${emoteName}" in 2-6 words for text-to-speech. Focus on what it depicts (emotion, action, character). Be concise and natural-sounding. Do NOT include the word "emote" in your response. Reply with ONLY the short description, no quotes or extra text.`;
 
         const response = await Promise.race([
             genAI.models.generateContent({
