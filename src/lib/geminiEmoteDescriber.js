@@ -220,9 +220,9 @@ export async function describeEmoteFragments(fragments) {
 }
 
 /**
- * Process a message by replacing emote fragments with AI descriptions.
- * Reconstructs the message with text fragments kept and emote fragments
- * replaced by a single description block.
+ * Process a message by replacing emote fragments with AI descriptions inline.
+ * Walks through fragments in order, keeping emotes at their original position.
+ * Consecutive repeated emotes are collapsed (e.g., "3 laughing emotes").
  * 
  * @param {Array<{type: string, text: string, emote?: {id: string}}>} fragments
  * @returns {Promise<string | null>} The reconstructed message, or null on failure
@@ -233,23 +233,74 @@ export async function processMessageWithEmoteDescriptions(fragments) {
     const emoteFragments = fragments.filter(f => f.type === 'emote' && f.emote?.id);
     if (emoteFragments.length === 0) return null;
 
-    // Get descriptions for the emotes
-    const emoteDescription = await describeEmoteFragments(fragments);
-    if (!emoteDescription) return null;
-
-    // Reconstruct: keep text and mention fragments, replace emote block
-    const textParts = fragments
-        .filter(f => f.type === 'text' || f.type === 'mention')
-        .map(f => f.text);
-
-    const textContent = textParts.join('').trim();
-
-    if (textContent) {
-        return `${textContent} (${emoteDescription})`;
-    } else {
-        // Message is purely emotes
-        return emoteDescription;
+    // Collect unique emote IDs and describe them all in parallel
+    const uniqueEmoteIds = new Map(); // emoteId -> emoteName
+    for (const frag of emoteFragments) {
+        if (!uniqueEmoteIds.has(frag.emote.id)) {
+            uniqueEmoteIds.set(frag.emote.id, frag.text);
+        }
     }
+
+    const emoteEntries = Array.from(uniqueEmoteIds.entries());
+    const descriptions = await Promise.all(
+        emoteEntries.map(([emoteId, name]) => describeSingleEmote(emoteId, name))
+    );
+
+    // Build emoteId -> description map
+    const descriptionMap = new Map();
+    for (let i = 0; i < emoteEntries.length; i++) {
+        if (descriptions[i]) {
+            descriptionMap.set(emoteEntries[i][0], descriptions[i]);
+        }
+    }
+
+    if (descriptionMap.size === 0) {
+        logger.info({ emoteCount: uniqueEmoteIds.size, emoteNames: Array.from(uniqueEmoteIds.values()) }, 'All emote descriptions failed — returning null');
+        return null;
+    }
+
+    // Walk fragments in order, collapsing consecutive runs of the same emote
+    const outputParts = [];
+    let i = 0;
+    while (i < fragments.length) {
+        const frag = fragments[i];
+
+        if (frag.type === 'emote' && frag.emote?.id) {
+            const emoteId = frag.emote.id;
+            const desc = descriptionMap.get(emoteId);
+
+            if (desc) {
+                // Count consecutive runs of the same emote
+                let count = 1;
+                while (i + count < fragments.length &&
+                    fragments[i + count].type === 'emote' &&
+                    fragments[i + count].emote?.id === emoteId) {
+                    count++;
+                }
+
+                if (count > 1) {
+                    outputParts.push(`${count} ${desc} emotes`);
+                } else {
+                    outputParts.push(desc);
+                }
+                i += count;
+            } else {
+                // Description failed — skip this emote
+                i++;
+            }
+        } else {
+            // Text or mention fragment — keep as-is
+            const text = frag.text.trim();
+            if (text) {
+                outputParts.push(text);
+            }
+            i++;
+        }
+    }
+
+    if (outputParts.length === 0) return null;
+
+    return outputParts.join(', ');
 }
 
 // For testing
