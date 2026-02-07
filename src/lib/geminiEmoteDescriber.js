@@ -6,7 +6,7 @@ import logger from './logger.js';
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
 const EMOTE_IMAGE_FORMAT = 'default/dark/3.0'; // 3x resolution for better AI recognition
-const GEMINI_TIMEOUT_MS = 3000;
+const GEMINI_TIMEOUT_MS = 8000;
 
 // In-memory cache: emoteId -> { description, cachedAt }
 const descriptionCache = new Map();
@@ -113,7 +113,10 @@ async function describeSingleEmote(emoteId, emoteName) {
     if (!genAI) return null;
 
     const imageData = await fetchEmoteImage(emoteId);
-    if (!imageData) return null;
+    if (!imageData) {
+        logger.info({ emoteId, emoteName }, 'Emote image fetch failed — cannot describe');
+        return null;
+    }
 
     try {
         const prompt = `Describe this Twitch emote named "${emoteName}" in 2-6 words for text-to-speech. Focus on what it depicts (emotion, action, character). Be concise and natural-sounding. Reply with ONLY the short description, no quotes or extra text.`;
@@ -144,7 +147,7 @@ async function describeSingleEmote(emoteId, emoteName) {
         }
         return null;
     } catch (error) {
-        logger.debug({ err: error, emoteId, emoteName }, 'Gemini emote description failed');
+        logger.info({ err: error.message, emoteId, emoteName }, 'Gemini emote description failed');
         return null;
     }
 }
@@ -206,7 +209,10 @@ export async function describeEmoteFragments(fragments) {
         }
     }
 
-    if (parts.length === 0) return null;
+    if (parts.length === 0) {
+        logger.info({ emoteCount: uniqueEmotes.length, emoteNames: uniqueEmotes.map(([, { name }]) => name) }, 'All emote descriptions failed — returning null');
+        return null;
+    }
 
     return parts.join(', ');
 }
