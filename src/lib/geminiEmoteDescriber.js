@@ -7,6 +7,8 @@ const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
 const EMOTE_IMAGE_FORMAT = 'static/dark/3.0'; // 'static' forces PNG even for animated emotes (Gemini rejects GIFs)
 const GEMINI_TIMEOUT_MS = 8000;
+const GEMINI_CONCURRENCY = 3; // Max parallel Gemini calls to avoid rate limits
+const MAX_UNIQUE_EMOTES = 8; // Cap on unique emotes to describe per message
 
 // In-memory cache: emoteId -> { description, cachedAt }
 const descriptionCache = new Map();
@@ -241,10 +243,19 @@ export async function processMessageWithEmoteDescriptions(fragments) {
         }
     }
 
-    const emoteEntries = Array.from(uniqueEmoteIds.entries());
-    const descriptions = await Promise.all(
-        emoteEntries.map(([emoteId, name]) => describeSingleEmote(emoteId, name))
-    );
+    const emoteEntries = Array.from(uniqueEmoteIds.entries()).slice(0, MAX_UNIQUE_EMOTES);
+
+    // Process in batches to avoid overwhelming Gemini API
+    const descriptions = new Array(emoteEntries.length).fill(null);
+    for (let batch = 0; batch < emoteEntries.length; batch += GEMINI_CONCURRENCY) {
+        const batchEntries = emoteEntries.slice(batch, batch + GEMINI_CONCURRENCY);
+        const batchResults = await Promise.all(
+            batchEntries.map(([emoteId, name]) => describeSingleEmote(emoteId, name))
+        );
+        for (let j = 0; j < batchResults.length; j++) {
+            descriptions[batch + j] = batchResults[j];
+        }
+    }
 
     // Build emoteId -> description map
     const descriptionMap = new Map();
