@@ -7,8 +7,6 @@ const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
 const EMOTE_IMAGE_FORMAT = 'static/dark/3.0'; // 'static' forces PNG even for animated emotes (Gemini rejects GIFs)
 const GEMINI_TIMEOUT_MS = 8000;
-const GEMINI_CONCURRENCY = 4; // Max parallel Gemini calls to avoid rate limits
-const MAX_UNIQUE_EMOTES = 24; // Cap on unique emotes to describe per message
 
 // In-memory cache: emoteId -> { description, cachedAt }
 const descriptionCache = new Map();
@@ -335,7 +333,7 @@ export async function processMessageWithEmoteDescriptions(fragments) {
         }
     }
 
-    const emoteEntries = Array.from(uniqueEmoteIds.entries()).slice(0, MAX_UNIQUE_EMOTES);
+    const emoteEntries = Array.from(uniqueEmoteIds.entries());
 
     // Use batch multi-image call for efficiency (1 API call for all emotes)
     let descriptionMap;
