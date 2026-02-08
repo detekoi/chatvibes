@@ -88,8 +88,8 @@ export async function handleChatMessage(event, channelName) {
 
     // Resolve emote mode: user preference → channel default → 'describe'
     const userEmoteMode = await getUserEmoteModePreference(username, userId);
-    // Channel-level: check new emoteMode first, fall back to legacy skipEmotes
-    let channelEmoteMode = ttsConfig.emoteMode || (ttsConfig.skipEmotes ? 'skip' : 'describe');
+    // Channel-level emote mode
+    let channelEmoteMode = ttsConfig.emoteMode || 'describe';
     const emoteMode = userEmoteMode || channelEmoteMode;
     const fragmentTypes = event.message?.fragments?.map(f => ({ type: f.type, text: f.text.substring(0, 20), hasEmoteId: !!f.emote?.id })) || [];
     logger.info({ userEmoteMode, channelEmoteMode, emoteMode, fragmentTypes, geminiAvailable: isGeminiAvailable() }, 'Emote mode resolved');
