@@ -9,7 +9,7 @@ import { getSharedSessionInfo } from '../eventUtils.js';
  * Handle event notifications (subs, raids, follows, cheers)
  * Generates appropriate TTS text and publishes to Pub/Sub
  */
-export async function handleNotification(subscriptionType, event, channelName) {
+export async function handleNotification(subscriptionType, event, channelName, ttsConfig = {}) {
     let ttsText = null;
     let username = 'event_tts'; // Default for events without specific user
 
@@ -89,10 +89,16 @@ export async function handleNotification(subscriptionType, event, channelName) {
 
         case 'channel.follow': {
             // New follower (v2)
+            const anonymize = ttsConfig.anonymizeFollowers !== false;
             const followerUser = event.user_name || event.user_login || 'Someone';
-            ttsText = `${followerUser} just followed!`;
-            username = followerUser;
-            logger.info({ channelName, user: followerUser }, 'Follow event');
+            if (anonymize) {
+                ttsText = 'Someone new just followed!';
+                username = 'anonymous_follower';
+            } else {
+                ttsText = `${followerUser} just followed!`;
+                username = followerUser;
+            }
+            logger.info({ channelName, user: followerUser, anonymized: anonymize }, 'Follow event');
             break;
         }
 

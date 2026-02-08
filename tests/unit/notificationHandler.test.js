@@ -220,13 +220,51 @@ describe('notificationHandler', () => {
             );
         });
 
-        it('should handle follow event', async () => {
+        it('should anonymize follow event by default (no ttsConfig)', async () => {
             const event = {
                 user_name: 'NewFollower',
                 user_login: 'newfollower'
             };
 
             await handleNotification('channel.follow', event, 'testchannel');
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                {
+                    text: 'Someone new just followed!',
+                    user: 'anonymous_follower',
+                    type: 'event'
+                },
+                null
+            );
+        });
+
+        it('should anonymize follow event when anonymizeFollowers is true', async () => {
+            const event = {
+                user_name: 'NewFollower',
+                user_login: 'newfollower'
+            };
+
+            await handleNotification('channel.follow', event, 'testchannel', { anonymizeFollowers: true });
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                {
+                    text: 'Someone new just followed!',
+                    user: 'anonymous_follower',
+                    type: 'event'
+                },
+                null
+            );
+        });
+
+        it('should reveal follower name when anonymizeFollowers is false', async () => {
+            const event = {
+                user_name: 'NewFollower',
+                user_login: 'newfollower'
+            };
+
+            await handleNotification('channel.follow', event, 'testchannel', { anonymizeFollowers: false });
 
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',

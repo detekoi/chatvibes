@@ -267,7 +267,7 @@ export async function eventSubHandler(req, res, rawBody) {
 
         // Route: Standard notifications (subs, raids, follows, cheers)
         try {
-            await handleNotification(type, event, channelName);
+            await handleNotification(type, event, channelName, ttsConfig);
         } catch (error) {
             logger.error({ err: error, type, channelName }, 'Error handling EventSub notification');
         }
