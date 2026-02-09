@@ -48,24 +48,30 @@ async function makeHelixRequest(method, endpoint, body = null) {
 }
 
 /**
- * Get broadcaster's user access token from Secret Manager
+ * Get broadcaster's user access token from Firestore
  * @param {string} broadcasterUserId - The broadcaster's Twitch user ID
  * @returns {Promise<string|null>} The access token or null if not found
  */
 async function getBroadcasterAccessToken(broadcasterUserId) {
     try {
-        const { getSecretValue } = await import('../../lib/secretManager.js');
-        // Secret Manager requires the full resource path
-        const projectId = process.env.GOOGLE_CLOUD_PROJECT || 'chatvibestts';
-        const secretResourceName = `projects/${projectId}/secrets/twitch-access-token-${broadcasterUserId}/versions/latest`;
-        const accessToken = await getSecretValue(secretResourceName);
+        const { getFirestore } = await import('firebase-admin/firestore');
+        const db = getFirestore();
 
-        if (!accessToken) {
-            logger.warn({ broadcasterUserId }, 'Broadcaster access token not found in Secret Manager');
+        const oauthDoc = await db.collection('users').doc(broadcasterUserId)
+            .collection('private').doc('oauth').get();
+
+        if (!oauthDoc.exists) {
+            logger.warn({ broadcasterUserId }, 'Broadcaster access token not found in Firestore');
             return null;
         }
 
-        return accessToken;
+        const accessToken = oauthDoc.data()?.twitchAccessToken;
+        if (!accessToken) {
+            logger.warn({ broadcasterUserId }, 'Broadcaster OAuth doc exists but no access token');
+            return null;
+        }
+
+        return accessToken.trim();
     } catch (error) {
         logger.error({ err: error, broadcasterUserId }, 'Error retrieving broadcaster access token');
         return null;

@@ -125,7 +125,7 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
 }
 
 /**
- * Get user access token for broadcaster from Firestore/Secret Manager
+ * Get user access token for broadcaster from Firestore
  * This retrieves the broadcaster's OAuth token with channel:manage:redemptions scope
  */
 async function getBroadcasterAccessToken(channelLogin) {
@@ -156,32 +156,21 @@ async function getBroadcasterAccessToken(channelLogin) {
             return null;
         }
 
-        // Get access token from Secret Manager using shared helper (with caching)
-        const { getSecretValue } = await import('../../../lib/secretManager.js');
-        const projectId = process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT;
+        // Get access token from Firestore (migrated from Secret Manager)
+        const oauthDoc = await db.collection('users').doc(twitchUserId)
+            .collection('private').doc('oauth').get();
 
-        if (!projectId) {
-            logger.warn('GOOGLE_CLOUD_PROJECT not set - cannot access Secret Manager');
+        if (!oauthDoc.exists) {
+            logger.warn({ channelLogin, twitchUserId }, 'Broadcaster OAuth tokens not found in Firestore');
             return null;
         }
 
-        const secretName = `projects/${projectId}/secrets/twitch-access-token-${twitchUserId}/versions/latest`;
-
-        try {
-            const accessToken = await getSecretValue(secretName);
-            if (accessToken) {
-                logger.debug({ channelLogin }, 'Retrieved broadcaster access token from Secret Manager');
-                return accessToken.trim();
-            } else {
-                logger.warn({ channelLogin, twitchUserId }, 'Failed to get broadcaster access token from Secret Manager');
-                return null;
-            }
-        } catch (secretError) {
-            logger.warn({
-                err: secretError,
-                channelLogin,
-                twitchUserId
-            }, 'Error getting broadcaster access token from Secret Manager');
+        const accessToken = oauthDoc.data()?.twitchAccessToken;
+        if (accessToken) {
+            logger.debug({ channelLogin }, 'Retrieved broadcaster access token from Firestore');
+            return accessToken.trim();
+        } else {
+            logger.warn({ channelLogin, twitchUserId }, 'Broadcaster OAuth doc exists but no access token');
             return null;
         }
     } catch (error) {
