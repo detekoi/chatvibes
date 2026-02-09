@@ -49,10 +49,10 @@ export async function handleChatMessage(event, channelName) {
 
     if (bits > 0) {
         if (event.message && event.message.fragments) {
-            // New logic: filter out cheermote fragments entirely
-            // This handles "Cheer100 hello Cheer100" -> " hello " -> "hello"
+            // Filter out cheermote fragments but keep emotes and mentions
+            // so emote descriptions still work for cheer messages
             cleanMessage = event.message.fragments
-                .filter(f => f.type === 'text')
+                .filter(f => f.type !== 'cheermote')
                 .map(f => f.text)
                 .join('')
                 .trim();
@@ -92,7 +92,7 @@ export async function handleChatMessage(event, channelName) {
     let channelEmoteMode = ttsConfig.emoteMode || 'describe';
     const emoteMode = userEmoteMode || channelEmoteMode;
     const fragmentTypes = event.message?.fragments?.map(f => ({ type: f.type, text: f.text.substring(0, 20), hasEmoteId: !!f.emote?.id })) || [];
-    logger.info({ userEmoteMode, channelEmoteMode, emoteMode, fragmentTypes, geminiAvailable: isGeminiAvailable() }, 'Emote mode resolved');
+    logger.info({ userEmoteMode, channelEmoteMode, emoteMode, bits, fragmentTypes, geminiAvailable: isGeminiAvailable() }, 'Emote mode resolved');
 
     /**
      * Process emotes in message based on emote mode.
@@ -102,13 +102,17 @@ export async function handleChatMessage(event, channelName) {
      * @param {string} text - The original message text
      * @returns {Promise<string>} - Processed text based on emote mode
      */
+    // Filter out cheermote fragments for emote processing so cheermote text
+    // doesn't appear in the described/skipped output
+    const ttsFragments = event.message?.fragments?.filter(f => f.type !== 'cheermote');
+
     const processEmotes = async (text) => {
-        if (emoteMode === 'read' || !event.message?.fragments) {
+        if (emoteMode === 'read' || !ttsFragments) {
             return text;
         }
 
         if (emoteMode === 'skip') {
-            return event.message.fragments
+            return ttsFragments
                 .filter(f => f.type === 'text' || f.type === 'mention')
                 .map(f => f.text)
                 .join('')
@@ -118,7 +122,7 @@ export async function handleChatMessage(event, channelName) {
         // emoteMode === 'describe'
         if (isGeminiAvailable()) {
             try {
-                const described = await processMessageWithEmoteDescriptions(event.message.fragments);
+                const described = await processMessageWithEmoteDescriptions(ttsFragments);
                 if (described) return described;
             } catch (error) {
                 logger.debug({ err: error, channel: channelName, user: username }, 'Emote description failed, falling back');
@@ -128,7 +132,7 @@ export async function handleChatMessage(event, channelName) {
         // Fallback: use channel's emote mode setting (but not 'describe' to avoid infinite loop)
         const fallbackMode = channelEmoteMode === 'describe' ? 'read' : channelEmoteMode;
         if (fallbackMode === 'skip') {
-            return event.message.fragments
+            return ttsFragments
                 .filter(f => f.type === 'text' || f.type === 'mention')
                 .map(f => f.text)
                 .join('')
