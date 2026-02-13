@@ -54,8 +54,8 @@ async function makeHelixRequest(method, endpoint, body = null) {
  */
 async function getBroadcasterAccessToken(broadcasterUserId) {
     try {
-        const { getFirestore } = await import('firebase-admin/firestore');
-        const db = getFirestore();
+        const { Firestore } = await import('@google-cloud/firestore');
+        const db = new Firestore();
 
         const oauthDoc = await db.collection('users').doc(broadcasterUserId)
             .collection('private').doc('oauth').get();
