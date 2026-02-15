@@ -383,61 +383,79 @@ async function describeBatchEmotes(emoteEntries) {
 
     if (withImages.length === 0) return results;
 
-    // Build multi-image prompt — each emote may contribute multiple frame images
-    const contentParts = [];
-    for (let i = 0; i < withImages.length; i++) {
-        for (const frame of withImages[i].imageFrames) {
-            contentParts.push({
-                inlineData: {
-                    mimeType: frame.mimeType,
-                    data: frame.data.toString('base64'),
-                },
-            });
+    // Split into animated and static groups for separate, focused prompts
+    const staticEmotes = withImages.filter(e => !e.isAnimated);
+    const animatedEmotes = withImages.filter(e => e.isAnimated);
+
+    /**
+     * Send a batch Gemini call for a group of emotes with a dedicated prompt.
+     * @param {Array} group - Emotes to describe
+     * @param {string} promptText - The prompt tailored to this group type
+     */
+    const describeBatch = async (group, promptText) => {
+        if (group.length === 0) return;
+
+        const contentParts = [];
+        for (const emote of group) {
+            for (const frame of emote.imageFrames) {
+                contentParts.push({
+                    inlineData: {
+                        mimeType: frame.mimeType,
+                        data: frame.data.toString('base64'),
+                    },
+                });
+            }
         }
-    }
 
-    const emoteList = withImages.map((e, i) => {
-        const context = buildEmoteContext(e.emoteName, e.ownerName);
-        const animTag = e.isAnimated ? ` (animated, ${e.imageFrames.length} sequential frames shown)` : '';
-        return `${i + 1}. ${context}${animTag}`;
-    }).join('\n');
-    contentParts.push({
-        text: `Describe each emote in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. For animated emotes, focus on the action or transformation across frames. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
-    });
+        const emoteList = group.map((e, i) => {
+            const context = buildEmoteContext(e.emoteName, e.ownerName);
+            return `${i + 1}. ${context}`;
+        }).join('\n');
+        contentParts.push({ text: `${promptText}\n${emoteList}` });
 
-    try {
-        const batchTimeout = Math.max(GEMINI_TIMEOUT_MS, withImages.length * 2000 + 5000);
-        const response = await Promise.race([
-            genAI.models.generateContent({
-                model: GEMINI_MODEL,
-                contents: contentParts,
-            }),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Gemini batch timeout')), batchTimeout)
-            ),
-        ]);
+        try {
+            const batchTimeout = Math.max(GEMINI_TIMEOUT_MS, group.length * 2000 + 5000);
+            const response = await Promise.race([
+                genAI.models.generateContent({
+                    model: GEMINI_MODEL,
+                    contents: contentParts,
+                }),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Gemini batch timeout')), batchTimeout)
+                ),
+            ]);
 
-        const text = response.text?.trim();
-        if (text) {
-            // Parse numbered responses: "1. description\n2. description\n..."
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            for (const line of lines) {
-                const match = line.match(/^(\d+)\.\s*(.+)/);
-                if (match) {
-                    const idx = parseInt(match[1], 10) - 1;
-                    const desc = match[2].replace(/^["']|["']$/g, '').replace(/[.!?,;:]+$/g, '').trim();
-                    if (idx >= 0 && idx < withImages.length && desc) {
-                        const emoteId = withImages[idx].emoteId;
-                        cacheDescription(emoteId, desc);
-                        results.set(emoteId, desc);
+            const text = response.text?.trim();
+            if (text) {
+                const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+                for (const line of lines) {
+                    const match = line.match(/^(\d+)\.\s*(.+)/);
+                    if (match) {
+                        const idx = parseInt(match[1], 10) - 1;
+                        const desc = match[2].replace(/^["']|["']$/g, '').replace(/[.!?,;:]+$/g, '').trim();
+                        if (idx >= 0 && idx < group.length && desc) {
+                            const emoteId = group[idx].emoteId;
+                            cacheDescription(emoteId, desc);
+                            results.set(emoteId, desc);
+                        }
                     }
                 }
             }
-            logger.debug({ requested: withImages.length, described: results.size - (emoteEntries.length - uncached.length) }, 'Batch emote description complete');
+        } catch (error) {
+            logger.info({ err: error.message, emoteCount: group.length }, 'Batch Gemini emote description failed');
         }
-    } catch (error) {
-        logger.info({ err: error.message, emoteCount: withImages.length }, 'Batch Gemini emote description failed');
-    }
+    };
+
+    // Send separate calls in parallel with dedicated prompts
+    const staticPrompt = 'Describe each Twitch emote in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
+    const animatedPrompt = 'Each numbered emote below is animated — you are seeing sequential frames from its animation. Describe what happens across each animation in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
+
+    await Promise.all([
+        describeBatch(staticEmotes, staticPrompt),
+        describeBatch(animatedEmotes, animatedPrompt),
+    ]);
+
+    logger.debug({ static: staticEmotes.length, animated: animatedEmotes.length, described: results.size - (emoteEntries.length - uncached.length) }, 'Batch emote description complete');
 
     return results;
 }
