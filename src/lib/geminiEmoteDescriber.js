@@ -2,6 +2,7 @@
 // Uses Google Gemini Flash Lite to describe Twitch emotes visually for TTS accessibility
 import { GoogleGenAI } from '@google/genai';
 import logger from './logger.js';
+import { getUsersById } from '../components/twitch/helixClient.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
@@ -11,6 +12,9 @@ const GEMINI_TIMEOUT_MS = 8000;
 // In-memory cache: emoteId -> { description, cachedAt }
 const descriptionCache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+// In-memory cache: ownerId -> { displayName, cachedAt }
+const ownerNameCache = new Map();
 
 let genAI = null;
 
@@ -102,12 +106,77 @@ function cacheDescription(emoteId, description) {
 }
 
 /**
+ * Resolve emote owner IDs to display names.
+ * Batch-fetches uncached owner IDs from the Twitch Helix API and populates the cache.
+ * Global emotes (owner_id "0") are hardcoded to "Twitch".
+ * @param {Array<{type: string, emote?: {id: string, owner_id?: string}}>} fragments
+ * @returns {Promise<void>}
+ */
+async function resolveEmoteOwnerNames(fragments) {
+    const uncachedIds = new Set();
+    for (const frag of fragments) {
+        if (frag.type === 'emote' && frag.emote?.owner_id) {
+            const ownerId = frag.emote.owner_id;
+            if (ownerId === '0') {
+                // Global emotes — hardcode
+                ownerNameCache.set('0', { displayName: null, cachedAt: Date.now() });
+            } else if (!ownerNameCache.has(ownerId) || (Date.now() - ownerNameCache.get(ownerId).cachedAt) >= CACHE_TTL_MS) {
+                uncachedIds.add(ownerId);
+            }
+        }
+    }
+
+    if (uncachedIds.size === 0) return;
+
+    try {
+        const users = await getUsersById(Array.from(uncachedIds));
+        for (const user of users) {
+            ownerNameCache.set(user.id, { displayName: user.display_name, cachedAt: Date.now() });
+        }
+        // Cache null for any IDs that weren't returned (deleted accounts, etc.)
+        for (const id of uncachedIds) {
+            if (!ownerNameCache.has(id)) {
+                ownerNameCache.set(id, { displayName: null, cachedAt: Date.now() });
+            }
+        }
+        logger.debug({ resolved: users.length, requested: uncachedIds.size }, 'Emote owner names resolved');
+    } catch (error) {
+        logger.info({ err: error.message, ownerIds: Array.from(uncachedIds) }, 'Failed to resolve emote owner names');
+    }
+}
+
+/**
+ * Get the cached display name for an emote owner, or null if unknown.
+ * @param {string} ownerId
+ * @returns {string | null}
+ */
+function getOwnerDisplayName(ownerId) {
+    if (!ownerId || ownerId === '0') return null;
+    const cached = ownerNameCache.get(ownerId);
+    return cached?.displayName || null;
+}
+
+/**
+ * Build a context-aware emote prompt prefix.
+ * @param {string} emoteName
+ * @param {string | null} ownerName
+ * @returns {string}
+ */
+function buildEmoteContext(emoteName, ownerName) {
+    if (ownerName) {
+        return `Twitch emote "${emoteName}" from ${ownerName}'s channel`;
+    }
+    return `Twitch emote "${emoteName}"`;
+}
+
+/**
  * Describe a single emote using Gemini vision.
  * @param {string} emoteId 
  * @param {string} emoteName - The text name of the emote (e.g. "LUL")
+ * @param {string | null} [ownerName] - The display name of the channel that owns the emote
  * @returns {Promise<string | null>}
  */
-async function describeSingleEmote(emoteId, emoteName) {
+async function describeSingleEmote(emoteId, emoteName, ownerName = null) {
     // Check cache first
     const cached = getCachedDescription(emoteId);
     if (cached) return cached;
@@ -121,7 +190,8 @@ async function describeSingleEmote(emoteId, emoteName) {
     }
 
     try {
-        const prompt = `Describe this Twitch emote "${emoteName}" in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
+        const emoteContext = buildEmoteContext(emoteName, ownerName);
+        const prompt = `Describe this ${emoteContext} in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
 
         const response = await Promise.race([
             genAI.models.generateContent({
@@ -144,7 +214,7 @@ async function describeSingleEmote(emoteId, emoteName) {
         const description = response.text?.trim().replace(/[.!?,;:]+$/g, '');
         if (description) {
             cacheDescription(emoteId, description);
-            logger.debug({ emoteId, emoteName, description }, 'Emote described by Gemini');
+            logger.debug({ emoteId, emoteName, ownerName, description }, 'Emote described by Gemini');
             return description;
         }
         return null;
@@ -157,7 +227,7 @@ async function describeSingleEmote(emoteId, emoteName) {
 /**
  * Describe multiple emotes in a single Gemini vision call.
  * Sends all images together with a numbered prompt for efficient batch processing.
- * @param {Array<[string, string]>} emoteEntries - Array of [emoteId, emoteName] pairs
+ * @param {Array<[string, string, string|null]>} emoteEntries - Array of [emoteId, emoteName, ownerName] tuples
  * @returns {Promise<Map<string, string>>} Map of emoteId -> description
  */
 async function describeBatchEmotes(emoteEntries) {
@@ -166,12 +236,12 @@ async function describeBatchEmotes(emoteEntries) {
 
     // Separate cached vs uncached 
     const uncached = [];
-    for (const [emoteId, emoteName] of emoteEntries) {
+    for (const [emoteId, emoteName, ownerName] of emoteEntries) {
         const cached = getCachedDescription(emoteId);
         if (cached) {
             results.set(emoteId, cached);
         } else {
-            uncached.push([emoteId, emoteName]);
+            uncached.push([emoteId, emoteName, ownerName]);
         }
     }
 
@@ -185,7 +255,7 @@ async function describeBatchEmotes(emoteEntries) {
     const withImages = [];
     for (let i = 0; i < uncached.length; i++) {
         if (images[i]) {
-            withImages.push({ emoteId: uncached[i][0], emoteName: uncached[i][1], imageData: images[i] });
+            withImages.push({ emoteId: uncached[i][0], emoteName: uncached[i][1], ownerName: uncached[i][2], imageData: images[i] });
         } else {
             logger.info({ emoteId: uncached[i][0], emoteName: uncached[i][1] }, 'Emote image fetch failed — cannot describe');
         }
@@ -204,9 +274,12 @@ async function describeBatchEmotes(emoteEntries) {
         });
     }
 
-    const emoteList = withImages.map((e, i) => `${i + 1}. "${e.emoteName}"`).join('\n');
+    const emoteList = withImages.map((e, i) => {
+        const context = buildEmoteContext(e.emoteName, e.ownerName);
+        return `${i + 1}. ${context}`;
+    }).join('\n');
     contentParts.push({
-        text: `Describe each Twitch emote in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
+        text: `Describe each emote in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
     });
 
     try {
@@ -265,22 +338,25 @@ export async function describeEmoteFragments(fragments) {
     const emoteFragments = fragments.filter(f => f.type === 'emote' && f.emote?.id);
     if (emoteFragments.length === 0) return null;
 
+    // Resolve emote owner names (batch Helix call, cached)
+    await resolveEmoteOwnerNames(emoteFragments);
+
     // Count occurrences of each unique emote
-    const emoteCounts = new Map(); // emoteId -> { name, count }
+    const emoteCounts = new Map(); // emoteId -> { name, count, ownerId }
     for (const frag of emoteFragments) {
         const id = frag.emote.id;
         const existing = emoteCounts.get(id);
         if (existing) {
             existing.count++;
         } else {
-            emoteCounts.set(id, { name: frag.text, count: 1 });
+            emoteCounts.set(id, { name: frag.text, count: 1, ownerId: frag.emote.owner_id });
         }
     }
 
     // Describe each unique emote (in parallel, with caching)
     const uniqueEmotes = Array.from(emoteCounts.entries());
-    const descriptionPromises = uniqueEmotes.map(([emoteId, { name }]) =>
-        describeSingleEmote(emoteId, name)
+    const descriptionPromises = uniqueEmotes.map(([emoteId, { name, ownerId }]) =>
+        describeSingleEmote(emoteId, name, getOwnerDisplayName(ownerId))
     );
 
     const descriptions = await Promise.all(descriptionPromises);
@@ -325,22 +401,28 @@ export async function processMessageWithEmoteDescriptions(fragments) {
     const emoteFragments = fragments.filter(f => f.type === 'emote' && f.emote?.id);
     if (emoteFragments.length === 0) return null;
 
+    // Resolve emote owner names (batch Helix call, cached)
+    await resolveEmoteOwnerNames(emoteFragments);
+
     // Collect unique emote IDs and describe them all in parallel
-    const uniqueEmoteIds = new Map(); // emoteId -> emoteName
+    const uniqueEmoteIds = new Map(); // emoteId -> { name, ownerId }
     for (const frag of emoteFragments) {
         if (!uniqueEmoteIds.has(frag.emote.id)) {
-            uniqueEmoteIds.set(frag.emote.id, frag.text);
+            uniqueEmoteIds.set(frag.emote.id, { name: frag.text, ownerId: frag.emote.owner_id });
         }
     }
 
-    const emoteEntries = Array.from(uniqueEmoteIds.entries());
+    // [emoteId, emoteName, ownerName] tuples
+    const emoteEntries = Array.from(uniqueEmoteIds.entries()).map(
+        ([id, { name, ownerId }]) => [id, name, getOwnerDisplayName(ownerId)]
+    );
 
     // Use batch multi-image call for efficiency (1 API call for all emotes)
     let descriptionMap;
     if (emoteEntries.length === 1) {
         // Single emote — direct call is faster
         descriptionMap = new Map();
-        const desc = await describeSingleEmote(emoteEntries[0][0], emoteEntries[0][1]);
+        const desc = await describeSingleEmote(emoteEntries[0][0], emoteEntries[0][1], emoteEntries[0][2]);
         if (desc) descriptionMap.set(emoteEntries[0][0], desc);
     } else {
         // 2+ emotes — send all images in a single Gemini call
@@ -430,4 +512,4 @@ export async function processMessageWithEmoteDescriptions(fragments) {
 }
 
 // For testing
-export { descriptionCache as _descriptionCache };
+export { descriptionCache as _descriptionCache, ownerNameCache as _ownerNameCache };

@@ -221,6 +221,41 @@ async function getUsersByLogin(loginNames) {
 }
 
 /**
+ * Fetches user information from Twitch Helix API based on user IDs.
+ * @param {string[]} userIds - An array of user IDs to query. Max 100 per request.
+ * @returns {Promise<object[]>} A promise resolving to an array of user objects from the API.
+ *                                Returns an empty array if input is empty or on API error after logging.
+ */
+async function getUsersById(userIds) {
+    if (!userIds || userIds.length === 0) {
+        logger.warn('getUsersById called with empty user IDs.');
+        return [];
+    }
+    if (userIds.length > 100) {
+        logger.warn(`getUsersById called with ${userIds.length} IDs. Max 100 allowed per request. Truncating.`);
+        userIds = userIds.slice(0, 100);
+    }
+
+    const client = getHelixClient(); // Ensures client is initialized
+    const params = new URLSearchParams();
+    userIds.forEach(id => params.append('id', id));
+
+    logger.debug({ userIds }, 'Fetching user information by ID from Helix...');
+
+    try {
+        const response = await client.get('/users', { params });
+        // Spec: https://dev.twitch.tv/docs/api/reference/#get-users
+        // Data is expected in response.data.data
+        return response.data?.data || [];
+    } catch (error) {
+        // Errors are already logged by the response interceptor
+        logger.error({ err: { message: error.message, code: error.code }, userIds }, `Failed to get user information for IDs: ${userIds.join(',')}`);
+        // Return empty array for graceful degradation
+        return [];
+    }
+}
+
+/**
  * Fetches shared chat session information for a broadcaster.
  * @param {string} broadcasterId - The broadcaster user ID to query.
  * @returns {Promise<object|null>} A promise resolving to the shared chat session object or null if not in a session.
@@ -323,6 +358,7 @@ export {
     initializeHelixClient,
     getHelixClient,
     getChannelInformation,
+    getUsersById,
     getUsersByLogin,
     getSharedChatSession,
     // getVips, // Commented out - not currently used (see function definition above)
