@@ -191,7 +191,7 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null) {
 
     try {
         const emoteContext = buildEmoteContext(emoteName, ownerName);
-        const prompt = `Describe this ${emoteContext} in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
+        const prompt = `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
 
         const response = await Promise.race([
             genAI.models.generateContent({
@@ -279,7 +279,7 @@ async function describeBatchEmotes(emoteEntries) {
         return `${i + 1}. ${context}`;
     }).join('\n');
     contentParts.push({
-        text: `Describe each emote in 2-6 words for text-to-speech. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
+        text: `Describe each emote in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
     });
 
     try {
