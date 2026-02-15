@@ -51,8 +51,8 @@ function mapLanguageBoost(languageBoost) {
  */
 async function attemptGeneration(text, voiceId, input, options) {
   // Add timeout to prevent hanging indefinitely
-  // Most requests complete in 2-5 seconds, so 15 seconds is generous
-  const WAVESPEED_TIMEOUT_MS = 15000; // 15 seconds
+  // Most requests complete in 2-5 seconds
+  const WAVESPEED_TIMEOUT_MS = 10000; // 10 seconds
   let timeoutId;
   const timeoutPromise = new Promise((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
@@ -145,7 +145,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
     throw new Error('302.ai API key is missing');
   }
 
-  const T302_TIMEOUT_MS = 30000; // 30 seconds
+  const T302_TIMEOUT_MS = 15000; // 15 seconds
   const startTime = Date.now();
 
   const input = {

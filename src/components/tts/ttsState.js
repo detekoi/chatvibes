@@ -22,6 +22,14 @@ const USER_PREFS_COLLECTION = 'ttsUserPreferences';
 const channelConfigsCache = new Map();
 let firestoreListenerUnsubscribe = null;
 
+// In-memory cache for global user preferences: key -> { data, cachedAt }
+const globalUserPrefsCache = new Map();
+const GLOBAL_PREFS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+// In-memory cache for user emote mode preferences: key -> { mode, cachedAt }
+const userEmoteModePrefCache = new Map();
+const EMOTE_MODE_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
 export async function initializeTtsState() {
     if (!db) db = new Firestore();
     logger.info('Initializing TTS State from Firestore...');
@@ -141,18 +149,38 @@ export async function setTtsState(channelName, key, value) {
 }
 
 // --- Global (cross-channel) user preferences ---
-export async function getGlobalUserPreferences(username) {
+export async function getGlobalUserPreferences(username, userId) {
     if (!db) db = new Firestore();
-    const lowerUser = username.toLowerCase();
+    // Use userId as primary cache key, fall back to username
+    const cacheKey = userId || username.toLowerCase();
+    const cached = globalUserPrefsCache.get(cacheKey);
+    if (cached && (Date.now() - cached.cachedAt) < GLOBAL_PREFS_CACHE_TTL_MS) {
+        return cached.data;
+    }
     try {
+        // Try userId first (primary, immutable identifier)
+        if (userId) {
+            const userIdDoc = await db.collection(USER_PREFS_COLLECTION).doc(userId).get();
+            if (userIdDoc.exists) {
+                const data = userIdDoc.data() || {};
+                globalUserPrefsCache.set(cacheKey, { data, cachedAt: Date.now() });
+                return data;
+            }
+        }
+        // Fallback to username
+        const lowerUser = username.toLowerCase();
         const docRef = db.collection(USER_PREFS_COLLECTION).doc(lowerUser);
         const docSnap = await docRef.get();
         if (docSnap.exists) {
-            return docSnap.data() || {};
+            const data = docSnap.data() || {};
+            globalUserPrefsCache.set(cacheKey, { data, cachedAt: Date.now() });
+            return data;
         }
+        // Cache the empty result too to avoid repeated Firestore misses
+        globalUserPrefsCache.set(cacheKey, { data: {}, cachedAt: Date.now() });
         return {};
     } catch (error) {
-        logger.error({ err: error, user: lowerUser }, 'Failed to get user preferences from Firestore.');
+        logger.error({ err: error, user: username, userId }, 'Failed to get user preferences from Firestore.');
         return {};
     }
 }
@@ -206,6 +234,13 @@ export const VALID_EMOTE_MODES = ['read', 'skip', 'describe'];
  */
 export async function getUserEmoteModePreference(username, userId) {
     if (!db) db = new Firestore();
+    const cacheKey = userId || (username ? username.toLowerCase() : null);
+    if (cacheKey) {
+        const cached = userEmoteModePrefCache.get(cacheKey);
+        if (cached && (Date.now() - cached.cachedAt) < EMOTE_MODE_CACHE_TTL_MS) {
+            return cached.mode;
+        }
+    }
     try {
         // Try userId first (primary)
         if (userId) {
@@ -213,6 +248,7 @@ export async function getUserEmoteModePreference(username, userId) {
             if (userIdDoc.exists) {
                 const data = userIdDoc.data();
                 if (data?.emoteMode !== undefined && VALID_EMOTE_MODES.includes(data.emoteMode)) {
+                    if (cacheKey) userEmoteModePrefCache.set(cacheKey, { mode: data.emoteMode, cachedAt: Date.now() });
                     return data.emoteMode;
                 }
             }
@@ -224,10 +260,13 @@ export async function getUserEmoteModePreference(username, userId) {
             if (usernameDoc.exists) {
                 const data = usernameDoc.data();
                 if (data?.emoteMode !== undefined && VALID_EMOTE_MODES.includes(data.emoteMode)) {
+                    if (cacheKey) userEmoteModePrefCache.set(cacheKey, { mode: data.emoteMode, cachedAt: Date.now() });
                     return data.emoteMode;
                 }
             }
         }
+        // Cache the null result to avoid repeated Firestore misses
+        if (cacheKey) userEmoteModePrefCache.set(cacheKey, { mode: null, cachedAt: Date.now() });
         return null; // No preference set, allows channel default fallback
     } catch (error) {
         logger.error({ err: error, user: username, userId }, 'Failed to get emoteMode preference.');

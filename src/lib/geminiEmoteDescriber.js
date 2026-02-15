@@ -472,9 +472,6 @@ export async function describeEmoteFragments(fragments) {
     const emoteFragments = fragments.filter(f => f.type === 'emote' && f.emote?.id);
     if (emoteFragments.length === 0) return null;
 
-    // Resolve emote owner names (batch Helix call, cached)
-    await resolveEmoteOwnerNames(emoteFragments);
-
     // Count occurrences of each unique emote
     const emoteCounts = new Map(); // emoteId -> { name, count, ownerId, isAnimated }
     for (const frag of emoteFragments) {
@@ -488,8 +485,14 @@ export async function describeEmoteFragments(fragments) {
         }
     }
 
+    // Resolve owner names in parallel with emote description
+    // Start the Helix call early; describeSingleEmote will read from the ownerNameCache
+    const ownerNamesPromise = resolveEmoteOwnerNames(emoteFragments);
+
     // Describe each unique emote (in parallel, with caching)
     const uniqueEmotes = Array.from(emoteCounts.entries());
+    // Wait for owner names before building prompts (they're usually cached after first call)
+    await ownerNamesPromise;
     const descriptionPromises = uniqueEmotes.map(([emoteId, { name, ownerId, isAnimated }]) =>
         describeSingleEmote(emoteId, name, getOwnerDisplayName(ownerId), isAnimated)
     );
@@ -536,8 +539,8 @@ export async function processMessageWithEmoteDescriptions(fragments) {
     const emoteFragments = fragments.filter(f => f.type === 'emote' && f.emote?.id);
     if (emoteFragments.length === 0) return null;
 
-    // Resolve emote owner names (batch Helix call, cached)
-    await resolveEmoteOwnerNames(emoteFragments);
+    // Start owner name resolution in parallel with deduplication work
+    const ownerNamesPromise = resolveEmoteOwnerNames(emoteFragments);
 
     // Collect unique emote IDs and describe them all in parallel
     const uniqueEmoteIds = new Map(); // emoteId -> { name, ownerId, isAnimated }
@@ -547,6 +550,9 @@ export async function processMessageWithEmoteDescriptions(fragments) {
             uniqueEmoteIds.set(frag.emote.id, { name: frag.text, ownerId: frag.emote.owner_id, isAnimated });
         }
     }
+
+    // Wait for owner names before building prompts
+    await ownerNamesPromise;
 
     // [emoteId, emoteName, ownerName, isAnimated] tuples
     const emoteEntries = Array.from(uniqueEmoteIds.entries()).map(

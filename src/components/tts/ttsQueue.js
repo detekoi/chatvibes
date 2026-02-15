@@ -82,15 +82,16 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     const userId = eventData.userId; // Extract User ID from eventData
 
     if (user && allowViewerPrefs) {
-        // Fetch global prefs first
-        globalUserPrefs = await getGlobalUserPreferences(user, userId);
-        // Keep legacy per-channel overrides for backward compatibility
-        userEmotion = await getUserEmotionPreference(channelName, user, userId);
-        userVoice = await getUserVoicePreference(channelName, user, userId);
-        userPitch = await getUserPitchPreference(channelName, user, userId);
-        userSpeed = await getUserSpeedPreference(channelName, user, userId);
-        userLanguage = await getUserLanguagePreference(channelName, user, userId);
-        userEnglishNorm = await getUserEnglishNormalizationPreference(channelName, user, userId);
+        // Fetch all user preferences in parallel to minimize latency
+        [globalUserPrefs, userEmotion, userVoice, userPitch, userSpeed, userLanguage, userEnglishNorm] = await Promise.all([
+            getGlobalUserPreferences(user, userId),
+            getUserEmotionPreference(channelName, user, userId),
+            getUserVoicePreference(channelName, user, userId),
+            getUserPitchPreference(channelName, user, userId),
+            getUserSpeedPreference(channelName, user, userId),
+            getUserLanguagePreference(channelName, user, userId),
+            getUserEnglishNormalizationPreference(channelName, user, userId),
+        ]);
     }
 
     const finalVoiceOptions = {
@@ -138,7 +139,7 @@ export async function processQueue(channelName) {
         cq.isProcessing = false;
         // Continue processing queue in case clients reconnect
         if (!cq.isPaused && cq.queue.length > 0) {
-            setTimeout(() => processQueue(channelName), 500);
+            setTimeout(() => processQueue(channelName), 100);
         }
         return;
     }
@@ -218,7 +219,7 @@ export async function processQueue(channelName) {
         cq.isProcessing = false;
 
         if (!cq.isPaused && cq.queue.length > 0) {
-            setTimeout(() => processQueue(channelName), 500);
+            setTimeout(() => processQueue(channelName), 100);
         } else if (!cq.isPaused && cq.queue.length === 0) {
             // Queue is empty.
             // If currentSpeechUrl is null (last item failed/aborted), currentUserSpeaking should also be null.
