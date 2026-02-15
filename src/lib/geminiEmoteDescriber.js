@@ -9,8 +9,8 @@ const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
 const EMOTE_IMAGE_FORMAT = 'static/dark/3.0'; // Static PNG for non-animated emotes
 const ANIMATED_EMOTE_IMAGE_FORMAT = 'animated/dark/3.0'; // Animated GIF for animated emotes
-const MAX_GIF_FRAMES = 4; // Number of evenly-spaced frames to sample from animated GIFs
 const GEMINI_TIMEOUT_MS = 8000;
+const ANIMATED_GEMINI_TIMEOUT_MS = 12000; // Animated emotes need more time for multi-image inference
 
 // In-memory cache: emoteId -> { description, cachedAt }
 const descriptionCache = new Map();
@@ -108,10 +108,13 @@ async function fetchEmoteImage(emoteId) {
 
 /**
  * Fetch an animated emote GIF and extract evenly-spaced frames as PNG buffers.
+ * Uses fixed frame indices (first, middle, last of a typical animation) in a single pass.
+ * Frames beyond the GIF's actual count are silently skipped by gif-frames.
  * @param {string} emoteId
  * @returns {Promise<Array<{data: Buffer, mimeType: string}> | null>}
  */
 async function fetchAnimatedEmoteFrames(emoteId) {
+    const pipelineStart = Date.now();
     try {
         const url = getAnimatedEmoteUrl(emoteId);
         const response = await fetch(url);
@@ -121,41 +124,39 @@ async function fetchAnimatedEmoteFrames(emoteId) {
         }
         const arrayBuffer = await response.arrayBuffer();
         const gifBuffer = Buffer.from(arrayBuffer);
+        const fetchMs = Date.now() - pipelineStart;
 
-        // Extract all frames as PNG with cumulative rendering
-        const allFrames = await gifFrames({
+        // Single pass: request first, middle, and last frames of a typical animation
+        // gif-frames silently skips indices that exceed the actual frame count
+        const extractStart = Date.now();
+        const targetFrames = '0,14,29'; // First, ~middle, ~last of a typical 30-frame emote
+        const frames = await gifFrames({
             url: gifBuffer,
-            frames: 'all',
+            frames: targetFrames,
             outputType: 'png',
             cumulative: true,
         });
 
-        if (!allFrames || allFrames.length === 0) {
-            logger.debug({ emoteId }, 'No frames extracted from animated emote');
+        if (!frames || frames.length === 0) {
+            logger.info({ emoteId, pipelineMs: Date.now() - pipelineStart }, 'No frames extracted from animated emote');
             return null;
         }
 
-        // Sample evenly-spaced frames
-        const frameCount = allFrames.length;
-        const sampleCount = Math.min(MAX_GIF_FRAMES, frameCount);
-        const selectedIndices = [];
-        for (let i = 0; i < sampleCount; i++) {
-            selectedIndices.push(Math.floor(i * (frameCount - 1) / Math.max(sampleCount - 1, 1)));
-        }
-
-        // Convert selected frame streams to buffers
+        // Convert frame streams to buffers
         const frameBuffers = await Promise.all(
-            selectedIndices.map(async (idx) => {
-                const frameStream = allFrames[idx].getImage();
-                const data = await streamToBuffer(frameStream);
+            frames.map(async (frame) => {
+                const data = await streamToBuffer(frame.getImage());
                 return { data, mimeType: 'image/png' };
             })
         );
 
-        logger.debug({ emoteId, totalFrames: frameCount, sampledFrames: frameBuffers.length }, 'Animated emote frames extracted');
+        const extractMs = Date.now() - extractStart;
+        const totalMs = Date.now() - pipelineStart;
+        const actualIndices = frames.map(f => f.frameIndex);
+        logger.info({ emoteId, fetchMs, extractMs, totalMs, sampledFrames: frameBuffers.length, frameIndices: actualIndices }, 'Animated emote frames extracted');
         return frameBuffers;
     } catch (error) {
-        logger.debug({ err: error, emoteId }, 'Error extracting animated emote frames');
+        logger.info({ err: error.message, emoteId, pipelineMs: Date.now() - pipelineStart }, 'Error extracting animated emote frames');
         return null;
     }
 }
@@ -312,7 +313,7 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnima
                 contents,
             }),
             new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Gemini timeout')), GEMINI_TIMEOUT_MS)
+                setTimeout(() => reject(new Error('Gemini timeout')), animatedSuccess ? ANIMATED_GEMINI_TIMEOUT_MS : GEMINI_TIMEOUT_MS)
             ),
         ]);
 
