@@ -1,12 +1,15 @@
 // src/lib/geminiEmoteDescriber.js
 // Uses Google Gemini Flash Lite to describe Twitch emotes visually for TTS accessibility
 import { GoogleGenAI } from '@google/genai';
+import gifFrames from 'gif-frames';
 import logger from './logger.js';
 import { getUsersById } from '../components/twitch/helixClient.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
-const EMOTE_IMAGE_FORMAT = 'static/dark/3.0'; // 'static' forces PNG even for animated emotes (Gemini rejects GIFs)
+const EMOTE_IMAGE_FORMAT = 'static/dark/3.0'; // Static PNG for non-animated emotes
+const ANIMATED_EMOTE_IMAGE_FORMAT = 'animated/dark/3.0'; // Animated GIF for animated emotes
+const MAX_GIF_FRAMES = 4; // Number of evenly-spaced frames to sample from animated GIFs
 const GEMINI_TIMEOUT_MS = 8000;
 
 // In-memory cache: emoteId -> { description, cachedAt }
@@ -54,7 +57,30 @@ export function getEmoteImageUrl(emoteId) {
 }
 
 /**
- * Fetch an emote image as bytes.
+ * Get the animated emote GIF URL from a Twitch emote ID.
+ * @param {string} emoteId 
+ * @returns {string}
+ */
+export function getAnimatedEmoteUrl(emoteId) {
+    return `${EMOTE_CDN_URL}/${emoteId}/${ANIMATED_EMOTE_IMAGE_FORMAT}`;
+}
+
+/**
+ * Collect a readable stream into a Buffer.
+ * @param {import('stream').Readable} stream
+ * @returns {Promise<Buffer>}
+ */
+function streamToBuffer(stream) {
+    return new Promise((resolve, reject) => {
+        const chunks = [];
+        stream.on('data', chunk => chunks.push(chunk));
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        stream.on('error', reject);
+    });
+}
+
+/**
+ * Fetch an emote image as bytes (static PNG).
  * @param {string} emoteId
  * @returns {Promise<{data: Buffer, mimeType: string} | null>}
  */
@@ -76,6 +102,60 @@ async function fetchEmoteImage(emoteId) {
         };
     } catch (error) {
         logger.debug({ err: error, emoteId }, 'Error fetching emote image');
+        return null;
+    }
+}
+
+/**
+ * Fetch an animated emote GIF and extract evenly-spaced frames as PNG buffers.
+ * @param {string} emoteId
+ * @returns {Promise<Array<{data: Buffer, mimeType: string}> | null>}
+ */
+async function fetchAnimatedEmoteFrames(emoteId) {
+    try {
+        const url = getAnimatedEmoteUrl(emoteId);
+        const response = await fetch(url);
+        if (!response.ok) {
+            logger.debug({ emoteId, status: response.status }, 'Failed to fetch animated emote GIF');
+            return null;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const gifBuffer = Buffer.from(arrayBuffer);
+
+        // Extract all frames as PNG with cumulative rendering
+        const allFrames = await gifFrames({
+            url: gifBuffer,
+            frames: 'all',
+            outputType: 'png',
+            cumulative: true,
+        });
+
+        if (!allFrames || allFrames.length === 0) {
+            logger.debug({ emoteId }, 'No frames extracted from animated emote');
+            return null;
+        }
+
+        // Sample evenly-spaced frames
+        const frameCount = allFrames.length;
+        const sampleCount = Math.min(MAX_GIF_FRAMES, frameCount);
+        const selectedIndices = [];
+        for (let i = 0; i < sampleCount; i++) {
+            selectedIndices.push(Math.floor(i * (frameCount - 1) / Math.max(sampleCount - 1, 1)));
+        }
+
+        // Convert selected frame streams to buffers
+        const frameBuffers = await Promise.all(
+            selectedIndices.map(async (idx) => {
+                const frameStream = allFrames[idx].getImage();
+                const data = await streamToBuffer(frameStream);
+                return { data, mimeType: 'image/png' };
+            })
+        );
+
+        logger.debug({ emoteId, totalFrames: frameCount, sampledFrames: frameBuffers.length }, 'Animated emote frames extracted');
+        return frameBuffers;
+    } catch (error) {
+        logger.debug({ err: error, emoteId }, 'Error extracting animated emote frames');
         return null;
     }
 }
@@ -171,40 +251,65 @@ function buildEmoteContext(emoteName, ownerName) {
 
 /**
  * Describe a single emote using Gemini vision.
+ * For animated emotes, extracts multiple frames and sends them as a sequence.
  * @param {string} emoteId 
  * @param {string} emoteName - The text name of the emote (e.g. "LUL")
  * @param {string | null} [ownerName] - The display name of the channel that owns the emote
+ * @param {boolean} [isAnimated=false] - Whether the emote is an animated GIF
  * @returns {Promise<string | null>}
  */
-async function describeSingleEmote(emoteId, emoteName, ownerName = null) {
+async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnimated = false) {
     // Check cache first
     const cached = getCachedDescription(emoteId);
     if (cached) return cached;
 
     if (!genAI) return null;
 
-    const imageData = await fetchEmoteImage(emoteId);
-    if (!imageData) {
-        logger.info({ emoteId, emoteName }, 'Emote image fetch failed — cannot describe');
-        return null;
+    // For animated emotes, try frame extraction first
+    let imageParts = null;
+    let animatedSuccess = false;
+
+    if (isAnimated) {
+        const frames = await fetchAnimatedEmoteFrames(emoteId);
+        if (frames && frames.length > 0) {
+            imageParts = frames.map(frame => ({
+                inlineData: {
+                    mimeType: frame.mimeType,
+                    data: frame.data.toString('base64'),
+                },
+            }));
+            animatedSuccess = true;
+        }
+        // If frame extraction fails, fall through to static PNG
+    }
+
+    // Fallback to static PNG for non-animated or if frame extraction failed
+    if (!imageParts) {
+        const imageData = await fetchEmoteImage(emoteId);
+        if (!imageData) {
+            logger.info({ emoteId, emoteName }, 'Emote image fetch failed — cannot describe');
+            return null;
+        }
+        imageParts = [{
+            inlineData: {
+                mimeType: imageData.mimeType,
+                data: imageData.data.toString('base64'),
+            },
+        }];
     }
 
     try {
         const emoteContext = buildEmoteContext(emoteName, ownerName);
-        const prompt = `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
+        const prompt = animatedSuccess
+            ? `These are ${imageParts.length} sequential frames from an animated ${emoteContext}. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`
+            : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
+
+        const contents = [...imageParts, { text: prompt }];
 
         const response = await Promise.race([
             genAI.models.generateContent({
                 model: GEMINI_MODEL,
-                contents: [
-                    {
-                        inlineData: {
-                            mimeType: imageData.mimeType,
-                            data: imageData.data.toString('base64'),
-                        },
-                    },
-                    { text: prompt },
-                ],
+                contents,
             }),
             new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Gemini timeout')), GEMINI_TIMEOUT_MS)
@@ -214,12 +319,12 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null) {
         const description = response.text?.trim().replace(/[.!?,;:]+$/g, '');
         if (description) {
             cacheDescription(emoteId, description);
-            logger.debug({ emoteId, emoteName, ownerName, description }, 'Emote described by Gemini');
+            logger.debug({ emoteId, emoteName, ownerName, isAnimated, animatedSuccess, description }, 'Emote described by Gemini');
             return description;
         }
         return null;
     } catch (error) {
-        logger.info({ err: error.message, emoteId, emoteName }, 'Gemini emote description failed');
+        logger.info({ err: error.message, emoteId, emoteName, isAnimated }, 'Gemini emote description failed');
         return null;
     }
 }
@@ -227,7 +332,8 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null) {
 /**
  * Describe multiple emotes in a single Gemini vision call.
  * Sends all images together with a numbered prompt for efficient batch processing.
- * @param {Array<[string, string, string|null]>} emoteEntries - Array of [emoteId, emoteName, ownerName] tuples
+ * Animated emotes have their frames extracted and sent as a sequence per emote.
+ * @param {Array<[string, string, string|null, boolean]>} emoteEntries - Array of [emoteId, emoteName, ownerName, isAnimated] tuples
  * @returns {Promise<Map<string, string>>} Map of emoteId -> description
  */
 async function describeBatchEmotes(emoteEntries) {
@@ -236,26 +342,40 @@ async function describeBatchEmotes(emoteEntries) {
 
     // Separate cached vs uncached 
     const uncached = [];
-    for (const [emoteId, emoteName, ownerName] of emoteEntries) {
+    for (const [emoteId, emoteName, ownerName, isAnimated] of emoteEntries) {
         const cached = getCachedDescription(emoteId);
         if (cached) {
             results.set(emoteId, cached);
         } else {
-            uncached.push([emoteId, emoteName, ownerName]);
+            uncached.push([emoteId, emoteName, ownerName, isAnimated]);
         }
     }
 
     if (uncached.length === 0) return results;
 
-    // Fetch all images in parallel
-    const imagePromises = uncached.map(([emoteId]) => fetchEmoteImage(emoteId));
+    // Fetch all images in parallel — animated emotes get frames, static get single PNG
+    const imagePromises = uncached.map(async ([emoteId, , , isAnimated]) => {
+        if (isAnimated) {
+            const frames = await fetchAnimatedEmoteFrames(emoteId);
+            if (frames) return { frames, isAnimated: true };
+            // Fall back to static PNG if frame extraction fails
+        }
+        const staticImg = await fetchEmoteImage(emoteId);
+        return staticImg ? { frames: [staticImg], isAnimated: false } : null;
+    });
     const images = await Promise.all(imagePromises);
 
     // Filter to only emotes with successful image fetches
     const withImages = [];
     for (let i = 0; i < uncached.length; i++) {
         if (images[i]) {
-            withImages.push({ emoteId: uncached[i][0], emoteName: uncached[i][1], ownerName: uncached[i][2], imageData: images[i] });
+            withImages.push({
+                emoteId: uncached[i][0],
+                emoteName: uncached[i][1],
+                ownerName: uncached[i][2],
+                imageFrames: images[i].frames,
+                isAnimated: images[i].isAnimated,
+            });
         } else {
             logger.info({ emoteId: uncached[i][0], emoteName: uncached[i][1] }, 'Emote image fetch failed — cannot describe');
         }
@@ -263,23 +383,26 @@ async function describeBatchEmotes(emoteEntries) {
 
     if (withImages.length === 0) return results;
 
-    // Build multi-image prompt
+    // Build multi-image prompt — each emote may contribute multiple frame images
     const contentParts = [];
     for (let i = 0; i < withImages.length; i++) {
-        contentParts.push({
-            inlineData: {
-                mimeType: withImages[i].imageData.mimeType,
-                data: withImages[i].imageData.data.toString('base64'),
-            },
-        });
+        for (const frame of withImages[i].imageFrames) {
+            contentParts.push({
+                inlineData: {
+                    mimeType: frame.mimeType,
+                    data: frame.data.toString('base64'),
+                },
+            });
+        }
     }
 
     const emoteList = withImages.map((e, i) => {
         const context = buildEmoteContext(e.emoteName, e.ownerName);
-        return `${i + 1}. ${context}`;
+        const animTag = e.isAnimated ? ` (animated, ${e.imageFrames.length} sequential frames shown)` : '';
+        return `${i + 1}. ${context}${animTag}`;
     }).join('\n');
     contentParts.push({
-        text: `Describe each emote in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
+        text: `Describe each emote in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. For animated emotes, focus on the action or transformation across frames. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
     });
 
     try {
@@ -342,21 +465,22 @@ export async function describeEmoteFragments(fragments) {
     await resolveEmoteOwnerNames(emoteFragments);
 
     // Count occurrences of each unique emote
-    const emoteCounts = new Map(); // emoteId -> { name, count, ownerId }
+    const emoteCounts = new Map(); // emoteId -> { name, count, ownerId, isAnimated }
     for (const frag of emoteFragments) {
         const id = frag.emote.id;
         const existing = emoteCounts.get(id);
         if (existing) {
             existing.count++;
         } else {
-            emoteCounts.set(id, { name: frag.text, count: 1, ownerId: frag.emote.owner_id });
+            const isAnimated = Array.isArray(frag.emote.format) && frag.emote.format.includes('animated');
+            emoteCounts.set(id, { name: frag.text, count: 1, ownerId: frag.emote.owner_id, isAnimated });
         }
     }
 
     // Describe each unique emote (in parallel, with caching)
     const uniqueEmotes = Array.from(emoteCounts.entries());
-    const descriptionPromises = uniqueEmotes.map(([emoteId, { name, ownerId }]) =>
-        describeSingleEmote(emoteId, name, getOwnerDisplayName(ownerId))
+    const descriptionPromises = uniqueEmotes.map(([emoteId, { name, ownerId, isAnimated }]) =>
+        describeSingleEmote(emoteId, name, getOwnerDisplayName(ownerId), isAnimated)
     );
 
     const descriptions = await Promise.all(descriptionPromises);
@@ -364,7 +488,7 @@ export async function describeEmoteFragments(fragments) {
     // Build the final text
     const parts = [];
     for (let i = 0; i < uniqueEmotes.length; i++) {
-        const [, { name, count }] = uniqueEmotes[i];
+        const [, { count }] = uniqueEmotes[i];
         const desc = descriptions[i];
 
         if (!desc) {
@@ -405,16 +529,17 @@ export async function processMessageWithEmoteDescriptions(fragments) {
     await resolveEmoteOwnerNames(emoteFragments);
 
     // Collect unique emote IDs and describe them all in parallel
-    const uniqueEmoteIds = new Map(); // emoteId -> { name, ownerId }
+    const uniqueEmoteIds = new Map(); // emoteId -> { name, ownerId, isAnimated }
     for (const frag of emoteFragments) {
         if (!uniqueEmoteIds.has(frag.emote.id)) {
-            uniqueEmoteIds.set(frag.emote.id, { name: frag.text, ownerId: frag.emote.owner_id });
+            const isAnimated = Array.isArray(frag.emote.format) && frag.emote.format.includes('animated');
+            uniqueEmoteIds.set(frag.emote.id, { name: frag.text, ownerId: frag.emote.owner_id, isAnimated });
         }
     }
 
-    // [emoteId, emoteName, ownerName] tuples
+    // [emoteId, emoteName, ownerName, isAnimated] tuples
     const emoteEntries = Array.from(uniqueEmoteIds.entries()).map(
-        ([id, { name, ownerId }]) => [id, name, getOwnerDisplayName(ownerId)]
+        ([id, { name, ownerId, isAnimated }]) => [id, name, getOwnerDisplayName(ownerId), isAnimated]
     );
 
     // Use batch multi-image call for efficiency (1 API call for all emotes)
@@ -422,7 +547,7 @@ export async function processMessageWithEmoteDescriptions(fragments) {
     if (emoteEntries.length === 1) {
         // Single emote — direct call is faster
         descriptionMap = new Map();
-        const desc = await describeSingleEmote(emoteEntries[0][0], emoteEntries[0][1], emoteEntries[0][2]);
+        const desc = await describeSingleEmote(emoteEntries[0][0], emoteEntries[0][1], emoteEntries[0][2], emoteEntries[0][3]);
         if (desc) descriptionMap.set(emoteEntries[0][0], desc);
     } else {
         // 2+ emotes — send all images in a single Gemini call
