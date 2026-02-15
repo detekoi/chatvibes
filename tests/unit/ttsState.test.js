@@ -9,6 +9,7 @@ import {
 import {
   TEST_CHANNEL,
   TEST_USER,
+  TEST_USER_ID,
   mockChannelConfig
 } from '../helpers/testData.js';
 
@@ -129,6 +130,68 @@ describe('ttsState module', () => {
       const prefs = await ttsState.getGlobalUserPreferences('TestUser');
       expect(prefs.voiceId).toBe('Wise_Woman');
     });
+
+    test('should use userId as primary key when provided', async () => {
+      // Set up userId-keyed doc with different prefs than username-keyed doc
+      const userIdDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
+      await userIdDoc.set({
+        voiceId: 'Special_Voice',
+        emotion: 'excited'
+      });
+
+      const usernameDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER.toLowerCase());
+      await usernameDoc.set({
+        voiceId: 'Old_Voice',
+        emotion: 'neutral'
+      });
+
+      const prefs = await ttsState.getGlobalUserPreferences(TEST_USER, TEST_USER_ID);
+
+      // Should prefer the userId doc
+      expect(prefs.voiceId).toBe('Special_Voice');
+      expect(prefs.emotion).toBe('excited');
+    });
+
+    test('should fall back to username when userId doc does not exist', async () => {
+      const usernameDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER.toLowerCase());
+      await usernameDoc.set({
+        voiceId: 'Fallback_Voice'
+      });
+
+      const prefs = await ttsState.getGlobalUserPreferences(TEST_USER, 'nonexistent_user_id');
+
+      expect(prefs.voiceId).toBe('Fallback_Voice');
+    });
+
+    test('should cache results with TTL', async () => {
+      const userDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER.toLowerCase());
+      await userDoc.set({ voiceId: 'Cached_Voice' });
+
+      // First call populates cache
+      const prefs1 = await ttsState.getGlobalUserPreferences(TEST_USER);
+      expect(prefs1.voiceId).toBe('Cached_Voice');
+
+      // Update Firestore directly
+      await userDoc.set({ voiceId: 'Updated_Voice' });
+
+      // Second call should return cached value
+      const prefs2 = await ttsState.getGlobalUserPreferences(TEST_USER);
+      expect(prefs2.voiceId).toBe('Cached_Voice');
+    });
+
+    test('should cache empty results to avoid repeated misses', async () => {
+      // First call for a non-existent user
+      const prefs1 = await ttsState.getGlobalUserPreferences('ghostuser');
+      expect(prefs1).toEqual({});
+
+      // Set up the doc after first call
+      const userDoc = mockDb.collection('ttsUserPreferences').doc('ghostuser');
+      await userDoc.set({ voiceId: 'New_Voice' });
+
+      // Second call should still return cached empty result
+      const prefs2 = await ttsState.getGlobalUserPreferences('ghostuser');
+      expect(prefs2).toEqual({});
+    });
   });
 
   describe('setGlobalUserPreference', () => {
@@ -229,6 +292,53 @@ describe('ttsState module', () => {
     test('addBannedWord should reject empty strings', async () => {
       const result = await ttsState.addBannedWord(TEST_CHANNEL, '  ');
       expect(result).toBe(false);
+    });
+  });
+
+  describe('getUserEmoteModePreference', () => {
+    test('should return null when no preference is set', async () => {
+      const mode = await ttsState.getUserEmoteModePreference('someuser');
+      expect(mode).toBeNull();
+    });
+
+    test('should return emoteMode from userId doc', async () => {
+      const userIdDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
+      await userIdDoc.set({ emoteMode: 'describe' });
+
+      const mode = await ttsState.getUserEmoteModePreference(TEST_USER, TEST_USER_ID);
+      expect(mode).toBe('describe');
+    });
+
+    test('should fall back to username doc when userId doc has no emoteMode', async () => {
+      const usernameDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER.toLowerCase());
+      await usernameDoc.set({ emoteMode: 'skip' });
+
+      const mode = await ttsState.getUserEmoteModePreference(TEST_USER, 'nonexistent_uid');
+      expect(mode).toBe('skip');
+    });
+
+    test('should cache emoteMode results', async () => {
+      const userDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER.toLowerCase());
+      await userDoc.set({ emoteMode: 'read' });
+
+      // First call
+      const mode1 = await ttsState.getUserEmoteModePreference(TEST_USER);
+      expect(mode1).toBe('read');
+
+      // Update Firestore
+      await userDoc.set({ emoteMode: 'describe' });
+
+      // Second call should return cached 'read'
+      const mode2 = await ttsState.getUserEmoteModePreference(TEST_USER);
+      expect(mode2).toBe('read');
+    });
+
+    test('should reject invalid emoteMode values', async () => {
+      const userDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER.toLowerCase());
+      await userDoc.set({ emoteMode: 'invalid_mode' });
+
+      const mode = await ttsState.getUserEmoteModePreference(TEST_USER);
+      expect(mode).toBeNull();
     });
   });
 });

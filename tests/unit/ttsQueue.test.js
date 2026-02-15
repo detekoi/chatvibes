@@ -130,7 +130,7 @@ describe('ttsQueue module', () => {
     test('should enqueue message with default settings', async () => {
       // Pause queue to prevent immediate processing
       await ttsQueue.pauseQueue(TEST_CHANNEL);
-      
+
       const eventData = {
         text: 'Test message',
         user: TEST_USER,
@@ -184,7 +184,7 @@ describe('ttsQueue module', () => {
     test('should apply viewer preferences when allowed', async () => {
       // Pause queue to prevent immediate processing
       await ttsQueue.pauseQueue(TEST_CHANNEL);
-      
+
       mockTtsState.getGlobalUserPreferences.mockResolvedValue({
         voiceId: 'Custom_Voice',
         emotion: 'happy',
@@ -208,7 +208,7 @@ describe('ttsQueue module', () => {
     test('should not apply viewer preferences when disallowed', async () => {
       // Pause queue to prevent immediate processing
       await ttsQueue.pauseQueue(TEST_CHANNEL);
-      
+
       mockTtsState.getTtsState.mockResolvedValue({
         ...mockChannelConfig,
         engineEnabled: true,
@@ -236,7 +236,7 @@ describe('ttsQueue module', () => {
     test('should handle event messages without user', async () => {
       // Pause queue to prevent immediate processing
       await ttsQueue.pauseQueue(TEST_CHANNEL);
-      
+
       const eventData = {
         text: 'User subscribed!',
         type: 'event'
@@ -253,7 +253,7 @@ describe('ttsQueue module', () => {
     test('should handle shared session info', async () => {
       // Pause queue to prevent immediate processing
       await ttsQueue.pauseQueue(TEST_CHANNEL);
-      
+
       const sharedSessionInfo = {
         sessionId: 'test-session',
         channels: ['channel1', 'channel2']
@@ -269,6 +269,29 @@ describe('ttsQueue module', () => {
 
       const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
       expect(queue.queue[0].sharedSessionInfo).toEqual(sharedSessionInfo);
+    });
+
+    test('should fetch all user preferences in parallel', async () => {
+      // Pause queue to prevent immediate processing
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+
+      const eventData = {
+        text: 'Test message',
+        user: TEST_USER,
+        userId: '12345',
+        type: 'chat'
+      };
+
+      await ttsQueue.enqueue(TEST_CHANNEL, eventData);
+
+      // All preference functions should have been called
+      expect(mockTtsState.getGlobalUserPreferences).toHaveBeenCalledWith(TEST_USER, '12345');
+      expect(mockTtsState.getUserEmotionPreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
+      expect(mockTtsState.getUserVoicePreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
+      expect(mockTtsState.getUserPitchPreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
+      expect(mockTtsState.getUserSpeedPreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
+      expect(mockTtsState.getUserLanguagePreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
+      expect(mockTtsState.getUserEnglishNormalizationPreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
     });
   });
 
@@ -322,7 +345,7 @@ describe('ttsQueue module', () => {
     test('should clear all pending messages', async () => {
       // Pause queue to prevent immediate processing
       await ttsQueue.pauseQueue(TEST_CHANNEL);
-      
+
       const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
 
       // Add multiple messages
@@ -497,8 +520,8 @@ describe('ttsQueue module', () => {
         user: TEST_USER
       });
 
-      // Wait for processing
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Wait for processing — reduced from 1500ms since inter-message delay is now 100ms
+      await new Promise(resolve => setTimeout(resolve, 400));
 
       expect(mockTtsService.generateSpeech).toHaveBeenCalledTimes(2);
     });
