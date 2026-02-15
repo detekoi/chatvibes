@@ -9,7 +9,7 @@ const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
 const EMOTE_IMAGE_FORMAT = 'static/dark/3.0';
 const ANIMATED_EMOTE_IMAGE_FORMAT = 'animated/dark/3.0';
-const MAX_GIF_FRAMES = 4; // Number of evenly-spaced frames to sample from animated GIFs
+const MAX_GIF_FRAMES = 3; // Number of evenly-spaced frames to sample from animated GIFs
 const GEMINI_TIMEOUT_MS = 8000;
 const ANIMATED_GEMINI_TIMEOUT_MS = 12000; // Animated emotes need more time for multi-image inference
 
