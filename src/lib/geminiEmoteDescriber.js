@@ -1,13 +1,17 @@
 // src/lib/geminiEmoteDescriber.js
 // Uses Google Gemini Flash Lite to describe Twitch emotes visually for TTS accessibility
 import { GoogleGenAI } from '@google/genai';
+import sharp from 'sharp';
 import logger from './logger.js';
 import { getUsersById } from '../components/twitch/helixClient.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
 const EMOTE_IMAGE_FORMAT = 'static/dark/3.0';
+const ANIMATED_EMOTE_IMAGE_FORMAT = 'animated/dark/3.0';
+const MAX_GIF_FRAMES = 3; // Number of evenly-spaced frames to sample from animated GIFs
 const GEMINI_TIMEOUT_MS = 8000;
+const ANIMATED_GEMINI_TIMEOUT_MS = 12000; // Animated emotes need more time for multi-image inference
 
 // In-memory cache: emoteId -> { description, cachedAt }
 const descriptionCache = new Map();
@@ -54,6 +58,15 @@ export function getEmoteImageUrl(emoteId) {
 }
 
 /**
+ * Get the animated emote GIF URL from a Twitch emote ID.
+ * @param {string} emoteId 
+ * @returns {string}
+ */
+export function getAnimatedEmoteUrl(emoteId) {
+    return `${EMOTE_CDN_URL}/${emoteId}/${ANIMATED_EMOTE_IMAGE_FORMAT}`;
+}
+
+/**
  * Fetch an emote image as bytes (static PNG).
  * @param {string} emoteId
  * @returns {Promise<{data: Buffer, mimeType: string} | null>}
@@ -76,6 +89,64 @@ async function fetchEmoteImage(emoteId) {
         };
     } catch (error) {
         logger.debug({ err: error, emoteId }, 'Error fetching emote image');
+        return null;
+    }
+}
+
+/**
+ * Fetch an animated emote GIF and extract evenly-spaced frames as PNG buffers using sharp.
+ * Sharp uses native libvips for fast GIF decoding with automatic frame coalescing.
+ * @param {string} emoteId
+ * @returns {Promise<Array<{data: Buffer, mimeType: string}> | null>}
+ */
+async function fetchAnimatedEmoteFrames(emoteId) {
+    const pipelineStart = Date.now();
+    try {
+        const url = getAnimatedEmoteUrl(emoteId);
+        const response = await fetch(url);
+        if (!response.ok) {
+            logger.debug({ emoteId, status: response.status }, 'Failed to fetch animated emote GIF');
+            return null;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const gifBuffer = Buffer.from(arrayBuffer);
+        const fetchMs = Date.now() - pipelineStart;
+
+        // Load GIF metadata to determine frame count
+        const extractStart = Date.now();
+        const metadata = await sharp(gifBuffer, { animated: true }).metadata();
+        const { pages } = metadata;
+
+        if (!pages || pages <= 1) {
+            // Not animated or single frame — return as static PNG
+            const data = await sharp(gifBuffer).png().toBuffer();
+            logger.info({ emoteId, fetchMs, extractMs: Date.now() - extractStart, totalMs: Date.now() - pipelineStart, pages: pages || 1 }, 'Animated emote single frame extracted');
+            return [{ data, mimeType: 'image/png' }];
+        }
+
+        // Compute evenly-spaced frame indices (first, middle, last)
+        const sampleCount = Math.min(MAX_GIF_FRAMES, pages);
+        const selectedIndices = [];
+        for (let i = 0; i < sampleCount; i++) {
+            selectedIndices.push(Math.floor(i * (pages - 1) / Math.max(sampleCount - 1, 1)));
+        }
+
+        // Extract each selected frame using sharp's page option (selects a single GIF page directly)
+        const frameBuffers = await Promise.all(
+            selectedIndices.map(async (frameIdx) => {
+                const data = await sharp(gifBuffer, { page: frameIdx })
+                    .png()
+                    .toBuffer();
+                return { data, mimeType: 'image/png' };
+            })
+        );
+
+        const extractMs = Date.now() - extractStart;
+        const totalMs = Date.now() - pipelineStart;
+        logger.info({ emoteId, fetchMs, extractMs, totalMs, totalFrames: pages, sampledFrames: frameBuffers.length, frameIndices: selectedIndices }, 'Animated emote frames extracted');
+        return frameBuffers;
+    } catch (error) {
+        logger.info({ err: error.message, emoteId, pipelineMs: Date.now() - pipelineStart }, 'Error extracting animated emote frames');
         return null;
     }
 }
@@ -171,7 +242,7 @@ function buildEmoteContext(emoteName, ownerName) {
 
 /**
  * Describe a single emote using Gemini vision.
- * Uses static PNG image with animation-aware prompts for animated emotes.
+ * For animated emotes, extracts multiple frames using sharp and sends them as a sequence.
  * @param {string} emoteId 
  * @param {string} emoteName - The text name of the emote (e.g. "LUL")
  * @param {string | null} [ownerName] - The display name of the channel that owns the emote
@@ -185,27 +256,46 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnima
 
     if (!genAI) return null;
 
-    const imageData = await fetchEmoteImage(emoteId);
-    if (!imageData) {
-        logger.info({ emoteId, emoteName }, 'Emote image fetch failed — cannot describe');
-        return null;
+    // For animated emotes, try frame extraction first
+    let imageParts = null;
+    let animatedSuccess = false;
+
+    if (isAnimated) {
+        const frames = await fetchAnimatedEmoteFrames(emoteId);
+        if (frames && frames.length > 1) {
+            imageParts = frames.map(frame => ({
+                inlineData: {
+                    mimeType: frame.mimeType,
+                    data: frame.data.toString('base64'),
+                },
+            }));
+            animatedSuccess = true;
+        }
+        // If frame extraction fails or returns single frame, fall through to static PNG
+    }
+
+    // Fallback to static PNG for non-animated or if frame extraction failed
+    if (!imageParts) {
+        const imageData = await fetchEmoteImage(emoteId);
+        if (!imageData) {
+            logger.info({ emoteId, emoteName }, 'Emote image fetch failed — cannot describe');
+            return null;
+        }
+        imageParts = [{
+            inlineData: {
+                mimeType: imageData.mimeType,
+                data: imageData.data.toString('base64'),
+            },
+        }];
     }
 
     try {
         const emoteContext = buildEmoteContext(emoteName, ownerName);
-        const prompt = isAnimated
-            ? `This is one frame from an animated ${emoteContext}. This emote is animated and likely shows movement or action. Describe the likely animation in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject and action. Focus on the action or movement. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`
+        const prompt = animatedSuccess
+            ? `These are ${imageParts.length} sequential frames from an animated ${emoteContext}. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`
             : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
 
-        const contents = [
-            {
-                inlineData: {
-                    mimeType: imageData.mimeType,
-                    data: imageData.data.toString('base64'),
-                },
-            },
-            { text: prompt },
-        ];
+        const contents = [...imageParts, { text: prompt }];
 
         const response = await Promise.race([
             genAI.models.generateContent({
@@ -213,14 +303,14 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnima
                 contents,
             }),
             new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Gemini timeout')), GEMINI_TIMEOUT_MS)
+                setTimeout(() => reject(new Error('Gemini timeout')), animatedSuccess ? ANIMATED_GEMINI_TIMEOUT_MS : GEMINI_TIMEOUT_MS)
             ),
         ]);
 
         const description = response.text?.trim().replace(/[.!?,;:]+$/g, '');
         if (description) {
             cacheDescription(emoteId, description);
-            logger.debug({ emoteId, emoteName, ownerName, isAnimated, description }, 'Emote described by Gemini');
+            logger.debug({ emoteId, emoteName, ownerName, isAnimated, animatedSuccess, description }, 'Emote described by Gemini');
             return description;
         }
         return null;
@@ -233,7 +323,7 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnima
 /**
  * Describe multiple emotes in a single Gemini vision call.
  * Sends all images together with a numbered prompt for efficient batch processing.
- * Animated emotes use animation-aware prompt hints per emote.
+ * Animated emotes have their frames extracted via sharp and sent as a sequence per emote.
  * @param {Array<[string, string, string|null, boolean]>} emoteEntries - Array of [emoteId, emoteName, ownerName, isAnimated] tuples
  * @returns {Promise<Map<string, string>>} Map of emoteId -> description
  */
@@ -254,8 +344,16 @@ async function describeBatchEmotes(emoteEntries) {
 
     if (uncached.length === 0) return results;
 
-    // Fetch all images in parallel (always static PNG — fast and reliable)
-    const imagePromises = uncached.map(async ([emoteId]) => fetchEmoteImage(emoteId));
+    // Fetch all images in parallel — animated emotes get frames via sharp, static get single PNG
+    const imagePromises = uncached.map(async ([emoteId, , , isAnimated]) => {
+        if (isAnimated) {
+            const frames = await fetchAnimatedEmoteFrames(emoteId);
+            if (frames && frames.length > 1) return { frames, isAnimated: true };
+            // Fall back to static PNG if frame extraction fails or returns single frame
+        }
+        const staticImg = await fetchEmoteImage(emoteId);
+        return staticImg ? { frames: [staticImg], isAnimated: false } : null;
+    });
     const images = await Promise.all(imagePromises);
 
     // Filter to only emotes with successful image fetches
@@ -266,8 +364,8 @@ async function describeBatchEmotes(emoteEntries) {
                 emoteId: uncached[i][0],
                 emoteName: uncached[i][1],
                 ownerName: uncached[i][2],
-                isAnimated: uncached[i][3],
-                imageData: images[i],
+                imageFrames: images[i].frames,
+                isAnimated: images[i].isAnimated,
             });
         } else {
             logger.info({ emoteId: uncached[i][0], emoteName: uncached[i][1] }, 'Emote image fetch failed — cannot describe');
@@ -276,58 +374,81 @@ async function describeBatchEmotes(emoteEntries) {
 
     if (withImages.length === 0) return results;
 
-    // Build multi-image prompt — one image per emote
-    const contentParts = [];
-    for (const emote of withImages) {
-        contentParts.push({
-            inlineData: {
-                mimeType: emote.imageData.mimeType,
-                data: emote.imageData.data.toString('base64'),
-            },
-        });
-    }
+    // Split into animated and static groups for separate, focused prompts
+    const staticEmotes = withImages.filter(e => !e.isAnimated);
+    const animatedEmotes = withImages.filter(e => e.isAnimated);
 
-    const emoteList = withImages.map((e, i) => {
-        const context = buildEmoteContext(e.emoteName, e.ownerName);
-        const animTag = e.isAnimated ? ' (animated — describe the likely action/movement)' : '';
-        return `${i + 1}. ${context}${animTag}`;
-    }).join('\n');
-    contentParts.push({
-        text: `Describe each Twitch emote in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. For animated emotes, focus on the likely action or movement. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:\n${emoteList}`,
-    });
+    /**
+     * Send a batch Gemini call for a group of emotes with a dedicated prompt.
+     * @param {Array} group - Emotes to describe
+     * @param {string} promptText - The prompt tailored to this group type
+     * @param {number} timeoutMs - Timeout for this batch
+     */
+    const describeBatch = async (group, promptText, timeoutMs) => {
+        if (group.length === 0) return;
 
-    try {
-        const batchTimeout = Math.max(GEMINI_TIMEOUT_MS, withImages.length * 2000 + 5000);
-        const response = await Promise.race([
-            genAI.models.generateContent({
-                model: GEMINI_MODEL,
-                contents: contentParts,
-            }),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Gemini batch timeout')), batchTimeout)
-            ),
-        ]);
+        const contentParts = [];
+        for (const emote of group) {
+            for (const frame of emote.imageFrames) {
+                contentParts.push({
+                    inlineData: {
+                        mimeType: frame.mimeType,
+                        data: frame.data.toString('base64'),
+                    },
+                });
+            }
+        }
 
-        const text = response.text?.trim();
-        if (text) {
-            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-            for (const line of lines) {
-                const match = line.match(/^(\d+)\.\s*(.+)/);
-                if (match) {
-                    const idx = parseInt(match[1], 10) - 1;
-                    const desc = match[2].replace(/^["']|["']$/g, '').replace(/[.!?,;:]+$/g, '').trim();
-                    if (idx >= 0 && idx < withImages.length && desc) {
-                        const emoteId = withImages[idx].emoteId;
-                        cacheDescription(emoteId, desc);
-                        results.set(emoteId, desc);
+        const emoteList = group.map((e, i) => {
+            const context = buildEmoteContext(e.emoteName, e.ownerName);
+            const frameHint = e.isAnimated ? ` (${e.imageFrames.length} sequential frames shown)` : '';
+            return `${i + 1}. ${context}${frameHint}`;
+        }).join('\n');
+        contentParts.push({ text: `${promptText}\n${emoteList}` });
+
+        try {
+            const batchTimeout = Math.max(timeoutMs, group.length * 2000 + 5000);
+            const response = await Promise.race([
+                genAI.models.generateContent({
+                    model: GEMINI_MODEL,
+                    contents: contentParts,
+                }),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Gemini batch timeout')), batchTimeout)
+                ),
+            ]);
+
+            const text = response.text?.trim();
+            if (text) {
+                const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+                for (const line of lines) {
+                    const match = line.match(/^(\d+)\.\s*(.+)/);
+                    if (match) {
+                        const idx = parseInt(match[1], 10) - 1;
+                        const desc = match[2].replace(/^["']|["']$/g, '').replace(/[.!?,;:]+$/g, '').trim();
+                        if (idx >= 0 && idx < group.length && desc) {
+                            const emoteId = group[idx].emoteId;
+                            cacheDescription(emoteId, desc);
+                            results.set(emoteId, desc);
+                        }
                     }
                 }
             }
-            logger.debug({ requested: withImages.length, described: results.size - (emoteEntries.length - uncached.length) }, 'Batch emote description complete');
+        } catch (error) {
+            logger.info({ err: error.message, emoteCount: group.length }, 'Batch Gemini emote description failed');
         }
-    } catch (error) {
-        logger.info({ err: error.message, emoteCount: withImages.length }, 'Batch Gemini emote description failed');
-    }
+    };
+
+    // Send separate calls in parallel with dedicated prompts
+    const staticPrompt = 'Describe each Twitch emote in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
+    const animatedPrompt = 'Each numbered emote below is animated — you are seeing sequential frames from its animation. Describe what happens across each animation in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
+
+    await Promise.all([
+        describeBatch(staticEmotes, staticPrompt, GEMINI_TIMEOUT_MS),
+        describeBatch(animatedEmotes, animatedPrompt, ANIMATED_GEMINI_TIMEOUT_MS),
+    ]);
+
+    logger.debug({ static: staticEmotes.length, animated: animatedEmotes.length, described: results.size - (emoteEntries.length - uncached.length) }, 'Batch emote description complete');
 
     return results;
 }
