@@ -89,7 +89,7 @@ describe('urlProcessor module', () => {
     test('should replace URLs with speech-friendly domains when readFullUrls is false', () => {
       const message = 'Check out https://github.com for cool projects';
       const result = urlProcessor.processMessageUrls(message, false);
-      expect(result).toBe('Check out github dot com for cool projects');
+      expect(result).toBe('Check out github dot com link for cool projects');
     });
 
     test('should leave URLs unchanged when readFullUrls is true', () => {
@@ -101,19 +101,19 @@ describe('urlProcessor module', () => {
     test('should handle multiple URLs in one message', () => {
       const message = 'Visit https://google.com and https://twitter.com';
       const result = urlProcessor.processMessageUrls(message, false);
-      expect(result).toBe('Visit google dot com and twitter dot com');
+      expect(result).toBe('Visit google dot com link and twitter dot com link');
     });
 
     test('should handle URLs without protocol', () => {
       const message = 'Check example.com for info';
       const result = urlProcessor.processMessageUrls(message, false);
-      expect(result).toBe('Check example dot com for info');
+      expect(result).toBe('Check example dot com link for info');
     });
 
     test('should handle mixed protocol and non-protocol URLs', () => {
       const message = 'Try https://site1.com or site2.org';
       const result = urlProcessor.processMessageUrls(message, false);
-      expect(result).toBe('Try site1 dot com or site2 dot org');
+      expect(result).toBe('Try site1 dot com link or site2 dot org link');
     });
 
     test('should handle messages without URLs', () => {
@@ -145,7 +145,7 @@ describe('urlProcessor module', () => {
     test('should default readFullUrls to false', () => {
       const message = 'Visit https://example.com';
       const result = urlProcessor.processMessageUrls(message);
-      expect(result).toBe('Visit example dot com');
+      expect(result).toBe('Visit example dot com link');
     });
   });
 

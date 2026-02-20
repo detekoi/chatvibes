@@ -22,27 +22,27 @@ const URL_REGEX = /(https?:\/\/\S+|\b\w+\.[a-z]{2,}\b)/gi;
 export function extractDomainForSpeech(url) {
     try {
         let domain = url;
-        
+
         // Remove protocol if present
         domain = domain.replace(/^https?:\/\//, '');
-        
+
         // Remove www. prefix
         domain = domain.replace(/^www\./, '');
-        
+
         // Remove path, query params, and hash
         domain = domain.split('/')[0];
         domain = domain.split('?')[0];
         domain = domain.split('#')[0];
-        
+
         // Replace hyphens and underscores with spaces for more natural speech
         domain = domain.replace(/[-_]/g, ' ');
-        
+
         // Replace dots with " dot " for speech
         domain = domain.replace(/\./g, ' dot ');
-        
+
         // Clean up multiple spaces
         domain = domain.replace(/\s+/g, ' ').trim();
-        
+
         return domain;
     } catch (error) {
         logger.error({ err: error, url }, 'Error extracting domain from URL');
@@ -60,19 +60,19 @@ export function processMessageUrls(message, readFullUrls = false) {
     if (!message || typeof message !== 'string') {
         return message;
     }
-    
+
     // If readFullUrls is true, return the message as-is
     if (readFullUrls) {
         return message;
     }
-    
+
     // Replace all URLs with speech-friendly domain names
     const processed = message.replace(URL_REGEX, (match) => {
-        const speechFriendly = extractDomainForSpeech(match);
+        const speechFriendly = extractDomainForSpeech(match) + ' link';
         logger.debug({ original: match, processed: speechFriendly }, 'URL replacement in TTS message');
         return speechFriendly;
     });
-    
+
     return processed;
 }
 
