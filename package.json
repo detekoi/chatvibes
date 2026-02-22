@@ -24,7 +24,7 @@
         "chatvibes"
     ],
     "author": "Henry Manes",
-    "license": "SEE LICENSE IN LICENSE.md",
+    "license": "AGPL-3.0-or-later",
     "dependencies": {
         "@google-cloud/firestore": "^7.0.0",
         "@google-cloud/pubsub": "^4.0.0",

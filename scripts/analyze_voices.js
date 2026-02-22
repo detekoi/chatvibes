@@ -1,7 +1,7 @@
 
 import fs from 'fs';
 
-import { T302_SUPPORTED_VOICE_IDS } from './src/components/tts/voiceMigration.js';
+import { T302_SUPPORTED_VOICE_IDS } from '../src/components/tts/voiceMigration.js';
 
 // Mock fetch for the script if not available (Node 18+ has it)
 // We will use the fetchVoiceListFromSchema logic but adapted here to avoid imports if possible, 
