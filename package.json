@@ -30,7 +30,7 @@
         "@google-cloud/pubsub": "^4.0.0",
         "@google-cloud/secret-manager": "^5.0.0",
         "@google/genai": "^1.40.0",
-        "axios": "^1.6.0",
+        "axios": "^1.13.5",
         "dotenv": "^16.3.1",
         "emoji-regex": "^10.6.0",
         "express": "^5.1.0",
