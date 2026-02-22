@@ -372,8 +372,8 @@ export async function subscribeChannelFollow(broadcasterUserId) {
         }
     };
 
-    // Use broadcaster token to get follower details (requires moderator:read:followers scope)
-    const result = await makeHelixRequestWithBroadcasterToken('post', '/eventsub/subscriptions', body, broadcasterUserId);
+    // Use app access token (required for webhook subscriptions). The app must have been granted moderator:read:followers scope.
+    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
 
     if (result.success) {
         logger.info({ broadcasterUserId, type: 'channel.follow' }, 'Successfully subscribed to channel.follow (v2)');
