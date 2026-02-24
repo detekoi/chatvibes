@@ -125,6 +125,52 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
 }
 
 /**
+ * Handle Channel Points redemption announcement via TTS
+ * Announces ALL reward redemptions (not just the configured TTS reward)
+ * Generates announcement text like "<user> redeemed <reward title>: <user input>"
+ */
+export async function handleRedemptionAnnouncement(subscriptionType, event, channelLogin, ttsConfig) {
+    // Only announce on redemption.add events
+    if (subscriptionType !== 'channel.channel_points_custom_reward_redemption.add') {
+        return;
+    }
+
+    const rewardTitle = event?.reward?.title;
+    const rewardId = event?.reward?.id;
+    const userInput = (event?.user_input || '').trim();
+    const userName = event?.user_name || event?.user_login || 'Someone';
+
+    // Skip if this is the configured TTS reward (already handled by handleChannelPointsRedemption)
+    const configuredRewardId = ttsConfig.channelPoints?.rewardId || ttsConfig.channelPointRewardId;
+    if (configuredRewardId && rewardId === configuredRewardId) {
+        logger.debug({ channelLogin, rewardId }, 'Skipping redemption announcement for configured TTS reward');
+        return;
+    }
+
+    if (!rewardTitle) {
+        logger.debug({ channelLogin }, 'Redemption event missing reward title - skipping announcement');
+        return;
+    }
+
+    // Build announcement text
+    let ttsText = `${userName} redeemed ${rewardTitle}`;
+    if (userInput) {
+        ttsText += `: ${userInput}`;
+    }
+
+    logger.info({ channelLogin, userName, rewardTitle, hasUserInput: !!userInput }, 'Announcing Channel Points redemption via TTS');
+
+    // Get shared session info for distribution
+    const sharedSessionInfo = await getSharedSessionInfo(channelLogin);
+
+    await publishTtsEvent(channelLogin, {
+        text: ttsText,
+        user: userName,
+        type: 'event'
+    }, sharedSessionInfo);
+}
+
+/**
  * Get user access token for broadcaster from Firestore
  * This retrieves the broadcaster's OAuth token with channel:manage:redemptions scope
  */

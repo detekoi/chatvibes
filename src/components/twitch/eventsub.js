@@ -11,7 +11,7 @@ import { Firestore, Timestamp } from '@google-cloud/firestore';
 
 // Import event handlers
 import { handleChatMessage } from './handlers/chatHandler.js';
-import { handleChannelPointsRedemption } from './handlers/redemptionHandler.js';
+import { handleChannelPointsRedemption, handleRedemptionAnnouncement } from './handlers/redemptionHandler.js';
 import { handleNotification } from './handlers/notificationHandler.js';
 import * as sharedChatHandler from './handlers/sharedChatHandler.js';
 
@@ -210,12 +210,30 @@ export async function eventSubHandler(req, res, rawBody) {
         }
 
         // Route: Channel Points redemption events
-        // These don't require TTS events to be enabled, so we handle them separately
+        // The TTS reward handler doesn't require TTS events to be enabled
         if (type.startsWith('channel.channel_points_custom_reward_redemption.')) {
             try {
                 await handleChannelPointsRedemption(type, event);
             } catch (error) {
                 logger.error({ err: error, type }, 'Error handling Channel Points redemption event');
+            }
+
+            // Also announce the redemption via TTS if speakRedemptionEvents is enabled
+            const channelLogin = (event?.broadcaster_user_login || event?.broadcaster_user_name)?.toLowerCase();
+            if (channelLogin && await isChannelAllowed(channelLogin)) {
+                try {
+                    const redemptionTtsConfig = await getTtsState(channelLogin);
+                    // Default to speakEvents value for backward compat, then true
+                    const speakRedemptions = redemptionTtsConfig.speakRedemptionEvents !== undefined
+                        ? redemptionTtsConfig.speakRedemptionEvents
+                        : (redemptionTtsConfig.speakEvents !== false);
+
+                    if (redemptionTtsConfig.engineEnabled && speakRedemptions) {
+                        await handleRedemptionAnnouncement(type, event, channelLogin, redemptionTtsConfig);
+                    }
+                } catch (error) {
+                    logger.error({ err: error, type, channelLogin }, 'Error handling Channel Points redemption announcement');
+                }
             }
             return;
         }
