@@ -11,6 +11,35 @@ const queryParams = new URLSearchParams(window.location.search);
 const channelName = queryParams.get('channel');
 const token = queryParams.get('token');
 
+/**
+ * Validate that a given URL string is safe to use as an <audio> source.
+ * Only allow http/https URLs (https in production; http may be used for local testing)
+ * and reject any other protocol such as javascript:, data:, etc.
+ */
+function isSafeAudioUrl(url) {
+    if (typeof url !== 'string') {
+        return false;
+    }
+    const trimmed = url.trim();
+    if (trimmed === '') {
+        return false;
+    }
+    let parsed;
+    try {
+        // Use window.location.origin as base to support relative URLs if ever used.
+        parsed = new URL(trimmed, window.location.origin);
+    } catch (e) {
+        // Invalid URL format
+        return false;
+    }
+    // Allow only http and https protocols. In most deployments you may want to
+    // restrict to https: only; http: is kept here for local testing compatibility.
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return false;
+    }
+    return true;
+}
+
 let wsUrl;
 if (channelName) {
     if (token) {
@@ -70,8 +99,12 @@ function connectWebSocket() {
             console.log('TTS WebSocket received data:', data); // Log all received data
 
             if (data.type === 'playAudio' && data.url) {
-                audioQueue.push(data.url);
-                playNextInQueue();
+                if (isSafeAudioUrl(data.url)) {
+                    audioQueue.push(data.url);
+                    playNextInQueue();
+                } else {
+                    console.warn('TTS WebSocket received unsafe audio URL, ignoring:', data.url);
+                }
             } else if (data.type === 'stopAudio') {
                 console.log('TTS WebSocket received stopAudio command');
                 stopAllAudio();
@@ -84,7 +117,7 @@ function connectWebSocket() {
         } catch (e) {
             // This might be a direct URL string if your server doesn't always send JSON
             if (typeof event.data === 'string') {
-                if (event.data.startsWith('https://') || event.data.startsWith('http://')) { // Check for http too for local testing
+                if (isSafeAudioUrl(event.data)) { // Accept only validated http/https URLs
                     console.log('TTS WebSocket received direct audio URL:', event.data);
                     audioQueue.push(event.data);
                     playNextInQueue();
@@ -92,7 +125,7 @@ function connectWebSocket() {
                     console.log('TTS WebSocket received STOP_CURRENT_AUDIO command');
                     stopCurrentAudio(); // More specific stop
                 } else {
-                    console.warn('TTS WebSocket received non-JSON message:', event.data);
+                    console.warn('TTS WebSocket received non-JSON or unsafe message:', event.data);
                 }
             } else {
                 console.error('TTS WebSocket received unparseable message:', event.data, e);
@@ -131,6 +164,15 @@ function playNextInQueue() {
     isPlaying = true;
     const audioUrl = audioQueue.shift();
     console.log('Player: Attempting to play audio:', audioUrl);
+
+    // As a defensive measure, ensure the URL is still safe before using it.
+    if (!isSafeAudioUrl(audioUrl)) {
+        console.warn('Player: Skipping unsafe audio URL from queue:', audioUrl);
+        isPlaying = false;
+        // Try the next item in the queue, if any.
+        playNextInQueue();
+        return;
+    }
 
     // Set volume based on content type (music vs TTS)
     // Music files are typically .wav format, TTS is typically .mp3
