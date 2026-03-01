@@ -23,7 +23,7 @@ async function debugSubscription() {
         // 1. Get Bot User ID
         const botUserId = await getBotUserId();
         console.log(`Bot User ID: ${botUserId}`);
-        console.log(`Bot Username (Config): ${config.twitch.username}`);
+        console.log(`Bot Username (Config): ${config.twitch.username ? '[SET]' : '[NOT SET]'}`);
 
         // 2. Get Broadcaster ID
         const users = await getUsersByLogin([channelName]);

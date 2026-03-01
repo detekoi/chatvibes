@@ -33,11 +33,11 @@ async function refreshIrcToken() {
         isRefreshing = false;
         return null;
     }
-    
+
     // Get Client ID and Secret (from env or Secret Manager)
     const clientId = await getClientId();
     const clientSecret = await getClientSecret();
-    
+
     if (!clientId || !clientSecret) {
         logger.error('Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET for token refresh.');
         isRefreshing = false;
@@ -51,7 +51,7 @@ async function refreshIrcToken() {
             throw new Error(`Refresh token could not be retrieved from Secret Manager (${refreshTokenSecretName}).`);
         }
     } catch (error) {
-        logger.fatal({ err: error }, 'CRITICAL: Failed to retrieve refresh token from secure storage. Manual intervention required.');
+        logger.fatal({ err: { message: error.message?.replace(/projects\/[^/]+/, 'projects/***'), code: error.code } }, 'CRITICAL: Failed to retrieve refresh token from secure storage. Manual intervention required.');
         isRefreshing = false;
         // Maybe trigger an alert here
         return null;
@@ -64,7 +64,7 @@ async function refreshIrcToken() {
         params.append('client_secret', clientSecret);
         params.append('grant_type', 'refresh_token');
         params.append('refresh_token', refreshToken);
-        
+
         const response = await axios.post(TWITCH_TOKEN_URL, params, {
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -83,14 +83,14 @@ async function refreshIrcToken() {
             // This requires adding a 'setSecretValue' or 'addSecretVersion' function
             // to secretManager.js and calling it here if newRefreshToken exists.
             if (newRefreshToken && newRefreshToken !== refreshToken) {
-                 logger.info('Received a new refresh token from Twitch. Storing it securely is recommended.');
-                 try {
-                     await addSecretVersion(refreshTokenSecretName, newRefreshToken);
-                     logger.info('New refresh token persisted to Secret Manager.');
-                 } catch (persistErr) {
-                     logger.error({ err: persistErr }, 'Failed to persist new refresh token to Secret Manager.');
-                     // Optionally: alert/notify here
-                 }
+                logger.info('Received a new refresh token from Twitch. Storing it securely is recommended.');
+                try {
+                    await addSecretVersion(refreshTokenSecretName, newRefreshToken);
+                    logger.info('New refresh token persisted to Secret Manager.');
+                } catch (persistErr) {
+                    logger.error({ err: persistErr }, 'Failed to persist new refresh token to Secret Manager.');
+                    // Optionally: alert/notify here
+                }
             }
 
             isRefreshing = false;
@@ -124,7 +124,7 @@ async function refreshIrcToken() {
         isRefreshing = false;
         return null; // Indicate refresh failure
     } finally {
-         isRefreshing = false; // Ensure lock is released
+        isRefreshing = false; // Ensure lock is released
     }
 }
 

@@ -432,7 +432,7 @@ async function main() {
             });
         }
 
-        logger.info(`WildcatTTS: Bot username: ${config.twitch.username}.`);
+        logger.info('WildcatTTS: Bot username loaded successfully.');
 
     } catch (error) {
         logger.fatal({ err: error, stack: error.stack }, 'WildcatTTS: Fatal error during initialization.');

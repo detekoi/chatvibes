@@ -1,6 +1,7 @@
 // src/lib/secretManager.js
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import logger from './logger.js'; // Path is relative to this file in src/lib/
+import { redactSecretName } from './redact.js';
 
 let client = null;
 
@@ -31,7 +32,7 @@ function getSecretManagerClient() {
         logger.warn('WildcatTTS: Secret Manager client accessed before explicit initialization. Attempting lazy init.'); // Updated
         initializeSecretManager();
         if (!client) { // Check again after attempting lazy init
-             throw new Error('WildcatTTS: Secret Manager client could not be initialized after lazy attempt.'); // Updated
+            throw new Error('WildcatTTS: Secret Manager client could not be initialized after lazy attempt.'); // Updated
         }
     }
     return client;
@@ -47,43 +48,43 @@ async function getSecretValue(secretResourceName, cacheTtlMs = DEFAULT_CACHE_TTL
     const now = Date.now();
     const cached = secretCache.get(secretResourceName);
     if (cached && cached.expiresAt > now) {
-        logger.debug(`WildcatTTS: Using cached secret: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+        logger.debug(`WildcatTTS: Using cached secret: ${redactSecretName(secretResourceName)}`);
         return cached.value;
     }
 
     const smClient = getSecretManagerClient();
     try {
-        logger.debug(`WildcatTTS: Accessing secret: ${secretResourceName}`); // Updated
+        logger.debug(`WildcatTTS: Accessing secret: ${redactSecretName(secretResourceName)}`);
         const [version] = await smClient.accessSecretVersion({
             name: secretResourceName,
         });
 
         if (!version.payload?.data) {
-            logger.warn(`WildcatTTS: Secret payload data is missing for ${secretResourceName}.`); // Updated
+            logger.warn(`WildcatTTS: Secret payload data is missing for ${redactSecretName(secretResourceName)}.`);
             return null;
         }
 
         const secretValue = version.payload.data.toString('utf8');
-        logger.info(`WildcatTTS: Successfully retrieved secret: ${secretResourceName.split('/secrets/')[1].split('/')[0]} (version: ${secretResourceName.split('/').pop()})`); // Updated
+        logger.info(`WildcatTTS: Successfully retrieved secret: ${redactSecretName(secretResourceName)}`);
 
         // Cache the secret value
         secretCache.set(secretResourceName, {
             value: secretValue,
             expiresAt: now + cacheTtlMs
         });
-        logger.debug(`WildcatTTS: Cached secret for ${cacheTtlMs}ms: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+        logger.debug(`WildcatTTS: Cached secret for ${cacheTtlMs}ms: ${redactSecretName(secretResourceName)}`);
 
         return secretValue;
     } catch (error) {
         const GcpError = error; // For type hinting if using TS later
         logger.error(
-            { err: { message: GcpError.message, code: GcpError.code }, secretName: secretResourceName },
-            `WildcatTTS: Failed to access secret version ${secretResourceName}. Check permissions and secret existence.` // Updated
+            { err: { message: GcpError.message, code: GcpError.code }, secretName: redactSecretName(secretResourceName) },
+            `WildcatTTS: Failed to access secret ${redactSecretName(secretResourceName)}. Check permissions and secret existence.`
         );
         if (GcpError.code === 5) {
-             logger.error(`WildcatTTS: Secret or version not found: ${secretResourceName}`); // Updated
+            logger.error(`WildcatTTS: Secret or version not found: ${redactSecretName(secretResourceName)}`);
         } else if (GcpError.code === 7) {
-             logger.error(`WildcatTTS: Permission denied accessing secret: ${secretResourceName}. Check IAM roles.`); // Updated
+            logger.error(`WildcatTTS: Permission denied accessing secret: ${redactSecretName(secretResourceName)}. Check IAM roles.`);
         }
         return null;
     }
@@ -98,7 +99,7 @@ async function addSecretVersion(secretResourceName, value) {
     try {
         // Remove /versions/... if present to get the parent secret resource
         const parent = secretResourceName.replace(/\/versions\/.*$/, '');
-        logger.info(`WildcatTTS: Adding new secret version to: ${parent}`);
+        logger.info(`WildcatTTS: Adding new secret version to: ${redactSecretName(parent)}`);
         const [version] = await smClient.addSecretVersion({
             parent,
             payload: { data: Buffer.from(value, 'utf8') }
@@ -126,7 +127,7 @@ async function addSecretVersion(secretResourceName, value) {
                 });
 
                 const versionsToDisable = sortedVersions.slice(VERSIONS_TO_KEEP);
-                logger.info(`WildcatTTS: Auto-cleanup - disabling ${versionsToDisable.length} old version(s) of ${parent.split('/').pop()}`);
+                logger.info(`WildcatTTS: Auto-cleanup - disabling ${versionsToDisable.length} old version(s) of ${redactSecretName(parent)}`);
 
                 for (const oldVersion of versionsToDisable) {
                     try {
@@ -138,12 +139,12 @@ async function addSecretVersion(secretResourceName, value) {
             }
         } catch (cleanupErr) {
             // Don't fail the entire operation if cleanup fails
-            logger.warn({ err: cleanupErr, secret: parent }, 'WildcatTTS: Failed to auto-cleanup old secret versions (non-fatal)');
+            logger.warn({ err: cleanupErr, secret: redactSecretName(parent) }, 'WildcatTTS: Failed to auto-cleanup old secret versions (non-fatal)');
         }
 
         return version;
     } catch (error) {
-        logger.error({ err: error, secretName: secretResourceName }, 'WildcatTTS: Failed to add new secret version.');
+        logger.error({ err: error, secretName: redactSecretName(secretResourceName) }, 'WildcatTTS: Failed to add new secret version.');
         return null;
     }
 }
@@ -154,7 +155,7 @@ async function addSecretVersion(secretResourceName, value) {
 function invalidateSecretCache(secretResourceName) {
     const deleted = secretCache.delete(secretResourceName);
     if (deleted) {
-        logger.debug(`WildcatTTS: Invalidated cache for secret: ${secretResourceName.split('/secrets/')[1]?.split('/')[0]}`);
+        logger.debug(`WildcatTTS: Invalidated cache for secret: ${redactSecretName(secretResourceName)}`);
     }
 }
 

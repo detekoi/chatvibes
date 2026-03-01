@@ -205,7 +205,7 @@ async function getUsersByLogin(loginNames) {
     const params = new URLSearchParams();
     loginNames.forEach(name => params.append('login', name));
 
-    logger.debug({ loginNames }, 'Fetching user information by login from Helix...');
+    logger.debug('Fetching user information by login from Helix...');
 
     try {
         const response = await client.get('/users', { params });
@@ -214,7 +214,7 @@ async function getUsersByLogin(loginNames) {
         return response.data?.data || [];
     } catch (error) {
         // Errors are already logged by the response interceptor
-        logger.error({ err: { message: error.message, code: error.code }, loginNames }, `Failed to get user information for logins: ${loginNames.join(',')}`);
+        logger.error({ err: { message: error.message, code: error.code } }, `Failed to get user information for logins.`);
         // Return empty array for graceful degradation
         return [];
     }
