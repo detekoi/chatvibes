@@ -48,10 +48,17 @@ async function refreshIrcToken() {
     try {
         refreshToken = await getSecretValue(refreshTokenSecretName);
         if (!refreshToken) {
-            throw new Error(`Refresh token could not be retrieved from Secret Manager (${refreshTokenSecretName}).`);
+            throw new Error('Refresh token could not be retrieved from Secret Manager.');
         }
     } catch (error) {
-        logger.fatal({ err: { message: error.message?.replace(/projects\/[^/]+/, 'projects/***'), code: error.code } }, 'CRITICAL: Failed to retrieve refresh token from secure storage. Manual intervention required.');
+        logger.fatal(
+            {
+                err: {
+                    code: error.code,
+                },
+            },
+            'CRITICAL: Failed to retrieve refresh token from secure storage. Manual intervention required.'
+        );
         isRefreshing = false;
         // Maybe trigger an alert here
         return null;
