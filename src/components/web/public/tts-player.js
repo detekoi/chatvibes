@@ -20,6 +20,26 @@ function isSafeAudioUrl(url) {
     if (typeof url !== 'string') {
         return false;
     }
+
+    try {
+        // Allow absolute or relative URLs, but always resolve against the current origin.
+        // This prevents protocols like "javascript:" or "data:" from being accepted.
+        const parsed = new URL(url, window.location.origin);
+
+        // Only allow http and https schemes.
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            return false;
+        }
+
+        // Additional optional hardening could be added here, such as:
+        // - Restricting to a specific hostname or path prefix
+        // - Enforcing HTTPS only in production
+
+        return true;
+    } catch (e) {
+        // If the URL constructor throws, the URL is malformed and therefore unsafe.
+        return false;
+    }
     const trimmed = url.trim();
     if (trimmed === '') {
         return false;
