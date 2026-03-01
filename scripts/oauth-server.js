@@ -6,6 +6,7 @@ import { getClientId, getClientSecret } from '../src/components/twitch/auth.js';
 import { addSecretVersion } from '../src/lib/secretManager.js';
 import config from '../src/config/index.js';
 import dotenv from 'dotenv';
+import escapeHtml from 'escape-html';
 
 dotenv.config();
 
@@ -164,6 +165,8 @@ async function startServer() {
 
         if (error) {
             console.error('❌ OAuth Error:', error, errorDescription);
+            const safeError = escapeHtml(String(error));
+            const safeErrorDescription = escapeHtml(String(errorDescription || 'Unknown error'));
             res.send(`
                 <!DOCTYPE html>
                 <html>
@@ -177,8 +180,8 @@ async function startServer() {
                 <body>
                     <h1>❌ Authentication Failed</h1>
                     <div class="error">
-                        <p><strong>Error:</strong> ${error}</p>
-                        <p>${errorDescription || 'Unknown error'}</p>
+                        <p><strong>Error:</strong> ${safeError}</p>
+                        <p>${safeErrorDescription}</p>
                     </div>
                     <p><a href="/">Try again</a></p>
                 </body>
