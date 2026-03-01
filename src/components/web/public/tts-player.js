@@ -15,49 +15,30 @@ const token = queryParams.get('token');
  * Validate that a given URL string is safe to use as an <audio> source.
  * Only allow http/https URLs (https in production; http may be used for local testing)
  * and reject any other protocol such as javascript:, data:, etc.
+ *
+ * Returns the sanitized URL string (from the URL constructor) if safe, or null if unsafe.
  */
 function isSafeAudioUrl(url) {
-    if (typeof url !== 'string') {
-        return false;
+    if (typeof url !== 'string' || url.trim() === '') {
+        return null;
     }
 
     try {
-        // Allow absolute or relative URLs, but always resolve against the current origin.
-        // This prevents protocols like "javascript:" or "data:" from being accepted.
+        // Resolve against the current origin to prevent protocols like
+        // "javascript:" or "data:" from being accepted as relative URLs.
         const parsed = new URL(url, window.location.origin);
 
         // Only allow http and https schemes.
         if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            return false;
+            return null;
         }
 
-        // Additional optional hardening could be added here, such as:
-        // - Restricting to a specific hostname or path prefix
-        // - Enforcing HTTPS only in production
-
-        return true;
+        // Return the parsed href so callers use the sanitized URL, not the raw input.
+        return parsed.href;
     } catch (e) {
-        // If the URL constructor throws, the URL is malformed and therefore unsafe.
-        return false;
+        // Malformed URL
+        return null;
     }
-    const trimmed = url.trim();
-    if (trimmed === '') {
-        return false;
-    }
-    let parsed;
-    try {
-        // Use window.location.origin as base to support relative URLs if ever used.
-        parsed = new URL(trimmed, window.location.origin);
-    } catch (e) {
-        // Invalid URL format
-        return false;
-    }
-    // Allow only http and https protocols. In most deployments you may want to
-    // restrict to https: only; http: is kept here for local testing compatibility.
-    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-        return false;
-    }
-    return true;
 }
 
 let wsUrl;
@@ -119,8 +100,9 @@ function connectWebSocket() {
             console.log('TTS WebSocket received data:', data); // Log all received data
 
             if (data.type === 'playAudio' && data.url) {
-                if (isSafeAudioUrl(data.url)) {
-                    audioQueue.push(data.url);
+                const safeUrl = isSafeAudioUrl(data.url);
+                if (safeUrl) {
+                    audioQueue.push(safeUrl);
                     playNextInQueue();
                 } else {
                     console.warn('TTS WebSocket received unsafe audio URL, ignoring:', data.url);
@@ -137,9 +119,10 @@ function connectWebSocket() {
         } catch (e) {
             // This might be a direct URL string if your server doesn't always send JSON
             if (typeof event.data === 'string') {
-                if (isSafeAudioUrl(event.data)) { // Accept only validated http/https URLs
+                const safeDirectUrl = isSafeAudioUrl(event.data);
+                if (safeDirectUrl) { // Accept only validated http/https URLs
                     console.log('TTS WebSocket received direct audio URL:', event.data);
-                    audioQueue.push(event.data);
+                    audioQueue.push(safeDirectUrl);
                     playNextInQueue();
                 } else if (event.data === 'STOP_CURRENT_AUDIO') {
                     console.log('TTS WebSocket received STOP_CURRENT_AUDIO command');
@@ -185,8 +168,10 @@ function playNextInQueue() {
     const audioUrl = audioQueue.shift();
     console.log('Player: Attempting to play audio:', audioUrl);
 
-    // As a defensive measure, ensure the URL is still safe before using it.
-    if (!isSafeAudioUrl(audioUrl)) {
+    // As a defensive measure, re-validate the URL before assigning it to the audio element.
+    // isSafeAudioUrl returns the sanitized href or null.
+    const safeSrc = isSafeAudioUrl(audioUrl);
+    if (!safeSrc) {
         console.warn('Player: Skipping unsafe audio URL from queue:', audioUrl);
         isPlaying = false;
         // Try the next item in the queue, if any.
@@ -196,7 +181,7 @@ function playNextInQueue() {
 
     // Set volume based on content type (music vs TTS)
     // Music files are typically .wav format, TTS is typically .mp3
-    if (audioUrl.includes('.wav')) {
+    if (safeSrc.includes('.wav')) {
         // Likely music content - may need volume adjustment
         audioPlayer.volume = 0.8;
     } else {
@@ -204,7 +189,7 @@ function playNextInQueue() {
         audioPlayer.volume = 1.0;
     }
 
-    audioPlayer.src = audioUrl;
+    audioPlayer.src = safeSrc;
     audioPlayer.play()
         .then(() => console.log('Player: Playback started for:', audioUrl))
         .catch(e => {
