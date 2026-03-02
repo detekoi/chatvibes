@@ -175,32 +175,29 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
  * Get user access token for broadcaster from Firestore
  * This retrieves the broadcaster's OAuth token with channel:manage:redemptions scope
  */
-async function getBroadcasterAccessToken(channelLogin) {
+async function getBroadcasterAccessToken(broadcasterId) {
     try {
         // Dynamically import Firestore
         const { Firestore } = await import('@google-cloud/firestore');
         const db = new Firestore();
 
-        // Get user document from managedChannels collection
-        const userDoc = await db.collection('managedChannels').doc(channelLogin).get();
+        // Get user document from managedChannels collection (keyed by broadcaster ID)
+        const userDoc = await db.collection('managedChannels').doc(broadcasterId).get();
 
         if (!userDoc.exists) {
-            logger.warn({ channelLogin }, 'Broadcaster not found in managedChannels - cannot get user token');
+            logger.warn({ broadcasterId }, 'Broadcaster not found in managedChannels - cannot get user token');
             return null;
         }
 
         const userData = userDoc.data();
-        const { twitchUserId, needsTwitchReAuth } = userData;
+        const { needsTwitchReAuth } = userData;
 
         if (needsTwitchReAuth) {
-            logger.warn({ channelLogin }, 'Broadcaster needs to re-authenticate - cannot reject redemption');
+            logger.warn({ broadcasterId }, 'Broadcaster needs to re-authenticate - cannot reject redemption');
             return null;
         }
 
-        if (!twitchUserId) {
-            logger.warn({ channelLogin }, 'Broadcaster missing twitchUserId');
-            return null;
-        }
+        const twitchUserId = broadcasterId;
 
         // Get access token from Firestore (migrated from Secret Manager)
         const oauthDoc = await db.collection('users').doc(twitchUserId)
@@ -246,7 +243,7 @@ async function rejectRedemption(channelLogin, redemptionId, rewardId, reason) {
         const broadcasterId = users[0].id;
 
         // Get broadcaster's user access token (not app access token!)
-        const token = await getBroadcasterAccessToken(channelLogin);
+        const token = await getBroadcasterAccessToken(broadcasterId);
         if (!token) {
             logger.warn({
                 channelLogin,
