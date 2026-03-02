@@ -219,8 +219,9 @@ export async function eventSubHandler(req, res, rawBody) {
             }
 
             // Also announce the redemption via TTS if speakRedemptionEvents is enabled
+            const broadcasterId = event?.broadcaster_user_id;
             const channelLogin = (event?.broadcaster_user_login || event?.broadcaster_user_name)?.toLowerCase();
-            if (channelLogin && await isChannelAllowed(channelLogin)) {
+            if (broadcasterId && isChannelAllowed(broadcasterId)) {
                 try {
                     const redemptionTtsConfig = await getTtsState(channelLogin);
                     // Default to speakEvents value for backward compat, then true
@@ -239,14 +240,15 @@ export async function eventSubHandler(req, res, rawBody) {
         }
 
         // Common check for TTS-related events: Is channel allowed?
+        const broadcasterUserId = event?.broadcaster_user_id;
         const channelName = (
             event?.broadcaster_user_name ||
             event?.broadcaster_user_login ||
             event?.to_broadcaster_user_name
         )?.toLowerCase();
 
-        if (!channelName || !(await isChannelAllowed(channelName))) {
-            logger.debug({ channelName, type }, 'EventSub event for non-allowed channel - ignoring');
+        if (!broadcasterUserId || !isChannelAllowed(broadcasterUserId)) {
+            logger.debug({ channelName, broadcasterUserId, type }, 'EventSub event for non-allowed channel - ignoring');
             return;
         }
 

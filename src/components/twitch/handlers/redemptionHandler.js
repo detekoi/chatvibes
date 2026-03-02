@@ -31,9 +31,10 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
         userInputPreview: userInput?.substring(0, 30)
     }, 'Received Channel Points redemption event');
 
-    // Verify channel is allowed
-    if (!channelLogin || !(await isChannelAllowed(channelLogin))) {
-        logger.debug({ channelLogin, subscriptionType }, 'Channel Points event for non-allowed channel - ignoring');
+    // Verify channel is allowed (by broadcaster ID)
+    const broadcasterId = event?.broadcaster_user_id;
+    if (!broadcasterId || !isChannelAllowed(broadcasterId)) {
+        logger.debug({ channelLogin, broadcasterId, subscriptionType }, 'Channel Points event for non-allowed channel - ignoring');
         return;
     }
 

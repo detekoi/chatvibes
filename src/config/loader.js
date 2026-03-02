@@ -27,9 +27,9 @@ function loadConfig() {
     }
     // TWITCH_CHANNELS check can remain for local dev convenience
 
-    const allowedChannels = (process.env.ALLOWED_CHANNELS || '')
+    const allowedBroadcasterIds = (process.env.ALLOWED_CHANNELS || '')
         .split(',')
-        .map(ch => ch.trim().toLowerCase())
+        .map(id => id.trim())
         .filter(Boolean);
 
     // For Client ID and Secret, prefer environment variables for local dev,
@@ -59,7 +59,7 @@ function loadConfig() {
             accessToken: null, // Bot's user access token, populated at runtime by loadBotAccessToken()
         },
         security: {
-            allowedChannels,
+            allowedBroadcasterIds,
         },
         tts: {
             defaultVoiceId: process.env.TTS_DEFAULT_VOICE_ID || 'Friendly_Person',

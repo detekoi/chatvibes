@@ -2,7 +2,7 @@
 import { Firestore } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 
-import { getAllowedChannels } from '../../lib/allowList.js';
+import { getAllowedBroadcasterIds, setChannelIdMapping } from '../../lib/allowList.js';
 
 // --- Firestore Client Initialization ---
 let db = null; // Firestore database instance
@@ -91,28 +91,38 @@ export async function getActiveManagedChannels() {
         snapshot.forEach(doc => {
             const data = doc.data();
             if (data && typeof data.channelName === 'string') {
-                channels.push(data.channelName.toLowerCase());
+                const name = data.channelName.toLowerCase();
+                channels.push({ name, twitchUserId: data.twitchUserId || null });
+                // Populate name→ID cache for allow-list lookups
+                if (data.twitchUserId) {
+                    setChannelIdMapping(name, data.twitchUserId);
+                }
             } else {
                 logger.warn({ docId: doc.id }, `[ChannelManager] Document in managedChannels missing valid 'channelName'. Skipping.`);
             }
         });
 
-        // Apply allow-list filtering if configured
-        const allowList = getAllowedChannels();
-        const filtered = allowList.length > 0 ? channels.filter(ch => allowList.includes(ch)) : channels;
-
-        if (allowList.length > 0 && filtered.length !== channels.length) {
-            const blocked = channels.filter(ch => !allowList.includes(ch));
-            logger.info(`[ChannelManager] Allow-list active. Allowed: ${filtered.length}, Blocked: ${blocked.length}`);
-            if (blocked.length) {
-                logger.debug(`[ChannelManager] Blocked channels: ${blocked.join(', ')}`);
+        // Apply allow-list filtering by broadcaster ID if configured
+        const allowList = getAllowedBroadcasterIds();
+        let filtered;
+        if (allowList.length > 0) {
+            filtered = channels.filter(ch => ch.twitchUserId && allowList.includes(ch.twitchUserId));
+            if (filtered.length !== channels.length) {
+                const blocked = channels.filter(ch => !ch.twitchUserId || !allowList.includes(ch.twitchUserId));
+                logger.info(`[ChannelManager] Allow-list active. Allowed: ${filtered.length}, Blocked: ${blocked.length}`);
+                if (blocked.length) {
+                    logger.debug(`[ChannelManager] Blocked channels: ${blocked.map(ch => ch.name).join(', ')}`);
+                }
             }
+        } else {
+            filtered = channels;
         }
 
-        logger.info(`[ChannelManager] Successfully fetched ${filtered.length} active managed channels (post allow-list).`);
-        logger.debug(`[ChannelManager] Active channels: ${filtered.join(', ')}`);
+        const channelNames = filtered.map(ch => ch.name);
+        logger.info(`[ChannelManager] Successfully fetched ${channelNames.length} active managed channels (post allow-list).`);
+        logger.debug(`[ChannelManager] Active channels: ${channelNames.join(', ')}`);
 
-        return filtered;
+        return channelNames;
     } catch (error) {
         logger.error({ err: error }, "[ChannelManager] Error fetching active managed channels.");
         throw new ChannelManagerError("Failed to fetch active managed channels.", error);
@@ -162,6 +172,10 @@ export function listenForChannelChanges() {
             snapshot.docChanges().forEach(change => {
                 const channelData = change.doc.data();
                 if (channelData && typeof channelData.channelName === 'string') {
+                    // Populate name→ID cache for allow-list lookups
+                    if (channelData.twitchUserId) {
+                        setChannelIdMapping(channelData.channelName.toLowerCase(), channelData.twitchUserId);
+                    }
                     changes.push({
                         type: change.type,
                         channelName: channelData.channelName,
@@ -175,12 +189,12 @@ export function listenForChannelChanges() {
             if (changes.length > 0) {
                 logger.info(`[ChannelManager] Detected ${changes.length} channel management changes.`);
 
-                const allowList = getAllowedChannels();
+                const allowList = getAllowedBroadcasterIds();
                 const { subscribeChannelToTtsEvents } = await import('./twitchSubs.js');
                 const { getUsersByLogin } = await import('./helixClient.js');
 
                 for (const change of changes) {
-                    if (allowList.length > 0 && !allowList.includes(change.channelName.toLowerCase())) {
+                    if (allowList.length > 0 && (!change.twitchUserId || !allowList.includes(change.twitchUserId))) {
                         continue;
                     }
 

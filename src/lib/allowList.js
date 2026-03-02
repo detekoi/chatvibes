@@ -4,34 +4,61 @@ import { getSecretValue } from './secretManager.js';
 
 let allowListRefreshInterval = null;
 
+// In-memory cache: channel login name (lowercase) → Twitch User ID
+const channelNameToIdMap = new Map();
+
 /**
- * Returns true if the channel is permitted to use the bot.
+ * Returns true if the broadcaster is permitted to use the bot.
+ * Accepts either a Twitch User ID (numeric string) or a channel login name.
  * If no allow-list is configured, all channels are allowed.
  *
- * Configuration: process.env.ALLOWED_CHANNELS (comma-separated)
+ * Configuration: process.env.ALLOWED_CHANNELS (comma-separated broadcaster IDs)
  */
-export function isChannelAllowed(channelName) {
-  if (!channelName) return false;
-  const lower = channelName.toLowerCase();
-  const allowed = config.security?.allowedChannels;
+export function isChannelAllowed(identifier) {
+  if (!identifier) return false;
+  const allowed = config.security?.allowedBroadcasterIds;
   if (!Array.isArray(allowed) || allowed.length === 0) {
     // No allow-list configured → allow all (backward compatible)
     return true;
   }
-  return allowed.includes(lower);
+
+  // Direct match against broadcaster IDs
+  const normalized = String(identifier).trim();
+  if (allowed.includes(normalized)) {
+    return true;
+  }
+
+  // Fallback: if identifier looks like a login name, resolve via cache
+  const lower = normalized.toLowerCase();
+  const mappedId = channelNameToIdMap.get(lower);
+  if (mappedId && allowed.includes(mappedId)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
- * Returns the normalized list of allowed channels (lowercase).
+ * Returns the normalized list of allowed broadcaster IDs.
  */
-export function getAllowedChannels() {
-  const allowed = config.security?.allowedChannels;
+export function getAllowedBroadcasterIds() {
+  const allowed = config.security?.allowedBroadcasterIds;
   return Array.isArray(allowed) ? allowed : [];
 }
 
 /**
+ * Register a channel login name → Twitch User ID mapping for allow-list lookups.
+ * This allows isChannelAllowed() to resolve login names to IDs transparently.
+ */
+export function setChannelIdMapping(channelName, twitchUserId) {
+  if (channelName && twitchUserId) {
+    channelNameToIdMap.set(channelName.toLowerCase(), String(twitchUserId));
+  }
+}
+
+/**
  * Initialize/override the allow-list from a GCP Secret if configured.
- * The secret value should be a comma-separated list of channel names.
+ * The secret value should be a comma-separated list of Twitch broadcaster IDs.
  * If the secret is empty/unavailable, the existing env-based list is kept.
  */
 export async function initializeAllowList() {
@@ -42,11 +69,11 @@ export async function initializeAllowList() {
     if (!value) return;
     const fromSecret = value
       .split(',')
-      .map(ch => ch.trim().toLowerCase())
+      .map(id => id.trim())
       .filter(Boolean);
     if (fromSecret.length > 0) {
       if (!config.security) config.security = {};
-      config.security.allowedChannels = fromSecret;
+      config.security.allowedBroadcasterIds = fromSecret;
     }
   } catch (_e) {
     // Errors already logged in getSecretValue
@@ -71,7 +98,7 @@ export function startAllowListRefresh(intervalMinutes = 5) {
   }
 
   console.log(`[AllowList] Starting allowlist refresh (will refresh on IRC activity every ${intervalMinutes} minutes)`);
-  
+
   // Use a lighter approach - only refresh when there's actual activity
   allowListRefreshInterval = setInterval(async () => {
     console.log('[AllowList] Refreshing allowlist from secret...');
@@ -98,5 +125,7 @@ export function stopAllowListRefresh() {
   }
 }
 
-
-
+// --- Legacy compatibility shim ---
+// getAllowedChannels is kept as an alias for getAllowedBroadcasterIds
+// to minimize churn in consuming code.
+export const getAllowedChannels = getAllowedBroadcasterIds;
