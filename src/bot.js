@@ -1,6 +1,4 @@
-// src/bot.js
 import config from './config/index.js';
-import { initializeAllowList } from './lib/allowList.js';
 import logger from './lib/logger.js';
 
 // Core Twitch & Cloud
@@ -245,9 +243,6 @@ async function main() {
         // Initialize core components
         logger.info('WildcatTTS: Initializing Secret Manager...');
         initializeSecretManager();
-
-        // Initialize allow-list from secret if configured (before loading channels)
-        await initializeAllowList();
 
         logger.info('WildcatTTS: Initializing TTS State (Firestore)...');
         await initializeTtsState();

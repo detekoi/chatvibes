@@ -80,7 +80,6 @@ function loadConfig() {
         },
         secrets: {
             twitchBotRefreshTokenName: process.env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME,
-            allowedChannelsSecretName: process.env.ALLOWED_CHANNELS_SECRET_NAME,
             jwtSecret: process.env.JWT_SECRET || process.env.JWT_SECRET_KEY, // Support both env var names
         },
     };

@@ -8,7 +8,7 @@ import logger from '../../lib/logger.js';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import config from '../../config/index.js';
-import { isChannelAllowed, refreshAllowListOnDemand } from '../../lib/allowList.js';
+import { isChannelAllowed } from '../../lib/allowList.js';
 
 // Import TTS state management functions
 import {
@@ -196,9 +196,6 @@ async function handleApiRequest(req, res) {
             return handleEventSubSetup(req, res);
         }
 
-        if (req.url.startsWith('/api/admin/refresh-allowlist')) {
-            return handleAllowListRefresh(req, res);
-        }
 
         if (req.url.startsWith('/api/admin/secret-cleanup')) {
             return handleSecretCleanup(req, res);
@@ -403,33 +400,7 @@ async function handleTtsBannedWords(req, res, channelName, method) {
     }
 }
 
-// Admin endpoint for refreshing allowlist
-async function handleAllowListRefresh(req, res) {
-    if (req.method !== 'POST') {
-        return sendErrorResponse(res, 405, 'Method not allowed', req);
-    }
 
-    try {
-        // Simple auth check - require a secret header for basic security
-        const authHeader = req.headers['x-admin-secret'];
-        const expectedSecret = process.env.ADMIN_REFRESH_SECRET || 'change-me-in-production';
-
-        if (!authHeader || authHeader !== expectedSecret) {
-            return sendErrorResponse(res, 401, 'Invalid admin credentials', req);
-        }
-
-        logger.info('[AllowList] Admin refresh endpoint called');
-        await refreshAllowListOnDemand();
-
-        sendJsonResponse(res, 200, {
-            success: true,
-            message: 'Allowlist refreshed successfully'
-        });
-    } catch (error) {
-        logger.error({ err: error }, 'Error refreshing allowlist via admin endpoint');
-        sendErrorResponse(res, 500, 'Failed to refresh allowlist', req);
-    }
-}
 
 // Validation function for TTS settings
 async function validateTtsSetting(key, value) {

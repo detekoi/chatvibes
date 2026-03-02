@@ -2,7 +2,7 @@
 import { Firestore } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 
-import { getAllowedBroadcasterIds, setChannelIdMapping } from '../../lib/allowList.js';
+import { updateAllowedChannels, addAllowedChannel, removeAllowedChannel } from '../../lib/allowList.js';
 
 // --- Firestore Client Initialization ---
 let db = null; // Firestore database instance
@@ -91,35 +91,20 @@ export async function getActiveManagedChannels() {
         snapshot.forEach(doc => {
             const data = doc.data();
             if (data && typeof data.channelName === 'string') {
-                const name = data.channelName.toLowerCase();
-                channels.push({ name, twitchUserId: data.twitchUserId || null });
-                // Populate name→ID cache for allow-list lookups
-                if (data.twitchUserId) {
-                    setChannelIdMapping(name, data.twitchUserId);
-                }
+                channels.push({
+                    name: data.channelName.toLowerCase(),
+                    twitchUserId: data.twitchUserId || null
+                });
             } else {
                 logger.warn({ docId: doc.id }, `[ChannelManager] Document in managedChannels missing valid 'channelName'. Skipping.`);
             }
         });
 
-        // Apply allow-list filtering by broadcaster ID if configured
-        const allowList = getAllowedBroadcasterIds();
-        let filtered;
-        if (allowList.length > 0) {
-            filtered = channels.filter(ch => ch.twitchUserId && allowList.includes(ch.twitchUserId));
-            if (filtered.length !== channels.length) {
-                const blocked = channels.filter(ch => !ch.twitchUserId || !allowList.includes(ch.twitchUserId));
-                logger.info(`[ChannelManager] Allow-list active. Allowed: ${filtered.length}, Blocked: ${blocked.length}`);
-                if (blocked.length) {
-                    logger.debug(`[ChannelManager] Blocked channels: ${blocked.map(ch => ch.name).join(', ')}`);
-                }
-            }
-        } else {
-            filtered = channels;
-        }
+        // Populate the allow-list cache from Firestore (the single source of truth)
+        updateAllowedChannels(channels);
 
-        const channelNames = filtered.map(ch => ch.name);
-        logger.info(`[ChannelManager] Successfully fetched ${channelNames.length} active managed channels (post allow-list).`);
+        const channelNames = channels.map(ch => ch.name);
+        logger.info(`[ChannelManager] Successfully fetched ${channelNames.length} active managed channels.`);
         logger.debug(`[ChannelManager] Active channels: ${channelNames.join(', ')}`);
 
         return channelNames;
@@ -172,10 +157,6 @@ export function listenForChannelChanges() {
             snapshot.docChanges().forEach(change => {
                 const channelData = change.doc.data();
                 if (channelData && typeof channelData.channelName === 'string') {
-                    // Populate name→ID cache for allow-list lookups
-                    if (channelData.twitchUserId) {
-                        setChannelIdMapping(channelData.channelName.toLowerCase(), channelData.twitchUserId);
-                    }
                     changes.push({
                         type: change.type,
                         channelName: channelData.channelName,
@@ -189,13 +170,15 @@ export function listenForChannelChanges() {
             if (changes.length > 0) {
                 logger.info(`[ChannelManager] Detected ${changes.length} channel management changes.`);
 
-                const allowList = getAllowedBroadcasterIds();
                 const { subscribeChannelToTtsEvents } = await import('./twitchSubs.js');
                 const { getUsersByLogin } = await import('./helixClient.js');
 
                 for (const change of changes) {
-                    if (allowList.length > 0 && (!change.twitchUserId || !allowList.includes(change.twitchUserId))) {
-                        continue;
+                    // Update allow-list cache in real-time
+                    if (change.isActive && change.twitchUserId) {
+                        addAllowedChannel(change.channelName, change.twitchUserId);
+                    } else if (!change.isActive) {
+                        removeAllowedChannel(change.channelName, change.twitchUserId);
                     }
 
                     if ((change.type === 'added' || change.type === 'modified') && change.isActive) {
