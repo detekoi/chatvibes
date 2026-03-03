@@ -13,13 +13,61 @@ export function replaceEmojisWithText(text) {
 
     const regex = emojiRegex();
 
-    return text.replace(regex, (match) => {
-        const name = emojiToName[match];
-        if (name) {
-            // Replace underscores with spaces for better TTS pronunciation
-            const spokenName = name.replace(/_/g, ' ');
-            return `, ${spokenName} emoji, `;
+    // Collect all emoji matches with their positions
+    const matches = [];
+    let m;
+    while ((m = regex.exec(text)) !== null) {
+        matches.push({ emoji: m[0], index: m.index, length: m[0].length });
+    }
+
+    if (matches.length === 0) return text;
+
+    // Build output by walking through the text, collapsing consecutive identical emojis
+    let result = '';
+    let textCursor = 0;
+    let i = 0;
+
+    while (i < matches.length) {
+        const match = matches[i];
+
+        // Append any text before this emoji
+        result += text.slice(textCursor, match.index);
+
+        // Count consecutive runs of the same emoji (adjacent, no non-whitespace between them)
+        let count = 1;
+        let lookahead = i + 1;
+        let endPos = match.index + match.length;
+        while (lookahead < matches.length) {
+            const gap = text.slice(endPos, matches[lookahead].index);
+            // Allow only whitespace (or nothing) between consecutive identical emojis
+            if (gap.trim() === '' && matches[lookahead].emoji === match.emoji) {
+                count++;
+                endPos = matches[lookahead].index + matches[lookahead].length;
+                lookahead++;
+            } else {
+                break;
+            }
         }
-        return match; // If no mapping found, return original
-    });
+
+        const name = emojiToName[match.emoji];
+        if (name) {
+            const spokenName = name.replace(/_/g, ' ');
+            if (count > 1) {
+                result += `, ${count} ${spokenName} emojis, `;
+            } else {
+                result += `, ${spokenName} emoji, `;
+            }
+        } else {
+            // No mapping — keep original emoji(s)
+            result += text.slice(match.index, endPos);
+        }
+
+        textCursor = endPos;
+        i = lookahead;
+    }
+
+    // Append any remaining text after the last emoji
+    result += text.slice(textCursor);
+
+    return result;
 }

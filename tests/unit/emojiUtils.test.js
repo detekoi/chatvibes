@@ -23,5 +23,21 @@ describe('emojiUtils', () => {
             expect(replaceEmojisWithText(null)).toBe(null);
             expect(replaceEmojisWithText('')).toBe('');
         });
+
+        it('should collapse consecutive repeated emojis into a count', () => {
+            expect(replaceEmojisWithText('🔥🔥🔥')).toBe(', 3 fire emojis, ');
+        });
+
+        it('should collapse repeated emojis separated by whitespace', () => {
+            expect(replaceEmojisWithText('🔥 🔥 🔥')).toBe(', 3 fire emojis, ');
+        });
+
+        it('should not collapse different consecutive emojis', () => {
+            expect(replaceEmojisWithText('🔥😂')).toBe(', fire emoji, , joy emoji, ');
+        });
+
+        it('should handle mixed text and repeated emojis', () => {
+            expect(replaceEmojisWithText('wow 🔥🔥🔥 nice')).toBe('wow , 3 fire emojis,  nice');
+        });
     });
 });
