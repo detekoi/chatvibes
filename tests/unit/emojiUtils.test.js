@@ -39,5 +39,14 @@ describe('emojiUtils', () => {
         it('should handle mixed text and repeated emojis', () => {
             expect(replaceEmojisWithText('wow 🔥🔥🔥 nice')).toBe('wow , 3 fire emojis,  nice');
         });
+
+        it('should handle skin-tone modified emojis by falling back to base emoji', () => {
+            // 👴🏽 = older_man with medium skin tone (not in gemoji, but base 👴 is)
+            expect(replaceEmojisWithText('hello 👴🏽')).toBe('hello , older man emoji, ');
+        });
+
+        it('should collapse consecutive skin-tone modified emojis', () => {
+            expect(replaceEmojisWithText('👴🏽👴🏽👴🏽')).toBe(', 3 older man emojis, ');
+        });
     });
 });

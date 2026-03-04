@@ -49,7 +49,10 @@ export function replaceEmojisWithText(text) {
             }
         }
 
-        const name = emojiToName[match.emoji];
+        // Try exact match first, then strip skin tone modifiers (U+1F3FB–U+1F3FF)
+        // and variation selectors (U+FE0F) to fall back to the base emoji
+        const name = emojiToName[match.emoji]
+            || emojiToName[match.emoji.replace(/[\u{1F3FB}-\u{1F3FF}\u{FE0F}]/gu, '')];
         if (name) {
             const spokenName = name.replace(/_/g, ' ');
             if (count > 1) {
