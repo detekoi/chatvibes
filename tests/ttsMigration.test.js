@@ -19,9 +19,10 @@ describe('TTS Migration', () => {
             expect(getProviderForVoice('Chinese (Mandarin)_Reliable_Executive')).toBe('302');
         });
 
-        it('should return wavespeed for unsupported voices', () => {
-            expect(getProviderForVoice('Wise_Woman')).toBe('wavespeed'); // Legacy voice
-            expect(getProviderForVoice('Unknown_Voice')).toBe('wavespeed');
+        it('should return 302 for all voices including previously wavespeed-only', () => {
+            expect(getProviderForVoice('Wise_Woman')).toBe('302'); // Previously wavespeed-only
+            expect(getProviderForVoice('Young_Knight')).toBe('302'); // Previously wavespeed-only
+            expect(getProviderForVoice('Unknown_Voice')).toBe('302'); // All voices default to 302
         });
     });
 
@@ -74,45 +75,45 @@ describe('TTS Migration', () => {
             expect(url).toBe('https://302.ai/audio-alt.mp3');
         });
 
-        it('should call Wavespeed endpoint for legacy voice', async () => {
+        it('should call 302.ai endpoint for previously wavespeed-only voice', async () => {
             axios.mockResolvedValue({
                 data: {
                     data: {
-                        outputs: ['https://wavespeed.ai/audio.mp3'],
-                        status: 'completed'
+                        url: 'https://302.ai/audio.mp3'
                     }
                 }
             });
 
             const url = await generateSpeech('Hello', 'Wise_Woman');
 
-            expect(url).toBe('https://wavespeed.ai/audio.mp3');
+            expect(url).toBe('https://302.ai/audio.mp3');
             expect(axios).toHaveBeenCalledWith(expect.objectContaining({
-                url: expect.stringContaining('wavespeed.ai'),
+                url: expect.stringContaining('302.ai'),
                 data: expect.objectContaining({
-                    voice_id: 'Wise_Woman'
+                    model: 'speech-2.8-turbo',
+                    voice_setting: expect.objectContaining({
+                        voice_id: 'Wise_Woman'
+                    })
                 })
             }));
         });
 
-        it('should sanitize unsupported language boost for Wavespeed', async () => {
+        it('should pass language boost through to 302.ai for all voices', async () => {
             axios.mockResolvedValue({
                 data: {
                     data: {
-                        outputs: ['https://wavespeed.ai/audio.mp3'],
-                        status: 'completed'
+                        url: 'https://302.ai/audio.mp3'
                     }
                 }
             });
 
-            // 'Bulgarian' is supported by 302 but not Wavespeed
+            // 'Bulgarian' is supported by 302.ai
             await generateSpeech('Hello', 'Wise_Woman', { languageBoost: 'Bulgarian' });
 
             expect(axios).toHaveBeenCalledWith(expect.objectContaining({
-                url: expect.stringContaining('wavespeed.ai'),
+                url: expect.stringContaining('302.ai'),
                 data: expect.objectContaining({
-                    voice_id: 'Wise_Woman',
-                    language_boost: 'auto'
+                    language_boost: 'Bulgarian'
                 })
             }));
         });

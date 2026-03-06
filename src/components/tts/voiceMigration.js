@@ -182,14 +182,14 @@ export const T302_SUPPORTED_VOICE_IDS = [
 
 /**
  * Determines which provider to use for a given voice ID.
+ * All voices are routed to 302.ai (speech-2.8-turbo) as the primary provider.
+ * Verified 2026-03-06: all 475 voices (including former "Wavespeed-only" voices)
+ * work on 302.ai. Wavespeed fallback is handled by retry logic in generateSpeech().
  * @param {string} voiceId - The voice ID to check.
  * @returns {'302'|'wavespeed'} - The provider to use.
  */
 export function getProviderForVoice(voiceId) {
-    if (T302_SUPPORTED_VOICE_IDS.includes(voiceId)) {
-        return '302';
-    }
-    return 'wavespeed';
+    return '302';
 }
 
 // Supported language boost options for 302.ai (speech-2.8-turbo)
