@@ -67,7 +67,7 @@ ${both.map(v => `- ${v}`).join('\n')}
 ## Voices Only on Wavespeed (speech-02-turbo)
 ${only02.map(v => `- ${v}`).join('\n')}
 
-## Voices Only on 302.ai (speech-2.6-turbo)
+## Voices Only on 302.ai (speech-2.8-turbo)
 ${only26.map(v => `- ${v}`).join('\n')}
 `;
 

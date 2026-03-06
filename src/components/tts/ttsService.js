@@ -149,7 +149,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
   const startTime = Date.now();
 
   const input = {
-    model: 'speech-2.6-turbo',
+    model: 'speech-2.8-turbo',
     text,
     stream: false,
     voice_setting: {

@@ -1,9 +1,9 @@
 /**
  * Voice Migration Helper
- * Manages the migration of voices from Wavespeed (speech-02-turbo) to 302.ai (speech-2.6-turbo).
+ * Manages the migration of voices from Wavespeed (speech-02-turbo) to 302.ai (speech-2.8-turbo).
  */
 
-// List of voice IDs supported by 302.ai / Minimax speech-2.6-turbo
+// List of voice IDs supported by 302.ai / Minimax speech-2.8-turbo
 // Source: https://platform.minimax.io/docs/faq/system-voice-id.md
 export const T302_SUPPORTED_VOICE_IDS = [
     // English
@@ -192,7 +192,7 @@ export function getProviderForVoice(voiceId) {
     return 'wavespeed';
 }
 
-// Supported language boost options for 302.ai (speech-2.6-turbo)
+// Supported language boost options for 302.ai (speech-2.8-turbo)
 export const T302_LANGUAGE_BOOST_OPTIONS = [
     "Chinese", "Chinese,Yue", "English", "Arabic", "Russian", "Spanish", "French", "Portuguese",
     "German", "Turkish", "Dutch", "Ukrainian", "Vietnamese", "Indonesian", "Japanese", "Italian",

@@ -48,7 +48,7 @@ describe('TTS Migration', () => {
             expect(axios).toHaveBeenCalledWith(expect.objectContaining({
                 url: expect.stringContaining('302.ai'),
                 data: expect.objectContaining({
-                    model: 'speech-2.6-turbo',
+                    model: 'speech-2.8-turbo',
                     voice_setting: expect.objectContaining({
                         voice_id: 'English_expressive_narrator'
                     })
