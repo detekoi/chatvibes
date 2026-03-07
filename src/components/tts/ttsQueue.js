@@ -21,6 +21,7 @@ const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
 
 const channelQueues = new Map();
 const MAX_QUEUE_LENGTH = 50;
+const PREFETCH_AHEAD = 2; // Number of queued items to prefetch concurrently
 
 export function getOrCreateChannelQueue(channelName) {
     if (!channelQueues.has(channelName)) {
@@ -31,6 +32,7 @@ export function getOrCreateChannelQueue(channelName) {
             currentSpeechUrl: null,
             currentSpeechController: null,
             currentUserSpeaking: null, // Tracks who/what triggered the current/last speech
+            prefetchResults: new Map(), // event -> { promise: Promise<url>, controller: AbortController }
         });
     }
     return channelQueues.get(channelName);
@@ -122,6 +124,52 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     processQueue(channelName);
 }
 
+/**
+ * Start prefetching speech generation for upcoming queued items.
+ * Called after a message starts processing so the next N items
+ * have their API calls running in parallel.
+ */
+function startPrefetch(channelName) {
+    const cq = getOrCreateChannelQueue(channelName);
+    if (cq.isPaused || cq.queue.length === 0) return;
+
+    const count = Math.min(PREFETCH_AHEAD, cq.queue.length);
+    for (let i = 0; i < count; i++) {
+        const event = cq.queue[i];
+        if (cq.prefetchResults.has(event)) continue; // Already prefetching this item
+
+        const controller = new AbortController();
+        const promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
+            ...event.voiceConfig,
+            signal: controller.signal
+        }).catch(err => {
+            // Swallow abort errors; log others as warnings.
+            // processQueue will handle the null result gracefully.
+            if (err.name !== 'AbortError' && err.name !== 'CanceledError') {
+                logger.warn({ err, channel: channelName, text: event.text.substring(0, 30) }, 'Prefetch generation failed');
+            }
+            return null;
+        });
+
+        cq.prefetchResults.set(event, { promise, controller });
+        logger.debug(`[${channelName}] Started prefetch for "${event.text.substring(0, 30)}..." by ${event.user || 'event_tts'}`);
+    }
+}
+
+/**
+ * Abort and clear all active prefetch requests for a channel.
+ */
+function cancelAllPrefetches(channelName) {
+    const cq = getOrCreateChannelQueue(channelName);
+    if (cq.prefetchResults.size === 0) return;
+
+    for (const [, { controller }] of cq.prefetchResults) {
+        controller.abort();
+    }
+    logger.debug(`[${channelName}] Cancelled ${cq.prefetchResults.size} active prefetch(es)`);
+    cq.prefetchResults.clear();
+}
+
 export async function processQueue(channelName) {
     const cq = getOrCreateChannelQueue(channelName);
 
@@ -136,6 +184,12 @@ export async function processQueue(channelName) {
     if (!hasActiveClients(channelName)) {
         // This is expected in multi-instance setups - only instances with WebSocket clients process messages
         logger.debug(`[${channelName}] Skipping TTS generation for ${event.user || 'event_tts'} - no active WebSocket clients. Message will be processed by instance with active clients.`);
+        // Clean up any prefetch for this event since we are skipping it
+        const prefetched = cq.prefetchResults.get(event);
+        if (prefetched) {
+            prefetched.controller.abort();
+            cq.prefetchResults.delete(event);
+        }
         cq.isProcessing = false;
         // Continue processing queue in case clients reconnect
         if (!cq.isPaused && cq.queue.length > 0) {
@@ -153,19 +207,37 @@ export async function processQueue(channelName) {
     cq.currentSpeechUrl = null;
     cq.currentUserSpeaking = event.user || 'event_tts'; // Set user for the current item
 
-    const controller = new AbortController();
-    cq.currentSpeechController = controller; // Assign new controller for the current speech generation
+    // Start prefetching upcoming items while we process the current one
+    startPrefetch(channelName);
 
     logger.info(`[${channelName}] Processing TTS for ${cq.currentUserSpeaking} (Voice: ${event.voiceConfig.voiceId}, Emotion: ${event.voiceConfig.emotion}, Lang: ${event.voiceConfig.languageBoost}): "${event.text.substring(0, 30)}..."`);
 
     try {
-        const audioUrl = await generateSpeech(event.text, event.voiceConfig.voiceId, { ...event.voiceConfig, signal: controller.signal });
+        let audioUrl;
 
-        // Check if this specific generation was aborted
-        if (controller.signal.aborted) {
-            logger.info(`[${channelName}] Speech generation for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} was aborted while processing.`);
-            // currentSpeechUrl is already null, currentUserSpeaking will be cleared in finally if controller matches
-        } else if (audioUrl) {
+        // Check if this event was already prefetched
+        const prefetched = cq.prefetchResults.get(event);
+        if (prefetched) {
+            cq.prefetchResults.delete(event);
+            // The prefetch controller is separate — we don't assign it to
+            // currentSpeechController because the request is already in-flight.
+            // If stopCurrentSpeech is called, cancelAllPrefetches handles it.
+            logger.debug(`[${channelName}] Using prefetched result for "${event.text.substring(0, 30)}..."`);
+            audioUrl = await prefetched.promise;
+        } else {
+            // No prefetch available — generate normally with a new controller
+            const controller = new AbortController();
+            cq.currentSpeechController = controller;
+            audioUrl = await generateSpeech(event.text, event.voiceConfig.voiceId, { ...event.voiceConfig, signal: controller.signal });
+
+            // Check if this specific generation was aborted
+            if (controller.signal.aborted) {
+                logger.info(`[${channelName}] Speech generation for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} was aborted while processing.`);
+                audioUrl = null;
+            }
+        }
+
+        if (audioUrl) {
             cq.currentSpeechUrl = audioUrl;
             // currentUserSpeaking is already set for this audio
 
@@ -190,9 +262,9 @@ export async function processQueue(channelName) {
                 logger.info(`[${channelName}] Sent audio URL to web for ${cq.currentUserSpeaking}: ${audioUrl}`);
             }
         } else {
-            // No URL and not aborted - issue in generateSpeech or Wavespeed API
-            logger.warn(`[${channelName}] generateSpeech returned no URL for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} and was not aborted.`);
-            // currentSpeechUrl remains null, currentUserSpeaking will be cleared in finally if controller matches
+            // No URL — issue in generateSpeech, prefetch failure, or aborted
+            logger.warn(`[${channelName}] generateSpeech returned no URL for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking}.`);
+            // currentSpeechUrl remains null, currentUserSpeaking will be cleared in finally
         }
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -205,7 +277,7 @@ export async function processQueue(channelName) {
     } finally {
         // Only nullify the controller if it's the one we just used for this task
         // and it hasn't already been nulled by a concurrent stopCurrentSpeech call.
-        if (cq.currentSpeechController === controller) {
+        if (cq.currentSpeechController) {
             cq.currentSpeechController = null;
         }
 
@@ -236,6 +308,9 @@ export async function stopCurrentSpeech(channelName) {
     logger.info(`[${channelName}] Attempting to stop current speech. Speaker: ${cq.currentUserSpeaking}, URL: ${cq.currentSpeechUrl}, Controller: ${!!cq.currentSpeechController}`);
 
     let stoppedSomethingSignificant = false;
+
+    // Abort all active prefetches — no point generating audio for upcoming items
+    cancelAllPrefetches(channelName);
 
     // If there's an active generation controller, abort it
     if (cq.currentSpeechController) {
@@ -284,6 +359,8 @@ export async function clearQueue(channelName) {
     const cq = getOrCreateChannelQueue(channelName);
     const itemsCleared = cq.queue.length;
     cq.queue = []; // Clear pending items
+    // Abort all active prefetches since their queue items are now gone
+    cancelAllPrefetches(channelName);
     logger.info(`[${channelName}] TTS queue cleared of ${itemsCleared} pending messages. This does not stop actively playing/generating audio.`);
     // Does NOT affect cq.currentSpeechUrl, cq.currentUserSpeaking, or cq.currentSpeechController
 }

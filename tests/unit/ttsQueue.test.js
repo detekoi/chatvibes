@@ -106,6 +106,8 @@ describe('ttsQueue module', () => {
       expect(queue.isProcessing).toBe(false);
       expect(queue.currentSpeechUrl).toBeNull();
       expect(queue.currentUserSpeaking).toBeNull();
+      expect(queue.prefetchResults).toBeInstanceOf(Map);
+      expect(queue.prefetchResults.size).toBe(0);
     });
 
     test('should return existing queue for channel', () => {
@@ -550,6 +552,111 @@ describe('ttsQueue module', () => {
       expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith('channel1', audioUrl);
       expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith('channel2', audioUrl);
       expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith('channel3', audioUrl);
+    });
+  });
+
+  describe('prefetch (look-ahead)', () => {
+    test('should prefetch upcoming queued items when processing starts', async () => {
+      // Use a deferred promise for the first call so we can inspect prefetch behavior
+      let resolveFirst;
+      const firstPromise = new Promise(resolve => { resolveFirst = resolve; });
+      mockTtsService.generateSpeech
+        .mockReturnValueOnce(firstPromise)
+        .mockResolvedValueOnce('http://example.com/audio2.mp3')
+        .mockResolvedValueOnce('http://example.com/audio3.mp3');
+
+      // Pause, enqueue 3 items, then resume
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      for (let i = 1; i <= 3; i++) {
+        await ttsQueue.enqueue(TEST_CHANNEL, {
+          text: `Message ${i}`,
+          user: TEST_USER
+        });
+      }
+      await ttsQueue.resumeQueue(TEST_CHANNEL);
+
+      // Give processQueue a tick to start
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // First call is the current item; the next 2 are prefetches
+      // generateSpeech should have been called 3 times (1 current + 2 prefetch)
+      expect(mockTtsService.generateSpeech).toHaveBeenCalledTimes(3);
+
+      // Resolve first to let queue continue
+      resolveFirst('http://example.com/audio1.mp3');
+    });
+
+    test('should reuse prefetched result instead of calling generateSpeech again', async () => {
+      const audioUrl1 = 'http://example.com/audio1.mp3';
+      const audioUrl2 = 'http://example.com/audio2.mp3';
+
+      mockTtsService.generateSpeech
+        .mockResolvedValueOnce(audioUrl1)
+        .mockResolvedValueOnce(audioUrl2);
+
+      // Pause, enqueue 2 items, resume
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'First', user: TEST_USER });
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Second', user: TEST_USER });
+      await ttsQueue.resumeQueue(TEST_CHANNEL);
+
+      // Wait for both to be processed
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // generateSpeech should only be called twice total (once for current + once for prefetch)
+      // NOT 3 times (which would mean the prefetched result was ignored)
+      expect(mockTtsService.generateSpeech).toHaveBeenCalledTimes(2);
+      expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith(TEST_CHANNEL, audioUrl1);
+      expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith(TEST_CHANNEL, audioUrl2);
+    });
+
+    test('should abort prefetches when clearQueue is called', async () => {
+      // Use deferred promise to keep processing blocked
+      let resolveFirst;
+      const firstPromise = new Promise(resolve => { resolveFirst = resolve; });
+      mockTtsService.generateSpeech
+        .mockReturnValueOnce(firstPromise)
+        .mockResolvedValueOnce('http://example.com/audio2.mp3');
+
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'First', user: TEST_USER });
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Second', user: TEST_USER });
+      await ttsQueue.resumeQueue(TEST_CHANNEL);
+
+      // Let prefetch start
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Clear the queue — should abort prefetches
+      await ttsQueue.clearQueue(TEST_CHANNEL);
+
+      const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
+      expect(queue.prefetchResults.size).toBe(0);
+
+      // Resolve first to unblock
+      resolveFirst('http://example.com/audio1.mp3');
+    });
+
+    test('should continue processing when a prefetch fails', async () => {
+      const audioUrl1 = 'http://example.com/audio1.mp3';
+
+      mockTtsService.generateSpeech
+        .mockResolvedValueOnce(audioUrl1)
+        .mockRejectedValueOnce(new Error('API Error'));
+
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'First', user: TEST_USER });
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Second (will fail)', user: TEST_USER });
+      await ttsQueue.resumeQueue(TEST_CHANNEL);
+
+      // Wait for processing
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // First should succeed, second should fail gracefully
+      expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith(TEST_CHANNEL, audioUrl1);
+      // Queue should be empty and not stuck
+      const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
+      expect(queue.queue).toHaveLength(0);
+      expect(queue.isProcessing).toBe(false);
     });
   });
 
