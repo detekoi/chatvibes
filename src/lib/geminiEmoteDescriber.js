@@ -1,6 +1,7 @@
 // src/lib/geminiEmoteDescriber.js
 // Uses Google Gemini Flash Lite to describe Twitch emotes visually for TTS accessibility
 import { GoogleGenAI } from '@google/genai';
+import { Firestore } from '@google-cloud/firestore';
 import sharp from 'sharp';
 import logger from './logger.js';
 import { getUsersById } from '../components/twitch/helixClient.js';
@@ -13,9 +14,13 @@ const MAX_GIF_FRAMES = 3; // Number of evenly-spaced frames to sample from anima
 const GEMINI_TIMEOUT_MS = 8000;
 const ANIMATED_GEMINI_TIMEOUT_MS = 12000; // Animated emotes need more time for multi-image inference
 
-// In-memory cache: emoteId -> { description, cachedAt }
+// In-memory cache (L1): emoteId -> { description, cachedAt }
 const descriptionCache = new Map();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+// Firestore persistent cache (L2): emoteDescriptions collection
+const EMOTE_DESCRIPTIONS_COLLECTION = 'emoteDescriptions';
+let emoteDescriptionsDb = null;
 
 // In-memory cache: ownerId -> { displayName, cachedAt }
 const ownerNameCache = new Map();
@@ -37,6 +42,21 @@ export function initGeminiClient(apiKey) {
         return true;
     } catch (error) {
         logger.error({ err: error }, 'Failed to initialize Gemini client');
+        return false;
+    }
+}
+
+/**
+ * Initialize the Firestore client for persistent emote description storage.
+ * Call once during bot startup.
+ */
+export function initEmoteDescriptionStore() {
+    try {
+        emoteDescriptionsDb = new Firestore();
+        logger.info('Emote description Firestore store initialized');
+        return true;
+    } catch (error) {
+        logger.error({ err: error }, 'Failed to initialize emote description Firestore store');
         return false;
     }
 }
@@ -153,10 +173,12 @@ async function fetchAnimatedEmoteFrames(emoteId) {
 
 /**
  * Get a cached description for an emote, or null if not cached/expired.
+ * Checks L1 (in-memory) first, then L2 (Firestore).
  * @param {string} emoteId
- * @returns {string | null}
+ * @returns {Promise<string | null>}
  */
-function getCachedDescription(emoteId) {
+async function getCachedDescription(emoteId) {
+    // L1: in-memory cache
     const cached = descriptionCache.get(emoteId);
     if (cached && (Date.now() - cached.cachedAt) < CACHE_TTL_MS) {
         return cached.description;
@@ -164,16 +186,162 @@ function getCachedDescription(emoteId) {
     if (cached) {
         descriptionCache.delete(emoteId);
     }
+
+    // L2: Firestore persistent cache
+    if (emoteDescriptionsDb) {
+        try {
+            const doc = await emoteDescriptionsDb
+                .collection(EMOTE_DESCRIPTIONS_COLLECTION)
+                .doc(emoteId)
+                .get();
+            if (doc.exists) {
+                const data = doc.data();
+                if (data.description) {
+                    // Populate L1 from L2 hit
+                    descriptionCache.set(emoteId, { description: data.description, cachedAt: Date.now() });
+                    logger.debug({ emoteId, emoteName: data.emoteName }, 'Emote description loaded from Firestore cache');
+                    return data.description;
+                }
+            }
+        } catch (error) {
+            logger.debug({ err: error.message, emoteId }, 'Firestore emote description lookup failed, falling through');
+        }
+    }
+
     return null;
 }
 
 /**
- * Cache a description for an emote.
+ * Cache a description for an emote in L1 (in-memory) and L2 (Firestore).
+ * Firestore write is fire-and-forget to avoid blocking TTS.
  * @param {string} emoteId 
- * @param {string} description 
+ * @param {string} description
+ * @param {string} [emoteName] - The text name of the emote for metadata
  */
-function cacheDescription(emoteId, description) {
+function cacheDescription(emoteId, description, emoteName) {
+    // L1: in-memory
     descriptionCache.set(emoteId, { description, cachedAt: Date.now() });
+
+    // L2: Firestore (fire-and-forget)
+    if (emoteDescriptionsDb) {
+        emoteDescriptionsDb
+            .collection(EMOTE_DESCRIPTIONS_COLLECTION)
+            .doc(emoteId)
+            .set({ description, emoteName: emoteName || null, updatedAt: Firestore.FieldValue.serverTimestamp() }, { merge: true })
+            .catch(error => logger.debug({ err: error.message, emoteId }, 'Firestore emote description write failed'));
+    }
+}
+
+/**
+ * Invalidate (delete) a cached emote description from both L1 and L2.
+ * Used by the regeneration command.
+ * @param {string} emoteId
+ * @returns {Promise<boolean>} true if Firestore deletion succeeded
+ */
+export async function invalidateEmoteDescription(emoteId) {
+    // L1: in-memory
+    descriptionCache.delete(emoteId);
+
+    // L2: Firestore
+    if (emoteDescriptionsDb) {
+        try {
+            await emoteDescriptionsDb
+                .collection(EMOTE_DESCRIPTIONS_COLLECTION)
+                .doc(emoteId)
+                .delete();
+            logger.info({ emoteId }, 'Emote description invalidated from Firestore');
+            return true;
+        } catch (error) {
+            logger.error({ err: error.message, emoteId }, 'Failed to invalidate emote description from Firestore');
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Manually set an emote description in both L1 and L2 caches.
+ * Used by the `!tts emote set` command.
+ * @param {string} emoteId
+ * @param {string} emoteName
+ * @param {string} description
+ * @returns {Promise<boolean>} true if Firestore write succeeded
+ */
+export async function setEmoteDescription(emoteId, emoteName, description) {
+    // L1: in-memory
+    descriptionCache.set(emoteId, { description, cachedAt: Date.now() });
+
+    // L2: Firestore
+    if (emoteDescriptionsDb) {
+        try {
+            await emoteDescriptionsDb
+                .collection(EMOTE_DESCRIPTIONS_COLLECTION)
+                .doc(emoteId)
+                .set({ description, emoteName, updatedAt: Firestore.FieldValue.serverTimestamp() }, { merge: true });
+            logger.info({ emoteId, emoteName, description }, 'Emote description manually set in Firestore');
+            return true;
+        } catch (error) {
+            logger.error({ err: error.message, emoteId }, 'Failed to set emote description in Firestore');
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Get a stored emote description from Firestore by emote ID.
+ * @param {string} emoteId
+ * @returns {Promise<{description: string, emoteName: string, updatedAt: Date} | null>}
+ */
+export async function getStoredEmoteDescription(emoteId) {
+    if (!emoteDescriptionsDb) return null;
+    try {
+        const doc = await emoteDescriptionsDb
+            .collection(EMOTE_DESCRIPTIONS_COLLECTION)
+            .doc(emoteId)
+            .get();
+        if (doc.exists) {
+            const data = doc.data();
+            return {
+                description: data.description,
+                emoteName: data.emoteName || null,
+                updatedAt: data.updatedAt?.toDate() || null,
+            };
+        }
+        return null;
+    } catch (error) {
+        logger.debug({ err: error.message, emoteId }, 'Failed to read emote description from Firestore');
+        return null;
+    }
+}
+
+/**
+ * Find emote descriptions by emote name (case-insensitive search).
+ * Returns all matching documents.
+ * @param {string} emoteName
+ * @returns {Promise<Array<{emoteId: string, description: string, emoteName: string}>>}
+ */
+export async function findEmoteDescriptionsByName(emoteName) {
+    if (!emoteDescriptionsDb) return [];
+    try {
+        const snapshot = await emoteDescriptionsDb
+            .collection(EMOTE_DESCRIPTIONS_COLLECTION)
+            .where('emoteName', '==', emoteName)
+            .get();
+        const results = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            results.push({
+                emoteId: doc.id,
+                description: data.description,
+                emoteName: data.emoteName,
+            });
+        });
+        return results;
+    } catch (error) {
+        logger.debug({ err: error.message, emoteName }, 'Firestore emote name search failed');
+        return [];
+    }
 }
 
 /**
@@ -250,8 +418,8 @@ function buildEmoteContext(emoteName, ownerName) {
  * @returns {Promise<string | null>}
  */
 async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnimated = false) {
-    // Check cache first
-    const cached = getCachedDescription(emoteId);
+    // Check cache first (L1 in-memory, then L2 Firestore)
+    const cached = await getCachedDescription(emoteId);
     if (cached) return cached;
 
     if (!genAI) return null;
@@ -309,7 +477,7 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnima
 
         const description = response.text?.trim().replace(/[.!?,;:]+$/g, '');
         if (description) {
-            cacheDescription(emoteId, description);
+            cacheDescription(emoteId, description, emoteName);
             logger.debug({ emoteId, emoteName, ownerName, isAnimated, animatedSuccess, description }, 'Emote described by Gemini');
             return description;
         }
@@ -334,7 +502,7 @@ async function describeBatchEmotes(emoteEntries) {
     // Separate cached vs uncached 
     const uncached = [];
     for (const [emoteId, emoteName, ownerName, isAnimated] of emoteEntries) {
-        const cached = getCachedDescription(emoteId);
+        const cached = await getCachedDescription(emoteId);
         if (cached) {
             results.set(emoteId, cached);
         } else {
@@ -428,7 +596,7 @@ async function describeBatchEmotes(emoteEntries) {
                         const desc = match[2].replace(/^["']|["']$/g, '').replace(/[.!?,;:]+$/g, '').trim();
                         if (idx >= 0 && idx < group.length && desc) {
                             const emoteId = group[idx].emoteId;
-                            cacheDescription(emoteId, desc);
+                            cacheDescription(emoteId, desc, group[idx].emoteName);
                             results.set(emoteId, desc);
                         }
                     }

@@ -28,6 +28,7 @@ import say from '../tts/say.js';
 import bitsconfig from '../tts/bits.js';
 import permission from '../tts/permission.js';
 import preferences from '../tts/preferences.js';
+import emoteCmd from '../tts/emote.js';
 import { hasPermission } from '../commandProcessor.js'; // Import the centralized function
 // Create subcommands object
 const ttsSubCommands = {
@@ -64,6 +65,7 @@ const ttsSubCommands = {
     preferences,
     prefs: preferences,
     settings: preferences,
+    emote: emoteCmd,
 };
 
 export default {
