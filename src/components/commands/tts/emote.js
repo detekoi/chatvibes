@@ -76,14 +76,14 @@ export default {
                 }
 
                 logger.info({ emoteName, cleared, total: matches.length, user: user.username }, 'Emote description(s) regenerated via command');
-                enqueueMessage(channel, `Cleared ${cleared} cached description${cleared !== 1 ? 's' : ''} for "${emoteName}". It will be re-described by AI next time it appears.`, { replyToId });
+                enqueueMessage(channel, `Cleared ${cleared} cached description${cleared !== 1 ? 's' : ''} for "${emoteName}". It will be re-described next time it appears.`, { replyToId });
             } else {
                 // View mode: treat all args as emote name
                 const emoteName = args.join(' ');
                 const matches = await findEmoteDescriptionsByName(emoteName);
 
                 if (matches.length === 0) {
-                    enqueueMessage(channel, `No cached description found for "${emoteName}". It will be described by AI when it next appears in chat.`, { replyToId });
+                    enqueueMessage(channel, `No cached description found for "${emoteName}". It will be described when it next appears in chat.`, { replyToId });
                     return;
                 }
 
