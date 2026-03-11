@@ -268,19 +268,22 @@ export async function invalidateEmoteDescription(emoteId) {
  * @param {string} emoteId
  * @param {string} emoteName
  * @param {string} description
+ * @param {string} [ownerId] - The Twitch user ID of the emote owner
  * @returns {Promise<boolean>} true if Firestore write succeeded
  */
-export async function setEmoteDescription(emoteId, emoteName, description) {
+export async function setEmoteDescription(emoteId, emoteName, description, ownerId) {
     // L1: in-memory
     descriptionCache.set(emoteId, { description, cachedAt: Date.now() });
 
     // L2: Firestore
     if (emoteDescriptionsDb) {
         try {
+            const data = { description, emoteName, updatedAt: Firestore.FieldValue.serverTimestamp() };
+            if (ownerId !== undefined) data.ownerId = ownerId;
             await emoteDescriptionsDb
                 .collection(EMOTE_DESCRIPTIONS_COLLECTION)
                 .doc(emoteId)
-                .set({ description, emoteName, updatedAt: Firestore.FieldValue.serverTimestamp() }, { merge: true });
+                .set(data, { merge: true });
             logger.info({ emoteId, emoteName, description }, 'Emote description manually set in Firestore');
             return true;
         } catch (error) {

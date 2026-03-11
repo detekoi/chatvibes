@@ -57,6 +57,7 @@ describe('Emote Description Firestore Cache', () => {
         jest.unstable_mockModule('../../src/components/twitch/helixClient.js', () => ({
             getUsersById: jest.fn().mockResolvedValue([]),
             getUsersByLogin: jest.fn().mockResolvedValue([{ id: '12345', login: 'testchannel', display_name: 'TestChannel' }]),
+            getChannelEmotes: jest.fn().mockResolvedValue([]),
         }));
     });
 
@@ -355,7 +356,7 @@ describe('Emote TTS Subcommand', () => {
             replyToId: '123',
         });
 
-        expect(mockEmoteDescriber.setEmoteDescription).toHaveBeenCalledWith('e1', 'LUL', 'laughing face');
+        expect(mockEmoteDescriber.setEmoteDescription).toHaveBeenCalledWith('e1', 'LUL', 'laughing face', '12345');
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
             '#testchannel',
             expect.stringContaining('Updated 1'),
@@ -376,7 +377,7 @@ describe('Emote TTS Subcommand', () => {
         expect(mockEmoteDescriber.setEmoteDescription).not.toHaveBeenCalled();
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
             '#testchannel',
-            expect.stringContaining('No cached entry'),
+            expect.stringContaining('is not a channel emote'),
             { replyToId: '123' }
         );
     });

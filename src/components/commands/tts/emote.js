@@ -2,37 +2,17 @@
 // View, regenerate, and manually set cached emote descriptions
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import { findEmoteDescriptionsByName, invalidateEmoteDescription, setEmoteDescription } from '../../../lib/geminiEmoteDescriber.js';
-import { getUsersByLogin } from '../../twitch/helixClient.js';
+import { getChannelEmotes, getUsersByLogin } from '../../twitch/helixClient.js';
 import logger from '../../../lib/logger.js';
 
 /**
- * Check if all matched emotes belong to the given channel's broadcaster.
- * Global emotes (ownerId "0" or null) are not owned by any channel.
- * @param {Array<{emoteId: string, ownerId: string|null}>} matches
+ * Resolve the channel's broadcaster user ID from the channel name.
  * @param {string} channelNameNoHash
- * @returns {Promise<{allowed: boolean, reason: string|null}>}
+ * @returns {Promise<string|null>} The broadcaster user ID, or null
  */
-async function checkChannelOwnership(matches, channelNameNoHash) {
-    // Look up the channel's broadcaster user ID
+async function getBroadcasterId(channelNameNoHash) {
     const users = await getUsersByLogin([channelNameNoHash]);
-    if (!users || users.length === 0) {
-        return { allowed: false, reason: 'Could not look up channel info.' };
-    }
-    const broadcasterUserId = users[0].id;
-
-    // Check that at least one match belongs to this channel
-    const channelEmotes = matches.filter(m => m.ownerId === broadcasterUserId);
-    const globalEmotes = matches.filter(m => !m.ownerId || m.ownerId === '0');
-
-    if (channelEmotes.length === 0) {
-        if (globalEmotes.length > 0) {
-            return { allowed: false, reason: 'Global emotes cannot be manually modified — they are described automatically.' };
-        }
-        return { allowed: false, reason: 'That emote does not belong to this channel.' };
-    }
-
-    // Return only the channel-owned matches
-    return { allowed: true, reason: null, channelEmotes };
+    return users?.[0]?.id || null;
 }
 
 export default {
@@ -70,29 +50,52 @@ export default {
                     return;
                 }
 
-                // Find existing entries for this emote name
+                // Resolve broadcaster ID once for ownership checks
+                const broadcasterId = await getBroadcasterId(channelNameNoHash);
+                if (!broadcasterId) {
+                    enqueueMessage(channel, 'Could not look up channel info.', { replyToId });
+                    return;
+                }
+
+                // Try Firestore first for existing cached entries
                 const matches = await findEmoteDescriptionsByName(emoteName);
+                const channelMatches = matches.filter(m => m.ownerId === broadcasterId);
 
-                if (matches.length === 0) {
-                    enqueueMessage(channel, `No cached entry found for "${emoteName}". The description will be set automatically when the emote next appears in chat, or you can send the emote first and then use this command.`, { replyToId });
-                    return;
-                }
+                if (channelMatches.length > 0) {
+                    // Existing channel entries — update them
+                    let updated = 0;
+                    for (const match of channelMatches) {
+                        const success = await setEmoteDescription(match.emoteId, emoteName, description, broadcasterId);
+                        if (success) updated++;
+                    }
+                    logger.info({ emoteName, description, updated, user: user.username, channel: channelNameNoHash }, 'Emote description(s) manually set via command');
+                    enqueueMessage(channel, `Updated ${updated} "${emoteName}" description${updated !== 1 ? 's' : ''} to: "${description}"`, { replyToId });
+                } else {
+                    // No cached entry for this channel — look up via Twitch API
+                    const emotes = await getChannelEmotes(broadcasterId);
+                    const match = emotes.find(e => e.name === emoteName);
 
-                // Only allow setting descriptions for this channel's own emotes
-                const ownership = await checkChannelOwnership(matches, channelNameNoHash);
-                if (!ownership.allowed) {
-                    enqueueMessage(channel, ownership.reason, { replyToId });
-                    return;
-                }
+                    if (!match) {
+                        // Check if it exists as a global/other-channel emote in cache
+                        if (matches.length > 0) {
+                            const isGlobal = matches.some(m => !m.ownerId || m.ownerId === '0');
+                            enqueueMessage(channel, isGlobal
+                                ? 'Global emotes cannot be manually modified — they are described automatically.'
+                                : 'That emote does not belong to this channel.', { replyToId });
+                        } else {
+                            enqueueMessage(channel, `"${emoteName}" is not a channel emote in #${channelNameNoHash}.`, { replyToId });
+                        }
+                        return;
+                    }
 
-                // Update only channel-owned entries
-                let updated = 0;
-                for (const match of ownership.channelEmotes) {
-                    const success = await setEmoteDescription(match.emoteId, emoteName, description);
-                    if (success) updated++;
+                    const success = await setEmoteDescription(match.id, emoteName, description, broadcasterId);
+                    if (success) {
+                        logger.info({ emoteName, emoteId: match.id, description, user: user.username, channel: channelNameNoHash }, 'Emote description manually set via command (new entry)');
+                        enqueueMessage(channel, `Set "${emoteName}" description to: "${description}"`, { replyToId });
+                    } else {
+                        enqueueMessage(channel, `Failed to save description for "${emoteName}".`, { replyToId });
+                    }
                 }
-                logger.info({ emoteName, description, updated, user: user.username, channel: channelNameNoHash }, 'Emote description(s) manually set via command');
-                enqueueMessage(channel, `Updated ${updated} "${emoteName}" description${updated !== 1 ? 's' : ''} to: "${description}"`, { replyToId });
             } else if (subAction === 'regenerate') {
                 const emoteName = args.slice(1).join(' ');
 
@@ -108,20 +111,29 @@ export default {
                     return;
                 }
 
-                // Only allow regenerating this channel's own emotes
-                const ownership = await checkChannelOwnership(matches, channelNameNoHash);
-                if (!ownership.allowed) {
-                    enqueueMessage(channel, ownership.reason, { replyToId });
+                // Scope regenerate to this channel's emotes
+                const broadcasterId = await getBroadcasterId(channelNameNoHash);
+                if (!broadcasterId) {
+                    enqueueMessage(channel, 'Could not look up channel info.', { replyToId });
+                    return;
+                }
+
+                const channelMatches = matches.filter(m => m.ownerId === broadcasterId);
+                if (channelMatches.length === 0) {
+                    const isGlobal = matches.some(m => !m.ownerId || m.ownerId === '0');
+                    enqueueMessage(channel, isGlobal
+                        ? 'Global emotes cannot be manually modified — they are described automatically.'
+                        : 'That emote does not belong to this channel.', { replyToId });
                     return;
                 }
 
                 let cleared = 0;
-                for (const match of ownership.channelEmotes) {
+                for (const match of channelMatches) {
                     const success = await invalidateEmoteDescription(match.emoteId);
                     if (success) cleared++;
                 }
 
-                logger.info({ emoteName, cleared, total: ownership.channelEmotes.length, user: user.username, channel: channelNameNoHash }, 'Emote description(s) regenerated via command');
+                logger.info({ emoteName, cleared, total: channelMatches.length, user: user.username, channel: channelNameNoHash }, 'Emote description(s) regenerated via command');
                 enqueueMessage(channel, `Cleared ${cleared} cached description${cleared !== 1 ? 's' : ''} for "${emoteName}". It will be re-described next time it appears.`, { replyToId });
             } else {
                 // View mode: treat all args as emote name (no ownership check needed)

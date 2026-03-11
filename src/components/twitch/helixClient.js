@@ -352,11 +352,39 @@ async function getVips(broadcasterId) {
 }
 */
 
+/**
+ * Fetches channel emotes for a broadcaster from the Twitch Helix API.
+ * @param {string} broadcasterId - The broadcaster user ID.
+ * @returns {Promise<object[]>} Array of emote objects with id, name, owner_id, etc.
+ */
+async function getChannelEmotes(broadcasterId) {
+    if (!broadcasterId) {
+        logger.warn('getChannelEmotes called with empty broadcaster ID.');
+        return [];
+    }
+
+    const client = getHelixClient();
+    const params = new URLSearchParams();
+    params.append('broadcaster_id', broadcasterId);
+
+    logger.debug({ broadcasterId }, 'Fetching channel emotes from Helix...');
+
+    try {
+        const response = await client.get('/chat/emotes', { params });
+        // Spec: https://dev.twitch.tv/docs/api/reference/#get-channel-emotes
+        return response.data?.data || [];
+    } catch (error) {
+        logger.error({ err: { message: error.message, code: error.code }, broadcasterId }, 'Failed to get channel emotes');
+        return [];
+    }
+}
+
 
 // Export initializer, getter, and specific API call functions
 export {
     initializeHelixClient,
     getHelixClient,
+    getChannelEmotes,
     getChannelInformation,
     getUsersById,
     getUsersByLogin,
