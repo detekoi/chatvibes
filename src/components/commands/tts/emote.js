@@ -21,6 +21,14 @@ export default {
 
         try {
             if (subAction === 'set') {
+                // Broadcaster-only: descriptions are global, so only the channel owner can set them
+                const channelNameNoHash = channel.replace('#', '').toLowerCase();
+                const isBroadcaster = user.badges?.broadcaster === '1' || user.username.toLowerCase() === channelNameNoHash;
+                if (!isBroadcaster) {
+                    enqueueMessage(channel, `Only the broadcaster can manually set emote descriptions.`, { replyToId });
+                    return;
+                }
+
                 // !tts emote set <emoteName> = <description>
                 const rest = args.slice(1).join(' ');
                 const eqIndex = rest.indexOf('=');
