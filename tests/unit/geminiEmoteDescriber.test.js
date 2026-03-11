@@ -56,6 +56,7 @@ describe('Emote Description Firestore Cache', () => {
 
         jest.unstable_mockModule('../../src/components/twitch/helixClient.js', () => ({
             getUsersById: jest.fn().mockResolvedValue([]),
+            getUsersByLogin: jest.fn().mockResolvedValue([{ id: '12345', login: 'testchannel', display_name: 'TestChannel' }]),
         }));
     });
 
@@ -178,8 +179,8 @@ describe('Emote Description Firestore Cache', () => {
             const results = await findEmoteDescriptionsByName('LUL');
 
             expect(results).toHaveLength(2);
-            expect(results[0]).toEqual({ emoteId: 'emote100', description: 'laughing person', emoteName: 'LUL' });
-            expect(results[1]).toEqual({ emoteId: 'emote200', description: 'laughing loudly', emoteName: 'LUL' });
+            expect(results[0]).toEqual({ emoteId: 'emote100', description: 'laughing person', emoteName: 'LUL', ownerId: null });
+            expect(results[1]).toEqual({ emoteId: 'emote200', description: 'laughing loudly', emoteName: 'LUL', ownerId: null });
             expect(mockFirestoreCollection.where).toHaveBeenCalledWith('emoteName', '==', 'LUL');
         });
 
@@ -285,7 +286,7 @@ describe('Emote TTS Subcommand', () => {
 
     test('should regenerate (invalidate) emote descriptions', async () => {
         mockEmoteDescriber.findEmoteDescriptionsByName.mockResolvedValueOnce([
-            { emoteId: 'e1', description: 'laughing person', emoteName: 'LUL' },
+            { emoteId: 'e1', description: 'laughing person', emoteName: 'LUL', ownerId: '12345' },
         ]);
 
         const emoteCmd = await import('../../src/components/commands/tts/emote.js');
@@ -342,7 +343,7 @@ describe('Emote TTS Subcommand', () => {
 
     test('should manually set emote description', async () => {
         mockEmoteDescriber.findEmoteDescriptionsByName.mockResolvedValueOnce([
-            { emoteId: 'e1', description: 'old description', emoteName: 'LUL' },
+            { emoteId: 'e1', description: 'old description', emoteName: 'LUL', ownerId: '12345' },
         ]);
 
         const emoteCmd = await import('../../src/components/commands/tts/emote.js');
