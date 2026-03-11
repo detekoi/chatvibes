@@ -220,6 +220,26 @@ async function getUsersByLogin(loginNames) {
     }
 }
 
+// Cache for channel login -> broadcaster user ID (never changes)
+const broadcasterIdCache = new Map();
+
+/**
+ * Get a broadcaster's user ID by channel login name.
+ * Cached indefinitely since broadcaster IDs never change.
+ * @param {string} channelLogin - The channel login name (without #)
+ * @returns {Promise<string|null>}
+ */
+async function getBroadcasterIdByLogin(channelLogin) {
+    const cached = broadcasterIdCache.get(channelLogin);
+    if (cached) return cached;
+    const users = await getUsersByLogin([channelLogin]);
+    if (users && users.length > 0) {
+        broadcasterIdCache.set(channelLogin, users[0].id);
+        return users[0].id;
+    }
+    return null;
+}
+
 /**
  * Fetches user information from Twitch Helix API based on user IDs.
  * @param {string[]} userIds - An array of user IDs to query. Max 100 per request.
@@ -384,6 +404,7 @@ async function getChannelEmotes(broadcasterId) {
 export {
     initializeHelixClient,
     getHelixClient,
+    getBroadcasterIdByLogin,
     getChannelEmotes,
     getChannelInformation,
     getUsersById,

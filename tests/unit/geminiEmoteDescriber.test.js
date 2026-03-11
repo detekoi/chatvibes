@@ -57,6 +57,7 @@ describe('Emote Description Firestore Cache', () => {
         jest.unstable_mockModule('../../src/components/twitch/helixClient.js', () => ({
             getUsersById: jest.fn().mockResolvedValue([]),
             getUsersByLogin: jest.fn().mockResolvedValue([{ id: '12345', login: 'testchannel', display_name: 'TestChannel' }]),
+            getBroadcasterIdByLogin: jest.fn().mockResolvedValue('12345'),
             getChannelEmotes: jest.fn().mockResolvedValue([]),
         }));
     });

@@ -5,7 +5,7 @@
 import axios from 'axios';
 import config from '../../config/index.js';
 import logger from '../../lib/logger.js';
-import { getUsersByLogin } from './helixClient.js';
+import { getBroadcasterIdByLogin, getUsersByLogin } from './helixClient.js';
 import { getClientId } from './auth.js';
 
 // Cache for the bot's user ID
@@ -61,13 +61,12 @@ export async function sendMessage(channelName, message, options = {}) {
             return false;
         }
 
-        // Get the broadcaster ID for the target channel
-        const users = await getUsersByLogin([cleanChannelName]);
-        if (!users || users.length === 0) {
+        // Get the broadcaster ID for the target channel (cached)
+        const broadcasterId = await getBroadcasterIdByLogin(cleanChannelName);
+        if (!broadcasterId) {
             logger.error({ channelName: cleanChannelName }, 'Could not find broadcaster ID for channel');
             return false;
         }
-        const broadcasterId = users[0].id;
 
         // Get the bot's user ID (sender)
         const botId = await getBotUserId();
@@ -144,12 +143,11 @@ export async function sendMessage(channelName, message, options = {}) {
                 // Retry the request with the new token
                 try {
                     // Get broadcaster and bot IDs again for retry
-                    const users = await getUsersByLogin([cleanChannelName]);
-                    if (!users || users.length === 0) {
+                    const retryBroadcasterId = await getBroadcasterIdByLogin(cleanChannelName);
+                    if (!retryBroadcasterId) {
                         logger.error({ channelName: cleanChannelName }, 'Could not find broadcaster ID for channel on retry');
                         return false;
                     }
-                    const retryBroadcasterId = users[0].id;
 
                     const retryBotId = await getBotUserId();
                     if (!retryBotId) {

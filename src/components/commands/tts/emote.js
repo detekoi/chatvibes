@@ -2,18 +2,9 @@
 // View, regenerate, and manually set cached emote descriptions
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import { findEmoteDescriptionsByName, invalidateEmoteDescription, setEmoteDescription } from '../../../lib/geminiEmoteDescriber.js';
-import { getChannelEmotes, getUsersByLogin } from '../../twitch/helixClient.js';
+import { getBroadcasterIdByLogin, getChannelEmotes } from '../../twitch/helixClient.js';
 import logger from '../../../lib/logger.js';
 
-/**
- * Resolve the channel's broadcaster user ID from the channel name.
- * @param {string} channelNameNoHash
- * @returns {Promise<string|null>} The broadcaster user ID, or null
- */
-async function getBroadcasterId(channelNameNoHash) {
-    const users = await getUsersByLogin([channelNameNoHash]);
-    return users?.[0]?.id || null;
-}
 
 export default {
     name: 'emote',
@@ -51,7 +42,7 @@ export default {
                 }
 
                 // Resolve broadcaster ID once for ownership checks
-                const broadcasterId = await getBroadcasterId(channelNameNoHash);
+                const broadcasterId = await getBroadcasterIdByLogin(channelNameNoHash);
                 if (!broadcasterId) {
                     enqueueMessage(channel, 'Could not look up channel info.', { replyToId });
                     return;
@@ -112,7 +103,7 @@ export default {
                 }
 
                 // Scope regenerate to this channel's emotes
-                const broadcasterId = await getBroadcasterId(channelNameNoHash);
+                const broadcasterId = await getBroadcasterIdByLogin(channelNameNoHash);
                 if (!broadcasterId) {
                     enqueueMessage(channel, 'Could not look up channel info.', { replyToId });
                     return;
