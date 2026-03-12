@@ -197,9 +197,9 @@ async function getCachedDescription(emoteId) {
             if (doc.exists) {
                 const data = doc.data();
                 if (data.description) {
-                    // Populate L1 from L2 hit
-                    descriptionCache.set(emoteId, { description: data.description, cachedAt: Date.now() });
-                    logger.debug({ emoteId, emoteName: data.emoteName }, 'Emote description loaded from Firestore cache');
+                    // Populate L1 from L2 hit, preserving manuallySet flag
+                    descriptionCache.set(emoteId, { description: data.description, cachedAt: Date.now(), manuallySet: data.manuallySet || false });
+                    logger.debug({ emoteId, emoteName: data.emoteName, manuallySet: data.manuallySet || false }, 'Emote description loaded from Firestore cache');
                     return data.description;
                 }
             }
@@ -220,8 +220,14 @@ async function getCachedDescription(emoteId) {
  * @param {string} [ownerId] - The Twitch user ID of the emote owner ("0" for global emotes)
  */
 function cacheDescription(emoteId, description, emoteName, ownerId) {
-    // L1: in-memory
-    descriptionCache.set(emoteId, { description, cachedAt: Date.now() });
+    // L1: in-memory (only update if not manually set)
+    const existing = descriptionCache.get(emoteId);
+    if (existing?.manuallySet) {
+        // Manual description takes precedence — skip AI overwrite
+        logger.debug({ emoteId, emoteName }, 'Skipping AI cache write — manual description in place');
+        return;
+    }
+    descriptionCache.set(emoteId, { description, cachedAt: Date.now(), manuallySet: false });
 
     // L2: Firestore (fire-and-forget)
     if (emoteDescriptionsDb) {
@@ -272,13 +278,13 @@ export async function invalidateEmoteDescription(emoteId) {
  * @returns {Promise<boolean>} true if Firestore write succeeded
  */
 export async function setEmoteDescription(emoteId, emoteName, description, ownerId) {
-    // L1: in-memory
-    descriptionCache.set(emoteId, { description, cachedAt: Date.now() });
+    // L1: in-memory — mark as manually set so AI won't overwrite
+    descriptionCache.set(emoteId, { description, cachedAt: Date.now(), manuallySet: true });
 
     // L2: Firestore
     if (emoteDescriptionsDb) {
         try {
-            const data = { description, emoteName, updatedAt: Firestore.FieldValue.serverTimestamp() };
+            const data = { description, emoteName, manuallySet: true, updatedAt: Firestore.FieldValue.serverTimestamp() };
             if (ownerId !== undefined) data.ownerId = ownerId;
             await emoteDescriptionsDb
                 .collection(EMOTE_DESCRIPTIONS_COLLECTION)
