@@ -7,6 +7,15 @@ import logger from './logger.js';
 import { getUsersById } from '../components/twitch/helixClient.js';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite';
+
+// System instruction applied to all emote description calls.
+// Establishes accessibility framing and guards against common model failures.
+const SYSTEM_INSTRUCTION = `You are an accessibility assistant that describes Twitch emotes for text-to-speech. Your goal is precise, natural-sounding visual descriptions.
+
+Rules:
+- Reply with ONLY the short description — no preamble, no quotes, no trailing punctuation.
+- Do not output the emote's raw alphanumeric string verbatim (e.g. do not say "parfai14Parfait" or "LUL"). You may use meaningful English words embedded in the name (e.g. "parfait dessert" from "parfai14Parfait" is fine), but do not begin your reply with the full emote token itself.
+- When describing pride flags, always name the specific flag rather than generic terms. Examples: "rainbow Pride flag", "bisexual Pride flag", "transgender Pride flag", "lesbian Pride flag", "pansexual Pride flag", "nonbinary Pride flag", "asexual Pride flag". These are important cultural identifiers and accurate naming is essential for accessibility.`;
 const EMOTE_CDN_URL = 'https://static-cdn.jtvnw.net/emoticons/v2';
 const EMOTE_IMAGE_FORMAT = 'static/dark/3.0';
 const ANIMATED_EMOTE_IMAGE_FORMAT = 'animated/dark/3.0';
@@ -474,14 +483,15 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnima
     try {
         const emoteContext = buildEmoteContext(emoteName, ownerName);
         const prompt = animatedSuccess
-            ? `These are ${imageParts.length} sequential frames from an animated ${emoteContext}. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`
-            : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
+            ? `These are ${imageParts.length} sequential frames from an animated ${emoteContext}. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`
+            : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
 
         const contents = [...imageParts, { text: prompt }];
 
         const response = await Promise.race([
             genAI.models.generateContent({
                 model: GEMINI_MODEL,
+                systemInstruction: SYSTEM_INSTRUCTION,
                 contents,
             }),
             new Promise((_, reject) =>
@@ -594,6 +604,7 @@ async function describeBatchEmotes(emoteEntries) {
             const response = await Promise.race([
                 genAI.models.generateContent({
                     model: GEMINI_MODEL,
+                    systemInstruction: SYSTEM_INSTRUCTION,
                     contents: contentParts,
                 }),
                 new Promise((_, reject) =>
@@ -623,8 +634,8 @@ async function describeBatchEmotes(emoteEntries) {
     };
 
     // Send separate calls in parallel with dedicated prompts
-    const staticPrompt = 'Describe each Twitch emote in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on what it depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
-    const animatedPrompt = 'Each numbered emote below is animated — you are seeing sequential frames from its animation. Describe what happens across each animation in 2-6 words for text-to-speech. Use the emote name and channel name as hints for identifying the subject. Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
+    const staticPrompt = 'Describe each Twitch emote in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
+    const animatedPrompt = 'Each numbered emote below is animated — you are seeing sequential frames from its animation. Describe what happens across each animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
 
     await Promise.all([
         describeBatch(staticEmotes, staticPrompt, GEMINI_TIMEOUT_MS),
