@@ -1,7 +1,7 @@
 // src/components/commands/tts/emote.js
 // View, regenerate, and manually set cached emote descriptions
 import { enqueueMessage } from '../../../lib/chatSender.js';
-import { findEmoteDescriptionsByName, invalidateEmoteDescription, setEmoteDescription } from '../../../lib/geminiEmoteDescriber.js';
+import { findEmoteDescriptionsByName, invalidateEmoteDescription, setEmoteDescription } from '../../../lib/emotes/index.js';
 import { getBroadcasterIdByLogin, getChannelEmotes } from '../../twitch/helixClient.js';
 import logger from '../../../lib/logger.js';
 

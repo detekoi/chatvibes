@@ -7,7 +7,7 @@ import { initializeHelixClient } from './components/twitch/helixClient.js';
 
 // WildcatTTS TTS Components
 import { initializeTtsState } from './components/tts/ttsState.js';
-import { initGeminiClient, initEmoteDescriptionStore } from './lib/geminiEmoteDescriber.js';
+import { initGeminiClient, initEmoteDescriptionStore } from './lib/emotes/index.js';
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
 import { Firestore, Timestamp } from '@google-cloud/firestore';

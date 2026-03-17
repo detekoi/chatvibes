@@ -1,5 +1,5 @@
 // tests/unit/geminiEmoteDescriber.test.js
-// Unit tests for emote description Firestore cache and emote subcommand
+// Unit tests for emote description cache and emote subcommand
 
 import { jest } from '@jest/globals';
 
@@ -60,11 +60,24 @@ describe('Emote Description Firestore Cache', () => {
             getBroadcasterIdByLogin: jest.fn().mockResolvedValue('12345'),
             getChannelEmotes: jest.fn().mockResolvedValue([]),
         }));
+
+        // Mock config to provide emote constants without hitting the real loader
+        jest.unstable_mockModule('../../src/config/index.js', () => ({
+            default: {
+                emote: {
+                    geminiModel: 'gemini-test-model',
+                    cdnUrl: 'https://static-cdn.jtvnw.net/emoticons/v2',
+                    maxGifFrames: 3,
+                    timeoutMs: 8000,
+                    animatedTimeoutMs: 12000,
+                },
+            },
+        }));
     });
 
     describe('initEmoteDescriptionStore', () => {
         test('should initialize Firestore client and return true', async () => {
-            const { initEmoteDescriptionStore } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { initEmoteDescriptionStore } = await import('../../src/lib/emotes/emoteCache.js');
 
             const result = initEmoteDescriptionStore();
 
@@ -77,7 +90,7 @@ describe('Emote Description Firestore Cache', () => {
 
     describe('invalidateEmoteDescription', () => {
         test('should delete from Firestore and return true', async () => {
-            const { initEmoteDescriptionStore, invalidateEmoteDescription } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { initEmoteDescriptionStore, invalidateEmoteDescription } = await import('../../src/lib/emotes/emoteCache.js');
             initEmoteDescriptionStore();
 
             const result = await invalidateEmoteDescription('emote123');
@@ -92,7 +105,7 @@ describe('Emote Description Firestore Cache', () => {
         });
 
         test('should return true when Firestore is not initialized', async () => {
-            const { invalidateEmoteDescription } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { invalidateEmoteDescription } = await import('../../src/lib/emotes/emoteCache.js');
 
             const result = await invalidateEmoteDescription('emote123');
 
@@ -100,7 +113,7 @@ describe('Emote Description Firestore Cache', () => {
         });
 
         test('should return false when Firestore delete fails', async () => {
-            const { initEmoteDescriptionStore, invalidateEmoteDescription } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { initEmoteDescriptionStore, invalidateEmoteDescription } = await import('../../src/lib/emotes/emoteCache.js');
             initEmoteDescriptionStore();
             mockFirestoreDoc.delete.mockRejectedValueOnce(new Error('Firestore error'));
 
@@ -113,7 +126,7 @@ describe('Emote Description Firestore Cache', () => {
 
     describe('getStoredEmoteDescription', () => {
         test('should return description from Firestore', async () => {
-            const { initEmoteDescriptionStore, getStoredEmoteDescription } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { initEmoteDescriptionStore, getStoredEmoteDescription } = await import('../../src/lib/emotes/emoteCache.js');
             initEmoteDescriptionStore();
 
             mockFirestoreDoc.get.mockResolvedValueOnce({
@@ -135,7 +148,7 @@ describe('Emote Description Firestore Cache', () => {
         });
 
         test('should return null when document does not exist', async () => {
-            const { initEmoteDescriptionStore, getStoredEmoteDescription } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { initEmoteDescriptionStore, getStoredEmoteDescription } = await import('../../src/lib/emotes/emoteCache.js');
             initEmoteDescriptionStore();
 
             mockFirestoreDoc.get.mockResolvedValueOnce({
@@ -148,7 +161,7 @@ describe('Emote Description Firestore Cache', () => {
         });
 
         test('should return null when Firestore is not initialized', async () => {
-            const { getStoredEmoteDescription } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { getStoredEmoteDescription } = await import('../../src/lib/emotes/emoteCache.js');
 
             const result = await getStoredEmoteDescription('emote123');
 
@@ -158,7 +171,7 @@ describe('Emote Description Firestore Cache', () => {
 
     describe('findEmoteDescriptionsByName', () => {
         test('should return matching descriptions', async () => {
-            const { initEmoteDescriptionStore, findEmoteDescriptionsByName } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { initEmoteDescriptionStore, findEmoteDescriptionsByName } = await import('../../src/lib/emotes/emoteCache.js');
             initEmoteDescriptionStore();
 
             const mockSnapshot = {
@@ -187,12 +200,94 @@ describe('Emote Description Firestore Cache', () => {
         });
 
         test('should return empty array when Firestore is not initialized', async () => {
-            const { findEmoteDescriptionsByName } = await import('../../src/lib/geminiEmoteDescriber.js');
+            const { findEmoteDescriptionsByName } = await import('../../src/lib/emotes/emoteCache.js');
 
             const results = await findEmoteDescriptionsByName('LUL');
 
             expect(results).toEqual([]);
         });
+    });
+});
+
+describe('groupFragments helper', () => {
+    beforeEach(() => {
+        jest.resetModules();
+        jest.clearAllMocks();
+
+        // Mock config for emoteProcessor's transitive imports
+        jest.unstable_mockModule('../../src/config/index.js', () => ({
+            default: {
+                emote: {
+                    geminiModel: 'gemini-test-model',
+                    cdnUrl: 'https://static-cdn.jtvnw.net/emoticons/v2',
+                    maxGifFrames: 3,
+                    timeoutMs: 8000,
+                    animatedTimeoutMs: 12000,
+                },
+            },
+        }));
+
+        jest.unstable_mockModule('../../src/lib/logger.js', () => ({
+            default: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+        }));
+
+        jest.unstable_mockModule('../../src/components/twitch/helixClient.js', () => ({
+            getUsersById: jest.fn().mockResolvedValue([]),
+        }));
+
+        jest.unstable_mockModule('@google/genai', () => ({ GoogleGenAI: jest.fn() }));
+        jest.unstable_mockModule('sharp', () => ({ default: jest.fn() }));
+        jest.unstable_mockModule('@google-cloud/firestore', () => ({ Firestore: jest.fn() }));
+    });
+
+    test('groups consecutive identical emotes', async () => {
+        const { groupFragments } = await import('../../src/lib/emotes/emoteProcessor.js');
+        const fragments = [
+            { type: 'emote', text: 'LUL', emote: { id: 'e1' }, count: 1 },
+            { type: 'emote', text: 'LUL', emote: { id: 'e1' }, count: 1 },
+            { type: 'emote', text: 'LUL', emote: { id: 'e1' }, count: 1 },
+        ];
+        const result = groupFragments(fragments);
+        expect(result).toHaveLength(1);
+        expect(result[0].count).toBe(3);
+    });
+
+    test('skips whitespace-only text fragments between same emotes', async () => {
+        const { groupFragments } = await import('../../src/lib/emotes/emoteProcessor.js');
+        const fragments = [
+            { type: 'emote', text: 'LUL', emote: { id: 'e1' }, count: 1 },
+            { type: 'text', text: ' ', emote: null },
+            { type: 'emote', text: 'LUL', emote: { id: 'e1' }, count: 1 },
+        ];
+        const result = groupFragments(fragments);
+        expect(result).toHaveLength(1);
+        expect(result[0].count).toBe(2);
+    });
+
+    test('keeps different emotes separate', async () => {
+        const { groupFragments } = await import('../../src/lib/emotes/emoteProcessor.js');
+        const fragments = [
+            { type: 'emote', text: 'LUL', emote: { id: 'e1' }, count: 1 },
+            { type: 'emote', text: 'Kappa', emote: { id: 'e2' }, count: 1 },
+        ];
+        const result = groupFragments(fragments);
+        expect(result).toHaveLength(2);
+        expect(result[0].count).toBe(1);
+        expect(result[1].count).toBe(1);
+    });
+
+    test('preserves non-whitespace text fragments in position', async () => {
+        const { groupFragments } = await import('../../src/lib/emotes/emoteProcessor.js');
+        const fragments = [
+            { type: 'emote', text: 'LUL', emote: { id: 'e1' }, count: 1 },
+            { type: 'text', text: 'hello', emote: null },
+            { type: 'emote', text: 'LUL', emote: { id: 'e1' }, count: 1 },
+        ];
+        const result = groupFragments(fragments);
+        expect(result).toHaveLength(3);
+        expect(result[0].count).toBe(1);
+        expect(result[1].type).toBe('text');
+        expect(result[2].count).toBe(1);
     });
 });
 
@@ -228,7 +323,14 @@ describe('Emote TTS Subcommand', () => {
 
         jest.unstable_mockModule('../../src/lib/chatSender.js', () => mockChatSender);
 
-        jest.unstable_mockModule('../../src/lib/geminiEmoteDescriber.js', () => mockEmoteDescriber);
+        // Mock the barrel — emote.js imports from here
+        jest.unstable_mockModule('../../src/lib/emotes/index.js', () => mockEmoteDescriber);
+
+        // emote.js also imports directly from helixClient for ownership checks
+        jest.unstable_mockModule('../../src/components/twitch/helixClient.js', () => ({
+            getBroadcasterIdByLogin: jest.fn().mockResolvedValue('12345'),
+            getChannelEmotes: jest.fn().mockResolvedValue([]),
+        }));
     });
 
     test('should show usage when no args', async () => {

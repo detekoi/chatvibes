@@ -9,7 +9,7 @@ import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { processMessageUrls } from '../../../lib/urlProcessor.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
-import { isGeminiAvailable, processMessageWithEmoteDescriptions } from '../../../lib/geminiEmoteDescriber.js';
+import { isGeminiAvailable, processMessageWithEmoteDescriptions } from '../../../lib/emotes/index.js';
 import { replaceEmojisWithText } from '../../../lib/emojiUtils.js';
 
 /**

@@ -82,6 +82,13 @@ function loadConfig() {
             twitchBotRefreshTokenName: process.env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME,
             jwtSecret: process.env.JWT_SECRET || process.env.JWT_SECRET_KEY, // Support both env var names
         },
+        emote: {
+            geminiModel: process.env.EMOTE_GEMINI_MODEL || 'gemini-3.1-flash-lite-preview',
+            cdnUrl: 'https://static-cdn.jtvnw.net/emoticons/v2',
+            maxGifFrames: 3,       // Number of evenly-spaced frames to sample from animated GIFs
+            timeoutMs: 8000,       // Gemini timeout for static emotes
+            animatedTimeoutMs: 12000, // Gemini timeout for animated (multi-image) emotes
+        },
     };
 
     if (!config.tts.wavespeedApiKey && config.app.nodeEnv !== 'test') {
