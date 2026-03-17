@@ -213,7 +213,7 @@ async function getCachedDescription(emoteId) {
                 }
             }
         } catch (error) {
-            logger.debug({ err: error.message, emoteId }, 'Firestore emote description lookup failed, falling through');
+            logger.warn({ err: error.message, emoteId }, 'Firestore emote description lookup failed, falling through to Gemini');
         }
     }
 
@@ -239,6 +239,9 @@ function cacheDescription(emoteId, description, emoteName, ownerId) {
     descriptionCache.set(emoteId, { description, cachedAt: Date.now(), manuallySet: false });
 
     // L2: Firestore (fire-and-forget)
+    // Note: payload intentionally omits `manuallySet` so that merge:true preserves any
+    // existing manuallySet:true flag in Firestore (set via `!tts emote set`).
+    // The L1 guard above already handles the hot-cache case.
     if (emoteDescriptionsDb) {
         const data = { description, emoteName: emoteName || null, updatedAt: Firestore.FieldValue.serverTimestamp() };
         if (ownerId !== undefined) data.ownerId = ownerId;
@@ -246,7 +249,7 @@ function cacheDescription(emoteId, description, emoteName, ownerId) {
             .collection(EMOTE_DESCRIPTIONS_COLLECTION)
             .doc(emoteId)
             .set(data, { merge: true })
-            .catch(error => logger.debug({ err: error.message, emoteId }, 'Firestore emote description write failed'));
+            .catch(error => logger.warn({ err: error.message, emoteId }, 'Firestore emote description write failed'));
     }
 }
 
