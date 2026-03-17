@@ -15,6 +15,7 @@ const mockAxios = {
 jest.unstable_mockModule('../../src/components/twitch/helixClient.js', () => ({
     helixClient: mockAxios,
     getUsersByLogin: jest.fn(),
+    getBroadcasterIdByLogin: jest.fn(),
 }));
 
 // Mock logger
@@ -53,7 +54,7 @@ jest.unstable_mockModule('axios', () => ({
 
 // Import the module under test
 const { sendMessage, getBotUserId, _resetCache } = await import('../../src/components/twitch/chatClient.js');
-const { getUsersByLogin } = await import('../../src/components/twitch/helixClient.js');
+const { getUsersByLogin, getBroadcasterIdByLogin } = await import('../../src/components/twitch/helixClient.js');
 const axios = await import('axios');
 
 describe('chatClient.js', () => {
@@ -93,10 +94,10 @@ describe('chatClient.js', () => {
 
     describe('sendMessage', () => {
         it('should send a message successfully', async () => {
-            // Mock broadcaster ID lookup (it calls getUsersByLogin for the channel)
-            getUsersByLogin.mockResolvedValueOnce([{ id: 'broadcaster-id-2', login: 'targetchannel' }]);
+            // Mock broadcaster ID lookup (now via getBroadcasterIdByLogin)
+            getBroadcasterIdByLogin.mockResolvedValueOnce('broadcaster-id-2');
 
-            // Mock bot ID lookup (inside getBotUserId)
+            // Mock bot ID lookup (inside getBotUserId via getUsersByLogin)
             getUsersByLogin.mockResolvedValueOnce([{ id: 'bot-id-1', login: 'botuser' }]);
 
             // Mock successful API response
@@ -130,9 +131,9 @@ describe('chatClient.js', () => {
         });
 
         it('should fail if bot ID cannot be retrieved', async () => {
-            // First call for broadcaster succeeds
-            getUsersByLogin.mockResolvedValueOnce([{ id: 'broadcaster-id-2', login: 'targetchannel' }]);
-            // Second call for bot fails
+            // Broadcaster lookup succeeds
+            getBroadcasterIdByLogin.mockResolvedValueOnce('broadcaster-id-2');
+            // Bot ID lookup fails
             getUsersByLogin.mockResolvedValueOnce([]);
 
             const success = await sendMessage('targetchannel', 'Hello');
@@ -142,8 +143,8 @@ describe('chatClient.js', () => {
         });
 
         it('should fail if broadcaster ID cannot be retrieved', async () => {
-            // First call for broadcaster fails
-            getUsersByLogin.mockResolvedValueOnce([]);
+            // Broadcaster lookup returns null
+            getBroadcasterIdByLogin.mockResolvedValueOnce(null);
 
             const success = await sendMessage('targetchannel', 'Hello');
 
@@ -153,7 +154,7 @@ describe('chatClient.js', () => {
 
         it('should handle API errors gracefully', async () => {
             // Mock broadcaster ID lookup
-            getUsersByLogin.mockResolvedValueOnce([{ id: 'broadcaster-id-2', login: 'targetchannel' }]);
+            getBroadcasterIdByLogin.mockResolvedValueOnce('broadcaster-id-2');
             // Mock bot ID lookup
             getUsersByLogin.mockResolvedValueOnce([{ id: 'bot-id-1', login: 'botuser' }]);
 

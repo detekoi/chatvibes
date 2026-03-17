@@ -1,38 +1,15 @@
 // src/components/web/server.js
+// HTTP server bootstrapper: Express app + static file serving + API router + WebSocket.
+// All REST logic lives in apiRoutes.js; all WSS logic lives in webSocket.js.
+
 import http from 'http';
 import path from 'path';
-import fs from 'fs';
-import { WebSocketServer, WebSocket } from 'ws';
+import express from 'express';
 import { fileURLToPath } from 'url';
 import logger from '../../lib/logger.js';
-import jwt from 'jsonwebtoken';
-import rateLimit from 'express-rate-limit';
-import config from '../../config/index.js';
-import { isChannelAllowed } from '../../lib/allowList.js';
 
-// Import TTS state management functions
-import {
-    getTtsState,
-    setTtsState,
-    addIgnoredUser,
-    removeIgnoredUser,
-    addBannedWord,
-    removeBannedWord
-} from '../tts/ttsState.js';
-
-
-// Import constants for validation
-import {
-    VALID_EMOTIONS,
-    VALID_LANGUAGE_BOOSTS,
-    TTS_PITCH_MIN,
-    TTS_PITCH_MAX,
-    TTS_SPEED_MIN,
-    TTS_SPEED_MAX
-} from '../tts/ttsConstants.js';
-
-import { getSecretValue } from '../../lib/secretManager.js'; // Import your secret manager helper
-import { handleSecretCleanup } from './cleanupEndpoint.js'; // Automated secret cleanup
+import { createApiRouter, applyCors } from './apiRoutes.js';
+import { initializeWebSocketServer, sendAudioToChannel, hasActiveClients } from './webSocket.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,865 +17,83 @@ const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const PORT = process.env.PORT || 8080;
 
-let wssInstance = null;
-const channelClients = new Map(); // channelName (lowercase) -> Set of WebSocket clients
+// ---------------------------------------------------------------------------
+// Express app
+// ---------------------------------------------------------------------------
 
-// --- Security & Utility Enhancements ---
+const app = express();
 
-// Enforce a reasonable body size limit to prevent DoS attacks
-const MAX_BODY_SIZE = 1048576; // 1 MB
+// Trust the first proxy hop (Cloud Run / GLB) so that req.ip and rate-limiters
+// see the real client IP via X-Forwarded-For.
+app.set('trust proxy', 1);
 
-function parseJsonBody(req) {
-    return new Promise((resolve, reject) => {
-        let body = '';
-        req.on('data', chunk => {
-            body += chunk;
-            if (body.length > MAX_BODY_SIZE) {
-                req.connection.destroy();
-                reject(new Error('Payload too large'));
-            }
-        });
-        req.on('end', () => {
-            try {
-                resolve(body ? JSON.parse(body) : {});
-            } catch (error) {
-                reject(error);
-            }
-        });
-        req.on('error', reject);
-    });
-}
-
-const apiRateLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-    // Correctly extract IP when behind a proxy (like Cloud Run)
-    keyGenerator: (req) => {
-        return req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-    },
+// CORS preflight for non-API routes (e.g. the static files themselves)
+app.options('*', (req, res) => {
+    applyCors(req, res);
+    res.status(204).end();
 });
 
-// CORS helper
-function applyCors(req, res) {
-    const origin = req.headers.origin;
-    const allowedOrigins = new Set([
-        'http://localhost:5002',
-        'http://127.0.0.1:5002',
-        'https://tts.wildcat.chat',
-        'https://chatvibestts.web.app',
-        'https://chatvibestts.firebaseapp.com'
-    ]);
-    if (origin && allowedOrigins.has(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-        res.setHeader('Access-Control-Allow-Origin', 'https://tts.wildcat.chat');
-    }
-    res.setHeader('Vary', 'Origin');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-}
-
-// Helper function to send JSON response
-function sendJsonResponse(res, statusCode, data, req) {
-    if (req) applyCors(req, res);
-    res.writeHead(statusCode, {
-        'Content-Type': 'application/json'
-    });
-    res.end(JSON.stringify(data));
-}
-
-// Helper function to send error response
-function sendErrorResponse(res, statusCode, message, req) {
-    sendJsonResponse(res, statusCode, { success: false, error: message }, req);
-}
-
-// Helper function to extract channel from URL path
-function extractChannelFromPath(url) {
-    const parts = url.split('/');
-    const channelIndex = parts.indexOf('channel');
-    return channelIndex !== -1 && parts[channelIndex + 1] ? parts[channelIndex + 1].toLowerCase() : null;
-}
-
-// --- Security Enhancements ---
-const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || config.secrets.jwtSecret;
-
-// Hardened JWT Verification Middleware
-async function verifyChannelAccess(req, res, next) {
-    const channelName = extractChannelFromPath(req.url);
-    if (!channelName) {
-        return sendErrorResponse(res, 400, 'Channel name not found in URL path', req);
-    }
-
-    // Allow-list enforcement
-    if (!isChannelAllowed(channelName)) {
-        return sendErrorResponse(res, 403, 'Forbidden: Channel is not allowed to use this service', req);
-    }
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return sendErrorResponse(res, 401, 'Authorization token is required', req);
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-        return sendErrorResponse(res, 401, 'Bearer token is missing', req);
-    }
-
-    try {
-        // Support migration: Allow both new WildcatTTS and legacy WildcatTTS tokens
-        const decoded = jwt.verify(token, JWT_SECRET_KEY, {
-            audience: ['wildcat-tts-api', 'chatvibes-api'],
-            issuer: ['wildcat-tts-auth', 'chatvibes-auth']
-        });
-
-        if (!decoded?.userLogin) {
-            return sendErrorResponse(res, 401, 'Token missing required userLogin claim', req);
-        }
-
-        const userLogin = decoded.userLogin.toLowerCase();
-        if (userLogin !== channelName) {
-            return sendErrorResponse(res, 403, 'Forbidden: You do not have permission to modify this channel', req);
-        }
-
-        req.channelName = channelName;
-        req.userLogin = userLogin;
-        await next(); // Await the next middleware/handler
-    } catch (error) {
-        logger.error({ err: error }, 'JWT verification failed');
-        if (error instanceof jwt.TokenExpiredError) {
-            return sendErrorResponse(res, 401, 'Token has expired', req);
-        }
-        if (error instanceof jwt.JsonWebTokenError) {
-            return sendErrorResponse(res, 401, 'Invalid token', req);
-        }
-        return sendErrorResponse(res, 500, 'Internal server error during token verification', req);
-    }
-}
-
-// Route handlers for REST API
-async function handleApiRequest(req, res) {
-    apiRateLimiter(req, res, async () => {
-        if (req.method === 'OPTIONS') {
-            applyCors(req, res);
-            res.writeHead(204);
-            res.end();
-            return;
-        }
-
-        if (req.url.startsWith('/api/voices')) {
-            return handleVoicesEndpoint(req, res);
-        }
-
-        if (req.url.startsWith('/api/setup-eventsub')) {
-            return handleEventSubSetup(req, res);
-        }
-
-
-        if (req.url.startsWith('/api/admin/secret-cleanup')) {
-            return handleSecretCleanup(req, res);
-        }
-
-        if (req.url.startsWith('/api/tts/test')) {
-            return handleTtsTest(req, res);
-        }
-
-        // All other API endpoints require verification
-        await verifyChannelAccess(req, res, async () => {
-            const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
-            if (pathname.includes('/api/tts/settings')) {
-                await handleTtsSettings(req, res, req.channelName, req.method);
-            } else if (pathname.includes('/api/tts/ignore')) {
-                await handleTtsIgnore(req, res, req.channelName, req.method);
-            } else if (pathname.includes('/api/tts/banned-words')) {
-                await handleTtsBannedWords(req, res, req.channelName, req.method);
-            } else {
-                applyCors(req, res);
-                sendErrorResponse(res, 404, 'API endpoint not found', req);
-            }
-        });
-    });
-}
-
-// Voices endpoint handler
-async function handleVoicesEndpoint(req, res) {
-    try {
-        // Try to fetch actual voices from TTS service
-        const { getAvailableVoices } = await import('../tts/ttsService.js');
-        const voiceList = await getAvailableVoices();
-
-        if (voiceList && voiceList.length > 0) {
-            const voiceIds = voiceList.map(voice => voice.id || voice);
-            sendJsonResponse(res, 200, { success: true, voices: voiceIds }, req);
-        } else {
-            // Fallback voices if TTS service fails (Wavespeed default voices)
-            const fallbackVoices = [
-                'Friendly_Person', 'Wise_Woman', 'Deep_Voice_Man', 'Calm_Woman',
-                'Casual_Guy', 'Lively_Girl', 'Patient_Man', 'Young_Knight',
-                'Determined_Man', 'Lovely_Girl', 'Decent_Boy', 'Elegant_Man'
-            ];
-            sendJsonResponse(res, 200, { success: true, voices: fallbackVoices });
-        }
-    } catch (error) {
-        logger.error({ err: error }, 'Failed to fetch voices from TTS service');
-
-        // Return fallback voices on error (Wavespeed default voices)
-        const fallbackVoices = [
-            'Friendly_Person', 'Wise_Woman', 'Deep_Voice_Man', 'Calm_Woman',
-            'Casual_Guy', 'Lively_Girl', 'Patient_Man', 'Young_Knight',
-            'Determined_Man', 'Lovely_Girl', 'Decent_Boy', 'Elegant_Man'
-        ];
-        sendJsonResponse(res, 200, { success: true, voices: fallbackVoices }, req);
-    }
-}
-
-// TTS Test endpoint handler
-async function handleTtsTest(req, res) {
-    if (req.method !== 'POST') {
-        return sendErrorResponse(res, 405, 'Method not allowed', req);
-    }
-
-    // Verify JWT
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return sendErrorResponse(res, 401, 'Authorization token is required', req);
-    }
-
-    const token = authHeader.split(' ')[1];
-    try {
-        jwt.verify(token, JWT_SECRET_KEY, {
-            audience: ['wildcat-tts-api', 'chatvibes-api'],
-            issuer: ['wildcat-tts-auth', 'chatvibes-auth']
-        });
-    } catch (error) {
-        return sendErrorResponse(res, 401, 'Invalid or expired token', req);
-    }
-
-    try {
-        const body = await parseJsonBody(req);
-        const { text, voiceId, pitch, speed, volume, emotion, languageBoost, englishNormalization } = body;
-
-        if (!text) {
-            return sendErrorResponse(res, 400, 'Text is required', req);
-        }
-
-        // Import generateSpeech dynamically
-        const { generateSpeech } = await import('../tts/ttsService.js');
-
-        // Generate audio
-        const audioUrl = await generateSpeech(text, voiceId, {
-            pitch,
-            speed,
-            volume,
-            emotion,
-            languageBoost,
-            englishNormalization
-        });
-
-        sendJsonResponse(res, 200, { success: true, audioUrl }, req);
-
-    } catch (error) {
-        logger.error({ err: error }, 'TTS Test generation failed');
-        sendErrorResponse(res, 500, error.message || 'Failed to generate audio', req);
-    }
-}
-
-// TTS Settings handlers
-async function handleTtsSettings(req, res, channelName, method) {
-    if (method === 'GET') {
-        const settings = await getTtsState(channelName);
-        const payload = {
-            ...settings,
-            englishNormalization: settings.englishNormalization !== undefined ? settings.englishNormalization : false,
-        };
-        sendJsonResponse(res, 200, { success: true, settings: payload }, req);
-    } else if (method === 'PUT') {
-        const body = await parseJsonBody(req);
-        const { key, value } = body;
-
-        // Validate the setting
-        if (!await validateTtsSetting(key, value)) {
-            return sendErrorResponse(res, 400, `Invalid setting: ${key} = ${value}`, req);
-        }
-
-        const success = await setTtsState(channelName, key, value);
-        if (success) {
-            sendJsonResponse(res, 200, { success: true, message: 'Setting updated successfully' }, req);
-        } else {
-            sendErrorResponse(res, 500, 'Failed to update setting', req);
-        }
-    } else {
-        sendErrorResponse(res, 405, 'Method not allowed', req);
-    }
-}
-
-// TTS Ignore list handlers
-async function handleTtsIgnore(req, res, channelName, method) {
-    if (method === 'POST') {
-        const body = await parseJsonBody(req);
-        const { username } = body;
-        if (!username) {
-            return sendErrorResponse(res, 400, 'Username required', req);
-        }
-
-        const success = await addIgnoredUser(channelName, username);
-        if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `User ${username} added to ignore list` }, req);
-        } else {
-            sendErrorResponse(res, 500, 'Failed to add user to ignore list', req);
-        }
-    } else if (method === 'DELETE') {
-        const body = await parseJsonBody(req);
-        const { username } = body;
-        if (!username) {
-            return sendErrorResponse(res, 400, 'Username required', req);
-        }
-
-        const success = await removeIgnoredUser(channelName, username);
-        if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `User ${username} removed from ignore list` }, req);
-        } else {
-            sendErrorResponse(res, 500, 'Failed to remove user from ignore list', req);
-        }
-    } else {
-        sendErrorResponse(res, 405, 'Method not allowed', req);
-    }
-}
-
-// TTS Banned words handlers
-async function handleTtsBannedWords(req, res, channelName, method) {
-    if (method === 'POST') {
-        const body = await parseJsonBody(req);
-        const { word } = body;
-        if (!word || typeof word !== 'string' || !word.trim()) {
-            return sendErrorResponse(res, 400, 'Word or phrase required', req);
-        }
-
-        const success = await addBannedWord(channelName, word);
-        if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `Word/phrase added to banned list` }, req);
-        } else {
-            sendErrorResponse(res, 500, 'Failed to add word to banned list', req);
-        }
-    } else if (method === 'DELETE') {
-        const body = await parseJsonBody(req);
-        const { word } = body;
-        if (!word || typeof word !== 'string' || !word.trim()) {
-            return sendErrorResponse(res, 400, 'Word or phrase required', req);
-        }
-
-        const success = await removeBannedWord(channelName, word);
-        if (success) {
-            sendJsonResponse(res, 200, { success: true, message: `Word/phrase removed from banned list` }, req);
-        } else {
-            sendErrorResponse(res, 500, 'Failed to remove word from banned list', req);
-        }
-    } else {
-        sendErrorResponse(res, 405, 'Method not allowed', req);
-    }
-}
-
-
-
-// Validation function for TTS settings
-async function validateTtsSetting(key, value) {
-    switch (key) {
-        case 'engineEnabled':
-        case 'speakEvents':
-        case 'bitsModeEnabled':
-        case 'readFullUrls':
-        case 'allowViewerPreferences':
-        case 'botRespondsInChat':
-            return typeof value === 'boolean';
-        case 'englishNormalization':
-            return typeof value === 'boolean';
-        case 'mode':
-            return ['all', 'command', 'bits_points_only'].includes(value);
-        case 'ttsPermissionLevel':
-            return ['everyone', 'mods', 'vip'].includes(value);
-        case 'emotion':
-            return VALID_EMOTIONS.includes(value.toLowerCase());
-        case 'languageBoost':
-            return VALID_LANGUAGE_BOOSTS.includes(value);
-        case 'pitch': {
-            const pitch = parseInt(value, 10);
-            return !isNaN(pitch) && pitch >= TTS_PITCH_MIN && pitch <= TTS_PITCH_MAX;
-        }
-        case 'speed': {
-            const speed = parseFloat(value);
-            return !isNaN(speed) && speed >= TTS_SPEED_MIN && speed <= TTS_SPEED_MAX;
-        }
-        case 'bitsMinimumAmount': {
-            const amount = parseInt(value, 10);
-            return !isNaN(amount) && amount >= 0;
-        }
-        case 'voiceId':
-            // Allow any string voice ID - validation will happen in TTS service
-            return typeof value === 'string' && value.length > 0;
-        default:
-            if (key.startsWith('voiceVolumes.')) {
-                const volume = parseFloat(value);
-                // Minimax range is (0, 10], treating 0 as invalid to be safe, though 0 might mute. 
-                // Let's allow 0.1 to 10 based on earlier info.
-                return !isNaN(volume) && volume > 0 && volume <= 10;
-            }
-            if (key === 'bannedWords') {
-                return Array.isArray(value) && value.every(w => typeof w === 'string');
-            }
-            logger.warn(`Unknown TTS setting key: ${key}`);
-            return false;
-    }
-}
-
-const httpServer = http.createServer(async (req, res) => {
-    if (!req.url) { // Should not happen, but good to guard
-        res.writeHead(400);
-        res.end('Bad Request');
-        return;
-    }
-
-    let requestedPath = req.url.split('?')[0]; // Get only the path part, remove query string
-
-    // Handle Twitch EventSub webhook (must capture raw body for signature verification)
-    if (req.method === 'POST' && requestedPath === '/twitch/event') {
-        const chunks = [];
-        req.on('data', c => chunks.push(c));
-        req.on('end', async () => {
-            const { eventSubHandler } = await import('../twitch/eventsub.js');
-            await eventSubHandler(req, res, Buffer.concat(chunks));
-        });
-        return;
-    }
-
-    // Handle API requests
-    if (requestedPath.startsWith('/api/')) {
-        return await handleApiRequest(req, res);
-    }
-
-    // Ignore common browser requests for icons to prevent 404 spam in logs
-    if (requestedPath === '/favicon.ico' || requestedPath === '/apple-touch-icon.png' || requestedPath === '/apple-touch-icon-precomposed.png') {
-        res.writeHead(204, { 'Content-Type': 'image/x-icon' }); // 204 No Content
-        res.end();
-        return;
-    }
-
-    let staticFilePath = requestedPath;
-    // Default to index.html for root or specific OBS path
-    if (staticFilePath === '/' || staticFilePath === '' || staticFilePath === '/tts-obs') {
-        staticFilePath = '/index.html';
-    }
-
-    // If using /tts-obs as a base, strip it for file system lookup
-    // This assumes files are directly in public, not in a 'tts-obs' subfolder within public
-    const localFilePath = staticFilePath.startsWith('/tts-obs') ? staticFilePath.substring('/tts-obs'.length) : staticFilePath;
-    const fullPath = path.join(PUBLIC_DIR, localFilePath);
-
-    // Security: Prevent directory traversal
-    if (fullPath.indexOf(PUBLIC_DIR) !== 0) {
-        logger.warn(`Web server: Attempted directory traversal: ${req.url}`);
-        res.writeHead(403, { 'Content-Type': 'text/plain' });
-        res.end('403 Forbidden');
-        return;
-    }
-
-    const ext = path.extname(fullPath);
-    let contentType = 'text/html'; // Default
-    switch (ext) {
-        case '.js': {
-            contentType = 'application/javascript';
-            break;
-        }
-        case '.css': {
-            contentType = 'text/css';
-            break;
-        }
-        case '.json': {
-            contentType = 'application/json';
-            break;
-        }
-        case '.png': {
-            contentType = 'image/png';
-            break;
-        }
-        case '.jpg': {
-            contentType = 'image/jpeg';
-            break;
-        }
-        // Add more MIME types as needed
-    }
-
-    fs.readFile(fullPath, (err, data) => {
-        if (err) {
-            if (err.code === 'ENOENT') {
-                logger.warn(`Web server: 404 Not Found - ${req.url} (resolved to file: ${fullPath})`);
-                res.writeHead(404, { 'Content-Type': 'text/plain' });
-                res.end('404 Not Found');
-            } else {
-                logger.error({ err, requestedUrl: req.url, filePath: fullPath }, 'Web server: Error reading file');
-                res.writeHead(500);
-                res.end('500 Internal Server Error');
-            }
-            return;
-        }
-        res.writeHead(200, { 'Content-Type': contentType });
-        res.end(data);
+// Twitch EventSub webhook — must be registered BEFORE express.json() so the raw
+// body is preserved for HMAC signature verification.
+app.post('/twitch/event', (req, res) => {
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', async () => {
+        const { eventSubHandler } = await import('../twitch/eventsub.js');
+        await eventSubHandler(req, res, Buffer.concat(chunks));
     });
 });
 
-// Disable Node.js HTTP server timeout to let Cloud Run control connection lifecycle
+// REST API (rate-limited, CORS-enabled, JWT-protected where needed)
+app.use('/api', createApiRouter());
+
+// Suppress noisy 404s for common browser icon requests
+app.get(['/favicon.ico', '/apple-touch-icon.png', '/apple-touch-icon-precomposed.png'], (_req, res) => {
+    res.status(204).end();
+});
+
+// Static files — express.static handles MIME types, ETag, 304s, and directory
+// traversal prevention automatically, replacing the manual fs.readFile + switch block.
+// The /tts-obs alias is handled by mapping it back to the root of PUBLIC_DIR.
+app.use('/tts-obs', express.static(PUBLIC_DIR));
+app.use('/', express.static(PUBLIC_DIR));
+
+// Fallback: serve index.html for any unmatched path (SPA-style)
+app.use((_req, res) => {
+    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
+// ---------------------------------------------------------------------------
+// HTTP server
+// ---------------------------------------------------------------------------
+
+const httpServer = http.createServer(app);
+
+// Let Cloud Run control connection lifecycle rather than Node's built-in timeout
 httpServer.setTimeout(0);
 
-// Rate limiting for failed authentication attempts
-const authFailures = new Map(); // clientIP -> { count, lastAttempt }
-const MAX_AUTH_FAILURES = 50; // Relaxed for debugging
-const AUTH_FAILURE_WINDOW_MS = 60000; // 1 minute
-const AUTH_LOCKOUT_MS = 5000; // 5 seconds (relaxed for debugging)
+// ---------------------------------------------------------------------------
+// Exported initialisation function (called by bot.js)
+// ---------------------------------------------------------------------------
 
-function checkRateLimit(clientIP) {
-    const now = Date.now();
-    const record = authFailures.get(clientIP);
-
-    if (!record) {
-        return { allowed: true };
-    }
-
-    // Check if lockout period has expired
-    if (record.count >= MAX_AUTH_FAILURES) {
-        const timeSinceLast = now - record.lastAttempt;
-        if (timeSinceLast < AUTH_LOCKOUT_MS) {
-            return {
-                allowed: false,
-                retryAfter: Math.ceil((AUTH_LOCKOUT_MS - timeSinceLast) / 1000)
-            };
-        }
-        // Lockout expired, reset
-        authFailures.delete(clientIP);
-        return { allowed: true };
-    }
-
-    // Check if failure window has expired
-    if (now - record.lastAttempt > AUTH_FAILURE_WINDOW_MS) {
-        authFailures.delete(clientIP);
-        return { allowed: true };
-    }
-
-    return { allowed: true };
-}
-
-function recordAuthFailure(clientIP) {
-    const now = Date.now();
-    const record = authFailures.get(clientIP);
-
-    if (!record || now - record.lastAttempt > AUTH_FAILURE_WINDOW_MS) {
-        authFailures.set(clientIP, { count: 1, lastAttempt: now });
-    } else {
-        record.count++;
-        record.lastAttempt = now;
-    }
-}
+let initialized = false;
 
 export function initializeWebServer() {
-    if (wssInstance) {
-        logger.warn('WildcatTTS TTS WebServer already initialized.');
-        return { server: httpServer, wss: wssInstance, sendAudioToChannel, hasActiveClients };
+    if (initialized) {
+        logger.warn('WildcatTTS Web Server already initialized.');
+        // Return the existing public API so callers don't break
+        return { server: httpServer, sendAudioToChannel, hasActiveClients };
     }
+    initialized = true;
 
-    wssInstance = new WebSocketServer({ server: httpServer });
-    logger.info(`WildcatTTS TTS WebSocket Server initialized and attached to HTTP server.`);
-
-    // Cleanup rate limit records every 10 minutes
-    setInterval(() => {
-        const now = Date.now();
-        for (const [ip, record] of authFailures.entries()) {
-            if (now - record.lastAttempt > AUTH_LOCKOUT_MS) {
-                authFailures.delete(ip);
-            }
-        }
-    }, 600000);
-
-    // Heartbeat to detect broken connections and keep them alive across proxies
-    function heartbeat() {
-        this.isAlive = true;
-    }
-
-    const heartbeatInterval = setInterval(() => {
-        wssInstance.clients.forEach((ws) => {
-            if (ws.isAlive === false) {
-                logger.warn('Terminating stale WebSocket connection.');
-                return ws.terminate();
-            }
-            ws.isAlive = false;
-            try {
-                ws.ping();
-            } catch (err) {
-                logger.warn({ err }, 'Error sending WebSocket ping; terminating socket');
-                ws.terminate();
-            }
-        });
-    }, 30000);
-
-    wssInstance.on('connection', async (ws, req) => { // Make the handler async
-        ws.isAlive = true;
-        ws.on('pong', heartbeat);
-        let channelName = null;
-        let tokenFromUrl = null;
-
-        // Get client IP for rate limiting
-        const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-
-        try {
-            const urlObj = new URL(req.url, `http://${req.headers.host}`);
-            channelName = urlObj.searchParams.get('channel')?.toLowerCase();
-            tokenFromUrl = urlObj.searchParams.get('token'); // This is the persistent OBS token
-        } catch (e) {
-            logger.error({ err: e, url: req.url }, "Error parsing channel/token from WebSocket URL");
-            ws.close(1008, 'Invalid URL format');
-            return;
-        }
-
-        if (!channelName || !tokenFromUrl) {
-            logger.warn(`TTS WebSocket connection rejected: Channel or Token missing from URL.`);
-            ws.send(JSON.stringify({ type: 'error', message: 'Channel and token are required.' }));
-            ws.close(1008, 'Channel and token required');
-            return;
-        }
-
-        // Check rate limit before doing any expensive operations
-        const rateLimitCheck = checkRateLimit(clientIP);
-        if (!rateLimitCheck.allowed) {
-            logger.warn({
-                channel: channelName,
-                clientIP,
-                retryAfter: rateLimitCheck.retryAfter
-            }, 'Rate limit exceeded for WebSocket authentication attempts');
-            ws.send(JSON.stringify({
-                type: 'error',
-                message: `Too many failed authentication attempts. Try again in ${rateLimitCheck.retryAfter} seconds.`
-            }));
-            ws.close(1008, 'Rate limit exceeded');
-            return;
-        }
-
-        // Enforce allow-list before any secret lookups
-        if (!isChannelAllowed(channelName)) {
-            logger.warn({ channel: channelName }, 'Rejecting WS connection: Channel not in allow-list');
-            ws.close(1008, 'Channel not allowed');
-            recordAuthFailure(clientIP);
-            return;
-        }
-
-        // --- New Token Validation Logic ---
-        try {
-            const channelConfig = await getTtsState(channelName);
-
-            // Check for direct token in Firestore first (preferred for new setup)
-            let storedToken = channelConfig?.obsSocketToken;
-            let tokenSource = 'firestore';
-
-            // Fallback to Secret Manager if not in Firestore
-            if (!storedToken) {
-                const secretName = channelConfig?.obsSocketSecretName;
-                if (secretName) {
-                    logger.debug({ channel: channelName, secretName }, "Retrieving OBS token from Secret Manager");
-                    storedToken = await getSecretValue(secretName);
-                    tokenSource = 'secret-manager';
-
-                    if (!storedToken) {
-                        logger.error({ channel: channelName, secretName }, "Rejecting WS connection: Failed to retrieve token from Secret Manager.");
-                        ws.close(1011, 'Configuration error: Token not found');
-                        recordAuthFailure(clientIP);
-                        return;
-                    }
-                }
-            }
-
-            if (!storedToken) {
-                logger.error({ channel: channelName, configKeys: Object.keys(channelConfig || {}) }, "Rejecting WS connection: No OBS token configured (checked Firestore and Secret Manager).");
-                ws.close(1008, 'Configuration error: No token configured');
-                recordAuthFailure(clientIP);
-                return;
-            }
-
-            if (storedToken === tokenFromUrl) {
-                logger.info(`WebSocket client authenticated for channel: ${channelName} (via ${tokenSource})`);
-                // Clear any previous auth failures on successful auth
-                authFailures.delete(clientIP);
-            } else {
-                logger.warn({
-                    channel: channelName,
-                    clientIP,
-                    tokenSource,
-                    urlTokenLength: tokenFromUrl?.length,
-                    storedTokenLength: storedToken?.length,
-                    urlTokenPreview: tokenFromUrl?.substring(0, 5),
-                    storedTokenPreview: storedToken?.substring(0, 5)
-                }, "Rejecting WS connection: Token mismatch.");
-                recordAuthFailure(clientIP);
-                ws.close(1008, 'Invalid token');
-                return;
-            }
-        } catch (error) {
-            logger.error({ err: error, channel: channelName, errorMessage: error.message }, "Error during WebSocket token validation.");
-            recordAuthFailure(clientIP);
-            ws.close(1011, 'Internal server error during authentication');
-            return;
-        }
-        // --- End Validation Logic ---
-
-        if (!channelClients.has(channelName)) {
-            channelClients.set(channelName, new Set());
-        }
-        channelClients.get(channelName).add(ws);
-        ws.send(JSON.stringify({ type: 'registered', channel: channelName, message: 'Successfully registered with WildcatTTS TTS WebSocket.' }));
-
-        ws.on('message', (message) => {
-            try {
-                const parsedMessage = JSON.parse(message.toString());
-                logger.debug({ channel: channelName, received: parsedMessage }, `Received WebSocket message`);
-                if (parsedMessage && parsedMessage.type === 'ping') {
-                    // Respond to application-level pings to keep browser clients confident
-                    try {
-                        ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
-                    } catch (sendErr) {
-                        logger.warn({ err: sendErr, channel: channelName }, 'Failed to send pong response');
-                    }
-                }
-            } catch (e) {
-                logger.warn({ channel: channelName, rawMessage: message.toString() }, "Received unparseable WebSocket message from client.");
-            }
-        });
-
-        ws.on('close', (code, reason) => {
-            const reasonStr = reason ? reason.toString() : 'No reason given';
-            logger.info(`WebSocket client disconnected for channel: ${channelName}. Code: ${code}, Reason: "${reasonStr}"`);
-            const clients = channelClients.get(channelName);
-            if (clients) {
-                clients.delete(ws);
-                if (clients.size === 0) {
-                    channelClients.delete(channelName);
-                    logger.info(`No more TTS clients for channel: ${channelName}, removing from map.`);
-                }
-            }
-        });
-
-        ws.on('error', (error) => logger.error({ err: error, channel: channelName }, 'WebSocket client error.'));
-    });
+    initializeWebSocketServer(httpServer);
 
     httpServer.listen(PORT, () => {
         logger.info(`WildcatTTS Web Server (for TTS OBS Source) listening on http://localhost:${PORT}`);
     });
 
-    wssInstance.on('close', () => {
-        clearInterval(heartbeatInterval);
-    });
-
-    return { server: httpServer, wss: wssInstance, sendAudioToChannel, hasActiveClients };
+    return { server: httpServer, sendAudioToChannel, hasActiveClients };
 }
 
-// Export function to check if channel has active WebSocket clients
-export function hasActiveClients(channelName) {
-    if (!wssInstance) {
-        return false;
-    }
-    const lowerChannelName = channelName.toLowerCase();
-    const clients = channelClients.get(lowerChannelName);
-    return clients && clients.size > 0;
-}
-
-export function sendAudioToChannel(channelName, audioUrlOrCommand) {
-    if (!wssInstance) {
-        logger.warn('WildcatTTS TTS WebSocket server not initialized. Cannot send audio.');
-        return;
-    }
-    const lowerChannelName = channelName.toLowerCase(); // Ensure consistency
-    const clients = channelClients.get(lowerChannelName);
-
-    if (!clients || clients.size === 0) {
-        // It's normal for this to happen if OBS source isn't open for that channel.
-        // Change to debug if this log is too noisy.
-        logger.info(`No active TTS WebSocket clients for channel: ${lowerChannelName}. Audio not sent: ${audioUrlOrCommand.substring(0, 50)}`);
-        return;
-    }
-
-    const messagePayload = {
-        type: audioUrlOrCommand === 'STOP_CURRENT_AUDIO' ? 'stopAudio' : 'playAudio',
-        url: audioUrlOrCommand !== 'STOP_CURRENT_AUDIO' ? audioUrlOrCommand : undefined,
-    };
-    const message = JSON.stringify(messagePayload);
-
-    logger.debug(`Sending to ${clients.size} client(s) for channel ${lowerChannelName}: ${message.substring(0, 100)}...`);
-    clients.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) { // WebSocket.OPEN (class property)
-            ws.send(message);
-        } else {
-            logger.warn(`TTS WebSocket client for ${lowerChannelName} not open (state: ${ws.readyState}). Message not sent.`);
-            // Optionally, remove dead clients here if state indicates permanent closure
-        }
-    });
-}
-
-// EventSub setup endpoint handler
-async function handleEventSubSetup(req, res) {
-    try {
-        if (req.method !== 'POST') {
-            return sendErrorResponse(res, 405, 'Method not allowed', req);
-        }
-
-        // Parse request body
-        let body = '';
-        req.on('data', chunk => {
-            body += chunk.toString();
-        });
-
-        req.on('end', async () => {
-            try {
-                const { channelLogin, userId } = JSON.parse(body);
-
-                if (!channelLogin) {
-                    return sendErrorResponse(res, 400, 'Missing channelLogin', req);
-                }
-
-                logger.info({ channelLogin, userId }, 'Setting up EventSub subscriptions');
-
-                // Import EventSub subscription functions
-                const { subscribeChannelToTtsEvents } = await import('../twitch/twitchSubs.js');
-
-                // Subscribe to all TTS events for this channel
-                const result = await subscribeChannelToTtsEvents(userId, {
-                    subscribe: true,      // channel.subscribe
-                    resubscribe: true,    // channel.subscription.message
-                    giftSub: true,        // channel.subscription.gift
-                    cheer: true,          // channel.cheer
-                    raid: true,           // channel.raid
-                    follow: true          // channel.follow (enabled for all tiers, assuming scope is present)
-                });
-
-                logger.info({
-                    channelLogin,
-                    userId,
-                    successful: result.successful.length,
-                    failed: result.failed.length
-                }, 'EventSub setup completed');
-
-                sendJsonResponse(res, 200, {
-                    success: true,
-                    message: 'EventSub subscriptions configured',
-                    channelLogin,
-                    userId,
-                    successful: result.successful,
-                    failed: result.failed
-                }, req);
-
-            } catch (parseError) {
-                logger.error({ err: parseError }, 'Error parsing EventSub setup request');
-                sendErrorResponse(res, 400, 'Invalid request body', req);
-            }
-        });
-
-    } catch (error) {
-        logger.error({ err: error }, 'Error in handleEventSubSetup');
-        sendErrorResponse(res, 500, 'Internal server error', req);
-    }
-}
+// Re-export for any consumers that import these directly from server.js
+export { sendAudioToChannel, hasActiveClients };
