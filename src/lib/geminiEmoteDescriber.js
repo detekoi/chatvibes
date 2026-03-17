@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import logger from './logger.js';
 import { getUsersById } from '../components/twitch/helixClient.js';
 
-const GEMINI_MODEL = 'gemini-2.5-flash-lite';
+const GEMINI_MODEL = 'gemini-3.1-flash-lite-preview';
 
 // System instruction applied to all emote description calls.
 // Establishes accessibility framing and guards against common model failures.
@@ -540,7 +540,7 @@ async function describeBatchEmotes(emoteEntries) {
     if (uncached.length === 0) return results;
 
     // Fetch all images in parallel — animated emotes get frames via sharp, static get single PNG
-    const imagePromises = uncached.map(async ([emoteId, , , isAnimated, ]) => {
+    const imagePromises = uncached.map(async ([emoteId, , , isAnimated,]) => {
         if (isAnimated) {
             const frames = await fetchAnimatedEmoteFrames(emoteId);
             if (frames && frames.length > 1) return { frames, isAnimated: true };
