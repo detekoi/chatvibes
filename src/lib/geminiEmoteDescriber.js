@@ -486,8 +486,8 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnima
     try {
         const emoteContext = buildEmoteContext(emoteName, ownerName);
         const prompt = animatedSuccess
-            ? `These are ${imageParts.length} sequential frames from an animated ${emoteContext}. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`
-            : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY the description.`;
+            ? `These are ${imageParts.length} sequential frames from an animated ${emoteContext}. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No word "emote".`
+            : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".`;
 
         const contents = [...imageParts, { text: prompt }];
 
@@ -496,13 +496,24 @@ async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnima
                 model: GEMINI_MODEL,
                 systemInstruction: SYSTEM_INSTRUCTION,
                 contents,
+                config: {
+                    responseMimeType: 'application/json',
+                    responseJsonSchema: {
+                        type: 'object',
+                        properties: {
+                            description: { type: 'string', description: 'A 2-6 word visual description of the emote, suitable for text-to-speech.' },
+                        },
+                        required: ['description'],
+                    },
+                },
             }),
             new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Gemini timeout')), animatedSuccess ? ANIMATED_GEMINI_TIMEOUT_MS : GEMINI_TIMEOUT_MS)
             ),
         ]);
 
-        const description = response.text?.trim().replace(/[.!?,;:]+$/g, '');
+        const parsed = JSON.parse(response.text);
+        const description = parsed?.description?.trim().replace(/[.!?,;:]+$/g, '');
         if (description) {
             cacheDescription(emoteId, description, emoteName, ownerId);
             logger.debug({ emoteId, emoteName, ownerName, isAnimated, animatedSuccess, description }, 'Emote described by Gemini');
@@ -598,7 +609,7 @@ async function describeBatchEmotes(emoteEntries) {
         const emoteList = group.map((e, i) => {
             const context = buildEmoteContext(e.emoteName, e.ownerName);
             const frameHint = e.isAnimated ? ` (${e.imageFrames.length} sequential frames shown)` : '';
-            return `${i + 1}. ${context}${frameHint}`;
+            return `${i} — ${context}${frameHint}`;
         }).join('\n');
         contentParts.push({ text: `${promptText}\n${emoteList}` });
 
@@ -609,25 +620,42 @@ async function describeBatchEmotes(emoteEntries) {
                     model: GEMINI_MODEL,
                     systemInstruction: SYSTEM_INSTRUCTION,
                     contents: contentParts,
+                    config: {
+                        responseMimeType: 'application/json',
+                        responseJsonSchema: {
+                            type: 'object',
+                            properties: {
+                                emotes: {
+                                    type: 'array',
+                                    description: 'One entry per emote in the same order as the input list.',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            index: { type: 'integer', description: 'Zero-based index matching the emote list.' },
+                                            description: { type: 'string', description: 'A 2-6 word visual description of the emote, suitable for text-to-speech.' },
+                                        },
+                                        required: ['index', 'description'],
+                                    },
+                                },
+                            },
+                            required: ['emotes'],
+                        },
+                    },
                 }),
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('Gemini batch timeout')), batchTimeout)
                 ),
             ]);
 
-            const text = response.text?.trim();
-            if (text) {
-                const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-                for (const line of lines) {
-                    const match = line.match(/^(\d+)\.\s*(.+)/);
-                    if (match) {
-                        const idx = parseInt(match[1], 10) - 1;
-                        const desc = match[2].replace(/^["']|["']$/g, '').replace(/[.!?,;:]+$/g, '').trim();
-                        if (idx >= 0 && idx < group.length && desc) {
-                            const emoteId = group[idx].emoteId;
-                            cacheDescription(emoteId, desc, group[idx].emoteName, group[idx].ownerId);
-                            results.set(emoteId, desc);
-                        }
+            const parsed = JSON.parse(response.text);
+            if (Array.isArray(parsed?.emotes)) {
+                for (const entry of parsed.emotes) {
+                    const idx = entry?.index;
+                    const desc = entry?.description?.trim().replace(/[.!?,;:]+$/g, '');
+                    if (typeof idx === 'number' && idx >= 0 && idx < group.length && desc) {
+                        const emoteId = group[idx].emoteId;
+                        cacheDescription(emoteId, desc, group[idx].emoteName, group[idx].ownerId);
+                        results.set(emoteId, desc);
                     }
                 }
             }
@@ -637,8 +665,8 @@ async function describeBatchEmotes(emoteEntries) {
     };
 
     // Send separate calls in parallel with dedicated prompts
-    const staticPrompt = 'Describe each Twitch emote in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
-    const animatedPrompt = 'Each numbered emote below is animated — you are seeing sequential frames from its animation. Describe what happens across each animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No quotes, periods, or the word "emote". Reply with ONLY numbered descriptions, one per line:';
+    const staticPrompt = 'Describe each Twitch emote below in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".';
+    const animatedPrompt = 'Each emote below is animated — you are seeing sequential frames from its animation. Describe what happens across each animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No word "emote".';
 
     await Promise.all([
         describeBatch(staticEmotes, staticPrompt, GEMINI_TIMEOUT_MS),
