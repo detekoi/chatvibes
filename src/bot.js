@@ -297,7 +297,7 @@ async function main() {
 
         // Load bot's access token into config for EventSub subscriptions
         logger.info('WildcatTTS: Loading bot access token...');
-        const { loadBotAccessToken } = await import('./components/twitch/ircAuthHelper.js');
+        const { loadBotAccessToken } = await import('./components/twitch/tokenManager.js');
         const tokenLoaded = await loadBotAccessToken();
         if (!tokenLoaded) {
             logger.warn('WildcatTTS: Bot access token not loaded. EventSub chat message subscriptions may fail.');

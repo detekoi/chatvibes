@@ -39,7 +39,7 @@ jest.unstable_mockModule('../../src/config/index.js', () => ({
 }));
 
 // Mock auth
-jest.unstable_mockModule('../../src/components/twitch/auth.js', () => ({
+jest.unstable_mockModule('../../src/components/twitch/tokenManager.js', () => ({
     getClientId: jest.fn(() => Promise.resolve('test-client-id'))
 }));
 

@@ -6,7 +6,7 @@ import axios from 'axios';
 import config from '../../config/index.js';
 import logger from '../../lib/logger.js';
 import { getBroadcasterIdByLogin, getUsersByLogin } from './helixClient.js';
-import { getClientId } from './auth.js';
+import { getClientId } from './tokenManager.js';
 
 // Cache for the bot's user ID
 let cachedBotUserId = null;
@@ -132,8 +132,8 @@ export async function sendMessage(channelName, message, options = {}) {
             }, 'Received 401 Unauthorized when sending chat message. Attempting to refresh bot access token...');
 
             // Try to refresh the token
-            const { refreshIrcToken } = await import('./ircAuthHelper.js');
-            const newToken = await refreshIrcToken();
+            const { refreshBotUserToken } = await import('./tokenManager.js');
+            const newToken = await refreshBotUserToken();
 
             if (newToken) {
                 // Update config with new token
