@@ -1,24 +1,8 @@
-# Use an official Node.js runtime that includes Python
+# Use an official Node.js runtime
 FROM node:22-slim
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
-
-# Install Python and the tool to create virtual environments
-RUN apt-get update && apt-get install -y python3 python3-pip python3-venv
-
-# Create a virtual environment in the /opt/venv directory
-RUN python3 -m venv /opt/venv
-
-# Add the virtual environment's bin directory to the PATH.
-# This makes `python` and `pip` from the venv the default.
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Copy Python requirements file
-COPY requirements.txt ./
-
-# Install Python dependencies (this will now use the venv's pip)
-RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy Node.js package files
 COPY package*.json ./

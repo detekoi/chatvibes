@@ -39,7 +39,6 @@
         "gemoji": "^8.1.0",
         "jsonwebtoken": "^9.0.2",
         "pino": "^8.15.0",
-        "python-shell": "^5.0.0",
         "sharp": "^0.34.5",
         "tmi.js": "^1.8.5",
         "winston": "^3.19.0",

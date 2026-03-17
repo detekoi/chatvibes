@@ -21,7 +21,6 @@ STATIC_SECRETS=(
   "WAVESPEED_API_KEY:WAVESPEED_API_KEY"
   "JWT_SECRET:jwt-secret-key"
   "API_302_KEY:302_KEY"
-  "REPLICATE_API_TOKEN:replicate-api-token"
 )
 
 echo "📦 Static secrets to migrate (${#STATIC_SECRETS[@]}):"
