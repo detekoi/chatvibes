@@ -83,7 +83,7 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
 
     if (isAnimated) {
         const frames = await fetchAnimatedEmoteFrames(emoteId);
-        if (frames && frames.length > 1) {
+        if (frames && frames.length >= 1) {
             imageParts = frames.map(frame => ({
                 inlineData: { mimeType: frame.mimeType, data: frame.data.toString('base64') },
             }));
@@ -105,7 +105,7 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
     try {
         const emoteContext = buildEmoteContext(emoteName, ownerName);
         const prompt = animatedSuccess
-            ? `These are ${imageParts.length} sequential frames from an animated ${emoteContext}. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No word "emote".`
+            ? `This is a vertical animation strip of the ${emoteContext} — all frames are stacked top-to-bottom in sequence. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No word "emote".`
             : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".`;
 
         const contents = [...imageParts, { text: prompt }];
@@ -174,7 +174,7 @@ export async function describeBatchEmotes(emoteEntries) {
         uncached.map(async ([emoteId, , , isAnimated]) => {
             if (isAnimated) {
                 const frames = await fetchAnimatedEmoteFrames(emoteId);
-                if (frames && frames.length > 1) return { frames, isAnimated: true };
+                if (frames && frames.length >= 1) return { frames, isAnimated: true };
             }
             const staticImg = await fetchEmoteImage(emoteId);
             return staticImg ? { frames: [staticImg], isAnimated: false } : null;

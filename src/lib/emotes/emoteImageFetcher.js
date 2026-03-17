@@ -4,7 +4,7 @@ import sharp from 'sharp';
 import config from '../../config/index.js';
 import logger from '../logger.js';
 
-const { cdnUrl, maxGifFrames } = config.emote;
+const { cdnUrl } = config.emote;
 const EMOTE_IMAGE_FORMAT = 'static/dark/3.0';
 const ANIMATED_EMOTE_IMAGE_FORMAT = 'animated/dark/3.0';
 
@@ -54,8 +54,9 @@ export async function fetchEmoteImage(emoteId) {
 }
 
 /**
- * Fetch an animated emote GIF and extract evenly-spaced frames as PNG buffers.
- * Sharp uses native libvips for fast GIF decoding with automatic frame coalescing.
+ * Fetch an animated emote GIF and return it as a single tall vertical strip PNG.
+ * All frames are stacked top-to-bottom by libvips in one decode pass and sent
+ * directly to Gemini, which can interpret the full animation context from the strip.
  * @param {string} emoteId
  * @returns {Promise<Array<{data: Buffer, mimeType: string}> | null>}
  */
@@ -73,37 +74,15 @@ export async function fetchAnimatedEmoteFrames(emoteId) {
         const fetchMs = Date.now() - pipelineStart;
 
         const extractStart = Date.now();
-        const metadata = await sharp(gifBuffer, { animated: true }).metadata();
-        const { pages } = metadata;
-
-        if (!pages || pages <= 1) {
-            // Not animated or single frame — return as static PNG
-            const data = await sharp(gifBuffer).png().toBuffer();
-            logger.info({ emoteId, fetchMs, extractMs: Date.now() - extractStart, totalMs: Date.now() - pipelineStart, pages: pages || 1 }, 'Animated emote single frame extracted');
-            return [{ data, mimeType: 'image/png' }];
-        }
-
-        // Compute evenly-spaced frame indices (first, middle, last)
-        const sampleCount = Math.min(maxGifFrames, pages);
-        const selectedIndices = [];
-        for (let i = 0; i < sampleCount; i++) {
-            selectedIndices.push(Math.floor(i * (pages - 1) / Math.max(sampleCount - 1, 1)));
-        }
-
-        // Extract each selected frame (sharp's page option selects a single GIF page directly)
-        const frameBuffers = await Promise.all(
-            selectedIndices.map(async (frameIdx) => {
-                const data = await sharp(gifBuffer, { page: frameIdx })
-                    .png()
-                    .toBuffer();
-                return { data, mimeType: 'image/png' };
-            })
-        );
-
+        // Decode the full GIF into a single tall PNG strip — all frames stacked vertically.
+        // Gemini receives the strip directly and can interpret the animation from it.
+        const { pages } = await sharp(gifBuffer, { animated: true }).metadata();
+        const stripData = await sharp(gifBuffer, { animated: true }).png().toBuffer();
         const extractMs = Date.now() - extractStart;
         const totalMs = Date.now() - pipelineStart;
-        logger.info({ emoteId, fetchMs, extractMs, totalMs, totalFrames: pages, sampledFrames: frameBuffers.length, frameIndices: selectedIndices }, 'Animated emote frames extracted');
-        return frameBuffers;
+
+        logger.info({ emoteId, fetchMs, extractMs, totalMs, totalFrames: pages || 1 }, 'Animated emote strip extracted');
+        return [{ data: stripData, mimeType: 'image/png' }];
     } catch (error) {
         logger.info({ err: error.message, emoteId, pipelineMs: Date.now() - pipelineStart }, 'Error extracting animated emote frames');
         return null;
