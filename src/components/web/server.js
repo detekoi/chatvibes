@@ -28,7 +28,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 // CORS preflight for non-API routes (e.g. the static files themselves)
-app.options('*', (req, res) => {
+app.options('/*splat', (req, res) => {
     applyCors(req, res);
     res.status(204).end();
 });
