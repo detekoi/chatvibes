@@ -14,7 +14,7 @@ export default {
 
         try {
             const ttsConfig = await getTtsState(channelNameNoHash);
-            const ignoredUsers = ttsConfig.ignoredUsers || [];
+            const ignoredUsers = Array.isArray(ttsConfig.ignoredUsers) ? ttsConfig.ignoredUsers : [];
 
             if (ignoredUsers.length === 0) {
                 enqueueMessage(channel, `No users are currently on the TTS ignore list.`, { replyToId });
