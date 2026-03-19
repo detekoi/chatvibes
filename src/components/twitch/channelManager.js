@@ -147,6 +147,7 @@ export async function syncManagedChannelsWithEventSub() {
  */
 export function listenForChannelChanges() {
     const db = _getDb();
+    let isInitialSnapshot = true;
 
     logger.info("[ChannelManager] Setting up listener for channel management changes...");
 
@@ -166,6 +167,22 @@ export function listenForChannelChanges() {
                     });
                 }
             });
+
+            // Skip EventSub sync on initial snapshot — syncManagedChannelsWithEventSub()
+            // already handled these during startup. Allow-list updates happen below.
+            if (isInitialSnapshot) {
+                isInitialSnapshot = false;
+                // Still update allow-list cache from initial snapshot
+                for (const change of changes) {
+                    if (change.isActive && change.twitchUserId) {
+                        addAllowedChannel(change.channelName, change.twitchUserId);
+                    } else if (!change.isActive) {
+                        removeAllowedChannel(change.channelName, change.twitchUserId);
+                    }
+                }
+                logger.info(`[ChannelManager] Initial snapshot: ${changes.length} channels loaded (skipping EventSub sync)`);
+                return;
+            }
 
             if (changes.length > 0) {
                 logger.info(`[ChannelManager] Detected ${changes.length} channel management changes.`);

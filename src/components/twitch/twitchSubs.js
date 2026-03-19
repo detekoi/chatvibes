@@ -488,16 +488,37 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
  * @returns {Promise<object>} Results of all subscription attempts
  */
 export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {}) {
+    // Check if the broadcaster has authorized scopes via OAuth.
+    // Scope-gated subscription types (subscribe, cheer, follow, channel points)
+    // require the broadcaster to have granted specific OAuth scopes to the app.
+    // Without authorization, these calls always return 403 Forbidden.
+    const broadcasterToken = await getBroadcasterAccessToken(broadcasterUserId);
+    const hasBroadcasterAuth = !!broadcasterToken;
+
+    if (!hasBroadcasterAuth) {
+        // List the scope-gated types being skipped for visibility
+        const skippedTypes = [
+            'channel.subscribe', 'channel.subscription.message', 'channel.subscription.gift',
+            'channel.cheer', 'channel.follow', 'channel.channel_points_custom_reward_redemption.add',
+            'channel.channel_points_custom_reward_redemption.update'
+        ];
+        logger.info({
+            broadcasterUserId,
+            skippedTypes,
+            reason: 'Broadcaster has not completed OAuth — scope-gated subscriptions skipped'
+        }, `Skipping ${skippedTypes.length} scope-gated EventSub subscriptions (broadcaster not authorized)`);
+    }
+
     const {
-        subscribe = true,           // channel.subscribe
-        resubscribe = true,         // channel.subscription.message
-        giftSub = true,             // channel.subscription.gift
-        cheer = true,               // channel.cheer
-        raid = true,                // channel.raid
-        follow = true,              // channel.follow (v2 - uses broadcaster token with moderator:read:followers scope)
-        channelPointsAdd = true,    // channel.channel_points_custom_reward_redemption.add
-        channelPointsUpdate = true, // channel.channel_points_custom_reward_redemption.update
-        chatMessage = true          // channel.chat.message (NEW: default true)
+        subscribe = hasBroadcasterAuth,     // channel.subscribe (requires channel:read:subscriptions)
+        resubscribe = hasBroadcasterAuth,   // channel.subscription.message (requires channel:read:subscriptions)
+        giftSub = hasBroadcasterAuth,       // channel.subscription.gift (requires channel:read:subscriptions)
+        cheer = hasBroadcasterAuth,         // channel.cheer (requires bits:read)
+        raid = true,                        // channel.raid (no scope needed)
+        follow = hasBroadcasterAuth,        // channel.follow v2 (requires moderator:read:followers)
+        channelPointsAdd = hasBroadcasterAuth,    // channel points add (requires channel:read:redemptions)
+        channelPointsUpdate = hasBroadcasterAuth, // channel points update (requires channel:read:redemptions)
+        chatMessage = true                  // channel.chat.message (requires bot user scopes, not broadcaster)
     } = options;
 
     const results = {
