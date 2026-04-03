@@ -1,4 +1,8 @@
-import { emojiToName } from 'gemoji';
+import emojibaseData from 'emojibase-data/en/data.json' with { type: 'json' };
+
+// Build a Map once at module load for O(1) emoji-to-label lookups.
+// emojibase-data covers Emoji 17 / Unicode 17 / CLDR 48 (updated Nov 2025).
+const emojiToLabel = new Map(emojibaseData.map(e => [e.emoji, e.label]));
 import emojiRegex from 'emoji-regex';
 
 /**
@@ -51,14 +55,13 @@ export function replaceEmojisWithText(text) {
 
         // Try exact match first, then strip skin tone modifiers (U+1F3FB–U+1F3FF)
         // and variation selectors (U+FE0F) to fall back to the base emoji
-        const name = emojiToName[match.emoji]
-            || emojiToName[match.emoji.replace(/[\u{1F3FB}-\u{1F3FF}\u{FE0F}]/gu, '')];
-        if (name) {
-            const spokenName = name.replace(/_/g, ' ');
+        const label = emojiToLabel.get(match.emoji)
+            || emojiToLabel.get(match.emoji.replace(/[\u{1F3FB}-\u{1F3FF}\u{FE0F}]/gu, ''));
+        if (label) {
             if (count > 1) {
-                result += `, ${count} ${spokenName} emojis, `;
+                result += `, ${count} ${label} emojis, `;
             } else {
-                result += `, ${spokenName} emoji, `;
+                result += `, ${label} emoji, `;
             }
         } else {
             // No mapping — keep original emoji(s)
