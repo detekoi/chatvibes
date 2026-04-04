@@ -117,7 +117,7 @@ export async function handleChatMessage(event, channelName) {
                 .filter(f => f.type === 'text' || f.type === 'mention')
                 .map(f => f.text)
                 .join('')
-                .trim() || text;
+                .trim();
         }
 
         // emoteMode === 'describe'
@@ -137,7 +137,7 @@ export async function handleChatMessage(event, channelName) {
                 .filter(f => f.type === 'text' || f.type === 'mention')
                 .map(f => f.text)
                 .join('')
-                .trim() || text;
+                .trim();
         }
         return text; // 'read' fallback
     };
@@ -151,8 +151,10 @@ export async function handleChatMessage(event, channelName) {
         // Read non-tts commands aloud in 'all' mode
         if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
             const processedMessage = replaceEmojisWithText(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
-            await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'command', messageId: event.message_id }, sharedSessionInfo);
-            logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
+            if (processedMessage) {
+                await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'command', messageId: event.message_id }, sharedSessionInfo);
+                logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
+            }
         } else if (ttsConfig.mode === 'bits_points_only') {
             // In bits/points only mode, do not read commands
             logger.info({ channel: channelName, mode: ttsConfig.mode }, 'Skipping command in bits_points_only mode');
@@ -171,8 +173,10 @@ export async function handleChatMessage(event, channelName) {
                 // Only process if in all mode or bits/points mode
                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
                     const processedMessage = replaceEmojisWithText(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
-                    await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
-                    logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
+                    if (processedMessage) {
+                        await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
+                        logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
+                    }
                 } else {
                     logger.debug({ channel: channelName, bits, mode: ttsConfig.mode }, 'Skipping cheer - mode not compatible');
                 }
@@ -191,8 +195,10 @@ export async function handleChatMessage(event, channelName) {
 
             if (hasPermission(requiredPermission, tags, channelName)) {
                 const processedMessage = replaceEmojisWithText(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
-                await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
-                logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
+                if (processedMessage) {
+                    await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
+                    logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
+                }
             } else {
                 logger.debug({ channel: channelName, user: username, requiredPermission, hasMod: tags.mod }, 'Skipping chat - insufficient permission');
             }
