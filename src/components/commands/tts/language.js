@@ -17,9 +17,10 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const username = user.username;
+        const userId = user['user-id'];
 
         if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username);
+            const prefs = await getGlobalUserPreferences(username, userId);
             const currentLang = prefs.languageBoost;
             // Updated message to include the docLink
             enqueueMessage(channel, `Your current language preference: ${currentLang ?? 'Channel Default'}. Usage: !tts language <language_name|auto|none|reset>. See valid options: ${docLink}`, { replyToId });
@@ -30,7 +31,7 @@ export default {
         let success;
 
         if (['reset', 'default', 'automatic', 'auto', 'none'].includes(requestedLang)) {
-            success = await clearGlobalUserPreference(username, 'languageBoost');
+            success = await clearGlobalUserPreference(username, 'languageBoost', userId);
             if (success) {
                 enqueueMessage(channel, `Your TTS language preference has been reset to the channel default (Automatic/None).`, { replyToId });
             } else {
@@ -43,7 +44,7 @@ export default {
                 enqueueMessage(channel, `Invalid language. See available languages: ${docLink}`, { replyToId });
                 return;
             }
-            success = await setGlobalUserPreference(username, 'languageBoost', foundLang);
+            success = await setGlobalUserPreference(username, 'languageBoost', foundLang, userId);
             if (success) {
                 enqueueMessage(channel, `Your TTS language preference set to ${foundLang}.`, { replyToId });
             } else {

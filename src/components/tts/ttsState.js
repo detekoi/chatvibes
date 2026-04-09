@@ -185,34 +185,43 @@ export async function getGlobalUserPreferences(username, userId) {
     }
 }
 
-export async function setGlobalUserPreference(username, key, value) {
+export async function setGlobalUserPreference(username, key, value, userId) {
     if (!db) db = new Firestore();
-    const lowerUser = username.toLowerCase();
-    const docRef = db.collection(USER_PREFS_COLLECTION).doc(lowerUser);
+    // Use userId as primary key (immutable), fall back to username for legacy callers
+    const docKey = userId || username.toLowerCase();
+    const docRef = db.collection(USER_PREFS_COLLECTION).doc(docKey);
     try {
-        await docRef.set({ [key]: value, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-        logger.info(`Global user preference updated for ${lowerUser}: ${key} = ${value}`);
+        const writeData = { [key]: value, updatedAt: FieldValue.serverTimestamp() };
+        // Store username as metadata for debugging/display purposes
+        if (userId && username) writeData.username = username.toLowerCase();
+        await docRef.set(writeData, { merge: true });
+        logger.info(`Global user preference updated for ${docKey}: ${key} = ${value}`);
+        // Invalidate cache so next read picks up the new value
+        globalUserPrefsCache.delete(docKey);
         return true;
     } catch (error) {
-        logger.error({ err: error, user: lowerUser, key, value }, 'Failed to set user preference in Firestore.');
+        logger.error({ err: error, user: docKey, userId, key, value }, 'Failed to set user preference in Firestore.');
         return false;
     }
 }
 
-export async function clearGlobalUserPreference(username, key) {
+export async function clearGlobalUserPreference(username, key, userId) {
     if (!db) db = new Firestore();
-    const lowerUser = username.toLowerCase();
-    const docRef = db.collection(USER_PREFS_COLLECTION).doc(lowerUser);
+    // Use userId as primary key (immutable), fall back to username for legacy callers
+    const docKey = userId || username.toLowerCase();
+    const docRef = db.collection(USER_PREFS_COLLECTION).doc(docKey);
     try {
         await docRef.update({ [key]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
-        logger.info(`Cleared global user preference '${key}' for ${lowerUser}.`);
+        logger.info(`Cleared global user preference '${key}' for ${docKey}.`);
+        // Invalidate cache
+        globalUserPrefsCache.delete(docKey);
         return true;
     } catch (error) {
         if (error.code === 5) {
-            logger.debug(`No specific preference '${key}' to clear for user ${lowerUser}.`);
+            logger.debug(`No specific preference '${key}' to clear for user ${docKey}.`);
             return true;
         }
-        logger.error({ err: error, user: lowerUser, key }, `Failed to clear user preference '${key}'.`);
+        logger.error({ err: error, user: docKey, userId, key }, `Failed to clear user preference '${key}'.`);
         return false;
     }
 }
@@ -413,63 +422,69 @@ export async function removeBannedWord(channelName, word) {
 }
 
 // Get user-specific emotion preference
-export async function getUserEmotionPreference(channelName, username) {
+export async function getUserEmotionPreference(channelName, username, userId) {
+    const channelConfig = await getTtsState(channelName);
+    // Try userId first (immutable), then fall back to username (legacy)
+    if (userId && channelConfig.userPreferences?.[userId]?.emotion) {
+        return channelConfig.userPreferences[userId].emotion;
+    }
     const lowerUser = username.toLowerCase();
-    const channelConfig = await getTtsState(channelName); // This now includes userPreferences
     return channelConfig.userPreferences?.[lowerUser]?.emotion || null;
 }
 
 // Set user-specific emotion preference
-export async function setUserEmotionPreference(channelName, username, emotion) {
+export async function setUserEmotionPreference(channelName, username, userId, emotion) {
     if (!VALID_EMOTIONS.includes(emotion.toLowerCase())) {
         logger.warn(`[${channelName}] Attempt to set invalid emotion '${emotion}' for user ${username}.`);
         return false;
     }
-    const lowerUser = username.toLowerCase();
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
     try {
         await docRef.set({
             userPreferences: {
-                [lowerUser]: {
+                [userKey]: {
                     emotion: emotion.toLowerCase()
                 }
             },
             updatedAt: FieldValue.serverTimestamp()
         }, { merge: true }); // Use merge:true to not overwrite other userPreferences
 
-        logger.info(`[${channelName}] User TTS emotion preference updated for ${lowerUser}: ${emotion}`);
+        logger.info(`[${channelName}] User TTS emotion preference updated for ${userKey}: ${emotion}`);
         // Update cache
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
-        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
-        currentConfig.userPreferences[lowerUser].emotion = emotion.toLowerCase();
+        if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
+        currentConfig.userPreferences[userKey].emotion = emotion.toLowerCase();
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, user: lowerUser, emotion }, 'Failed to set user TTS emotion preference in Firestore.');
+        logger.error({ err: error, channel: channelName, user: userKey, emotion }, 'Failed to set user TTS emotion preference in Firestore.');
         return false;
     }
 }
 
 // Clear user-specific emotion preference (revert to channel default/auto)
-export async function clearUserEmotionPreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function clearUserEmotionPreference(channelName, username, userId) {
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
-    const fieldPath = `userPreferences.${lowerUser}.emotion`;
+    const fieldPath = `userPreferences.${userKey}.emotion`;
 
     try {
         await docRef.update({
             [fieldPath]: FieldValue.delete(), // Deletes the emotion field for the user
             updatedAt: FieldValue.serverTimestamp()
         });
-        logger.info(`[${channelName}] Cleared user TTS emotion preference for ${lowerUser}.`);
+        logger.info(`[${channelName}] Cleared user TTS emotion preference for ${userKey}.`);
         // Update cache
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
-        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
-            delete currentConfig.userPreferences[lowerUser].emotion;
-            // Optional: if userPreferences[lowerUser] is now empty, delete it too
-            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
-                delete currentConfig.userPreferences[lowerUser];
+        if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
+            delete currentConfig.userPreferences[userKey].emotion;
+            // Optional: if userPreferences[userKey] is now empty, delete it too
+            if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
+                delete currentConfig.userPreferences[userKey];
             }
         }
         channelConfigsCache.set(channelName, currentConfig);
@@ -477,31 +492,35 @@ export async function clearUserEmotionPreference(channelName, username) {
     } catch (error) {
         // It might fail if the field doesn't exist, which is fine.
         if (error.code === 5) { // Firestore: NOT_FOUND (usually if trying to delete a non-existent field path directly)
-            logger.debug(`[${channelName}] No specific emotion preference to clear for user ${lowerUser}.`);
+            logger.debug(`[${channelName}] No specific emotion preference to clear for user ${userKey}.`);
             // Ensure cache reflects this state
             const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
-            if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
-                delete currentConfig.userPreferences[lowerUser].emotion;
-                if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
-                    delete currentConfig.userPreferences[lowerUser];
+            if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
+                delete currentConfig.userPreferences[userKey].emotion;
+                if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
+                    delete currentConfig.userPreferences[userKey];
                 }
             }
             channelConfigsCache.set(channelName, currentConfig);
             return true; // Considered success as the end state is "no preference"
         }
-        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS emotion preference in Firestore.');
+        logger.error({ err: error, channel: channelName, user: userKey }, 'Failed to clear user TTS emotion preference in Firestore.');
         return false;
     }
 }
 
 // --- NEW FUNCTIONS FOR VOICE PREFERENCE ---
-export async function getUserVoicePreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function getUserVoicePreference(channelName, username, userId) {
     const channelConfig = await getTtsState(channelName);
+    // Try userId first (immutable), then fall back to username (legacy)
+    if (userId && channelConfig.userPreferences?.[userId]?.voiceId) {
+        return channelConfig.userPreferences[userId].voiceId;
+    }
+    const lowerUser = username.toLowerCase();
     return channelConfig.userPreferences?.[lowerUser]?.voiceId || null;
 }
 
-export async function setUserVoicePreference(channelName, username, voiceId) {
+export async function setUserVoicePreference(channelName, username, userId, voiceId) {
     const availableVoices = await getAvailableVoices();
     const isValidVoice = availableVoices.some(v => v.id === voiceId);
 
@@ -510,66 +529,68 @@ export async function setUserVoicePreference(channelName, username, voiceId) {
         return false;
     }
 
-    const lowerUser = username.toLowerCase();
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
     try {
         // Using mergeFields to precisely update only the voiceId for the specific user
         await docRef.set({
             userPreferences: {
-                [lowerUser]: {
+                [userKey]: {
                     voiceId: voiceId
                 }
             },
             updatedAt: FieldValue.serverTimestamp()
-        }, { mergeFields: [`userPreferences.${lowerUser}.voiceId`, 'updatedAt'] });
+        }, { mergeFields: [`userPreferences.${userKey}.voiceId`, 'updatedAt'] });
 
-        logger.info(`[${channelName}] User TTS voice preference updated for ${lowerUser}: ${voiceId}`);
+        logger.info(`[${channelName}] User TTS voice preference updated for ${userKey}: ${voiceId}`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
-        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
-        currentConfig.userPreferences[lowerUser].voiceId = voiceId;
+        if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
+        currentConfig.userPreferences[userKey].voiceId = voiceId;
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, user: lowerUser, voiceId }, 'Failed to set user TTS voice preference in Firestore.');
+        logger.error({ err: error, channel: channelName, user: userKey, voiceId }, 'Failed to set user TTS voice preference in Firestore.');
         return false;
     }
 }
 
-export async function clearUserVoicePreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function clearUserVoicePreference(channelName, username, userId) {
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
-    const fieldPath = `userPreferences.${lowerUser}.voiceId`;
+    const fieldPath = `userPreferences.${userKey}.voiceId`;
 
     try {
         await docRef.update({
             [fieldPath]: FieldValue.delete(),
             updatedAt: FieldValue.serverTimestamp()
         });
-        logger.info(`[${channelName}] Cleared user TTS voice preference for ${lowerUser}.`);
+        logger.info(`[${channelName}] Cleared user TTS voice preference for ${userKey}.`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
-        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
-            delete currentConfig.userPreferences[lowerUser].voiceId;
-            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
-                delete currentConfig.userPreferences[lowerUser];
+        if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
+            delete currentConfig.userPreferences[userKey].voiceId;
+            if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
+                delete currentConfig.userPreferences[userKey];
             }
         }
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
         if (error.code === 5) { // Firestore: NOT_FOUND (field doesn't exist)
-            logger.debug(`[${channelName}] No specific voice preference to clear for user ${lowerUser}.`);
+            logger.debug(`[${channelName}] No specific voice preference to clear for user ${userKey}.`);
             const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
-            if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
-                delete currentConfig.userPreferences[lowerUser].voiceId;
-                if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
-                    delete currentConfig.userPreferences[lowerUser];
+            if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
+                delete currentConfig.userPreferences[userKey].voiceId;
+                if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
+                    delete currentConfig.userPreferences[userKey];
                 }
             }
             channelConfigsCache.set(channelName, currentConfig);
             return true;
         }
-        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS voice preference in Firestore.');
+        logger.error({ err: error, channel: channelName, user: userKey }, 'Failed to clear user TTS voice preference in Firestore.');
         return false;
     }
 }
@@ -617,115 +638,127 @@ export async function resetChannelDefaultEmotion(channelName) {
 }
 
 // --- Functions for User-specific Pitch Preference ---
-export async function getUserPitchPreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function getUserPitchPreference(channelName, username, userId) {
     const channelConfig = await getTtsState(channelName);
+    // Try userId first (immutable), then fall back to username (legacy)
+    if (userId && channelConfig.userPreferences?.[userId]?.pitch !== undefined) {
+        return channelConfig.userPreferences[userId].pitch;
+    }
+    const lowerUser = username.toLowerCase();
     return channelConfig.userPreferences?.[lowerUser]?.pitch ?? null;
 }
 
-export async function setUserPitchPreference(channelName, username, pitch) {
+export async function setUserPitchPreference(channelName, username, userId, pitch) {
     const parsedPitch = parseInt(pitch, 10);
     if (isNaN(parsedPitch) || parsedPitch < TTS_PITCH_MIN || parsedPitch > TTS_PITCH_MAX) {
         logger.warn(`[${channelName}] Attempt to set invalid pitch preference '${pitch}' for user ${username}.`);
         return false;
     }
-    const lowerUser = username.toLowerCase();
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
     try {
         await docRef.set({
-            userPreferences: { [lowerUser]: { pitch: parsedPitch } },
+            userPreferences: { [userKey]: { pitch: parsedPitch } },
             updatedAt: FieldValue.serverTimestamp()
-        }, { mergeFields: [`userPreferences.${lowerUser}.pitch`, 'updatedAt'] });
+        }, { mergeFields: [`userPreferences.${userKey}.pitch`, 'updatedAt'] });
 
-        logger.info(`[${channelName}] User TTS pitch preference updated for ${lowerUser}: ${parsedPitch}`);
+        logger.info(`[${channelName}] User TTS pitch preference updated for ${userKey}: ${parsedPitch}`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
-        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
-        currentConfig.userPreferences[lowerUser].pitch = parsedPitch;
+        if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
+        currentConfig.userPreferences[userKey].pitch = parsedPitch;
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, user: lowerUser, pitch: parsedPitch }, 'Failed to set user TTS pitch preference in Firestore.');
+        logger.error({ err: error, channel: channelName, user: userKey, pitch: parsedPitch }, 'Failed to set user TTS pitch preference in Firestore.');
         return false;
     }
 }
 
-export async function clearUserPitchPreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function clearUserPitchPreference(channelName, username, userId) {
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
-    const fieldPath = `userPreferences.${lowerUser}.pitch`;
+    const fieldPath = `userPreferences.${userKey}.pitch`;
     try {
         await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
-        logger.info(`[${channelName}] Cleared user TTS pitch preference for ${lowerUser}.`);
+        logger.info(`[${channelName}] Cleared user TTS pitch preference for ${userKey}.`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
-        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
-            delete currentConfig.userPreferences[lowerUser].pitch;
-            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
-                delete currentConfig.userPreferences[lowerUser];
+        if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
+            delete currentConfig.userPreferences[userKey].pitch;
+            if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
+                delete currentConfig.userPreferences[userKey];
             }
         }
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
         if (error.code === 5) { return true; }
-        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS pitch preference.');
+        logger.error({ err: error, channel: channelName, user: userKey }, 'Failed to clear user TTS pitch preference.');
         return false;
     }
 }
 
 // --- Functions for User-specific Speed Preference ---
-export async function getUserSpeedPreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function getUserSpeedPreference(channelName, username, userId) {
     const channelConfig = await getTtsState(channelName);
+    // Try userId first (immutable), then fall back to username (legacy)
+    if (userId && channelConfig.userPreferences?.[userId]?.speed !== undefined) {
+        return channelConfig.userPreferences[userId].speed;
+    }
+    const lowerUser = username.toLowerCase();
     return channelConfig.userPreferences?.[lowerUser]?.speed ?? null;
 }
 
-export async function setUserSpeedPreference(channelName, username, speed) {
+export async function setUserSpeedPreference(channelName, username, userId, speed) {
     const parsedSpeed = parseFloat(speed);
     if (isNaN(parsedSpeed) || parsedSpeed < TTS_SPEED_MIN || parsedSpeed > TTS_SPEED_MAX) {
         logger.warn(`[${channelName}] Attempt to set invalid speed preference '${speed}' for user ${username}.`);
         return false;
     }
-    const lowerUser = username.toLowerCase();
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
     try {
         await docRef.set({
-            userPreferences: { [lowerUser]: { speed: parsedSpeed } },
+            userPreferences: { [userKey]: { speed: parsedSpeed } },
             updatedAt: FieldValue.serverTimestamp()
-        }, { mergeFields: [`userPreferences.${lowerUser}.speed`, 'updatedAt'] });
+        }, { mergeFields: [`userPreferences.${userKey}.speed`, 'updatedAt'] });
 
-        logger.info(`[${channelName}] User TTS speed preference updated for ${lowerUser}: ${parsedSpeed}`);
+        logger.info(`[${channelName}] User TTS speed preference updated for ${userKey}: ${parsedSpeed}`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
-        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
-        currentConfig.userPreferences[lowerUser].speed = parsedSpeed;
+        if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
+        currentConfig.userPreferences[userKey].speed = parsedSpeed;
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, user: lowerUser, speed: parsedSpeed }, 'Failed to set user TTS speed preference in Firestore.');
+        logger.error({ err: error, channel: channelName, user: userKey, speed: parsedSpeed }, 'Failed to set user TTS speed preference in Firestore.');
         return false;
     }
 }
 
-export async function clearUserSpeedPreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function clearUserSpeedPreference(channelName, username, userId) {
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
-    const fieldPath = `userPreferences.${lowerUser}.speed`;
+    const fieldPath = `userPreferences.${userKey}.speed`;
     try {
         await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
-        logger.info(`[${channelName}] Cleared user TTS speed preference for ${lowerUser}.`);
+        logger.info(`[${channelName}] Cleared user TTS speed preference for ${userKey}.`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
-        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
-            delete currentConfig.userPreferences[lowerUser].speed;
-            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
-                delete currentConfig.userPreferences[lowerUser];
+        if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
+            delete currentConfig.userPreferences[userKey].speed;
+            if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
+                delete currentConfig.userPreferences[userKey];
             }
         }
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
         if (error.code === 5) { return true; }
-        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS speed preference.');
+        logger.error({ err: error, channel: channelName, user: userKey }, 'Failed to clear user TTS speed preference.');
         return false;
     }
 }
@@ -790,13 +823,17 @@ export async function resetChannelDefaultLanguage(channelName) {
 }
 
 // --- Functions for User-specific Language Preference ---
-export async function getUserLanguagePreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function getUserLanguagePreference(channelName, username, userId) {
     const channelConfig = await getTtsState(channelName);
+    // Try userId first (immutable), then fall back to username (legacy)
+    if (userId && channelConfig.userPreferences?.[userId]?.languageBoost) {
+        return channelConfig.userPreferences[userId].languageBoost;
+    }
+    const lowerUser = username.toLowerCase();
     return channelConfig.userPreferences?.[lowerUser]?.languageBoost || null;
 }
 
-export async function setUserLanguagePreference(channelName, username, language) {
+export async function setUserLanguagePreference(channelName, username, userId, language) {
     const langKey = language.charAt(0).toUpperCase() + language.slice(1).toLowerCase();
     if (!VALID_LANGUAGE_BOOSTS.includes(langKey) && langKey !== "None" && langKey !== "Automatic") {
         const foundLang = VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === language.toLowerCase());
@@ -812,84 +849,91 @@ export async function setUserLanguagePreference(channelName, username, language)
         logger.warn(`[${channelName}] Attempt to set invalid language preference '${language}' for user ${username}.`);
         return false;
     }
-    const lowerUser = username.toLowerCase();
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
     try {
         await docRef.set({
-            userPreferences: { [lowerUser]: { languageBoost: language } },
+            userPreferences: { [userKey]: { languageBoost: language } },
             updatedAt: FieldValue.serverTimestamp()
-        }, { mergeFields: [`userPreferences.${lowerUser}.languageBoost`, 'updatedAt'] });
-        logger.info(`[${channelName}] User TTS language preference updated for ${lowerUser}: ${language}`);
+        }, { mergeFields: [`userPreferences.${userKey}.languageBoost`, 'updatedAt'] });
+        logger.info(`[${channelName}] User TTS language preference updated for ${userKey}: ${language}`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
-        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
-        currentConfig.userPreferences[lowerUser].languageBoost = language;
+        if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
+        currentConfig.userPreferences[userKey].languageBoost = language;
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, user: lowerUser, language: language }, 'Failed to set user TTS language preference in Firestore.');
+        logger.error({ err: error, channel: channelName, user: userKey, language: language }, 'Failed to set user TTS language preference in Firestore.');
         return false;
     }
 }
 
-export async function clearUserLanguagePreference(channelName, username) {
-    const lowerUser = username.toLowerCase();
+export async function clearUserLanguagePreference(channelName, username, userId) {
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
-    const fieldPath = `userPreferences.${lowerUser}.languageBoost`;
+    const fieldPath = `userPreferences.${userKey}.languageBoost`;
     try {
         await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
-        logger.info(`[${channelName}] Cleared user TTS language preference for ${lowerUser}.`);
+        logger.info(`[${channelName}] Cleared user TTS language preference for ${userKey}.`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
-        if (currentConfig.userPreferences && currentConfig.userPreferences[lowerUser]) {
-            delete currentConfig.userPreferences[lowerUser].languageBoost;
-            if (Object.keys(currentConfig.userPreferences[lowerUser]).length === 0) {
-                delete currentConfig.userPreferences[lowerUser];
+        if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
+            delete currentConfig.userPreferences[userKey].languageBoost;
+            if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
+                delete currentConfig.userPreferences[userKey];
             }
         }
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
         if (error.code === 5) { return true; }
-        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to clear user TTS language preference.');
+        logger.error({ err: error, channel: channelName, user: userKey }, 'Failed to clear user TTS language preference.');
         return false;
     }
 }
 
-async function getUserPreferences(channelName, username) {
-    const lowerUser = username.toLowerCase();
+async function getUserPreferences(channelName, username, userId) {
     const channelConfig = await getTtsState(channelName);
+    // Try userId first (immutable), then fall back to username (legacy)
+    if (userId && channelConfig.userPreferences?.[userId]) {
+        return channelConfig.userPreferences[userId];
+    }
+    const lowerUser = username.toLowerCase();
     return channelConfig.userPreferences?.[lowerUser] || {};
 }
 
-async function setUserPreference(channelName, username, preferenceKey, value) {
-    const lowerUser = username.toLowerCase();
+async function setUserPreference(channelName, username, userId, preferenceKey, value) {
+    // Use userId as primary key (immutable), fall back to username
+    const userKey = userId || username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
     try {
         await docRef.set({
-            userPreferences: { [lowerUser]: { [preferenceKey]: value } },
+            userPreferences: { [userKey]: { [preferenceKey]: value } },
             updatedAt: FieldValue.serverTimestamp()
-        }, { mergeFields: [`userPreferences.${lowerUser}.${preferenceKey}`, 'updatedAt'] });
-        logger.info(`[${channelName}] User TTS preference updated for ${lowerUser}: ${preferenceKey} = ${value}`);
+        }, { mergeFields: [`userPreferences.${userKey}.${preferenceKey}`, 'updatedAt'] });
+        logger.info(`[${channelName}] User TTS preference updated for ${userKey}: ${preferenceKey} = ${value}`);
         const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
-        if (!currentConfig.userPreferences[lowerUser]) currentConfig.userPreferences[lowerUser] = {};
-        currentConfig.userPreferences[lowerUser][preferenceKey] = value;
+        if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
+        currentConfig.userPreferences[userKey][preferenceKey] = value;
         currentConfig.updatedAt = new Date();
         channelConfigsCache.set(channelName, currentConfig);
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, user: lowerUser, preference: preferenceKey, value }, 'Failed to set user TTS preference.');
+        logger.error({ err: error, channel: channelName, user: userKey, preference: preferenceKey, value }, 'Failed to set user TTS preference.');
         return false;
     }
 }
 
-async function getUserEnglishNormalizationPreference(channelName, username) {
-    const userPrefs = await getUserPreferences(channelName, username);
+async function getUserEnglishNormalizationPreference(channelName, username, userId) {
+    const userPrefs = await getUserPreferences(channelName, username, userId);
     return userPrefs?.englishNormalization;
 }
 
-async function setUserEnglishNormalizationPreference(channelName, username, value) {
-    await setUserPreference(channelName, username, 'englishNormalization', value);
+async function setUserEnglishNormalizationPreference(channelName, username, userId, value) {
+    await setUserPreference(channelName, username, userId, 'englishNormalization', value);
 }
 
 // --- Functions for Bits-for-TTS Configuration ---

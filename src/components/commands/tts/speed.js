@@ -18,9 +18,10 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const username = user.username;
+        const userId = user['user-id'];
 
         if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username);
+            const prefs = await getGlobalUserPreferences(username, userId);
             const currentSpeed = prefs.speed;
             enqueueMessage(channel, `Your current speed preference: ${currentSpeed ?? 'Channel Default'}. Usage: !tts speed <value|reset>`, { replyToId });
             return;
@@ -30,7 +31,7 @@ export default {
         let success;
 
         if (actionOrValue === 'reset' || actionOrValue === 'default') {
-            success = await clearGlobalUserPreference(username, 'speed');
+            success = await clearGlobalUserPreference(username, 'speed', userId);
             if (success) {
                 enqueueMessage(channel, `Your TTS speed preference has been reset to the channel default.`, { replyToId });
             } else {
@@ -42,7 +43,7 @@ export default {
                 enqueueMessage(channel, `Invalid speed. Must be a number between ${TTS_SPEED_MIN} and ${TTS_SPEED_MAX}.`, { replyToId });
                 return;
             }
-            success = await setGlobalUserPreference(username, 'speed', speedValue);
+            success = await setGlobalUserPreference(username, 'speed', speedValue, userId);
             if (success) {
                 enqueueMessage(channel, `Your TTS speed preference set to ${speedValue}.`, { replyToId });
             } else {

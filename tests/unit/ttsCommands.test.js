@@ -335,7 +335,8 @@ describe('TTS Command Handlers', () => {
 
       expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
         'testuser',
-        'voiceId'
+        'voiceId',
+        undefined
       );
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
@@ -358,7 +359,8 @@ describe('TTS Command Handlers', () => {
 
       expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
         'testuser',
-        'voiceId'
+        'voiceId',
+        undefined
       );
     });
 
@@ -376,7 +378,8 @@ describe('TTS Command Handlers', () => {
 
       expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
         'testuser',
-        'voiceId'
+        'voiceId',
+        undefined
       );
     });
 
@@ -400,7 +403,8 @@ describe('TTS Command Handlers', () => {
       expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith(
         'testuser',
         'voiceId',
-        'Friendly_Person'
+        'Friendly_Person',
+        undefined
       );
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
@@ -428,7 +432,8 @@ describe('TTS Command Handlers', () => {
       expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith(
         'testuser',
         'voiceId',
-        'Voice With Spaces'
+        'Voice With Spaces',
+        undefined
       );
     });
 

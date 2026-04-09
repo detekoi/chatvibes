@@ -12,9 +12,10 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const username = user.username;
+        const userId = user['user-id'];
 
         if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username);
+            const prefs = await getGlobalUserPreferences(username, userId);
             const currentEmotion = prefs.emotion;
             if (currentEmotion) {
                 enqueueMessage(channel, `Your current TTS emotion is set to: ${currentEmotion}. Use '!tts emotion <emotion_name>' to change it or '!tts emotion reset' to use the channel default.`, { replyToId });
@@ -27,7 +28,7 @@ export default {
         const requestedEmotion = args[0].toLowerCase();
 
         if (requestedEmotion === 'reset' || requestedEmotion === 'default' || requestedEmotion === 'auto') {
-            const success = await clearGlobalUserPreference(username, 'emotion');
+            const success = await clearGlobalUserPreference(username, 'emotion', userId);
             if (success) {
                 enqueueMessage(channel, `Your TTS emotion preference has been reset. The channel default will now be used.`, { replyToId });
             } else {
@@ -41,7 +42,7 @@ export default {
             return;
         }
 
-        const success = await setGlobalUserPreference(username, 'emotion', requestedEmotion);
+        const success = await setGlobalUserPreference(username, 'emotion', requestedEmotion, userId);
         if (success) {
             enqueueMessage(channel, `Your TTS emotion has been set to: ${requestedEmotion}.`, { replyToId });
         } else {

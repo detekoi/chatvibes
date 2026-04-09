@@ -13,9 +13,10 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const username = user.username;
+        const userId = user['user-id'];
 
         if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username);
+            const prefs = await getGlobalUserPreferences(username, userId);
             const currentVoice = prefs.voiceId;
             if (currentVoice) {
                 enqueueMessage(channel, `Your current TTS voice is set to: ${currentVoice}. Use '!tts voice <voice_id>' to change it or '!tts voice reset' to use the channel default.`, { replyToId });
@@ -27,7 +28,7 @@ export default {
 
         // Check for 'reset' first, as it's a single keyword
         if (args.length === 1 && (args[0].toLowerCase() === 'reset' || args[0].toLowerCase() === 'default' || args[0].toLowerCase() === 'auto')) {
-            const success = await clearGlobalUserPreference(username, 'voiceId');
+            const success = await clearGlobalUserPreference(username, 'voiceId', userId);
             if (success) {
                 enqueueMessage(channel, `Your TTS voice preference has been reset. The channel default will now be used.`, { replyToId });
             } else {
@@ -63,7 +64,7 @@ export default {
         // Use the correctly cased ID from the available voices list for storing
         const validVoiceIdToStore = matchedVoice.id;
 
-        const success = await setGlobalUserPreference(username, 'voiceId', validVoiceIdToStore);
+        const success = await setGlobalUserPreference(username, 'voiceId', validVoiceIdToStore, userId);
         if (success) {
             enqueueMessage(channel, `Your TTS voice has been set to: ${validVoiceIdToStore}.`, { replyToId });
         } else {

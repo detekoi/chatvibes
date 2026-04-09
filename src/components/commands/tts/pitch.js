@@ -18,9 +18,10 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const username = user.username;
+        const userId = user['user-id'];
 
         if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username);
+            const prefs = await getGlobalUserPreferences(username, userId);
             const currentPitch = prefs.pitch;
             enqueueMessage(channel, `Your current pitch preference: ${currentPitch ?? 'Channel Default'}. Usage: !tts pitch <value|reset>`, { replyToId });
             return;
@@ -30,7 +31,7 @@ export default {
         let success;
 
         if (actionOrValue === 'reset' || actionOrValue === 'default') {
-            success = await clearGlobalUserPreference(username, 'pitch');
+            success = await clearGlobalUserPreference(username, 'pitch', userId);
             if (success) {
                 enqueueMessage(channel, `Your TTS pitch preference has been reset to the channel default.`, { replyToId });
             } else {
@@ -42,7 +43,7 @@ export default {
                 enqueueMessage(channel, `Invalid pitch. Must be an integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`, { replyToId });
                 return;
             }
-            success = await setGlobalUserPreference(username, 'pitch', pitchValue);
+            success = await setGlobalUserPreference(username, 'pitch', pitchValue, userId);
             if (success) {
                 enqueueMessage(channel, `Your TTS pitch preference set to ${pitchValue}.`, { replyToId });
             } else {
