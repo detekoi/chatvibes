@@ -2,13 +2,37 @@ import emojibaseData from 'emojibase-data/en/data.json' with { type: 'json' };
 
 // Build a Map once at module load for O(1) emoji-to-label lookups.
 // emojibase-data covers Emoji 17 / Unicode 17 / CLDR 48 (updated Nov 2025).
-const emojiToLabel = new Map(emojibaseData.map(e => [e.emoji, e.label]));
+// Include skin-tone variants (nested under each base emoji's `skins` array) so
+// mixed-skin-tone ZWJ sequences like 👩🏻‍🤝‍👩🏿 are covered directly.
+const emojiToLabel = new Map();
+for (const e of emojibaseData) {
+    emojiToLabel.set(e.emoji, e.label);
+    if (e.skins) {
+        for (const skin of e.skins) {
+            emojiToLabel.set(skin.emoji, skin.label);
+        }
+    }
+}
 import emojiRegex from 'emoji-regex';
+
+// Reformat emojibase labels like "waving hand: medium skin tone" or
+// "women holding hands: light skin tone, dark skin tone" into natural spoken
+// form: "medium skin tone waving hand" / "light skin tone and dark skin tone
+// women holding hands".
+function formatLabel(label) {
+    const colonIdx = label.indexOf(': ');
+    if (colonIdx === -1) return label;
+    const base = label.slice(0, colonIdx);
+    const modifier = label.slice(colonIdx + 2);
+    if (!modifier.includes('skin tone')) return label;
+    const tones = modifier.split(', ');
+    return `${tones.join(' and ')} ${base}`;
+}
 
 /**
  * Replaces unicode emojis in a string with parenthetical text descriptions.
  * For example: "Hello 🔥" becomes "Hello (fire emoji)".
- * 
+ *
  * @param {string} text - The input text containing emojis
  * @returns {string} - The text with emojis replaced by descriptions
  */
@@ -54,15 +78,20 @@ export function replaceEmojisWithText(text) {
         }
 
         // Try exact match first, then strip skin tone modifiers (U+1F3FB–U+1F3FF)
-        // and variation selectors (U+FE0F) to fall back to the base emoji
+        // to fall back to the base ZWJ sequence (preserving variation selectors so
+        // sequences like 🙅‍♂️ still match their emojibase keys), then as a last
+        // resort also strip variation selectors (U+FE0F).
+        const skinStripped = match.emoji.replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
         const label = emojiToLabel.get(match.emoji)
-            || emojiToLabel.get(match.emoji.replace(/[\u{1F3FB}-\u{1F3FF}\u{FE0F}]/gu, ''));
+            || emojiToLabel.get(skinStripped)
+            || emojiToLabel.get(skinStripped.replace(/\u{FE0F}/gu, ''));
         if (label) {
+            const description = formatLabel(label);
             const pad = result.length > 0 && !result.endsWith(' ') ? ' ' : '';
             if (count > 1) {
-                result += `${pad}(${count} ${label} emojis)`;
+                result += `${pad}(${count} ${description} emojis)`;
             } else {
-                result += `${pad}(${label} emoji)`;
+                result += `${pad}(${description} emoji)`;
             }
         } else {
             // No mapping — keep original emoji(s)
