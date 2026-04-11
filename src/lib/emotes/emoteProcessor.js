@@ -94,8 +94,8 @@ export function groupFragments(fragments) {
 // ---------------------------------------------------------------------------
 
 /**
- * Describe only the emote fragments in a message, returning a comma-separated summary.
- * Repeated identical emotes are counted: "3 laughing emotes".
+ * Describe only the emote fragments in a message, returning a parenthetical summary.
+ * Repeated identical emotes are counted: "(3 laughing emotes)".
  * This is used for messages that are emote-only or near-emote-only.
  *
  * @param {Array<{type: string, text: string, emote?: {id: string}}>} fragments
@@ -134,7 +134,7 @@ export async function describeEmoteFragments(fragments) {
         const [, { count }] = uniqueEmotes[i];
         const desc = descriptions[i];
         if (!desc) continue;
-        parts.push(count > 1 ? `${count} ${desc} emotes` : `${desc} emote`);
+        parts.push(count > 1 ? `(${count} ${desc} emotes)` : `(${desc} emote)`);
     }
 
     if (parts.length === 0) {
@@ -142,7 +142,7 @@ export async function describeEmoteFragments(fragments) {
         return null;
     }
 
-    return parts.join(', ');
+    return parts.join(' ');
 }
 
 /**
@@ -201,10 +201,10 @@ export async function processMessageWithEmoteDescriptions(fragments) {
         if (frag.type === 'emote' && frag.emote?.id) {
             const desc = descriptionMap.get(frag.emote.id);
             if (desc) {
-                outputParts.push(frag.count > 1 ? `${frag.count} ${desc} emotes` : `${desc} emote`);
+                outputParts.push(frag.count > 1 ? `(${frag.count} ${desc} emotes)` : `(${desc} emote)`);
             } else {
                 // Description failed — fall back to raw emote name
-                outputParts.push(frag.count > 1 ? `${frag.count} ${frag.text}` : frag.text);
+                outputParts.push(frag.count > 1 ? `(${frag.count} ${frag.text})` : frag.text);
             }
         } else {
             const text = frag.text.trim();
@@ -214,7 +214,7 @@ export async function processMessageWithEmoteDescriptions(fragments) {
 
     if (outputParts.length === 0) return null;
 
-    return outputParts.join(', ');
+    return outputParts.join(' ');
 }
 
 // Exported for testing

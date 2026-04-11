@@ -6,8 +6,8 @@ const emojiToLabel = new Map(emojibaseData.map(e => [e.emoji, e.label]));
 import emojiRegex from 'emoji-regex';
 
 /**
- * Replaces unicode emojis in a string with their comma-delimited text descriptions.
- * For example: "Hello 🔥" becomes "Hello , fire emoji, ".
+ * Replaces unicode emojis in a string with parenthetical text descriptions.
+ * For example: "Hello 🔥" becomes "Hello (fire emoji)".
  * 
  * @param {string} text - The input text containing emojis
  * @returns {string} - The text with emojis replaced by descriptions
@@ -58,10 +58,11 @@ export function replaceEmojisWithText(text) {
         const label = emojiToLabel.get(match.emoji)
             || emojiToLabel.get(match.emoji.replace(/[\u{1F3FB}-\u{1F3FF}\u{FE0F}]/gu, ''));
         if (label) {
+            const pad = result.length > 0 && !result.endsWith(' ') ? ' ' : '';
             if (count > 1) {
-                result += `, ${count} ${label} emojis, `;
+                result += `${pad}(${count} ${label} emojis)`;
             } else {
-                result += `, ${label} emoji, `;
+                result += `${pad}(${label} emoji)`;
             }
         } else {
             // No mapping — keep original emoji(s)
