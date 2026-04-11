@@ -167,13 +167,21 @@ export async function deleteAllEventSubSubscriptions() {
     logger.info(`Deleted ${subscriptions.length} subscriptions.`);
 }
 
+const activeDeleteRequests = new Map();
+
 /**
  * Delete all EventSub subscriptions for a specific broadcaster
  * @param {string} broadcasterUserId - The broadcaster's user ID
  * @returns {Promise<{deleted: number, errors: number}>} Count of deleted and failed subscriptions
  */
 export async function deleteChannelEventSubSubscriptions(broadcasterUserId) {
-    const result = await getEventSubSubscriptions();
+    if (activeDeleteRequests.has(broadcasterUserId)) {
+        logger.debug({ broadcasterUserId }, 'Subscription deletion already in progress, returning existing promise');
+        return activeDeleteRequests.get(broadcasterUserId);
+    }
+
+    const deletePromise = (async () => {
+        const result = await getEventSubSubscriptions();
     if (!result.success || !result.data || !result.data.data) {
         logger.error({ broadcasterUserId }, 'Could not fetch subscriptions to delete for broadcaster');
         return { deleted: 0, errors: 1 };
@@ -204,8 +212,16 @@ export async function deleteChannelEventSubSubscriptions(broadcasterUserId) {
         }
     }
 
-    logger.info({ broadcasterUserId, deleted, errors }, 'Completed deleting EventSub subscriptions for broadcaster');
-    return { deleted, errors };
+        logger.info({ broadcasterUserId, deleted, errors }, 'Completed deleting EventSub subscriptions for broadcaster');
+        return { deleted, errors };
+    })();
+
+    activeDeleteRequests.set(broadcasterUserId, deletePromise);
+    try {
+        return await deletePromise;
+    } finally {
+        activeDeleteRequests.delete(broadcasterUserId);
+    }
 }
 
 /**
@@ -481,6 +497,8 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
     return result;
 }
 
+const activeSubscriptionRequests = new Map(); // broadcasterUserId -> Promise
+
 /**
  * Subscribe a channel to all TTS-relevant events
  * @param {string} broadcasterUserId - The broadcaster's user ID
@@ -488,6 +506,12 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
  * @returns {Promise<object>} Results of all subscription attempts
  */
 export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {}) {
+    if (activeSubscriptionRequests.has(broadcasterUserId)) {
+        logger.debug({ broadcasterUserId }, 'Subscription sync already in progress, returning existing promise');
+        return activeSubscriptionRequests.get(broadcasterUserId);
+    }
+
+    const syncPromise = (async () => {
     // Check if the broadcaster has authorized scopes via OAuth.
     // Scope-gated subscription types (subscribe, cheer, follow, channel points)
     // require the broadcaster to have granted specific OAuth scopes to the app.
@@ -641,8 +665,15 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
             }
         });
     }
+        return results;
+    })();
 
-    return results;
+    activeSubscriptionRequests.set(broadcasterUserId, syncPromise);
+    try {
+        return await syncPromise;
+    } finally {
+        activeSubscriptionRequests.delete(broadcasterUserId);
+    }
 }
 
 /**
