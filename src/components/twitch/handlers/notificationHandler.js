@@ -66,11 +66,12 @@ export async function handleNotification(subscriptionType, event, channelName, t
             const bits = event.bits || 0;
             const isAnonymous = event.is_anonymous;
 
+            const bitWord = bits === 1 ? 'bit' : 'bits';
             if (isAnonymous) {
-                ttsText = `${bits} bits from an anonymous cheerer!`;
+                ttsText = `${bits} ${bitWord} from an anonymous cheerer!`;
                 username = 'anonymous_cheerer';
             } else {
-                ttsText = `${cheerUser} cheered ${bits} bits!`;
+                ttsText = `${cheerUser} cheered ${bits} ${bitWord}!`;
                 username = cheerUser;
             }
             logger.info({ channelName, user: cheerUser, bits, isAnonymous }, 'Cheer event');
