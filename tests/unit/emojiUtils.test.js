@@ -1,4 +1,4 @@
-import { replaceEmojisWithText } from '../../src/lib/emojiUtils.js';
+import { replaceEmojisWithText, stripEmojis } from '../../src/lib/emojiUtils.js';
 
 describe('emojiUtils', () => {
     describe('replaceEmojisWithText', () => {
@@ -47,6 +47,38 @@ describe('emojiUtils', () => {
 
         it('should collapse consecutive skin-tone modified emojis', () => {
             expect(replaceEmojisWithText('👴🏽👴🏽👴🏽')).toBe('(3 old man emojis)');
+        });
+    });
+
+    describe('stripEmojis', () => {
+        it('should return the original string if no emojis are present', () => {
+            expect(stripEmojis('Hello world')).toBe('Hello world');
+        });
+
+        it('should remove a single emoji', () => {
+            expect(stripEmojis('Hello 🔥')).toBe('Hello');
+        });
+
+        it('should remove multiple emojis', () => {
+            expect(stripEmojis('hi ♥️ bye 😭')).toBe('hi bye');
+        });
+
+        it('should remove emojis and collapse extra whitespace', () => {
+            expect(stripEmojis('wow 🔥🔥🔥 nice')).toBe('wow nice');
+        });
+
+        it('should handle emoji-only messages', () => {
+            expect(stripEmojis('😭')).toBe('');
+        });
+
+        it('should handle null and empty strings', () => {
+            expect(stripEmojis(null)).toBe(null);
+            expect(stripEmojis('')).toBe('');
+        });
+
+        it('should handle the reported bug case: heart and crying emoji', () => {
+            expect(stripEmojis('hi sav hi denn ♥️')).toBe('hi sav hi denn');
+            expect(stripEmojis('😭')).toBe('');
         });
     });
 });

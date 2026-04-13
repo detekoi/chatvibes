@@ -107,3 +107,16 @@ export function replaceEmojisWithText(text) {
 
     return result;
 }
+
+/**
+ * Strips all unicode emojis from a string, collapsing leftover whitespace.
+ * Used when emoteMode is 'skip' so emoji aren't read aloud at all.
+ *
+ * @param {string} text - The input text potentially containing emojis
+ * @returns {string} - The text with all emojis removed
+ */
+export function stripEmojis(text) {
+    if (!text || typeof text !== 'string') return text;
+    const regex = emojiRegex();
+    return text.replace(regex, '').replace(/\s{2,}/g, ' ').trim();
+}

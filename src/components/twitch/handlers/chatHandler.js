@@ -10,7 +10,7 @@ import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { processMessageUrls } from '../../../lib/urlProcessor.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { isGeminiAvailable, processMessageWithEmoteDescriptions } from '../../../lib/emotes/index.js';
-import { replaceEmojisWithText } from '../../../lib/emojiUtils.js';
+import { replaceEmojisWithText, stripEmojis } from '../../../lib/emojiUtils.js';
 
 /**
  * Handle channel.chat.message events
@@ -146,11 +146,15 @@ export async function handleChatMessage(event, channelName) {
     // (Note: EventSub provides cheer data in the same channel.chat.message event, not a separate cheer event)
     // So we handle both regular messages and cheer messages here
 
+    // Pick the right emoji processor: strip them entirely in 'skip' mode,
+    // otherwise replace them with spoken descriptions
+    const processEmoji = emoteMode === 'skip' ? stripEmojis : replaceEmojisWithText;
+
     // A. If a command was just run, decide if we should READ the command text aloud
     if (processedCommandName) {
         // Read non-tts commands aloud in 'all' mode
         if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
-            const processedMessage = replaceEmojisWithText(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
+            const processedMessage = processEmoji(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
             if (processedMessage) {
                 await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'command', messageId: event.message_id }, sharedSessionInfo);
                 logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
@@ -172,7 +176,7 @@ export async function handleChatMessage(event, channelName) {
             if (bits >= minimumBits) {
                 // Only process if in all mode or bits/points mode
                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
-                    const processedMessage = replaceEmojisWithText(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
+                    const processedMessage = processEmoji(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
                     if (processedMessage) {
                         await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
                         logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
@@ -194,7 +198,7 @@ export async function handleChatMessage(event, channelName) {
             }
 
             if (hasPermission(requiredPermission, tags, channelName)) {
-                const processedMessage = replaceEmojisWithText(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
+                const processedMessage = processEmoji(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
                 if (processedMessage) {
                     await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
                     logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
