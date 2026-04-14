@@ -172,12 +172,13 @@ export function listenForChannelChanges() {
             // already handled these during startup. Allow-list updates happen below.
             if (isInitialSnapshot) {
                 isInitialSnapshot = false;
-                // Still update allow-list cache from initial snapshot
+                // On initial snapshot, only ADD active channels to the allow-list.
+                // The allow-list starts empty so removals are unnecessary and can be
+                // destructive when duplicate docs exist for the same channel (a legacy
+                // name-keyed doc with isActive=false would clobber the active one).
                 for (const change of changes) {
                     if (change.isActive && change.twitchUserId) {
                         addAllowedChannel(change.channelName, change.twitchUserId);
-                    } else if (!change.isActive) {
-                        removeAllowedChannel(change.channelName, change.twitchUserId);
                     }
                 }
                 logger.info(`[ChannelManager] Initial snapshot: ${changes.length} channels loaded (skipping EventSub sync)`);
