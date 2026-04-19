@@ -19,6 +19,7 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
     const redemptionId = event?.id;
     const userInput = event?.user_input || '';
     const userName = (event?.user_login || event?.user_name)?.toLowerCase();
+    const userId = event?.user_id;
     const status = event?.status;
 
     logger.debug({
@@ -74,7 +75,7 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
             }, 'Channel Points redemption pending approval - adding to cache');
 
             // Store rewardId along with redemption for later rejection if needed
-            redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId);
+            redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId, userId);
         } else if (status === 'fulfilled') {
             // Redemption was auto-approved (Skip Queue enabled) - validate and play immediately
             logger.info({
@@ -84,7 +85,7 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
                 textPreview: userInput?.substring(0, 30)
             }, 'Channel Points redemption auto-approved - validating and playing');
 
-            await processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId, rewardId);
+            await processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId, rewardId, userId);
         }
     }
     // Handle redemption.update event
@@ -107,7 +108,8 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
                     cachedRedemption.userName,
                     ttsConfig,
                     redemptionId,
-                    cachedRedemption.rewardId || rewardId
+                    cachedRedemption.rewardId || rewardId,
+                    cachedRedemption.userId || userId
                 );
 
                 // Remove from cache after processing
@@ -140,6 +142,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     const rewardId = event?.reward?.id;
     const userInput = (event?.user_input || '').trim();
     const userName = event?.user_name || event?.user_login || 'Someone';
+    const userId = event?.user_id;
 
     // Skip if this is the configured TTS reward (already handled by handleChannelPointsRedemption)
     const configuredRewardId = ttsConfig.channelPoints?.rewardId || ttsConfig.channelPointRewardId;
@@ -159,7 +162,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         ttsText += `: ${userInput}`;
     }
 
-    logger.info({ channelLogin, userName, rewardTitle, hasUserInput: !!userInput }, 'Announcing Channel Points redemption via TTS');
+    logger.info({ channelLogin, userName, userId, rewardTitle, hasUserInput: !!userInput }, 'Announcing Channel Points redemption via TTS');
 
     // Get shared session info for distribution
     const sharedSessionInfo = await getSharedSessionInfo(channelLogin);
@@ -167,6 +170,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     await publishTtsEvent(channelLogin, {
         text: ttsText,
         user: userName,
+        userId,
         type: 'event'
     }, sharedSessionInfo);
 }
@@ -292,7 +296,7 @@ async function rejectRedemption(channelLogin, redemptionId, rewardId, reason) {
  * Process a TTS redemption (apply content policy and enqueue for playback)
  * Returns validation result: { ok: boolean, reason?: string }
  */
-async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId = null, rewardId = null) {
+async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId = null, rewardId = null, userId = null) {
     const redeemMessage = (userInput || '').trim();
 
     if (redeemMessage.length === 0) {
@@ -346,6 +350,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
     await publishTtsEvent(channelLogin, {
         text: processedMessage,
         user: userName,
+        userId,
         type: 'reward'
     }, sharedSessionInfo);
 

@@ -12,6 +12,7 @@ import { getSharedSessionInfo } from '../eventUtils.js';
 export async function handleNotification(subscriptionType, event, channelName, ttsConfig = {}) {
     let ttsText = null;
     let username = 'event_tts'; // Default for events without specific user
+    let userId = null; // Twitch User ID for voice preference resolution
 
     switch (subscriptionType) {
         case 'channel.subscribe': {
@@ -26,6 +27,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
             const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
             ttsText = `${subUser} just subscribed${tier}!`;
             username = subUser;
+            userId = event.user_id;
             logger.info({ channelName, user: subUser, tier: event.tier }, 'New subscription event');
             break;
         }
@@ -38,6 +40,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
             const message = event.message?.text ? ` ${event.message.text}` : '';
             ttsText = `${resubUser} resubscribed for ${months} months${tier}!${message}`;
             username = resubUser;
+            userId = event.user_id;
             logger.info({ channelName, user: resubUser, months, tier: event.tier }, 'Resubscription event');
             break;
         }
@@ -55,6 +58,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
             } else {
                 ttsText = `${gifterUser} just gifted ${total} ${tier} ${total === 1 ? 'sub' : 'subs'}!`;
                 username = gifterUser;
+                userId = event.user_id;
             }
             logger.info({ channelName, gifter: gifterUser, total, tier: event.tier, isAnonymous }, 'Gift subscription event');
             break;
@@ -73,6 +77,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
             } else {
                 ttsText = `${cheerUser} cheered ${bits} ${bitWord}!`;
                 username = cheerUser;
+                userId = event.user_id;
             }
             logger.info({ channelName, user: cheerUser, bits, isAnonymous }, 'Cheer event');
             break;
@@ -84,6 +89,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
             const viewers = event.viewers || 0;
             ttsText = `${raiderUser} is raiding with ${viewers} ${viewers === 1 ? 'viewer' : 'viewers'}!`;
             username = raiderUser;
+            userId = event.from_broadcaster_user_id;
             logger.info({ channelName, raider: raiderUser, viewers }, 'Raid event');
             break;
         }
@@ -98,6 +104,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
             } else {
                 ttsText = `${followerUser} just followed!`;
                 username = followerUser;
+                userId = event.user_id;
             }
             logger.info({ channelName, user: followerUser, anonymized: anonymize }, 'Follow event');
             break;
@@ -119,6 +126,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
         await publishTtsEvent(channelName, {
             text: ttsText,
             user: username,
+            userId,
             type: 'event'
         }, sharedSessionInfo);
     }

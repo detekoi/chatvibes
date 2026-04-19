@@ -3,7 +3,7 @@
 
 import logger from '../../lib/logger.js';
 
-// Map structure: redemption_id -> { userInput, userName, timestamp, channelName, rewardId }
+// Map structure: redemption_id -> { userInput, userName, timestamp, channelName, rewardId, userId }
 const redemptionCache = new Map();
 
 // TTL for cache entries (24 hours in milliseconds)
@@ -16,13 +16,15 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
  * @param {string} userName - The username who redeemed
  * @param {string} channelName - The channel where redemption occurred
  * @param {string} rewardId - The reward ID for potential rejection
+ * @param {string} userId - The Twitch User ID for voice preference resolution
  */
-export function addRedemption(redemptionId, userInput, userName, channelName, rewardId = null) {
+export function addRedemption(redemptionId, userInput, userName, channelName, rewardId = null, userId = null) {
     const entry = {
         userInput,
         userName,
         channelName,
         rewardId,
+        userId,
         timestamp: Date.now()
     };
 
