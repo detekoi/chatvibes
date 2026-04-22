@@ -26,15 +26,18 @@ steps:
     - '--port'
     - '8080'
     - '--set-env-vars'
-    - 'GOOGLE_CLOUD_PROJECT=${_PROJECT_ID}'
+    - 'GOOGLE_CLOUD_PROJECT=${_PROJECT_ID},TWITCH_BOT_USERNAME=WildcatTTS'
     - '--set-secrets'
     - |
-      TWITCH_BOT_USERNAME=projects/${_PROJECT_ID}/secrets/twitch-bot-username/versions/latest,
       WAVESPEED_API_KEY=projects/${_PROJECT_ID}/secrets/WAVESPEED_API_KEY/versions/latest,
       TWITCH_CLIENT_ID=projects/${_PROJECT_ID}/secrets/twitch-client-id/versions/latest,
       TWITCH_CLIENT_SECRET=projects/${_PROJECT_ID}/secrets/twitch-client-secret/versions/latest,
       TWITCH_BOT_REFRESH_TOKEN=projects/${_PROJECT_ID}/secrets/twitch-bot-refresh-token/versions/latest,
-      GEMINI_API_KEY=projects/${_PROJECT_ID}/secrets/GEMINI_API_KEY/versions/latest
+      GEMINI_API_KEY=projects/${_PROJECT_ID}/secrets/GEMINI_API_KEY/versions/latest,
+      JWT_SECRET_KEY=projects/${_PROJECT_ID}/secrets/jwt-secret-key/versions/latest,
+      TWITCH_EVENTSUB_SECRET=projects/${_PROJECT_ID}/secrets/twitch-eventsub-secret/versions/latest,
+      TWITCH_CHANNELS=projects/${_PROJECT_ID}/secrets/chatvibes-initial-channels/versions/latest,
+      T302_API_KEY=projects/${_PROJECT_ID}/secrets/302_KEY/versions/latest
 
 # Grant Pub/Sub permissions to the Cloud Run service account
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
