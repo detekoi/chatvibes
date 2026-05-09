@@ -13,6 +13,7 @@ import {
     TTS_SPEED_DEFAULT
 } from './ttsConstants.js';
 import { getAvailableVoices } from './ttsService.js'; // For validating voice IDs
+import { getChannelIdFromName } from '../../lib/allowList.js';
 
 let db;
 const TTS_CONFIG_COLLECTION = 'ttsChannelConfigs';
@@ -29,6 +30,22 @@ const GLOBAL_PREFS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
 // In-memory cache for user emote mode preferences: key -> { mode, cachedAt }
 const userEmoteModePrefCache = new Map();
 const EMOTE_MODE_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+/**
+ * Resolves a channel identifier (name or numeric ID) to its immutable Twitch User ID.
+ * If the identifier is already numeric, it is returned as-is.
+ * Otherwise, the in-memory allowList cache is consulted.
+ * Falls back to the original string if no mapping is found.
+ * @param {string} identifier - Channel name or numeric User ID
+ * @returns {string|null}
+ */
+function resolveChannelId(identifier) {
+    if (!identifier) return null;
+    // Already a numeric Twitch User ID — return directly
+    if (/^\d+$/.test(identifier)) return String(identifier);
+    // Look up the channel name in the allowList cache
+    return getChannelIdFromName(identifier) || String(identifier);
+}
 
 export async function initializeTtsState() {
     if (!db) db = new Firestore();
@@ -65,25 +82,25 @@ function _setupFirestoreListener() {
         .onSnapshot(snapshot => {
             logger.debug('TTS config snapshot received from Firestore listener.');
             snapshot.docChanges().forEach(change => {
-                const channelName = change.doc.id;
+                const docId = change.doc.id; // Post-migration: this is the numeric Twitch User ID
                 const data = change.doc.data();
                 if (change.type === 'added' || change.type === 'modified') {
-                    logger.info(`TTS config for ${channelName} ${change.type}. Updating cache.`);
+                    logger.info(`TTS config for ${docId} ${change.type}. Updating cache.`);
                     // Migration: Convert old botMode to botRespondsInChat
                     let botRespondsInChat = data.botRespondsInChat;
                     if (botRespondsInChat === undefined && data.botMode !== undefined) {
                         // Migrate from old botMode: 'authenticated' -> true, others -> false
                         botRespondsInChat = data.botMode === 'authenticated';
                     }
-                    channelConfigsCache.set(channelName, {
+                    channelConfigsCache.set(docId, {
                         ...DEFAULT_TTS_SETTINGS,
                         ...data,
                         botRespondsInChat: botRespondsInChat !== undefined ? botRespondsInChat : false,
                         userPreferences: data.userPreferences || {} // Ensure userPreferences exists
                     });
                 } else if (change.type === 'removed') {
-                    logger.info(`TTS config for ${channelName} removed. Removing from cache.`);
-                    channelConfigsCache.delete(channelName);
+                    logger.info(`TTS config for ${docId} removed. Removing from cache.`);
+                    channelConfigsCache.delete(docId);
                 }
             });
         }, err => {
@@ -92,13 +109,14 @@ function _setupFirestoreListener() {
 }
 
 export async function getTtsState(channelName) {
-    if (channelConfigsCache.has(channelName)) {
+    const channelId = resolveChannelId(channelName);
+    if (channelConfigsCache.has(channelId)) {
         // Ensure userPreferences is part of the returned object
-        const cachedConfig = channelConfigsCache.get(channelName);
+        const cachedConfig = channelConfigsCache.get(channelId);
         return { ...cachedConfig, userPreferences: cachedConfig.userPreferences || {} };
     }
     try {
-        const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+        const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
         const docSnap = await docRef.get();
         if (docSnap.exists) {
             const data = docSnap.data();
@@ -114,7 +132,7 @@ export async function getTtsState(channelName) {
                 botRespondsInChat: botRespondsInChat !== undefined ? botRespondsInChat : false,
                 userPreferences: data.userPreferences || {}
             };
-            channelConfigsCache.set(channelName, config);
+            channelConfigsCache.set(channelId, config);
             return config;
         }
     } catch (error) {
@@ -122,7 +140,7 @@ export async function getTtsState(channelName) {
     }
     // No document exists - this is a new channel, use defaults (botRespondsInChat: false)
     const defaultConfigCopy = { ...DEFAULT_TTS_SETTINGS, userPreferences: {} };
-    channelConfigsCache.set(channelName, defaultConfigCopy);
+    channelConfigsCache.set(channelId, defaultConfigCopy);
     return defaultConfigCopy;
 }
 
@@ -134,13 +152,14 @@ export async function getChannelTtsConfig(channelName) {
 }
 
 export async function setTtsState(channelName, key, value) {
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({ [key]: value, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
         logger.info(`[${channelName}] TTS state updated: ${key} = ${value}`);
         // Update cache immediately (Firestore listener will also update, but this is faster)
-        const currentConfig = channelConfigsCache.get(channelName) || { ...DEFAULT_TTS_SETTINGS };
-        channelConfigsCache.set(channelName, { ...currentConfig, [key]: value });
+        const currentConfig = channelConfigsCache.get(channelId) || { ...DEFAULT_TTS_SETTINGS };
+        channelConfigsCache.set(channelId, { ...currentConfig, [key]: value });
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, key, value }, 'Failed to set TTS state in Firestore.');
@@ -291,7 +310,8 @@ export async function getUserEmoteModePreference(username, userId) {
  * @returns {Promise<boolean>}
  */
 export async function setObsSocketSecretName(channelName, secretName) {
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             obsSocketSecretName: secretName,
@@ -299,8 +319,8 @@ export async function setObsSocketSecretName(channelName, secretName) {
         }, { merge: true });
         logger.info(`[${channelName}] OBS WebSocket secret name has been set.`);
         // Update cache
-        const currentConfig = await getTtsState(channelName);
-        channelConfigsCache.set(channelName, { ...currentConfig, obsSocketSecretName: secretName });
+        const currentConfig = await getTtsState(channelId);
+        channelConfigsCache.set(channelId, { ...currentConfig, obsSocketSecretName: secretName });
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName }, 'Failed to set OBS socket secret name in Firestore.');
@@ -315,8 +335,9 @@ export async function setObsSocketSecretName(channelName, secretName) {
  * @returns {Promise<boolean>}
  */
 export async function setObsSocketToken(channelName, token) {
+    const channelId = resolveChannelId(channelName);
     if (!db) db = new Firestore();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             obsSocketToken: token,
@@ -324,8 +345,8 @@ export async function setObsSocketToken(channelName, token) {
         }, { merge: true });
         logger.info(`[${channelName}] OBS WebSocket token has been set (Firestore).`);
         // Update cache
-        const currentConfig = await getTtsState(channelName);
-        channelConfigsCache.set(channelName, { ...currentConfig, obsSocketToken: token });
+        const currentConfig = await getTtsState(channelId);
+        channelConfigsCache.set(channelId, { ...currentConfig, obsSocketToken: token });
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName }, 'Failed to set OBS socket token in Firestore.');
@@ -334,19 +355,20 @@ export async function setObsSocketToken(channelName, token) {
 }
 // Functions for managing ignored users
 export async function addIgnoredUser(channelName, username) {
+    const channelId = resolveChannelId(channelName);
     const lowerUser = username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             ignoredUsers: FieldValue.arrayUnion(lowerUser),
             updatedAt: FieldValue.serverTimestamp()
         }, { merge: true });
         // Update cache
-        const config = await getTtsState(channelName); // Fetches or gets from cache
+        const config = await getTtsState(channelId); // Fetches or gets from cache
         if (!config.ignoredUsers.includes(lowerUser)) {
             config.ignoredUsers.push(lowerUser);
         }
-        channelConfigsCache.set(channelName, config);
+        channelConfigsCache.set(channelId, config);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to add user to TTS ignore list in Firestore.');
@@ -355,19 +377,20 @@ export async function addIgnoredUser(channelName, username) {
 }
 
 export async function removeIgnoredUser(channelName, username) {
+    const channelId = resolveChannelId(channelName);
     const lowerUser = username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.update({
             ignoredUsers: FieldValue.arrayRemove(lowerUser),
             updatedAt: FieldValue.serverTimestamp()
         });
         // Update cache
-        const config = await getTtsState(channelName); // Fetches or gets from cache
+        const config = await getTtsState(channelId); // Fetches or gets from cache
         if (config.ignoredUsers) {
             config.ignoredUsers = config.ignoredUsers.filter(user => user !== lowerUser);
         }
-        channelConfigsCache.set(channelName, config);
+        channelConfigsCache.set(channelId, config);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to remove user from TTS ignore list in Firestore.');
@@ -377,21 +400,22 @@ export async function removeIgnoredUser(channelName, username) {
 
 // Functions for managing banned words/phrases
 export async function addBannedWord(channelName, word) {
+    const channelId = resolveChannelId(channelName);
     const lowerWord = word.toLowerCase().trim();
     if (!lowerWord) return false;
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             bannedWords: FieldValue.arrayUnion(lowerWord),
             updatedAt: FieldValue.serverTimestamp()
         }, { merge: true });
         // Update cache
-        const config = await getTtsState(channelName);
+        const config = await getTtsState(channelId);
         if (!config.bannedWords) config.bannedWords = [];
         if (!config.bannedWords.includes(lowerWord)) {
             config.bannedWords.push(lowerWord);
         }
-        channelConfigsCache.set(channelName, config);
+        channelConfigsCache.set(channelId, config);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, word: lowerWord }, 'Failed to add banned word in Firestore.');
@@ -400,20 +424,21 @@ export async function addBannedWord(channelName, word) {
 }
 
 export async function removeBannedWord(channelName, word) {
+    const channelId = resolveChannelId(channelName);
     const lowerWord = word.toLowerCase().trim();
     if (!lowerWord) return false;
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.update({
             bannedWords: FieldValue.arrayRemove(lowerWord),
             updatedAt: FieldValue.serverTimestamp()
         });
         // Update cache
-        const config = await getTtsState(channelName);
+        const config = await getTtsState(channelId);
         if (config.bannedWords) {
             config.bannedWords = config.bannedWords.filter(w => w !== lowerWord);
         }
-        channelConfigsCache.set(channelName, config);
+        channelConfigsCache.set(channelId, config);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, word: lowerWord }, 'Failed to remove banned word from Firestore.');
@@ -434,13 +459,14 @@ export async function getUserEmotionPreference(channelName, username, userId) {
 
 // Set user-specific emotion preference
 export async function setUserEmotionPreference(channelName, username, userId, emotion) {
+    const channelId = resolveChannelId(channelName);
     if (!VALID_EMOTIONS.includes(emotion.toLowerCase())) {
         logger.warn(`[${channelName}] Attempt to set invalid emotion '${emotion}' for user ${username}.`);
         return false;
     }
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             userPreferences: {
@@ -453,11 +479,11 @@ export async function setUserEmotionPreference(channelName, username, userId, em
 
         logger.info(`[${channelName}] User TTS emotion preference updated for ${userKey}: ${emotion}`);
         // Update cache
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
         if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
         currentConfig.userPreferences[userKey].emotion = emotion.toLowerCase();
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: userKey, emotion }, 'Failed to set user TTS emotion preference in Firestore.');
@@ -467,9 +493,10 @@ export async function setUserEmotionPreference(channelName, username, userId, em
 
 // Clear user-specific emotion preference (revert to channel default/auto)
 export async function clearUserEmotionPreference(channelName, username, userId) {
+    const channelId = resolveChannelId(channelName);
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     const fieldPath = `userPreferences.${userKey}.emotion`;
 
     try {
@@ -479,7 +506,7 @@ export async function clearUserEmotionPreference(channelName, username, userId) 
         });
         logger.info(`[${channelName}] Cleared user TTS emotion preference for ${userKey}.`);
         // Update cache
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
             delete currentConfig.userPreferences[userKey].emotion;
             // Optional: if userPreferences[userKey] is now empty, delete it too
@@ -487,21 +514,21 @@ export async function clearUserEmotionPreference(channelName, username, userId) 
                 delete currentConfig.userPreferences[userKey];
             }
         }
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         // It might fail if the field doesn't exist, which is fine.
         if (error.code === 5) { // Firestore: NOT_FOUND (usually if trying to delete a non-existent field path directly)
             logger.debug(`[${channelName}] No specific emotion preference to clear for user ${userKey}.`);
             // Ensure cache reflects this state
-            const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+            const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
             if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
                 delete currentConfig.userPreferences[userKey].emotion;
                 if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
                     delete currentConfig.userPreferences[userKey];
                 }
             }
-            channelConfigsCache.set(channelName, currentConfig);
+            channelConfigsCache.set(channelId, currentConfig);
             return true; // Considered success as the end state is "no preference"
         }
         logger.error({ err: error, channel: channelName, user: userKey }, 'Failed to clear user TTS emotion preference in Firestore.');
@@ -521,6 +548,7 @@ export async function getUserVoicePreference(channelName, username, userId) {
 }
 
 export async function setUserVoicePreference(channelName, username, userId, voiceId) {
+    const channelId = resolveChannelId(channelName);
     const availableVoices = await getAvailableVoices();
     const isValidVoice = availableVoices.some(v => v.id === voiceId);
 
@@ -531,7 +559,7 @@ export async function setUserVoicePreference(channelName, username, userId, voic
 
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         // Using mergeFields to precisely update only the voiceId for the specific user
         await docRef.set({
@@ -544,11 +572,11 @@ export async function setUserVoicePreference(channelName, username, userId, voic
         }, { mergeFields: [`userPreferences.${userKey}.voiceId`, 'updatedAt'] });
 
         logger.info(`[${channelName}] User TTS voice preference updated for ${userKey}: ${voiceId}`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
         if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
         currentConfig.userPreferences[userKey].voiceId = voiceId;
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: userKey, voiceId }, 'Failed to set user TTS voice preference in Firestore.');
@@ -557,9 +585,10 @@ export async function setUserVoicePreference(channelName, username, userId, voic
 }
 
 export async function clearUserVoicePreference(channelName, username, userId) {
+    const channelId = resolveChannelId(channelName);
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     const fieldPath = `userPreferences.${userKey}.voiceId`;
 
     try {
@@ -568,26 +597,26 @@ export async function clearUserVoicePreference(channelName, username, userId) {
             updatedAt: FieldValue.serverTimestamp()
         });
         logger.info(`[${channelName}] Cleared user TTS voice preference for ${userKey}.`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
             delete currentConfig.userPreferences[userKey].voiceId;
             if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
                 delete currentConfig.userPreferences[userKey];
             }
         }
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         if (error.code === 5) { // Firestore: NOT_FOUND (field doesn't exist)
             logger.debug(`[${channelName}] No specific voice preference to clear for user ${userKey}.`);
-            const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+            const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
             if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
                 delete currentConfig.userPreferences[userKey].voiceId;
                 if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
                     delete currentConfig.userPreferences[userKey];
                 }
             }
-            channelConfigsCache.set(channelName, currentConfig);
+            channelConfigsCache.set(channelId, currentConfig);
             return true;
         }
         logger.error({ err: error, channel: channelName, user: userKey }, 'Failed to clear user TTS voice preference in Firestore.');
@@ -649,6 +678,7 @@ export async function getUserPitchPreference(channelName, username, userId) {
 }
 
 export async function setUserPitchPreference(channelName, username, userId, pitch) {
+    const channelId = resolveChannelId(channelName);
     const parsedPitch = parseInt(pitch, 10);
     if (isNaN(parsedPitch) || parsedPitch < TTS_PITCH_MIN || parsedPitch > TTS_PITCH_MAX) {
         logger.warn(`[${channelName}] Attempt to set invalid pitch preference '${pitch}' for user ${username}.`);
@@ -656,7 +686,7 @@ export async function setUserPitchPreference(channelName, username, userId, pitc
     }
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             userPreferences: { [userKey]: { pitch: parsedPitch } },
@@ -664,11 +694,11 @@ export async function setUserPitchPreference(channelName, username, userId, pitc
         }, { mergeFields: [`userPreferences.${userKey}.pitch`, 'updatedAt'] });
 
         logger.info(`[${channelName}] User TTS pitch preference updated for ${userKey}: ${parsedPitch}`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
         if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
         currentConfig.userPreferences[userKey].pitch = parsedPitch;
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: userKey, pitch: parsedPitch }, 'Failed to set user TTS pitch preference in Firestore.');
@@ -677,21 +707,22 @@ export async function setUserPitchPreference(channelName, username, userId, pitc
 }
 
 export async function clearUserPitchPreference(channelName, username, userId) {
+    const channelId = resolveChannelId(channelName);
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     const fieldPath = `userPreferences.${userKey}.pitch`;
     try {
         await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
         logger.info(`[${channelName}] Cleared user TTS pitch preference for ${userKey}.`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
             delete currentConfig.userPreferences[userKey].pitch;
             if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
                 delete currentConfig.userPreferences[userKey];
             }
         }
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         if (error.code === 5) { return true; }
@@ -712,6 +743,7 @@ export async function getUserSpeedPreference(channelName, username, userId) {
 }
 
 export async function setUserSpeedPreference(channelName, username, userId, speed) {
+    const channelId = resolveChannelId(channelName);
     const parsedSpeed = parseFloat(speed);
     if (isNaN(parsedSpeed) || parsedSpeed < TTS_SPEED_MIN || parsedSpeed > TTS_SPEED_MAX) {
         logger.warn(`[${channelName}] Attempt to set invalid speed preference '${speed}' for user ${username}.`);
@@ -719,7 +751,7 @@ export async function setUserSpeedPreference(channelName, username, userId, spee
     }
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             userPreferences: { [userKey]: { speed: parsedSpeed } },
@@ -727,11 +759,11 @@ export async function setUserSpeedPreference(channelName, username, userId, spee
         }, { mergeFields: [`userPreferences.${userKey}.speed`, 'updatedAt'] });
 
         logger.info(`[${channelName}] User TTS speed preference updated for ${userKey}: ${parsedSpeed}`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
         if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
         currentConfig.userPreferences[userKey].speed = parsedSpeed;
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: userKey, speed: parsedSpeed }, 'Failed to set user TTS speed preference in Firestore.');
@@ -740,21 +772,22 @@ export async function setUserSpeedPreference(channelName, username, userId, spee
 }
 
 export async function clearUserSpeedPreference(channelName, username, userId) {
+    const channelId = resolveChannelId(channelName);
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     const fieldPath = `userPreferences.${userKey}.speed`;
     try {
         await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
         logger.info(`[${channelName}] Cleared user TTS speed preference for ${userKey}.`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
             delete currentConfig.userPreferences[userKey].speed;
             if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
                 delete currentConfig.userPreferences[userKey];
             }
         }
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         if (error.code === 5) { return true; }
@@ -770,12 +803,13 @@ export async function getVoiceVolumes(channelName) {
 }
 
 export async function setVoiceVolume(channelName, voiceId, volume) {
+    const channelId = resolveChannelId(channelName);
     const parsedVolume = parseFloat(volume);
     if (isNaN(parsedVolume) || parsedVolume <= 0 || parsedVolume > 10) {
         logger.warn(`[${channelName}] Attempt to set invalid volume '${volume}' for voice ${voiceId}.`);
         return false;
     }
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         // Use dot notation for nested update in Firestore
         await docRef.set({
@@ -786,10 +820,10 @@ export async function setVoiceVolume(channelName, voiceId, volume) {
         logger.info(`[${channelName}] Voice volume updated for ${voiceId}: ${parsedVolume}`);
 
         // Update cache
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (!currentConfig.voiceVolumes) currentConfig.voiceVolumes = {};
         currentConfig.voiceVolumes[voiceId] = parsedVolume;
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, voiceId, volume }, 'Failed to set voice volume in Firestore.');
@@ -851,18 +885,19 @@ export async function setUserLanguagePreference(channelName, username, userId, l
     }
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             userPreferences: { [userKey]: { languageBoost: language } },
             updatedAt: FieldValue.serverTimestamp()
         }, { mergeFields: [`userPreferences.${userKey}.languageBoost`, 'updatedAt'] });
         logger.info(`[${channelName}] User TTS language preference updated for ${userKey}: ${language}`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
         if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
         currentConfig.userPreferences[userKey].languageBoost = language;
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: userKey, language: language }, 'Failed to set user TTS language preference in Firestore.');
@@ -873,19 +908,20 @@ export async function setUserLanguagePreference(channelName, username, userId, l
 export async function clearUserLanguagePreference(channelName, username, userId) {
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     const fieldPath = `userPreferences.${userKey}.languageBoost`;
     try {
         await docRef.update({ [fieldPath]: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
         logger.info(`[${channelName}] Cleared user TTS language preference for ${userKey}.`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (currentConfig.userPreferences && currentConfig.userPreferences[userKey]) {
             delete currentConfig.userPreferences[userKey].languageBoost;
             if (Object.keys(currentConfig.userPreferences[userKey]).length === 0) {
                 delete currentConfig.userPreferences[userKey];
             }
         }
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         if (error.code === 5) { return true; }
@@ -895,7 +931,7 @@ export async function clearUserLanguagePreference(channelName, username, userId)
 }
 
 async function getUserPreferences(channelName, username, userId) {
-    const channelConfig = await getTtsState(channelName);
+    const channelConfig = await getTtsState(channelName); // getTtsState handles resolution
     // Try userId first (immutable), then fall back to username (legacy)
     if (userId && channelConfig.userPreferences?.[userId]) {
         return channelConfig.userPreferences[userId];
@@ -907,19 +943,20 @@ async function getUserPreferences(channelName, username, userId) {
 async function setUserPreference(channelName, username, userId, preferenceKey, value) {
     // Use userId as primary key (immutable), fall back to username
     const userKey = userId || username.toLowerCase();
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         await docRef.set({
             userPreferences: { [userKey]: { [preferenceKey]: value } },
             updatedAt: FieldValue.serverTimestamp()
         }, { mergeFields: [`userPreferences.${userKey}.${preferenceKey}`, 'updatedAt'] });
         logger.info(`[${channelName}] User TTS preference updated for ${userKey}: ${preferenceKey} = ${value}`);
-        const currentConfig = channelConfigsCache.get(channelName) || await getTtsState(channelName);
+        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
         if (!currentConfig.userPreferences) currentConfig.userPreferences = {};
         if (!currentConfig.userPreferences[userKey]) currentConfig.userPreferences[userKey] = {};
         currentConfig.userPreferences[userKey][preferenceKey] = value;
         currentConfig.updatedAt = new Date();
-        channelConfigsCache.set(channelName, currentConfig);
+        channelConfigsCache.set(channelId, currentConfig);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: userKey, preference: preferenceKey, value }, 'Failed to set user TTS preference.');
@@ -944,7 +981,8 @@ async function setUserEnglishNormalizationPreference(channelName, username, user
  * @returns {Promise<boolean>}
  */
 export async function setBitsConfig(channelName, { enabled, minimumAmount }) {
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelName);
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         const updatePayload = {
             bitsModeEnabled: enabled,
@@ -954,8 +992,8 @@ export async function setBitsConfig(channelName, { enabled, minimumAmount }) {
         await docRef.set(updatePayload, { merge: true });
         logger.info(`[${channelName}] Bits-for-TTS config updated: Enabled=${enabled}, Min=${minimumAmount}`);
         // Update local cache
-        const currentConfig = channelConfigsCache.get(channelName) || {};
-        channelConfigsCache.set(channelName, { ...currentConfig, ...updatePayload });
+        const currentConfig = channelConfigsCache.get(channelId) || {};
+        channelConfigsCache.set(channelId, { ...currentConfig, ...updatePayload });
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName }, 'Failed to set Bits-for-TTS config.');

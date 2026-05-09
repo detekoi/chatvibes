@@ -35,6 +35,17 @@ export function isChannelAllowed(identifier) {
 }
 
 /**
+ * Gets the Twitch User ID for a given channel login name from the cache.
+ * Returns undefined if the channel is not known.
+ * @param {string} channelName
+ * @returns {string|undefined}
+ */
+export function getChannelIdFromName(channelName) {
+  if (!channelName) return undefined;
+  return channelNameToIdMap.get(String(channelName).trim().toLowerCase());
+}
+
+/**
  * Bulk-update the allowed set from Firestore managedChannels data.
  * Called by channelManager after loading active channels.
  * @param {Array<{name: string, twitchUserId: string|null}>} channels
