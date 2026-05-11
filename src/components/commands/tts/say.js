@@ -32,6 +32,7 @@ export default {
         await publishTtsEvent(channelNameNoHash, {
             text: messageToSay,
             user: user.username,
+            userId: user['user-id'],
             type: 'command_say'
         });
         // No confirmation message to chat for !tts say, the speech itself is the confirmation.
