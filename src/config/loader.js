@@ -83,7 +83,7 @@ function loadConfig() {
             jwtSecret: process.env.JWT_SECRET || process.env.JWT_SECRET_KEY, // Support both env var names
         },
         emote: {
-            geminiModel: process.env.EMOTE_GEMINI_MODEL || 'gemini-3.1-flash-lite-preview',
+            geminiModel: process.env.EMOTE_GEMINI_MODEL || 'gemini-flash-lite-latest',
             cdnUrl: 'https://static-cdn.jtvnw.net/emoticons/v2',
             maxGifFrames: 3,       // Number of evenly-spaced frames to sample from animated GIFs
             timeoutMs: 8000,       // Gemini timeout for static emotes
