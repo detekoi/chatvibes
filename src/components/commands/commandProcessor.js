@@ -98,9 +98,10 @@ function hasPermission(requiredPermission, tags, channelName) {
  * @param {string} channelNameNoHash - Channel name (without '#').
  * @param {object} tags - tmi.js message tags.
  * @param {string} message - Raw message content.
+ * @param {object} [eventData={}] - Optional EventSub event data (fragments, emoteMode, etc.) to pass through to command handlers.
  * @returns {Promise<string|null>} The name of the command if processed, null otherwise.
  */
-async function processMessage(channelNameNoHash, tags, message) {
+async function processMessage(channelNameNoHash, tags, message, eventData = {}) {
     logger.debug({ channelName: channelNameNoHash, user: tags.username, message }, 'processMessage called');
 
     const parsed = parseCommand(message);
@@ -152,6 +153,7 @@ async function processMessage(channelNameNoHash, tags, message) {
             command: commandName, // Pass the executed command name for context within subcommand handlers
             replyToId: tags?.id || tags?.['message-id'] || null, // Add reply ID from message tags
             canReply: canReply,
+            eventData: eventData,
             logger: logger,
             // Helper to send a message (conditionally based on mode)
             say: async (text) => {

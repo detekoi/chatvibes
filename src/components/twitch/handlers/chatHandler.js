@@ -7,10 +7,9 @@ import { convertEventSubToTags } from '../eventSubToTags.js';
 import { processMessage as processCommand, hasPermission } from '../../commands/commandProcessor.js';
 import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
-import { processMessageUrls } from '../../../lib/urlProcessor.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
-import { isGeminiAvailable, processMessageWithEmoteDescriptions } from '../../../lib/emotes/index.js';
-import { replaceEmojisWithText, stripEmojis } from '../../../lib/emojiUtils.js';
+import { isGeminiAvailable } from '../../../lib/emotes/index.js';
+import { formatTtsText } from '../../../lib/formatTtsText.js';
 
 /**
  * Handle channel.chat.message events
@@ -68,10 +67,8 @@ export async function handleChatMessage(event, channelName) {
 
     if (!cleanMessage) return;
 
-    // --- COMMAND PROCESSING ---
-    const processedCommandName = await processCommand(channelName, tags, cleanMessage);
-
-    // --- TTS PROCESSING ---
+    // --- TTS CONFIG & EMOTE MODE RESOLUTION ---
+    // Resolved before command processing so eventData can flow into command handlers
     const ttsConfig = await getTtsState(channelName);
     const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
     const containsBannedWord = ttsConfig.bannedWords?.length > 0 &&
@@ -95,66 +92,31 @@ export async function handleChatMessage(event, channelName) {
     const fragmentTypes = event.message?.fragments?.map(f => ({ type: f.type, text: f.text.substring(0, 20), hasEmoteId: !!f.emote?.id })) || [];
     logger.info({ userEmoteMode, channelEmoteMode, emoteMode, bits, fragmentTypes, geminiAvailable: isGeminiAvailable() }, 'Emote mode resolved');
 
-    /**
-     * Process emotes in message based on emote mode.
-     * - 'read': pass through raw text (no filtering)
-     * - 'skip': filter out emote and cheermote fragments
-     * - 'describe': replace emotes with AI-generated descriptions
-     * @param {string} text - The original message text
-     * @returns {Promise<string>} - Processed text based on emote mode
-     */
     // Filter out cheermote fragments for emote processing so cheermote text
     // doesn't appear in the described/skipped output
     const ttsFragments = event.message?.fragments?.filter(f => f.type !== 'cheermote');
 
-    const processEmotes = async (text) => {
-        if (emoteMode === 'read' || !ttsFragments) {
-            return text;
-        }
+    // Build command-specific fragments: strip the leading "!tts" text prefix so
+    // the fragment array aligns with the text say.js will speak (everything after !tts).
+    let commandFragments = ttsFragments;
+    if (cleanMessage.startsWith('!tts') && ttsFragments) {
+        commandFragments = stripCommandPrefixFromFragments(ttsFragments, '!tts');
+    }
 
-        if (emoteMode === 'skip') {
-            return ttsFragments
-                .filter(f => f.type === 'text' || f.type === 'mention')
-                .map(f => f.text)
-                .join('')
-                .trim();
-        }
+    // --- COMMAND PROCESSING ---
+    const processedCommandName = await processCommand(channelName, tags, cleanMessage, {
+        fragments: commandFragments,
+        emoteMode,
+        channelEmoteMode,
+        readFullUrls: ttsConfig.readFullUrls,
+    });
 
-        // emoteMode === 'describe'
-        if (isGeminiAvailable()) {
-            try {
-                const described = await processMessageWithEmoteDescriptions(ttsFragments);
-                if (described) return described;
-            } catch (error) {
-                logger.debug({ err: error, channel: channelName, user: username }, 'Emote description failed, falling back');
-            }
-        }
-
-        // Fallback: use channel's emote mode setting (but not 'describe' to avoid infinite loop)
-        const fallbackMode = channelEmoteMode === 'describe' ? 'read' : channelEmoteMode;
-        if (fallbackMode === 'skip') {
-            return ttsFragments
-                .filter(f => f.type === 'text' || f.type === 'mention')
-                .map(f => f.text)
-                .join('')
-                .trim();
-        }
-        return text; // 'read' fallback
-    };
-
-    // Skip TTS processing for cheer messages in the regular handler if they'll be handled separately
-    // (Note: EventSub provides cheer data in the same channel.chat.message event, not a separate cheer event)
-    // So we handle both regular messages and cheer messages here
-
-    // Pick the right emoji processor: strip them entirely in 'skip' mode,
-    // otherwise replace them with spoken descriptions
-    const processEmoji = emoteMode === 'skip' ? stripEmojis : replaceEmojisWithText;
-
+    // --- TTS PUBLISHING ---
     // A. If a command was just run, decide if we should READ the command text aloud
     if (processedCommandName) {
         // Read non-tts commands aloud in 'all' mode
         if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
-            const processedMessage = processEmoji(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
+            const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls });
             if (processedMessage) {
                 await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'command', messageId: event.message_id }, sharedSessionInfo);
                 logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
@@ -176,7 +138,7 @@ export async function handleChatMessage(event, channelName) {
             if (bits >= minimumBits) {
                 // Only process if in all mode or bits/points mode
                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
-                    const processedMessage = processEmoji(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
+                    const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls });
                     if (processedMessage) {
                         await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
                         logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
@@ -198,7 +160,7 @@ export async function handleChatMessage(event, channelName) {
             }
 
             if (hasPermission(requiredPermission, tags, channelName)) {
-                const processedMessage = processEmoji(processMessageUrls(await processEmotes(cleanMessage), ttsConfig.readFullUrls));
+                const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls });
                 if (processedMessage) {
                     await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
                     logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
@@ -215,4 +177,41 @@ export async function handleChatMessage(event, channelName) {
             logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping regular chat in command mode');
         }
     }
+}
+
+/**
+ * Strip the command prefix (e.g. "!tts") from the beginning of a fragment array.
+ * The first text fragment typically contains "!tts " or "!tts" — we remove that
+ * prefix text so the remaining fragments align with the content say.js will speak.
+ *
+ * @param {Array<{type: string, text: string}>} fragments - Original fragments (cheermotes already filtered).
+ * @param {string} prefix - The command prefix to strip, e.g. "!tts".
+ * @returns {Array<{type: string, text: string}>} A new array with the prefix removed from the first text fragment.
+ */
+function stripCommandPrefixFromFragments(fragments, prefix) {
+    if (!fragments || fragments.length === 0) return fragments;
+
+    const result = [];
+    let prefixStripped = false;
+
+    for (const frag of fragments) {
+        if (!prefixStripped && frag.type === 'text') {
+            const trimmed = frag.text.trimStart();
+            if (trimmed.toLowerCase().startsWith(prefix.toLowerCase())) {
+                // Remove the prefix and any trailing whitespace after it
+                const remaining = trimmed.slice(prefix.length).replace(/^\s+/, '');
+                prefixStripped = true;
+                if (remaining) {
+                    result.push({ ...frag, text: remaining });
+                }
+                // If nothing remains after stripping, skip this fragment entirely
+            } else {
+                result.push(frag);
+            }
+        } else {
+            result.push(frag);
+        }
+    }
+
+    return result;
 }

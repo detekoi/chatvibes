@@ -59,7 +59,6 @@ const ttsSubCommands = {
     ignore: ignoreUser,
     ignored: listIgnored,
     events: toggleEvents,
-    say,
     bitsconfig,
     permission,
     preferences,
@@ -96,18 +95,13 @@ export default {
 
         // If the subcommand is not found, treat it as an implicit 'say' command
         if (!actualSubCommandHandler || typeof actualSubCommandHandler.execute !== 'function') {
-            // Use the 'say' handler but with the original full arguments
-            const sayHandler = ttsSubCommands['say'];
-            if (sayHandler && typeof sayHandler.execute === 'function') {
-                const sayContext = {
-                    ...context,
-                    command: 'say',
-                    args: args, // Pass all original args as the message to say
-                };
-                await sayHandler.execute(sayContext);
-            } else {
-                enqueueMessage(channel, `For command info, see: https://docs.wildcat.chat/wildcatttsdocs.html#commands`, { replyToId });
-            }
+            // Not a recognized subcommand — treat the entire args as a TTS message
+            const sayContext = {
+                ...context,
+                command: 'say',
+                args: args, // Pass ALL original args as the message to say
+            };
+            await say.execute(sayContext);
             return;
         }
 
