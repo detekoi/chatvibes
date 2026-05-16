@@ -48,18 +48,18 @@ export async function initializeYouTubeChat() {
  * @param {string} youtubeHandle - YouTube handle (e.g. "@parfaitfair")
  */
 export function connectToYouTubeChat(channelId, youtubeHandle) {
+    // Normalize handle before comparing to avoid "@foo" vs "foo" mismatches
+    const target = youtubeHandle.startsWith('@') ? youtubeHandle : `@${youtubeHandle}`;
+
     // Clean up existing connection if any
     const existing = activeConnections.get(channelId);
     if (existing) {
-        if (existing.youtubeHandle === youtubeHandle && existing.ws?.readyState === WebSocket.OPEN) {
-            logger.debug({ channelId, youtubeHandle }, 'YouTube Chat: Already connected to this handle, skipping');
+        if (existing.youtubeHandle === target && existing.ws?.readyState === WebSocket.OPEN) {
+            logger.debug({ channelId, target }, 'YouTube Chat: Already connected to this handle, skipping');
             return;
         }
         disconnectYouTubeChat(channelId);
     }
-
-    // Normalize handle
-    const target = youtubeHandle.startsWith('@') ? youtubeHandle : `@${youtubeHandle}`;
 
     logger.info({ channelId, target, proxyUrl: YT_CHAT_PROXY_URL }, 'YouTube Chat: Connecting to yt-chat-proxy');
 
@@ -147,8 +147,8 @@ function _scheduleReconnect(channelId, connState) {
 
 /**
  * Handle incoming messages from yt-chat-proxy.
- * Message format from the proxy:
- *   { type: "message", eventType, username, message, id, platform: "youtube", amount?, ... }
+ * Message format from the proxy (see poller.go normalizeAction):
+ *   { type: "message", eventType, username, message, emotes, tags, id, channelId, amount?, subtext?, bodyColor?, headerColor? }
  *   { type: "system", status?, message? }
  */
 async function _handleMessage(channelId, msg) {

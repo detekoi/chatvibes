@@ -104,9 +104,13 @@ function _setupFirestoreListener() {
                     };
                     channelConfigsCache.set(docId, newConfig);
 
-                    // Notify YouTube config change listeners if relevant fields changed
-                    if (previousConfig?.youtubeEnabled !== newConfig.youtubeEnabled ||
-                        previousConfig?.youtubeHandle !== newConfig.youtubeHandle) {
+                    // Notify YouTube config change listeners on real config modifications only.
+                    // Initial 'added' events from the Firestore snapshot are handled by the
+                    // explicit startup scan in initializeYouTubeChat — firing here too would
+                    // race and cause duplicate connect/disconnect cycles.
+                    if (change.type === 'modified' &&
+                        (previousConfig?.youtubeEnabled !== newConfig.youtubeEnabled ||
+                        previousConfig?.youtubeHandle !== newConfig.youtubeHandle)) {
                         for (const listener of youtubeConfigChangeListeners) {
                             try {
                                 listener(docId, newConfig);
