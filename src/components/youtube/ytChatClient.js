@@ -9,7 +9,7 @@ import { publishTtsEvent } from '../../lib/pubsub.js';
 import { processMessageUrls } from '../../lib/urlProcessor.js';
 import { replaceEmojisWithText } from '../../lib/emojiUtils.js';
 
-const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://yt-chat-proxy-361545143046.us-central1.run.app/ws';
+const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://ytchat.wildcat.chat/ws';
 
 // Active connections: channelId -> { ws, youtubeHandle, reconnectTimer, reconnectAttempts }
 const activeConnections = new Map();
