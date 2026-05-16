@@ -7,7 +7,8 @@ import logger from '../../lib/logger.js';
 import { getTtsState, getAllChannelConfigs, onYouTubeConfigChange } from '../tts/ttsState.js';
 import { publishTtsEvent } from '../../lib/pubsub.js';
 import { processMessageUrls } from '../../lib/urlProcessor.js';
-import { replaceEmojisWithText } from '../../lib/emojiUtils.js';
+import { replaceEmojisWithText, stripEmojis } from '../../lib/emojiUtils.js';
+import { processYouTubeEmotes } from './ytEmoteProcessor.js';
 
 const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://ytchat.wildcat.chat/ws';
 
@@ -193,9 +194,25 @@ async function _handleMessage(channelId, msg) {
         }
     }
 
-    // Process text: URLs and emoji (no Twitch emote fragments for YouTube)
-    let processedText = processMessageUrls(messageText, ttsConfig.readFullUrls);
-    processedText = replaceEmojisWithText(processedText);
+    // --- EMOTE MODE RESOLUTION ---
+    // Resolve emote mode from channel config (same hierarchy as Twitch)
+    const channelEmoteMode = ttsConfig.emoteMode || 'describe';
+    const emoteMode = channelEmoteMode;
+
+    logger.debug({ channelId, emoteMode, hasEmoteFragments: !!msg.emoteFragments }, 'YouTube Chat: Emote mode resolved');
+
+    // Process text: YouTube custom emotes → URLs → Unicode emoji
+    // Step 1: Process YouTube custom emotes (if emoteFragments present)
+    let processedText = await processYouTubeEmotes(
+        messageText, msg.emoteFragments || null, emoteMode, channelEmoteMode
+    );
+
+    // Step 2: Process URLs
+    processedText = processMessageUrls(processedText, ttsConfig.readFullUrls);
+
+    // Step 3: Process Unicode emoji (describe or strip based on emote mode)
+    const processEmoji = emoteMode === 'skip' ? stripEmojis : replaceEmojisWithText;
+    processedText = processEmoji(processedText);
 
     if (!processedText.trim()) return;
 

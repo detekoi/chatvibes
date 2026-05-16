@@ -3,7 +3,7 @@
 // All external consumers import from this file; the internal module
 // structure can change without touching callers.
 
-export { initGeminiClient, isGeminiAvailable, describeSingleEmote, describeBatchEmotes } from './emoteDescriberApi.js';
+export { initGeminiClient, isGeminiAvailable, describeSingleEmote, describeBatchEmotes, describeEmoteFromUrl } from './emoteDescriberApi.js';
 
 export {
     initEmoteDescriptionStore,
