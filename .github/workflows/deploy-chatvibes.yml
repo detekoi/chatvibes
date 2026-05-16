@@ -116,3 +116,31 @@ jobs:
       - name: Show Deployment URL
         run: |
           echo "Deployed to Cloud Run: ${{ steps.deploy.outputs.url }}"
+
+      - name: Clean up old revisions
+        run: |
+          # Get the latest (just-deployed) revision name
+          LATEST=$(gcloud run services describe ${{ env.CLOUD_RUN_SERVICE_NAME }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --format 'value(status.latestReadyRevisionName)')
+
+          echo "Latest revision: $LATEST"
+
+          # List all revisions and delete any that aren't the latest.
+          # This is critical for the TTS service because old revisions maintain
+          # long-lived WebSocket connections that keep instances alive, causing
+          # duplicate YouTube chat processing.
+          gcloud run revisions list \
+            --service ${{ env.CLOUD_RUN_SERVICE_NAME }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --format 'value(name)' | while read -r REV; do
+            if [ "$REV" != "$LATEST" ]; then
+              echo "Deleting old revision: $REV"
+              gcloud run revisions delete "$REV" \
+                --region ${{ env.GCP_REGION }} \
+                --project ${{ env.GCP_PROJECT_ID }} \
+                --quiet || echo "Failed to delete $REV (may already be gone)"
+            fi
+          done

@@ -166,7 +166,8 @@ async function _handleMessage(channelId, msg) {
     const messageText = (msg.message || '').trim();
     const eventType = msg.eventType || 'chat'; // chat, superchat, supersticker, membership
 
-    if (!messageText && eventType === 'chat') {
+    const hasEmoteFragments = msg.emoteFragments?.length > 0;
+    if (!messageText && !hasEmoteFragments && eventType === 'chat') {
         logger.debug({ channelId, username, eventType }, 'YouTube Chat: Empty message, skipping');
         return;
     }
