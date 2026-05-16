@@ -149,7 +149,7 @@ function _scheduleReconnect(channelId, connState) {
 /**
  * Handle incoming messages from yt-chat-proxy.
  * Message format from the proxy (see poller.go normalizeAction):
- *   { type: "message", eventType, username, message, emotes, tags, id, channelId, amount?, subtext?, bodyColor?, headerColor? }
+ *   { type: "message", eventType, username, message, emotes, emoteFragments?, tags, id, channelId, amount?, subtext?, bodyColor?, headerColor? }
  *   { type: "system", status?, message? }
  */
 async function _handleMessage(channelId, msg) {
@@ -194,23 +194,17 @@ async function _handleMessage(channelId, msg) {
         }
     }
 
-    // --- EMOTE MODE RESOLUTION ---
-    // Resolve emote mode from channel config (same hierarchy as Twitch)
-    const channelEmoteMode = ttsConfig.emoteMode || 'describe';
-    const emoteMode = channelEmoteMode;
+    // Resolve emote mode from channel config.
+    // YouTube does not currently support per-user emote mode overrides (unlike Twitch).
+    const emoteMode = ttsConfig.emoteMode || 'describe';
 
     logger.debug({ channelId, emoteMode, hasEmoteFragments: !!msg.emoteFragments }, 'YouTube Chat: Emote mode resolved');
 
-    // Process text: YouTube custom emotes → URLs → Unicode emoji
-    // Step 1: Process YouTube custom emotes (if emoteFragments present)
+    // Processing pipeline: YouTube custom emotes → URLs → Unicode emoji
     let processedText = await processYouTubeEmotes(
-        messageText, msg.emoteFragments || null, emoteMode, channelEmoteMode
+        messageText, msg.emoteFragments || null, emoteMode, emoteMode
     );
-
-    // Step 2: Process URLs
     processedText = processMessageUrls(processedText, ttsConfig.readFullUrls);
-
-    // Step 3: Process Unicode emoji (describe or strip based on emote mode)
     const processEmoji = emoteMode === 'skip' ? stripEmojis : replaceEmojisWithText;
     processedText = processEmoji(processedText);
 

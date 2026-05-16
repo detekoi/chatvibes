@@ -77,9 +77,9 @@ function readEmoteFragments(fragments) {
 function skipEmoteFragments(fragments) {
     return fragments
         .filter(f => f.type === 'text')
-        .map(f => f.text)
-        .join('')
-        .trim();
+        .map(f => f.text.trim())
+        .filter(Boolean)
+        .join(' ');
 }
 
 /**
