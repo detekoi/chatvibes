@@ -17,6 +17,7 @@ const activeConnections = new Map();
 
 // Reconnect backoff config
 const RECONNECT_DELAYS = [5000, 10000, 30000, 60000]; // 5s, 10s, 30s, 60s cap
+const PING_INTERVAL_MS = 30000; // 30s heartbeat to keep Cloud Run CPU active
 
 /**
  * Initialize YouTube chat connections for all channels that have YouTube enabled.
@@ -68,6 +69,7 @@ export function connectToYouTubeChat(channelId, youtubeHandle) {
         ws: null,
         youtubeHandle: target,
         reconnectTimer: null,
+        pingTimer: null,
         reconnectAttempts: 0,
         intentionallyClosed: false,
     };
@@ -93,6 +95,15 @@ function _connect(channelId, connState) {
                 action: 'JOIN',
                 target: connState.youtubeHandle,
             }));
+
+            // Start heartbeat to prevent Cloud Run CPU throttling from
+            // silently killing the outbound WebSocket connection
+            if (connState.pingTimer) clearInterval(connState.pingTimer);
+            connState.pingTimer = setInterval(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.ping();
+                }
+            }, PING_INTERVAL_MS);
         });
 
         ws.on('message', async (data) => {
@@ -108,6 +119,11 @@ function _connect(channelId, connState) {
             const reasonStr = reason ? reason.toString() : 'No reason';
             logger.info({ channelId, code, reason: reasonStr }, 'YouTube Chat: WebSocket closed');
             connState.ws = null;
+
+            if (connState.pingTimer) {
+                clearInterval(connState.pingTimer);
+                connState.pingTimer = null;
+            }
 
             if (!connState.intentionallyClosed) {
                 _scheduleReconnect(channelId, connState);
@@ -299,6 +315,11 @@ export function disconnectYouTubeChat(channelId) {
     if (conn.reconnectTimer) {
         clearTimeout(conn.reconnectTimer);
         conn.reconnectTimer = null;
+    }
+
+    if (conn.pingTimer) {
+        clearInterval(conn.pingTimer);
+        conn.pingTimer = null;
     }
 
     if (conn.ws) {
