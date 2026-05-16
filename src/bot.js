@@ -25,6 +25,9 @@ import { initializeChannelManager, getActiveManagedChannels, syncManagedChannels
 // Pub/Sub for cross-instance TTS communication
 import { initializePubSub, subscribeTtsEvents, closePubSub } from './lib/pubsub.js';
 
+// YouTube Chat via yt-chat-proxy
+import { initializeYouTubeChat, disconnectAllYouTubeChat } from './components/youtube/ytChatClient.js';
+
 // Shared chat session tracking
 
 
@@ -225,6 +228,10 @@ async function gracefulShutdown(signal) {
             .catch(err => { logger.error({ err }, 'WildcatTTS: Error closing Pub/Sub.'); })
     );
 
+    // Disconnect all YouTube chat WebSocket connections
+    logger.info('WildcatTTS: Disconnecting YouTube chat connections...');
+    disconnectAllYouTubeChat();
+
     logger.info(`WildcatTTS: Waiting for ${shutdownTasks.length} shutdown tasks to complete...`);
     await Promise.allSettled(shutdownTasks);
 
@@ -373,6 +380,11 @@ async function main() {
             await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
         });
         logger.info('WildcatTTS: Pub/Sub subscriber ready');
+
+        // Initialize YouTube Chat connections (connects to yt-chat-proxy for enabled channels)
+        logger.info('WildcatTTS: Initializing YouTube Chat client...');
+        await initializeYouTubeChat();
+        logger.info('WildcatTTS: YouTube Chat client ready');
 
         // Functions to start/stop EventSub subsystem under leader election
         const startEventSubSubsystem = async () => {

@@ -23,6 +23,9 @@ const USER_PREFS_COLLECTION = 'ttsUserPreferences';
 const channelConfigsCache = new Map();
 let firestoreListenerUnsubscribe = null;
 
+// YouTube config change listeners
+const youtubeConfigChangeListeners = [];
+
 // In-memory cache for global user preferences: key -> { data, cachedAt }
 const globalUserPrefsCache = new Map();
 const GLOBAL_PREFS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
@@ -92,14 +95,36 @@ function _setupFirestoreListener() {
                         // Migrate from old botMode: 'authenticated' -> true, others -> false
                         botRespondsInChat = data.botMode === 'authenticated';
                     }
-                    channelConfigsCache.set(docId, {
+                    const previousConfig = channelConfigsCache.get(docId);
+                    const newConfig = {
                         ...DEFAULT_TTS_SETTINGS,
                         ...data,
                         botRespondsInChat: botRespondsInChat !== undefined ? botRespondsInChat : false,
                         userPreferences: data.userPreferences || {} // Ensure userPreferences exists
-                    });
+                    };
+                    channelConfigsCache.set(docId, newConfig);
+
+                    // Notify YouTube config change listeners if relevant fields changed
+                    if (previousConfig?.youtubeEnabled !== newConfig.youtubeEnabled ||
+                        previousConfig?.youtubeHandle !== newConfig.youtubeHandle) {
+                        for (const listener of youtubeConfigChangeListeners) {
+                            try {
+                                listener(docId, newConfig);
+                            } catch (err) {
+                                logger.error({ err, channelId: docId }, 'Error in YouTube config change listener');
+                            }
+                        }
+                    }
                 } else if (change.type === 'removed') {
                     logger.info(`TTS config for ${docId} removed. Removing from cache.`);
+                    // Notify YouTube listeners about removal (youtubeEnabled = false)
+                    for (const listener of youtubeConfigChangeListeners) {
+                        try {
+                            listener(docId, { youtubeEnabled: false });
+                        } catch (err) {
+                            logger.error({ err, channelId: docId }, 'Error in YouTube config change listener (removal)');
+                        }
+                    }
                     channelConfigsCache.delete(docId);
                 }
             });
@@ -1021,6 +1046,22 @@ export async function getBitsConfig(channelName) {
  */
 export async function resetBitsConfig(channelName) {
     return setBitsConfig(channelName, { enabled: false, minimumAmount: 0 });
+}
+
+/**
+ * Returns the entire channelConfigsCache Map.
+ * Used by ytChatClient.js to iterate over all channels on initialization.
+ */
+export function getAllChannelConfigs() {
+    return channelConfigsCache;
+}
+
+/**
+ * Register a callback to be notified when a channel's YouTube config changes.
+ * @param {function(string, object): void} callback - Called with (channelId, newConfig)
+ */
+export function onYouTubeConfigChange(callback) {
+    youtubeConfigChangeListeners.push(callback);
 }
 
 export {
