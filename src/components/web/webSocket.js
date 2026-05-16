@@ -3,7 +3,7 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import logger from '../../lib/logger.js';
-import { isChannelAllowed } from '../../lib/allowList.js';
+import { isChannelAllowed, getChannelNameFromId } from '../../lib/allowList.js';
 import { getTtsState } from '../tts/ttsState.js';
 import { getSecretValue } from '../../lib/secretManager.js';
 
@@ -67,12 +67,25 @@ function recordAuthFailure(clientIP) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Resolve a channel identifier (login name or numeric ID) to the lowercase
+ * login name used as the key in channelClients.
+ */
+function resolveToChannelName(identifier) {
+    const lower = identifier.toLowerCase();
+    // If it's a numeric ID, look up the login name
+    if (/^\d+$/.test(lower)) {
+        return getChannelNameFromId(identifier) || lower;
+    }
+    return lower;
+}
+
+/**
  * Returns true if the given channel currently has at least one connected
  * WebSocket client (i.e. an active OBS browser source).
  */
 export function hasActiveClients(channelName) {
-    const lowerChannelName = channelName.toLowerCase();
-    const clients = channelClients.get(lowerChannelName);
+    const resolved = resolveToChannelName(channelName);
+    const clients = channelClients.get(resolved);
     return clients != null && clients.size > 0;
 }
 
@@ -81,12 +94,12 @@ export function hasActiveClients(channelName) {
  * Pass 'STOP_CURRENT_AUDIO' as audioUrlOrCommand to send a stop signal.
  */
 export function sendAudioToChannel(channelName, audioUrlOrCommand) {
-    const lowerChannelName = channelName.toLowerCase();
-    const clients = channelClients.get(lowerChannelName);
+    const resolved = resolveToChannelName(channelName);
+    const clients = channelClients.get(resolved);
 
     if (!clients || clients.size === 0) {
         logger.info(
-            `No active TTS WebSocket clients for channel: ${lowerChannelName}. Audio not sent: ${audioUrlOrCommand.substring(0, 50)}`
+            `No active TTS WebSocket clients for channel: ${resolved}. Audio not sent: ${audioUrlOrCommand.substring(0, 50)}`
         );
         return;
     }
@@ -98,7 +111,7 @@ export function sendAudioToChannel(channelName, audioUrlOrCommand) {
     const message = JSON.stringify(messagePayload);
 
     logger.debug(
-        `Sending to ${clients.size} client(s) for channel ${lowerChannelName}: ${message.substring(0, 100)}...`
+        `Sending to ${clients.size} client(s) for channel ${resolved}: ${message.substring(0, 100)}...`
     );
 
     clients.forEach(ws => {
@@ -106,7 +119,7 @@ export function sendAudioToChannel(channelName, audioUrlOrCommand) {
             ws.send(message);
         } else {
             logger.warn(
-                `TTS WebSocket client for ${lowerChannelName} not open (state: ${ws.readyState}). Message not sent.`
+                `TTS WebSocket client for ${resolved} not open (state: ${ws.readyState}). Message not sent.`
             );
         }
     });

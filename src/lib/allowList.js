@@ -8,6 +8,9 @@ const allowedBroadcasterIds = new Set();
 // Channel login name (lowercase) → Twitch User ID mapping for transparent lookups
 const channelNameToIdMap = new Map();
 
+// Twitch User ID → Channel login name (lowercase) reverse mapping
+const channelIdToNameMap = new Map();
+
 /**
  * Returns true if the broadcaster is permitted to use the bot.
  * Accepts either a Twitch User ID (numeric string) or a channel login name.
@@ -46,16 +49,30 @@ export function getChannelIdFromName(channelName) {
 }
 
 /**
+ * Gets the channel login name for a given Twitch User ID from the cache.
+ * Returns undefined if the ID is not known.
+ * @param {string} twitchUserId
+ * @returns {string|undefined}
+ */
+export function getChannelNameFromId(twitchUserId) {
+  if (!twitchUserId) return undefined;
+  return channelIdToNameMap.get(String(twitchUserId));
+}
+
+/**
  * Bulk-update the allowed set from Firestore managedChannels data.
  * Called by channelManager after loading active channels.
  * @param {Array<{name: string, twitchUserId: string|null}>} channels
  */
 export function updateAllowedChannels(channels) {
   allowedBroadcasterIds.clear();
+  channelIdToNameMap.clear();
   for (const ch of channels) {
     if (ch.twitchUserId) {
-      allowedBroadcasterIds.add(String(ch.twitchUserId));
-      channelNameToIdMap.set(ch.name.toLowerCase(), String(ch.twitchUserId));
+      const id = String(ch.twitchUserId);
+      allowedBroadcasterIds.add(id);
+      channelNameToIdMap.set(ch.name.toLowerCase(), id);
+      channelIdToNameMap.set(id, ch.name.toLowerCase());
     }
   }
 }
@@ -69,6 +86,7 @@ export function addAllowedChannel(channelName, twitchUserId) {
     const id = String(twitchUserId);
     allowedBroadcasterIds.add(id);
     channelNameToIdMap.set(channelName.toLowerCase(), id);
+    channelIdToNameMap.set(id, channelName.toLowerCase());
   }
 }
 
@@ -79,6 +97,7 @@ export function addAllowedChannel(channelName, twitchUserId) {
 export function removeAllowedChannel(channelName, twitchUserId) {
   if (twitchUserId) {
     allowedBroadcasterIds.delete(String(twitchUserId));
+    channelIdToNameMap.delete(String(twitchUserId));
   }
   if (channelName) {
     channelNameToIdMap.delete(channelName.toLowerCase());
