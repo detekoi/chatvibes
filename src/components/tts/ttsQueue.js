@@ -193,7 +193,7 @@ export async function processQueue(channelName) {
         cq.isProcessing = false;
         // Continue processing queue in case clients reconnect
         if (!cq.isPaused && cq.queue.length > 0) {
-            setTimeout(() => processQueue(channelName), 100);
+            setImmediate(() => processQueue(channelName));
         }
         return;
     }
@@ -291,7 +291,7 @@ export async function processQueue(channelName) {
         cq.isProcessing = false;
 
         if (!cq.isPaused && cq.queue.length > 0) {
-            setTimeout(() => processQueue(channelName), 100);
+            setImmediate(() => processQueue(channelName));
         } else if (!cq.isPaused && cq.queue.length === 0) {
             // Queue is empty.
             // If currentSpeechUrl is null (last item failed/aborted), currentUserSpeaking should also be null.
