@@ -468,6 +468,44 @@ describe('ttsQueue module', () => {
       expect(mockTtsService.generateSpeech).not.toHaveBeenCalled();
     });
 
+    test('should preserve queued items when no active WebSocket clients', async () => {
+      mockWebServer.hasActiveClients.mockReturnValue(false);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'First message', user: TEST_USER });
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Second message', user: TEST_USER });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const cq = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
+      expect(cq.queue.length).toBe(2);
+      expect(cq.queue[0].text).toBe('First message');
+      expect(cq.queue[1].text).toBe('Second message');
+    });
+
+    test('should process preserved items when client reconnects', async () => {
+      const audioUrl1 = 'http://example.com/audio1.mp3';
+      const audioUrl2 = 'http://example.com/audio2.mp3';
+      mockWebServer.hasActiveClients.mockReturnValue(false);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'First message', user: TEST_USER });
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Second message', user: TEST_USER });
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Simulate client reconnect
+      mockWebServer.hasActiveClients.mockReturnValue(true);
+      mockTtsService.generateSpeech
+        .mockResolvedValueOnce(audioUrl1)
+        .mockResolvedValueOnce(audioUrl2);
+
+      await ttsQueue.processQueue(TEST_CHANNEL);
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      expect(mockTtsService.generateSpeech).toHaveBeenCalledTimes(2);
+      expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith(TEST_CHANNEL, audioUrl1);
+      expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith(TEST_CHANNEL, audioUrl2);
+    });
+
     test('should generate speech and send to client', async () => {
       const audioUrl = 'http://example.com/audio.mp3';
       mockTtsService.generateSpeech.mockResolvedValue(audioUrl);

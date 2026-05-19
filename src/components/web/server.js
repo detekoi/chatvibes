@@ -78,7 +78,7 @@ httpServer.setTimeout(0);
 
 let initialized = false;
 
-export function initializeWebServer() {
+export function initializeWebServer({ onClientConnect } = {}) {
     if (initialized) {
         logger.warn('WildcatTTS Web Server already initialized.');
         // Return the existing public API so callers don't break
@@ -86,7 +86,7 @@ export function initializeWebServer() {
     }
     initialized = true;
 
-    initializeWebSocketServer(httpServer);
+    initializeWebSocketServer(httpServer, { onClientConnect });
 
     httpServer.listen(PORT, () => {
         logger.info(`WildcatTTS Web Server (for TTS OBS Source) listening on http://localhost:${PORT}`);

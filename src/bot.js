@@ -322,7 +322,7 @@ async function main() {
 
         // Start the Web Server early
         logger.info('WildcatTTS: Initializing Web Server for OBS audio...');
-        const { server: webServerInstance, hasActiveClients } = initializeWebServer();
+        const { server: webServerInstance, hasActiveClients } = initializeWebServer({ onClientConnect: ttsQueue.processQueue });
         global.healthServer = webServerInstance;
 
         // Initialize Pub/Sub for cross-instance TTS communication

@@ -190,11 +190,9 @@ export async function processQueue(channelName) {
             prefetched.controller.abort();
             cq.prefetchResults.delete(event);
         }
+        cq.queue.unshift(event);
         cq.isProcessing = false;
-        // Continue processing queue in case clients reconnect
-        if (!cq.isPaused && cq.queue.length > 0) {
-            setImmediate(() => processQueue(channelName));
-        }
+        // Leave the item in the queue; processing resumes when a client reconnects.
         return;
     }
 

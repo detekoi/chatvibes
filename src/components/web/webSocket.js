@@ -133,7 +133,7 @@ export function sendAudioToChannel(channelName, audioUrlOrCommand) {
  * Attach a WebSocketServer to an existing HTTP server and start handling TTS
  * overlay connections.  Returns the WebSocketServer instance.
  */
-export function initializeWebSocketServer(httpServer) {
+export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) {
     const wss = new WebSocketServer({ server: httpServer });
     logger.info('WildcatTTS TTS WebSocket Server initialized and attached to HTTP server.');
 
@@ -292,6 +292,8 @@ export function initializeWebSocketServer(httpServer) {
             channelClients.set(channelName, new Set());
         }
         channelClients.get(channelName).add(ws);
+
+        if (onClientConnect) onClientConnect(channelName);
 
         ws.send(JSON.stringify({
             type: 'registered',
