@@ -40,13 +40,13 @@ describe('emojiUtils', () => {
             expect(replaceEmojisWithText('wow 🔥🔥🔥 nice')).toBe('wow (3 fire emojis) nice');
         });
 
-        it('should handle skin-tone modified emojis by falling back to base emoji', () => {
-            // 👴🏽 = old man with medium skin tone (falls back to base 👴 via skin-tone stripping)
-            expect(replaceEmojisWithText('hello 👴🏽')).toBe('hello (old man emoji)');
+        it('should handle skin-tone modified emojis by including skin tone description', () => {
+            // 👴🏽 = old man with medium skin tone (is supported directly via skin-tone mapping)
+            expect(replaceEmojisWithText('hello 👴🏽')).toBe('hello (medium skin tone old man emoji)');
         });
 
         it('should collapse consecutive skin-tone modified emojis', () => {
-            expect(replaceEmojisWithText('👴🏽👴🏽👴🏽')).toBe('(3 old man emojis)');
+            expect(replaceEmojisWithText('👴🏽👴🏽👴🏽')).toBe('(3 medium skin tone old man emojis)');
         });
     });
 

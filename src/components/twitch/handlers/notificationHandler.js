@@ -12,7 +12,7 @@ import { getSharedSessionInfo } from '../eventUtils.js';
 export async function handleNotification(subscriptionType, event, channelName, ttsConfig = {}) {
     let ttsText = null;
     let username = 'event_tts'; // Default for events without specific user
-    let userId = null; // Twitch User ID for voice preference resolution
+    let userId = undefined; // Twitch User ID for voice preference resolution
 
     switch (subscriptionType) {
         case 'channel.subscribe': {
