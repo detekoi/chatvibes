@@ -17,7 +17,6 @@ SECRETS_TO_DELETE=(
 
 # Secrets that might be unused (need verification)
 SECRETS_TO_VERIFY=(
-  "allowed-channels"           # Used in scripts but maybe deprecated?
   "chatvibes-initial-channels" # Used in GitHub workflow but maybe deprecated?
 )
 
@@ -45,11 +44,7 @@ echo "1. Is the music service (Replicate) still active?"
 echo "   File: src/components/music/musicService.py"
 echo "   grep -r 'replicate' src/"
 echo ""
-echo "2. Is the allow-list feature still used?"
-echo "   File: src/lib/allowList.js"
-echo "   grep -r 'allowed-channels' src/"
-echo ""
-echo "3. Are initial channels still loaded from secrets?"
+echo "2. Are initial channels still loaded from secrets?"
 echo "   Check: .github/workflows/deploy-chatvibes.yml"
 echo ""
 
