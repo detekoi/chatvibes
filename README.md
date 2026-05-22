@@ -2,9 +2,9 @@
 
 WildcatTTS is a Twitch bot that reads chat messages and events aloud using Text-to-Speech (TTS), controllable via chat commands. It's designed to be deployed on Google Cloud Run and integrates with OBS via a browser source for audio playback.
 
-> **Important:** Access to the cloud version of WildcatTTS is currently invite-only via an allow-list. The self-serve web dashboard is disabled for unapproved channels. If you'd like to try the bot, please contact me via [this contact form](https://detekoi.github.io/#contact-me).
+> **Important:** Access to the cloud version of WildcatTTS is currently invite-only via an allow-list. The self-serve web dashboard is disabled for unapproved channels. If you'd like to try the bot, please contact me via [this contact form](https://parfaitfair.com/#contact).
 
-**[Streamer Dashboard →](https://chatvibestts.web.app/)** *(invite-only)*
+**[Streamer Dashboard →](https://tts.wildcat.chat/)** *(invite-only)*
 
 [![License](https://img.shields.io/badge/License-BSD%202--Clause-blue.svg)](LICENSE.md) 
 
@@ -59,7 +59,7 @@ Approved streamers can add or remove the WildcatTTS Text-to-Speech (TTS) bot fro
 
 1.  **Visit the WildcatTTS Management Portal** *(invite-only)*:
 
-      * Go to [WildcatTTS Management Portal](https://chatvibestts.web.app/)
+      * Go to [WildcatTTS Management Portal](https://tts.wildcat.chat/)
       * Click on "Login with Twitch"
 
 2.  **Authorize the Application**:
