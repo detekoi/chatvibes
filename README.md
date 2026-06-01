@@ -39,7 +39,7 @@ You can configure whether the bot responds to commands in chat:
 
 **Interactive Mode (Default):**
 - Bot responds to `!tts` commands in chat
-- Users can type commands like `!tts status`, `!myvoice`, `!tts voice <name>` to get immediate responses
+- Users can type commands like `!tts status`, `!myvoice`, and `!tts voice <name>` to get immediate responses
 - Moderators can control TTS settings via chat commands
 - Provides instant feedback and acknowledgments
 
@@ -49,7 +49,7 @@ You can configure whether the bot responds to commands in chat:
 - Cleaner chat experience without bot responses
 - TTS still works normally - only command responses are disabled
 
-You can toggle between these modes using the `botRespondsInChat` setting in the web dashboard or by contacting the service admin.
+You can toggle between these modes using the `botRespondsInChat` setting in the web dashboard.
 
 ## Adding WildcatTTS to Your Channel & Setup
 
