@@ -12,7 +12,7 @@ import { Firestore, Timestamp } from '@google-cloud/firestore';
 // Import event handlers
 import { handleChatMessage } from './handlers/chatHandler.js';
 import { handleChannelPointsRedemption, handleRedemptionAnnouncement } from './handlers/redemptionHandler.js';
-import { handleNotification } from './handlers/notificationHandler.js';
+import { handleNotification, WATCH_STREAK_TYPE } from './handlers/notificationHandler.js';
 import * as sharedChatHandler from './handlers/sharedChatHandler.js';
 
 // Firestore for cross-instance EventSub deduplication
@@ -258,6 +258,38 @@ export async function eventSubHandler(req, res, rawBody) {
                 await handleChatMessage(event, channelName);
             } catch (error) {
                 logger.error({ err: error, channelName }, 'Error handling chat message event');
+            }
+            return;
+        }
+
+        // Route: Chat notifications (watch streaks)
+        // channel.chat.notification delivers many notice types (sub, resub, raid, announcement,
+        // prime_paid_upgrade, pay_it_forward, etc.). Most overlap with dedicated EventSub subscriptions
+        // we already handle; others (announcement, prime_paid_upgrade, etc.) are intentionally not
+        // processed for TTS. Only watch_streak is handled here as it has no dedicated subscription.
+        if (type === 'channel.chat.notification') {
+            const noticeType = event?.notice_type;
+            if (noticeType !== 'watch_streak') {
+                logger.debug({ channelName, noticeType }, 'Ignoring chat notification — only watch_streak is processed for TTS');
+                return;
+            }
+
+            const watchStreakConfig = await getTtsState(channelName);
+            // Granular toggle: speakWatchStreakEvents (defaults to speakEvents if undefined)
+            const speakWatchStreaks = watchStreakConfig.speakWatchStreakEvents !== undefined
+                ? watchStreakConfig.speakWatchStreakEvents
+                : (watchStreakConfig.speakEvents !== false);
+
+            if (!watchStreakConfig.engineEnabled || !speakWatchStreaks) {
+                logger.debug({ channelName, type }, 'TTS watch streak events disabled for channel - ignoring');
+                return;
+            }
+
+            logger.info({ channelName, type, noticeType }, 'Processing watch streak event for TTS');
+            try {
+                await handleNotification(WATCH_STREAK_TYPE, event, channelName, watchStreakConfig);
+            } catch (error) {
+                logger.error({ err: error, channelName }, 'Error handling watch streak notification');
             }
             return;
         }

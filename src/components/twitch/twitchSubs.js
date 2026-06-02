@@ -456,10 +456,13 @@ export async function subscribeChannelPointsRedemptionUpdate(broadcasterUserId) 
 }
 
 /**
- * Subscribe to channel.chat.message events (chat messages)
- * Requires app to be categorized as "Chat Bot" and bot user to have user:read:chat scope
+ * Subscribe to a chat-based EventSub type (channel.chat.message, channel.chat.notification, etc.)
+ * These all use the same condition (broadcaster_user_id + bot user_id) and scopes.
+ * @param {string} broadcasterUserId - The broadcaster's user ID
+ * @param {string} eventType - The EventSub subscription type string
+ * @returns {Promise<{success: boolean, error?: string}>}
  */
-export async function subscribeChannelChatMessage(broadcasterUserId) {
+async function subscribeChatEventType(broadcasterUserId, eventType) {
     const { publicUrl, eventSubSecret } = config.twitch;
     if (!publicUrl || !eventSubSecret) {
         logger.error('Missing PUBLIC_URL or TWITCH_EVENTSUB_SECRET in config');
@@ -470,12 +473,12 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
     const { getBotUserId } = await import('./chatClient.js');
     const botUserId = await getBotUserId();
     if (!botUserId) {
-        logger.error('Could not determine bot user ID for channel.chat.message subscription');
+        logger.error({ eventType }, `Could not determine bot user ID for ${eventType} subscription`);
         return { success: false, error: 'Could not determine bot user ID' };
     }
 
     const body = {
-        type: 'channel.chat.message',
+        type: eventType,
         version: '1',
         condition: {
             broadcaster_user_id: broadcasterUserId,
@@ -492,9 +495,25 @@ export async function subscribeChannelChatMessage(broadcasterUserId) {
     // The app must be categorized as "Chat Bot" in Twitch Developer Console
     const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
     if (result.success) {
-        logger.info({ broadcasterUserId, botUserId, type: 'channel.chat.message' }, 'Successfully subscribed to channel.chat.message');
+        logger.info({ broadcasterUserId, botUserId, type: eventType }, `Successfully subscribed to ${eventType}`);
     }
     return result;
+}
+
+/**
+ * Subscribe to channel.chat.message events (chat messages)
+ * Requires app to be categorized as "Chat Bot" and bot user to have user:read:chat scope
+ */
+export async function subscribeChannelChatMessage(broadcasterUserId) {
+    return subscribeChatEventType(broadcasterUserId, 'channel.chat.message');
+}
+
+/**
+ * Subscribe to channel.chat.notification events (watch streaks, etc.)
+ * Uses same condition and scopes as channel.chat.message
+ */
+export async function subscribeChannelChatNotification(broadcasterUserId) {
+    return subscribeChatEventType(broadcasterUserId, 'channel.chat.notification');
 }
 
 const activeSubscriptionRequests = new Map(); // broadcasterUserId -> Promise
@@ -542,7 +561,8 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         follow = hasBroadcasterAuth,        // channel.follow v2 (requires moderator:read:followers)
         channelPointsAdd = hasBroadcasterAuth,    // channel points add (requires channel:read:redemptions)
         channelPointsUpdate = hasBroadcasterAuth, // channel points update (requires channel:read:redemptions)
-        chatMessage = true                  // channel.chat.message (requires bot user scopes, not broadcaster)
+        chatMessage = true,                 // channel.chat.message (requires bot user scopes, not broadcaster)
+        chatNotification = true             // channel.chat.notification (same scopes as chatMessage)
     } = options;
 
     const results = {
@@ -624,6 +644,15 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         }
     }
 
+    if (chatNotification) {
+        const result = await subscribeChannelChatNotification(broadcasterUserId);
+        if (result.success) {
+            results.successful.push('channel.chat.notification');
+        } else {
+            results.failed.push({ type: 'channel.chat.notification', error: result.error });
+        }
+    }
+
     if (channelPointsUpdate) {
         const result = await subscribeChannelPointsRedemptionUpdate(broadcasterUserId);
         if (result.success) {
@@ -643,20 +672,22 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
 
     // Log failures prominently, especially critical ones
     if (results.failed.length > 0) {
-        const chatMessageFailed = results.failed.find(f => f.type === 'channel.chat.message');
+        const criticalTypes = ['channel.chat.message', 'channel.chat.notification'];
 
-        if (chatMessageFailed) {
-            // CRITICAL: channel.chat.message is essential for receiving chat
-            logger.error({
-                broadcasterUserId,
-                error: chatMessageFailed.error,
-                type: 'channel.chat.message'
-            }, 'CRITICAL: Failed to subscribe to channel.chat.message - channel will not receive chat messages!');
+        for (const criticalType of criticalTypes) {
+            const failure = results.failed.find(f => f.type === criticalType);
+            if (failure) {
+                logger.error({
+                    broadcasterUserId,
+                    error: failure.error,
+                    type: criticalType
+                }, `CRITICAL: Failed to subscribe to ${criticalType} - watch streak and/or chat events will not be received!`);
+            }
         }
 
         // Log all other failures as warnings
         results.failed.forEach(failure => {
-            if (failure.type !== 'channel.chat.message') {
+            if (!criticalTypes.includes(failure.type)) {
                 logger.warn({
                     broadcasterUserId,
                     type: failure.type,

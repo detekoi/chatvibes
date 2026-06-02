@@ -163,6 +163,7 @@ async function validateTtsSetting(key, value) {
     switch (key) {
         case 'engineEnabled':
         case 'speakEvents':
+        case 'speakWatchStreakEvents':
         case 'bitsModeEnabled':
         case 'readFullUrls':
         case 'allowViewerPreferences':

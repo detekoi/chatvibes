@@ -1,9 +1,12 @@
 // src/components/twitch/handlers/notificationHandler.js
-// Handles Twitch event notifications (subscriptions, raids, follows, cheers)
+// Handles Twitch event notifications (subscriptions, raids, follows, cheers, watch streaks)
 
 import logger from '../../../lib/logger.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
+
+/** Synthetic subscription type used to route watch streak events from channel.chat.notification */
+export const WATCH_STREAK_TYPE = 'channel.chat.notification.watch_streak';
 
 /**
  * Handle event notifications (subs, raids, follows, cheers)
@@ -107,6 +110,21 @@ export async function handleNotification(subscriptionType, event, channelName, t
                 userId = event.user_id;
             }
             logger.info({ channelName, user: followerUser, anonymized: anonymize }, 'Follow event');
+            break;
+        }
+
+        case WATCH_STREAK_TYPE: {
+            // Watch streak milestone (from channel.chat.notification with notice_type: watch_streak)
+            const streakUser = event.chatter_user_name || event.chatter_user_login || 'Someone';
+            const streakCount = event.watch_streak?.streak_count;
+            if (!streakCount || streakCount <= 0) {
+                logger.warn({ channelName, user: streakUser, streakCount }, 'Watch streak event with invalid streak_count — skipping TTS');
+                return;
+            }
+            ttsText = `${streakUser} is on a ${streakCount} stream watch streak!`;
+            username = streakUser;
+            userId = event.chatter_user_id;
+            logger.info({ channelName, user: streakUser, streakCount }, 'Watch streak event');
             break;
         }
 

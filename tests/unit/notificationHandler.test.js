@@ -25,7 +25,7 @@ jest.unstable_mockModule('../../src/lib/logger.js', () => ({
     default: mockLogger
 }));
 
-const { handleNotification } = await import('../../src/components/twitch/handlers/notificationHandler.js');
+const { handleNotification, WATCH_STREAK_TYPE } = await import('../../src/components/twitch/handlers/notificationHandler.js');
 
 describe('notificationHandler', () => {
     beforeEach(() => {
@@ -296,6 +296,105 @@ describe('notificationHandler', () => {
                 },
                 null
             );
+        });
+    });
+
+    describe('watch_streak event', () => {
+        it('should generate TTS for watch streak event', async () => {
+            const event = {
+                chatter_user_name: 'viewer23',
+                chatter_user_login: 'viewer23',
+                chatter_user_id: '49912639',
+                notice_type: 'watch_streak',
+                watch_streak: {
+                    streak_count: 5,
+                    channel_points_awarded: 450
+                },
+                broadcaster_user_id: '1971641',
+                broadcaster_user_login: 'streamer',
+                broadcaster_user_name: 'streamer'
+            };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                {
+                    text: 'viewer23 is on a 5 stream watch streak!',
+                    user: 'viewer23',
+                    userId: '49912639',
+                    type: 'event'
+                },
+                null
+            );
+
+            expect(mockLogger.info).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    channelName: 'testchannel',
+                    user: 'viewer23',
+                    streakCount: 5
+                }),
+                'Watch streak event'
+            );
+        });
+
+        it('should fall back to "Someone" when chatter_user_name is missing', async () => {
+            const event = {
+                chatter_user_id: '49912639',
+                notice_type: 'watch_streak',
+                watch_streak: {
+                    streak_count: 3,
+                    channel_points_awarded: 300
+                }
+            };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                {
+                    text: 'Someone is on a 3 stream watch streak!',
+                    user: 'Someone',
+                    userId: '49912639',
+                    type: 'event'
+                },
+                null
+            );
+        });
+
+        it('should skip TTS when watch_streak data is null', async () => {
+            const event = {
+                chatter_user_name: 'viewer23',
+                chatter_user_login: 'viewer23',
+                chatter_user_id: '49912639',
+                notice_type: 'watch_streak',
+                watch_streak: null
+            };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
+
+            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockLogger.warn).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    channelName: 'testchannel',
+                    user: 'viewer23'
+                }),
+                expect.stringContaining('invalid streak_count')
+            );
+        });
+
+        it('should skip TTS when streak_count is zero', async () => {
+            const event = {
+                chatter_user_name: 'viewer23',
+                chatter_user_login: 'viewer23',
+                chatter_user_id: '49912639',
+                notice_type: 'watch_streak',
+                watch_streak: { streak_count: 0 }
+            };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
+
+            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
         });
     });
 });
