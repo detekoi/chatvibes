@@ -95,7 +95,8 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --timeout 3600 \
-            --session-affinity \
+            --min-instances 0 \
+            --cpu 0.5 \
             --port 8080 \
             --service-account ${{ env.CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }} \
             --set-env-vars="NODE_ENV=${{ env.NODE_ENV }},LOG_LEVEL=${{ env.LOG_LEVEL }},PINO_PRETTY_LOGGING=${{ env.PINO_PRETTY_LOGGING }},TWITCH_BOT_USERNAME=${{ env.TWITCH_BOT_USERNAME }},GOOGLE_CLOUD_PROJECT=${{ env.GOOGLE_CLOUD_PROJECT_ENV }},TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=${{ env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH }},WEB_UI_BASE_URL=${{ env.WEB_UI_BASE_URL }},T302_API_ENDPOINT=https://api.302.ai/minimaxi/v1/t2a_v2,PUBLIC_URL=https://chatvibes-tts-service-906125386407.us-central1.run.app" \
@@ -143,4 +144,29 @@ jobs:
                 --project ${{ env.GCP_PROJECT_ID }} \
                 --quiet || echo "Failed to delete $REV (may already be gone)"
             fi
+          done
+
+      - name: Prune old container images
+        continue-on-error: true
+        run: |
+          KEEP=5
+          DIGESTS=$(gcloud container images list-tags \
+            "gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE_NAME }}" \
+            --sort-by="TIMESTAMP" --format="value(DIGEST)" --limit=999)
+
+          TOTAL=$(echo "$DIGESTS" | wc -l | tr -d ' ')
+          DELETE_COUNT=$((TOTAL - KEEP))
+
+          if [ "$DELETE_COUNT" -le 0 ]; then
+            echo "Only $TOTAL images found, nothing to prune (keeping $KEEP)"
+            exit 0
+          fi
+
+          echo "Pruning $DELETE_COUNT old images (keeping newest $KEEP of $TOTAL)"
+          echo "$DIGESTS" | head -n "$DELETE_COUNT" | while IFS= read -r digest; do
+            echo "Deleting sha256:${digest:0:12}..."
+            gcloud container images delete \
+              "gcr.io/${{ env.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE_NAME }}@sha256:${digest}" \
+              --project ${{ env.GCP_PROJECT_ID }} --quiet --force-delete-tags \
+              || echo "Failed to delete ${digest:0:12} (may be in use)"
           done
