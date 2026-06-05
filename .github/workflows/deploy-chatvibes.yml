@@ -96,6 +96,7 @@ jobs:
             --allow-unauthenticated \
             --timeout 3600 \
             --min-instances 0 \
+            --cpu 1 \
             --concurrency 80 \
             --port 8080 \
             --service-account ${{ env.CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }} \
