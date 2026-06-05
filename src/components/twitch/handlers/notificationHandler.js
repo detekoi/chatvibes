@@ -56,10 +56,10 @@ export async function handleNotification(subscriptionType, event, channelName, t
             const isAnonymous = event.is_anonymous;
 
             if (isAnonymous || !event.user_name) {
-                ttsText = `${total} ${tier} gift ${total === 1 ? 'sub' : 'subs'} from an anonymous gifter!`;
+                ttsText = `${total}${tier} gift ${total === 1 ? 'sub' : 'subs'} from an anonymous gifter!`;
                 username = 'anonymous_gifter';
             } else {
-                ttsText = `${gifterUser} just gifted ${total} ${tier} ${total === 1 ? 'sub' : 'subs'}!`;
+                ttsText = `${gifterUser} just gifted ${total}${tier} ${total === 1 ? 'sub' : 'subs'}!`;
                 username = gifterUser;
                 userId = event.user_id;
             }

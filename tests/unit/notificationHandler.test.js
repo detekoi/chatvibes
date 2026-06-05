@@ -127,7 +127,7 @@ describe('notificationHandler', () => {
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
-                    text: 'Gifter just gifted 1  Tier 1 sub!',
+                    text: 'Gifter just gifted 1 Tier 1 sub!',
                     user: 'Gifter',
                     type: 'event'
                 },
@@ -147,7 +147,7 @@ describe('notificationHandler', () => {
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
-                    text: '5  Tier 1 gift subs from an anonymous gifter!',
+                    text: '5 Tier 1 gift subs from an anonymous gifter!',
                     user: 'anonymous_gifter',
                     type: 'event'
                 },
@@ -168,7 +168,7 @@ describe('notificationHandler', () => {
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
-                    text: 'GenerousGifter just gifted 10  Tier 1 subs!',
+                    text: 'GenerousGifter just gifted 10 Tier 1 subs!',
                     user: 'GenerousGifter',
                     type: 'event'
                 },
