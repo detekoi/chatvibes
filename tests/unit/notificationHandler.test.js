@@ -25,6 +25,12 @@ jest.unstable_mockModule('../../src/lib/logger.js', () => ({
     default: mockLogger
 }));
 
+// Mock formatTtsText — pass through by default, can be overridden per test
+const mockFormatTtsText = jest.fn(async (text) => text);
+jest.unstable_mockModule('../../src/lib/formatTtsText.js', () => ({
+    formatTtsText: mockFormatTtsText
+}));
+
 const { handleNotification, WATCH_STREAK_TYPE } = await import('../../src/components/twitch/handlers/notificationHandler.js');
 
 describe('notificationHandler', () => {
@@ -300,41 +306,120 @@ describe('notificationHandler', () => {
     });
 
     describe('watch_streak event', () => {
-        it('should generate TTS for watch streak event', async () => {
+        it('should generate TTS for watch streak event without message', async () => {
             const event = {
                 chatter_user_name: 'viewer23',
                 chatter_user_login: 'viewer23',
                 chatter_user_id: '49912639',
                 notice_type: 'watch_streak',
-                watch_streak: {
-                    streak_count: 5,
-                    channel_points_awarded: 450
-                },
-                broadcaster_user_id: '1971641',
-                broadcaster_user_login: 'streamer',
-                broadcaster_user_name: 'streamer'
+                watch_streak: { streak_count: 5, channel_points_awarded: 450 },
             };
 
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
 
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
-                {
-                    text: 'viewer23 is on a 5 stream watch streak!',
-                    user: 'viewer23',
-                    userId: '49912639',
-                    type: 'event'
-                },
+                { text: 'viewer23 is on a 5 stream watch streak!', user: 'viewer23', userId: '49912639', type: 'event' },
                 null
             );
-
+            expect(mockFormatTtsText).not.toHaveBeenCalled();
             expect(mockLogger.info).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    channelName: 'testchannel',
-                    user: 'viewer23',
-                    streakCount: 5
-                }),
+                expect.objectContaining({ channelName: 'testchannel', user: 'viewer23', streakCount: 5, message: null }),
                 'Watch streak event'
+            );
+        });
+
+        it('should include the attached chat message in TTS after formatting', async () => {
+            mockFormatTtsText.mockResolvedValueOnce('10!');
+            const event = {
+                chatter_user_name: 'turboicehusky',
+                chatter_user_login: 'turboicehusky',
+                chatter_user_id: '12345678',
+                notice_type: 'watch_streak',
+                watch_streak: { streak_count: 10, channel_points_awarded: 450 },
+                message: { text: '10!', fragments: [{ type: 'text', text: '10!' }] }
+            };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
+
+            expect(mockFormatTtsText).toHaveBeenCalledWith(
+                '10!',
+                [{ type: 'text', text: '10!' }],
+                expect.objectContaining({ emoteMode: 'describe', readFullUrls: false })
+            );
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                { text: 'turboicehusky is on a 10 stream watch streak! They said: 10!', user: 'turboicehusky', userId: '12345678', type: 'event' },
+                null
+            );
+            expect(mockLogger.info).toHaveBeenCalledWith(
+                expect.objectContaining({ user: 'turboicehusky', streakCount: 10, message: '10!' }),
+                'Watch streak event'
+            );
+        });
+
+        it('should skip TTS entirely when user is on the ignore list', async () => {
+            const event = {
+                chatter_user_name: 'SpamBot',
+                chatter_user_login: 'spambot',
+                chatter_user_id: '99999',
+                notice_type: 'watch_streak',
+                watch_streak: { streak_count: 3 },
+                message: { text: 'buy stuff at spam.example.com' }
+            };
+            const ttsConfig = { ignoredUsers: ['spambot'], engineEnabled: true };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel', ttsConfig);
+
+            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockFormatTtsText).not.toHaveBeenCalled();
+        });
+
+        it('should announce streak but omit message containing banned word', async () => {
+            const event = {
+                chatter_user_name: 'viewer23',
+                chatter_user_login: 'viewer23',
+                chatter_user_id: '49912639',
+                notice_type: 'watch_streak',
+                watch_streak: { streak_count: 7 },
+                message: { text: 'check out badword stream' }
+            };
+            const ttsConfig = { bannedWords: ['badword'], engineEnabled: true };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel', ttsConfig);
+
+            // Still announces the streak, but without the user's message
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'viewer23 is on a 7 stream watch streak!' }),
+                null
+            );
+            expect(mockFormatTtsText).not.toHaveBeenCalled();
+        });
+
+        it('should pass ttsConfig options to formatTtsText', async () => {
+            mockFormatTtsText.mockResolvedValueOnce('twitch.tv');
+            const event = {
+                chatter_user_name: 'viewer23',
+                chatter_user_login: 'viewer23',
+                chatter_user_id: '49912639',
+                notice_type: 'watch_streak',
+                watch_streak: { streak_count: 4 },
+                message: { text: 'https://twitch.tv/somechannel', fragments: [{ type: 'text', text: 'https://twitch.tv/somechannel' }] }
+            };
+            const ttsConfig = { emoteMode: 'skip', readFullUrls: true, engineEnabled: true };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel', ttsConfig);
+
+            expect(mockFormatTtsText).toHaveBeenCalledWith(
+                'https://twitch.tv/somechannel',
+                [{ type: 'text', text: 'https://twitch.tv/somechannel' }],
+                { emoteMode: 'skip', channelEmoteMode: 'skip', readFullUrls: true }
+            );
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'viewer23 is on a 4 stream watch streak! They said: twitch.tv' }),
+                null
             );
         });
 
@@ -342,22 +427,14 @@ describe('notificationHandler', () => {
             const event = {
                 chatter_user_id: '49912639',
                 notice_type: 'watch_streak',
-                watch_streak: {
-                    streak_count: 3,
-                    channel_points_awarded: 300
-                }
+                watch_streak: { streak_count: 3, channel_points_awarded: 300 }
             };
 
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
 
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
-                {
-                    text: 'Someone is on a 3 stream watch streak!',
-                    user: 'Someone',
-                    userId: '49912639',
-                    type: 'event'
-                },
+                { text: 'Someone is on a 3 stream watch streak!', user: 'Someone', userId: '49912639', type: 'event' },
                 null
             );
         });
@@ -375,10 +452,7 @@ describe('notificationHandler', () => {
 
             expect(mockPublishTtsEvent).not.toHaveBeenCalled();
             expect(mockLogger.warn).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    channelName: 'testchannel',
-                    user: 'viewer23'
-                }),
+                expect.objectContaining({ channelName: 'testchannel', user: 'viewer23' }),
                 expect.stringContaining('invalid streak_count')
             );
         });

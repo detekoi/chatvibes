@@ -4,6 +4,7 @@
 import logger from '../../../lib/logger.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
+import { formatTtsText } from '../../../lib/formatTtsText.js';
 
 /** Synthetic subscription type used to route watch streak events from channel.chat.notification */
 export const WATCH_STREAK_TYPE = 'channel.chat.notification.watch_streak';
@@ -116,15 +117,48 @@ export async function handleNotification(subscriptionType, event, channelName, t
         case WATCH_STREAK_TYPE: {
             // Watch streak milestone (from channel.chat.notification with notice_type: watch_streak)
             const streakUser = event.chatter_user_name || event.chatter_user_login || 'Someone';
+            const streakLogin = (event.chatter_user_login || streakUser).toLowerCase();
             const streakCount = event.watch_streak?.streak_count;
             if (!streakCount || streakCount <= 0) {
                 logger.warn({ channelName, user: streakUser, streakCount }, 'Watch streak event with invalid streak_count — skipping TTS');
                 return;
             }
+
+            // Check if the user is on the ignore list
+            if (ttsConfig.ignoredUsers?.includes(streakLogin)) {
+                logger.debug({ channelName, user: streakLogin }, 'Watch streak from ignored user — skipping TTS');
+                return;
+            }
+
             ttsText = `${streakUser} is on a ${streakCount} stream watch streak!`;
+
+            // Append the viewer's attached chat message if present, after moderation + formatting
+            const rawStreakMessage = event.message?.text?.trim();
+            if (rawStreakMessage) {
+                // Check banned words against the attached message
+                const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
+                    ttsConfig.bannedWords.some(w => rawStreakMessage.toLowerCase().includes(w));
+                if (hasBannedWord) {
+                    logger.debug({ channelName, user: streakLogin }, 'Watch streak message contains banned word — announcing streak only');
+                } else {
+                    // Run through the same formatting pipeline as chat messages
+                    // (URL shortening, emote mode, emoji processing)
+                    const emoteMode = ttsConfig.emoteMode || 'describe';
+                    const fragments = event.message?.fragments || null;
+                    const formattedMessage = await formatTtsText(rawStreakMessage, fragments, {
+                        emoteMode,
+                        channelEmoteMode: emoteMode,
+                        readFullUrls: ttsConfig.readFullUrls || false,
+                    });
+                    if (formattedMessage) {
+                        ttsText += ` They said: ${formattedMessage}`;
+                    }
+                }
+            }
+
             username = streakUser;
             userId = event.chatter_user_id;
-            logger.info({ channelName, user: streakUser, streakCount }, 'Watch streak event');
+            logger.info({ channelName, user: streakUser, streakCount, message: rawStreakMessage || null }, 'Watch streak event');
             break;
         }
 
