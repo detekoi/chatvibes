@@ -8,6 +8,7 @@ import { getTtsState } from '../../tts/ttsState.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { processMessageUrls } from '../../../lib/urlProcessor.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
+import { formatTtsText } from '../../../lib/formatTtsText.js';
 
 /**
  * Handle Channel Points custom reward redemption events
@@ -142,6 +143,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     const rewardId = event?.reward?.id;
     const userInput = (event?.user_input || '').trim();
     const userName = event?.user_name || event?.user_login || 'Someone';
+    const userLogin = (event?.user_login || userName).toLowerCase();
     const userId = event?.user_id;
 
     // Skip if this is the configured TTS reward (already handled by handleChannelPointsRedemption)
@@ -156,10 +158,33 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         return;
     }
 
+    // Check if user is on the ignore list
+    if (ttsConfig.ignoredUsers?.includes(userLogin)) {
+        logger.debug({ channelLogin, user: userLogin }, 'Redemption from ignored user — skipping TTS announcement');
+        return;
+    }
+
     // Build announcement text
     let ttsText = `${userName} redeemed ${rewardTitle}`;
     if (userInput) {
-        ttsText += `: ${userInput}`;
+        // Check banned words against user input
+        const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
+            ttsConfig.bannedWords.some(w => w && userInput.toLowerCase().includes(String(w).toLowerCase()));
+        if (hasBannedWord) {
+            logger.debug({ channelLogin, user: userLogin }, 'Redemption user_input contains banned word — announcing redemption only');
+        } else {
+            // Run user_input through formatting pipeline (URLs, emotes, emoji)
+            // user_input is a plain string with no fragment data
+            const emoteMode = ttsConfig.emoteMode || 'describe';
+            const formattedInput = await formatTtsText(userInput, null, {
+                emoteMode,
+                channelEmoteMode: emoteMode,
+                readFullUrls: ttsConfig.readFullUrls || false,
+            });
+            if (formattedInput) {
+                ttsText += `: ${formattedInput}`;
+            }
+        }
     }
 
     logger.info({ channelLogin, userName, userId, rewardTitle, hasUserInput: !!userInput }, 'Announcing Channel Points redemption via TTS');
@@ -179,7 +204,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
  * Get user access token for broadcaster from Firestore
  * This retrieves the broadcaster's OAuth token with channel:manage:redemptions scope
  */
-async function getBroadcasterAccessToken(broadcasterId) {
+async function getBroadcasterAccessToken(broadcasterId, channelLogin) {
     try {
         // Dynamically import Firestore
         const { Firestore } = await import('@google-cloud/firestore');
@@ -236,7 +261,7 @@ async function getBroadcasterAccessToken(broadcasterId) {
 async function rejectRedemption(channelLogin, redemptionId, rewardId, reason) {
     try {
         const { getUsersByLogin } = await import('../helixClient.js');
-        const { getClientId } = await import('../auth.js');
+        const { getClientId } = await import('../tokenManager.js');
 
         const users = await getUsersByLogin([channelLogin]);
         if (!users || users.length === 0) {
@@ -247,7 +272,7 @@ async function rejectRedemption(channelLogin, redemptionId, rewardId, reason) {
         const broadcasterId = users[0].id;
 
         // Get broadcaster's user access token (not app access token!)
-        const token = await getBroadcasterAccessToken(broadcasterId);
+        const token = await getBroadcasterAccessToken(broadcasterId, channelLogin);
         if (!token) {
             logger.warn({
                 channelLogin,

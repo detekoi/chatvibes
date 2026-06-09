@@ -44,6 +44,12 @@ jest.unstable_mockModule('../../src/lib/urlProcessor.js', () => ({
     processMessageUrls: jest.fn((text) => text)
 }));
 
+// Mock formatTtsText — pass through by default, can be overridden per test
+const mockFormatTtsText = jest.fn(async (text) => text);
+jest.unstable_mockModule('../../src/lib/formatTtsText.js', () => ({
+    formatTtsText: mockFormatTtsText
+}));
+
 const { handleRedemptionAnnouncement } = await import('../../src/components/twitch/handlers/redemptionHandler.js');
 
 describe('handleRedemptionAnnouncement', () => {
@@ -56,7 +62,8 @@ describe('handleRedemptionAnnouncement', () => {
         speakRedemptionEvents: true
     };
 
-    it('should announce reward with user input text', async () => {
+    it('should announce reward with user input text after formatting', async () => {
+        mockFormatTtsText.mockResolvedValueOnce('drink some water!');
         const event = {
             user_name: 'TestUser',
             user_login: 'testuser',
@@ -72,13 +79,17 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
+        expect(mockFormatTtsText).toHaveBeenCalledWith(
+            'drink some water!',
+            null,
+            expect.objectContaining({ emoteMode: 'describe', readFullUrls: false })
+        );
         expect(mockPublishTtsEvent).toHaveBeenCalledWith(
             'testchannel',
-            {
+            expect.objectContaining({
                 text: 'TestUser redeemed Hydrate: drink some water!',
                 user: 'TestUser',
-                type: 'event'
-            },
+            }),
             null
         );
     });
@@ -197,8 +208,10 @@ describe('handleRedemptionAnnouncement', () => {
     });
 
     it('should trim whitespace from user input', async () => {
+        mockFormatTtsText.mockResolvedValueOnce('hello world');
         const event = {
             user_name: 'TestUser',
+            user_login: 'testuser',
             reward: { id: 'reward-123', title: 'Say Something' },
             user_input: '   hello world   ',
             status: 'fulfilled'
@@ -213,18 +226,19 @@ describe('handleRedemptionAnnouncement', () => {
 
         expect(mockPublishTtsEvent).toHaveBeenCalledWith(
             'testchannel',
-            {
+            expect.objectContaining({
                 text: 'TestUser redeemed Say Something: hello world',
                 user: 'TestUser',
-                type: 'event'
-            },
+            }),
             null
         );
     });
 
     it('should announce unfulfilled redemptions (pending approval)', async () => {
+        mockFormatTtsText.mockResolvedValueOnce('play despacito');
         const event = {
             user_name: 'TestUser',
+            user_login: 'testuser',
             reward: { id: 'reward-789', title: 'Song Request' },
             user_input: 'play despacito',
             status: 'unfulfilled'
@@ -239,11 +253,10 @@ describe('handleRedemptionAnnouncement', () => {
 
         expect(mockPublishTtsEvent).toHaveBeenCalledWith(
             'testchannel',
-            {
+            expect.objectContaining({
                 text: 'TestUser redeemed Song Request: play despacito',
                 user: 'TestUser',
-                type: 'event'
-            },
+            }),
             null
         );
     });
@@ -271,5 +284,51 @@ describe('handleRedemptionAnnouncement', () => {
             },
             null
         );
+    });
+
+    it('should skip TTS when user is on the ignore list', async () => {
+        const event = {
+            user_name: 'SpamBot',
+            user_login: 'spambot',
+            reward: { id: 'reward-123', title: 'Hydrate' },
+            user_input: 'spam message',
+            status: 'fulfilled'
+        };
+        const ttsConfig = { ...defaultTtsConfig, ignoredUsers: ['spambot'] };
+
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add',
+            event,
+            'testchannel',
+            ttsConfig
+        );
+
+        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockFormatTtsText).not.toHaveBeenCalled();
+    });
+
+    it('should announce redemption but omit user_input containing banned word', async () => {
+        const event = {
+            user_name: 'viewer23',
+            user_login: 'viewer23',
+            reward: { id: 'reward-123', title: 'Say Something' },
+            user_input: 'check out badword link',
+            status: 'fulfilled'
+        };
+        const ttsConfig = { ...defaultTtsConfig, bannedWords: ['badword'] };
+
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add',
+            event,
+            'testchannel',
+            ttsConfig
+        );
+
+        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            'testchannel',
+            expect.objectContaining({ text: 'viewer23 redeemed Say Something' }),
+            null
+        );
+        expect(mockFormatTtsText).not.toHaveBeenCalled();
     });
 });

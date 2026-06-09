@@ -28,6 +28,12 @@ export async function handleNotification(subscriptionType, event, channelName, t
             }
 
             const subUser = event.user_name || event.user_login || 'Someone';
+            const subLogin = (event.user_login || subUser).toLowerCase();
+            if (ttsConfig.ignoredUsers?.includes(subLogin)) {
+                logger.debug({ channelName, user: subLogin }, 'Subscription from ignored user — skipping TTS');
+                return;
+            }
+
             const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
             ttsText = `${subUser} just subscribed${tier}!`;
             username = subUser;
@@ -39,13 +45,40 @@ export async function handleNotification(subscriptionType, event, channelName, t
         case 'channel.subscription.message': {
             // Resubscription with message
             const resubUser = event.user_name || event.user_login || 'Someone';
+            const resubLogin = (event.user_login || resubUser).toLowerCase();
+            if (ttsConfig.ignoredUsers?.includes(resubLogin)) {
+                logger.debug({ channelName, user: resubLogin }, 'Resub from ignored user — skipping TTS');
+                return;
+            }
+
             const months = event.cumulative_months || event.duration_months || 0;
             const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
-            const message = event.message?.text ? ` ${event.message.text}` : '';
-            ttsText = `${resubUser} resubscribed for ${months} months${tier}!${message}`;
+            ttsText = `${resubUser} resubscribed for ${months} months${tier}!`;
+
+            // Append the viewer's resub message if present, after moderation + formatting
+            const rawResubMessage = event.message?.text?.trim();
+            if (rawResubMessage) {
+                const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
+                    ttsConfig.bannedWords.some(w => w && rawResubMessage.toLowerCase().includes(String(w).toLowerCase()));
+                if (hasBannedWord) {
+                    logger.debug({ channelName, user: resubLogin }, 'Resub message contains banned word — announcing resub only');
+                } else {
+                    const emoteMode = ttsConfig.emoteMode || 'describe';
+                    const fragments = event.message?.fragments || null;
+                    const formattedMessage = await formatTtsText(rawResubMessage, fragments, {
+                        emoteMode,
+                        channelEmoteMode: emoteMode,
+                        readFullUrls: ttsConfig.readFullUrls || false,
+                    });
+                    if (formattedMessage) {
+                        ttsText += ` ${formattedMessage}`;
+                    }
+                }
+            }
+
             username = resubUser;
             userId = event.user_id;
-            logger.info({ channelName, user: resubUser, months, tier: event.tier }, 'Resubscription event');
+            logger.info({ channelName, user: resubUser, months, tier: event.tier, message: rawResubMessage || null }, 'Resubscription event');
             break;
         }
 
@@ -69,10 +102,19 @@ export async function handleNotification(subscriptionType, event, channelName, t
         }
 
         case 'channel.cheer': {
-            // Bits cheer (without the message - message already handled by IRC cheer handler)
+            // Bits cheer announcement only — event.message (plain string) is NOT appended here
+            // because the cheer message text is already read via channel.chat.message in chatHandler.js
             const cheerUser = event.user_name || event.user_login || 'Someone';
             const bits = event.bits || 0;
             const isAnonymous = event.is_anonymous;
+
+            if (!isAnonymous) {
+                const cheerLogin = (event.user_login || cheerUser).toLowerCase();
+                if (ttsConfig.ignoredUsers?.includes(cheerLogin)) {
+                    logger.debug({ channelName, user: cheerLogin }, 'Cheer from ignored user — skipping TTS');
+                    return;
+                }
+            }
 
             const bitWord = bits === 1 ? 'bit' : 'bits';
             if (isAnonymous) {
@@ -137,7 +179,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
             if (rawStreakMessage) {
                 // Check banned words against the attached message
                 const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
-                    ttsConfig.bannedWords.some(w => rawStreakMessage.toLowerCase().includes(w));
+                    ttsConfig.bannedWords.some(w => w && rawStreakMessage.toLowerCase().includes(String(w).toLowerCase()));
                 if (hasBannedWord) {
                     logger.debug({ channelName, user: streakLogin }, 'Watch streak message contains banned word — announcing streak only');
                 } else {

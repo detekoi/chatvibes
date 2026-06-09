@@ -184,7 +184,8 @@ describe('notificationHandler', () => {
     });
 
     describe('other event types', () => {
-        it('should handle resubscription event', async () => {
+        it('should handle resubscription event with formatted message', async () => {
+            mockFormatTtsText.mockResolvedValueOnce('Love this stream!');
             const event = {
                 user_name: 'Resubber',
                 user_login: 'resubber',
@@ -195,15 +196,83 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.message', event, 'testchannel');
 
+            expect(mockFormatTtsText).toHaveBeenCalledWith(
+                'Love this stream!',
+                null,
+                expect.objectContaining({ emoteMode: 'describe', readFullUrls: false })
+            );
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
-                {
+                expect.objectContaining({
                     text: 'Resubber resubscribed for 12 months (Tier 1)! Love this stream!',
                     user: 'Resubber',
-                    type: 'event'
-                },
+                }),
                 null
             );
+        });
+
+        it('should skip resub TTS when user is on the ignore list', async () => {
+            const event = {
+                user_name: 'SpamBot',
+                user_login: 'spambot',
+                tier: '1000',
+                cumulative_months: 6,
+                message: { text: 'spam message' }
+            };
+            const ttsConfig = { ignoredUsers: ['spambot'], engineEnabled: true };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel', ttsConfig);
+
+            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockFormatTtsText).not.toHaveBeenCalled();
+        });
+
+        it('should announce resub but omit message containing banned word', async () => {
+            const event = {
+                user_name: 'viewer23',
+                user_login: 'viewer23',
+                tier: '1000',
+                cumulative_months: 3,
+                message: { text: 'check out badword link' }
+            };
+            const ttsConfig = { bannedWords: ['badword'], engineEnabled: true };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel', ttsConfig);
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'viewer23 resubscribed for 3 months (Tier 1)!' }),
+                null
+            );
+            expect(mockFormatTtsText).not.toHaveBeenCalled();
+        });
+
+        it('should skip new sub TTS when user is on the ignore list', async () => {
+            const event = {
+                user_name: 'SpamBot',
+                user_login: 'spambot',
+                tier: '1000',
+                is_gift: false
+            };
+            const ttsConfig = { ignoredUsers: ['spambot'], engineEnabled: true };
+
+            await handleNotification('channel.subscribe', event, 'testchannel', ttsConfig);
+
+            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('should skip cheer TTS when non-anonymous user is on the ignore list', async () => {
+            const event = {
+                user_name: 'SpamBot',
+                user_login: 'spambot',
+                bits: 100,
+                is_anonymous: false
+            };
+            const ttsConfig = { ignoredUsers: ['spambot'], engineEnabled: true };
+
+            await handleNotification('channel.cheer', event, 'testchannel', ttsConfig);
+
+            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
         });
 
         it('should handle raid event', async () => {
