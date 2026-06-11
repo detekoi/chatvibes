@@ -6,7 +6,7 @@ WildcatTTS is a Twitch bot that reads chat messages and events aloud using Text-
 
 **[Streamer Dashboard →](https://tts.wildcat.chat/)** *(invite-only)*
 
-[![License](https://img.shields.io/badge/License-BSD%202--Clause-blue.svg)](LICENSE.md) 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE.md)
 
 ## Documentation
 
