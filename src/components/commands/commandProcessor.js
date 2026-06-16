@@ -85,6 +85,17 @@ function hasPermission(requiredPermission, tags, channelName) {
         return isVip || isModByTag || isModByBadge || isLeadMod || isBroadcaster;
     }
 
+    // Subscriber check
+    if (permLevel === 'subscriber') {
+        const isSub = tags.subscriber === true || tags.badges?.subscriber != null;
+        const isVip = tags.vip === true || tags.badges?.vip === '1';
+        const isModByTag = tags.mod === true || tags.mod === '1';
+        const isModByBadge = tags.badges?.moderator === '1';
+        const isLeadMod = tags.badges?.lead_moderator === '1';
+        // Subscribers, VIPs, Mods, Lead Mods, and Broadcaster can access subscriber-level features
+        return isSub || isVip || isModByTag || isModByBadge || isLeadMod || isBroadcaster;
+    }
+
     // If a future permLevel is 'broadcaster' and only broadcaster should access (not mods)
     if (permLevel === 'broadcaster') {
         return isBroadcaster;

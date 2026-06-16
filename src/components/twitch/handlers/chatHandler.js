@@ -138,6 +138,21 @@ export async function handleChatMessage(event, channelName) {
             if (bits >= minimumBits) {
                 // Only process if in all mode or bits/points mode
                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
+                    // In 'all' mode, cheers must also pass the ttsPermissionLevel check
+                    if (ttsConfig.mode === 'all') {
+                        let requiredPermission = 'everyone';
+                        if (ttsConfig.ttsPermissionLevel === 'mods') {
+                            requiredPermission = 'moderator';
+                        } else if (ttsConfig.ttsPermissionLevel === 'vip') {
+                            requiredPermission = 'vip';
+                        } else if (ttsConfig.ttsPermissionLevel === 'subs') {
+                            requiredPermission = 'subscriber';
+                        }
+                        if (!hasPermission(requiredPermission, tags, channelName)) {
+                            logger.debug({ channel: channelName, user: username, requiredPermission, bits }, 'Skipping cheer - insufficient permission');
+                            return;
+                        }
+                    }
                     const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls });
                     if (processedMessage) {
                         await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
@@ -157,6 +172,8 @@ export async function handleChatMessage(event, channelName) {
                 requiredPermission = 'moderator';
             } else if (ttsConfig.ttsPermissionLevel === 'vip') {
                 requiredPermission = 'vip';
+            } else if (ttsConfig.ttsPermissionLevel === 'subs') {
+                requiredPermission = 'subscriber';
             }
 
             if (hasPermission(requiredPermission, tags, channelName)) {

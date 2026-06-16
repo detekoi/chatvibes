@@ -5,8 +5,8 @@ import logger from '../../../lib/logger.js';
 
 export default {
     name: 'permission',
-    description: 'Sets whether TTS reads messages from everyone, VIPs, or only mods when in "all" mode.',
-    usage: '!tts permission <everyone|all|vip|mods>',
+    description: 'Sets whether TTS reads messages from everyone, subscribers, VIPs, or only mods when in "all" mode.',
+    usage: '!tts permission <everyone|all|subs|vip|mods>',
     permission: 'moderator',
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
@@ -16,7 +16,7 @@ export default {
 
         if (args.length === 0) {
             const currentPermission = currentConfig.ttsPermissionLevel || 'everyone';
-            enqueueMessage(channel, `TTS message permission is currently set to: ${currentPermission}. Usage: !tts permission <everyone|all|vip|mods>`, { replyToId });
+            enqueueMessage(channel, `TTS message permission is currently set to: ${currentPermission}. Usage: !tts permission <everyone|all|subs|vip|mods>`, { replyToId });
             return;
         }
 
@@ -27,8 +27,13 @@ export default {
             newPermission = 'everyone';
         }
 
-        if (newPermission !== 'everyone' && newPermission !== 'vip' && newPermission !== 'mods') {
-            enqueueMessage(channel, `Invalid permission level. Use 'everyone' (or 'all'), 'vip', or 'mods'.`, { replyToId });
+        // Alias 'sub' and 'subscriber' to 'subs'
+        if (newPermission === 'sub' || newPermission === 'subscriber' || newPermission === 'subscribers') {
+            newPermission = 'subs';
+        }
+
+        if (newPermission !== 'everyone' && newPermission !== 'subs' && newPermission !== 'vip' && newPermission !== 'mods') {
+            enqueueMessage(channel, `Invalid permission level. Use 'everyone' (or 'all'), 'subs', 'vip', or 'mods'.`, { replyToId });
             return;
         }
 

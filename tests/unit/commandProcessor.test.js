@@ -162,6 +162,75 @@ describe('commandProcessor module', () => {
       });
     });
 
+    describe('subscriber permission level', () => {
+      test('should allow subscriber via subscriber tag (boolean true)', () => {
+        const tags = {
+          username: 'subuser',
+          subscriber: true,
+          badges: { subscriber: '12' }
+        };
+        const result = commandProcessor.hasPermission('subscriber', tags, 'somechannel');
+        expect(result).toBe(true);
+      });
+
+      test('should allow subscriber via badges only', () => {
+        const tags = {
+          username: 'subuser',
+          subscriber: false,
+          badges: { subscriber: '1' }
+        };
+        const result = commandProcessor.hasPermission('subscriber', tags, 'somechannel');
+        expect(result).toBe(true);
+      });
+
+      test('should allow VIP when subscriber permission is required', () => {
+        const tags = {
+          username: 'vipuser',
+          vip: true,
+          badges: { vip: '1' }
+        };
+        const result = commandProcessor.hasPermission('subscriber', tags, 'somechannel');
+        expect(result).toBe(true);
+      });
+
+      test('should allow moderator when subscriber permission is required', () => {
+        const tags = {
+          username: 'moduser',
+          mod: true,
+          badges: { moderator: '1' }
+        };
+        const result = commandProcessor.hasPermission('subscriber', tags, 'somechannel');
+        expect(result).toBe(true);
+      });
+
+      test('should allow broadcaster when subscriber permission is required', () => {
+        const tags = {
+          username: 'channelowner',
+          badges: { broadcaster: '1' }
+        };
+        const result = commandProcessor.hasPermission('subscriber', tags, 'channelowner');
+        expect(result).toBe(true);
+      });
+
+      test('should deny regular user when subscriber permission is required', () => {
+        const tags = {
+          username: 'regularuser',
+          subscriber: false,
+          badges: {}
+        };
+        const result = commandProcessor.hasPermission('subscriber', tags, 'somechannel');
+        expect(result).toBe(false);
+      });
+
+      test('should deny user with no badges when subscriber permission is required', () => {
+        const tags = {
+          username: 'regularuser'
+        };
+        const result = commandProcessor.hasPermission('subscriber', tags, 'somechannel');
+        expect(result).toBe(false);
+      });
+    });
+
     describe('edge cases', () => {
       test('should handle missing username in tags', () => {
         const tags = {
