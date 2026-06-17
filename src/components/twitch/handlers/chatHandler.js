@@ -67,12 +67,24 @@ export async function handleChatMessage(event, channelName) {
 
     if (!cleanMessage) return;
 
+    // Strip the @mention prefix that Twitch prepends to reply messages.
+    // When a user replies to someone, the message text arrives as
+    // "@targetUser !tts hello" — we strip the leading mention so command
+    // parsing works and TTS doesn't redundantly read the @mention aloud.
+    // The reply metadata is already captured separately in event.reply.
+    if (event.reply) {
+        cleanMessage = cleanMessage.replace(/^@\S+\s+/, '');
+        if (!cleanMessage) return;
+    }
+
     // --- TTS CONFIG & EMOTE MODE RESOLUTION ---
     // Resolved before command processing so eventData can flow into command handlers
     const ttsConfig = await getTtsState(channelName);
     const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
+    // Check against cleanMessage (not raw messageText) so the reply-target
+    // @username that Twitch prepends doesn't trigger false banned-word hits.
     const containsBannedWord = ttsConfig.bannedWords?.length > 0 &&
-        ttsConfig.bannedWords.some(w => w && messageText.toLowerCase().includes(String(w).toLowerCase()));
+        ttsConfig.bannedWords.some(w => w && cleanMessage.toLowerCase().includes(String(w).toLowerCase()));
 
     // If TTS is globally off, user is ignored, or message contains banned word, skip TTS
     if (!ttsConfig.engineEnabled || isTtsIgnored || containsBannedWord) {
@@ -94,7 +106,20 @@ export async function handleChatMessage(event, channelName) {
 
     // Filter out cheermote fragments for emote processing so cheermote text
     // doesn't appear in the described/skipped output
-    const ttsFragments = event.message?.fragments?.filter(f => f.type !== 'cheermote');
+    let ttsFragments = event.message?.fragments?.filter(f => f.type !== 'cheermote');
+
+    // Strip the leading @mention fragment for replies, mirroring the text-level
+    // strip above (line ~76).  Both assume Twitch sends a mention-typed first
+    // fragment for replies — if that EventSub contract changes, update both.
+    // Without this, emote-mode processing (skip/describe) would rebuild text
+    // from fragments and re-inject the @mention into spoken output.
+    if (event.reply && ttsFragments?.length > 0 && ttsFragments[0].type === 'mention') {
+        ttsFragments = ttsFragments.slice(1);
+        // Trim leading whitespace from the next fragment so it doesn't start with a space
+        if (ttsFragments.length > 0 && ttsFragments[0].type === 'text') {
+            ttsFragments[0] = { ...ttsFragments[0], text: ttsFragments[0].text.replace(/^\s+/, '') };
+        }
+    }
 
     // Build command-specific fragments: strip the leading "!tts" text prefix so
     // the fragment array aligns with the text say.js will speak (everything after !tts).
