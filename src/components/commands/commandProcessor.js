@@ -4,6 +4,7 @@ import logger from '../../lib/logger.js';
 import commandHandlers from './handlers/index.js';
 import { getTtsState } from '../tts/ttsState.js';
 import { enqueueMessage } from '../../lib/chatSender.js';
+import { hasPermissionLevel } from '../../lib/permissions.js';
 
 
 const COMMAND_PREFIX = '!'; // Define the prefix for commands
@@ -45,63 +46,14 @@ function parseCommand(message) {
 
 /**
  * Checks if the user has the required permission level for a command.
+ * Delegates to the centralized hasPermissionLevel utility.
  * @param {string} requiredPermission - The permission level string (e.g., 'everyone', 'moderator', 'broadcaster').
  * @param {object} tags - The user's message tags from tmi.js.
  * @param {string} channelName - The channel the command was issued in (without '#').
  * @returns {boolean} True if the user has permission, false otherwise.
  */
 function hasPermission(requiredPermission, tags, channelName) {
-    const permLevel = requiredPermission || 'everyone'; // Default to everyone if undefined
-
-    if (permLevel === 'everyone') {
-        return true;
-    }
-
-    const username = tags.username?.toLowerCase(); // Ensure username is lowercase for comparison
-    const cleanChannelName = channelName.toLowerCase(); // Ensure channelName is lowercase
-
-    const isBroadcaster = tags.badges?.broadcaster === '1' || username === cleanChannelName;
-    if (isBroadcaster) { // Broadcaster can generally do anything if perm level is mod or broadcaster
-        return true;
-    }
-
-    // Moderator check specifically for 'moderator' permission level
-    // Note: Lead Moderators (introduced by Twitch) have either 'moderator' or 'lead_moderator' badge
-    if (permLevel === 'moderator') {
-        const isModByTag = tags.mod === true || tags.mod === '1';
-        const isModByBadge = tags.badges?.moderator === '1';
-        const isLeadMod = tags.badges?.lead_moderator === '1';
-        // Broadcaster is already covered above, so mods don't need explicit isBroadcaster check here
-        return isModByTag || isModByBadge || isLeadMod;
-    }
-
-    // VIP check
-    if (permLevel === 'vip') {
-        const isVip = tags.vip === true || tags.badges?.vip === '1';
-        const isModByTag = tags.mod === true || tags.mod === '1';
-        const isModByBadge = tags.badges?.moderator === '1';
-        const isLeadMod = tags.badges?.lead_moderator === '1';
-        // VIPs, Mods, Lead Mods, and Broadcaster can access VIP-level features
-        return isVip || isModByTag || isModByBadge || isLeadMod || isBroadcaster;
-    }
-
-    // Subscriber check
-    if (permLevel === 'subscriber') {
-        const isSub = tags.subscriber === true || tags.badges?.subscriber != null;
-        const isVip = tags.vip === true || tags.badges?.vip === '1';
-        const isModByTag = tags.mod === true || tags.mod === '1';
-        const isModByBadge = tags.badges?.moderator === '1';
-        const isLeadMod = tags.badges?.lead_moderator === '1';
-        // Subscribers, VIPs, Mods, Lead Mods, and Broadcaster can access subscriber-level features
-        return isSub || isVip || isModByTag || isModByBadge || isLeadMod || isBroadcaster;
-    }
-
-    // If a future permLevel is 'broadcaster' and only broadcaster should access (not mods)
-    if (permLevel === 'broadcaster') {
-        return isBroadcaster;
-    }
-
-    return false;
+    return hasPermissionLevel(requiredPermission, tags, channelName);
 }
 
 /**

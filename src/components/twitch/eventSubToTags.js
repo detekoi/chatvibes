@@ -59,7 +59,7 @@ export function convertEventSubToTags(event) {
             }
 
             // Set flags based on badge types
-            if (setId === 'moderator') {
+            if (setId === 'moderator' || setId === 'lead_moderator') {
                 tags.mod = true;
             } else if (setId === 'subscriber') {
                 tags.subscriber = true;
@@ -68,7 +68,6 @@ export function convertEventSubToTags(event) {
             } else if (setId === 'broadcaster') {
                 // Broadcaster is always a moderator
                 tags.mod = true;
-                tags.badges.broadcaster = '1';
             }
         }
     }

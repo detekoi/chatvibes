@@ -1,7 +1,7 @@
 // src/components/commands/tts/ignoreUser.js
 import { addIgnoredUser, removeIgnoredUser } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
-// Removed helixClient and userExists for this simplified version, add back if used for other checks
+import { isPrivilegedUser } from '../../../lib/permissions.js';
 
 export default {
     name: 'ignore',
@@ -18,10 +18,7 @@ export default {
         
 
         // Determine invoker's status
-        const isBroadcaster = user.badges?.broadcaster === '1' || invokingUsernameLower === channelNameNoHash;
-        const isModByTag = user.mod === true || user.mod === '1';
-        const isModByBadge = user.badges?.moderator === '1';
-        const isModOrBroadcaster = isModByTag || isModByBadge || isBroadcaster;
+        const isModOrBroadcaster = isPrivilegedUser(user, channelNameNoHash);
 
         // Handle "!tts ignore <username>" as "!tts ignore add <username>"
         if (args.length === 1 && !['add', 'del', 'delete', 'rem', 'remove'].includes(action)) {
