@@ -2,14 +2,14 @@
 // Script to validate the bot's access token and check its scopes
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { getValidIrcToken } from '../src/components/twitch/ircAuthHelper.js';
+import { getValidBotUserToken } from '../src/components/twitch/tokenManager.js';
 
 dotenv.config();
 
 async function validateToken() {
     try {
         console.log('Fetching bot access token...');
-        const tokenWithPrefix = await getValidIrcToken();
+        const tokenWithPrefix = await getValidBotUserToken();
 
         if (!tokenWithPrefix) {
             console.error('❌ Failed to get bot access token');

@@ -2,7 +2,7 @@
 
 // Quick script to check what Client ID is being used
 
-import { getClientId } from '../src/components/twitch/auth.js';
+import { getClientId } from '../src/components/twitch/tokenManager.js';
 import { initializeSecretManager } from '../src/lib/secretManager.js';
 
 async function main() {

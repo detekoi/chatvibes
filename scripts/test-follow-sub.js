@@ -1,6 +1,5 @@
 import { subscribeChannelFollow } from '../src/components/twitch/twitchSubs.js';
 import { getUsersByLogin } from '../src/components/twitch/helixClient.js';
-import { getClientId } from '../src/components/twitch/auth.js';
 
 async function test() {
     try {

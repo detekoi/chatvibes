@@ -2,7 +2,7 @@
 // Simple local server to handle OAuth callback for bot authentication
 import express from 'express';
 import axios from 'axios';
-import { getClientId, getClientSecret } from '../src/components/twitch/auth.js';
+import { getClientId, getClientSecret } from '../src/components/twitch/tokenManager.js';
 import { addSecretVersion } from '../src/lib/secretManager.js';
 import config from '../src/config/index.js';
 import dotenv from 'dotenv';

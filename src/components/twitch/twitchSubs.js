@@ -1,10 +1,8 @@
 // src/components/twitch/twitchSubs.js
 // Twitch EventSub subscription management for TTS event announcements
 
-import axios from 'axios';
 import { getHelixClient, getUsersByLogin } from './helixClient.js';
 
-import { getClientId } from './tokenManager.js';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 
@@ -48,84 +46,36 @@ async function makeHelixRequest(method, endpoint, body = null) {
 }
 
 /**
- * Get broadcaster's user access token from Firestore
+ * Check whether a broadcaster has completed OAuth (has a stored access token).
+ * Uses a Firestore select() projection to avoid reading the full token value.
  * @param {string} broadcasterUserId - The broadcaster's Twitch user ID
- * @returns {Promise<string|null>} The access token or null if not found
+ * @returns {Promise<boolean>} True if the broadcaster has a stored access token
  */
-async function getBroadcasterAccessToken(broadcasterUserId) {
+async function hasBroadcasterOAuth(broadcasterUserId) {
     try {
         const { Firestore } = await import('@google-cloud/firestore');
         const db = new Firestore();
 
         const oauthDoc = await db.collection('users').doc(broadcasterUserId)
-            .collection('private').doc('oauth').get();
+            .collection('private').doc('oauth')
+            .select('twitchAccessToken').get();
 
         if (!oauthDoc.exists) {
-            logger.warn({ broadcasterUserId }, 'Broadcaster access token not found in Firestore');
-            return null;
+            logger.debug({ broadcasterUserId }, 'Broadcaster OAuth doc not found');
+            return false;
         }
 
-        const accessToken = oauthDoc.data()?.twitchAccessToken;
-        if (!accessToken) {
-            logger.warn({ broadcasterUserId }, 'Broadcaster OAuth doc exists but no access token');
-            return null;
+        const hasToken = !!oauthDoc.data()?.twitchAccessToken;
+        if (!hasToken) {
+            logger.debug({ broadcasterUserId }, 'Broadcaster OAuth doc exists but no access token');
         }
-
-        return accessToken.trim();
+        return hasToken;
     } catch (error) {
-        logger.error({ err: error, broadcasterUserId }, 'Error retrieving broadcaster access token');
-        return null;
+        logger.error({ err: error, broadcasterUserId }, 'Error checking broadcaster OAuth status');
+        return false;
     }
 }
 
-/**
- * Make a Twitch Helix API request with broadcaster's user access token
- * (Required for EventSub subscriptions with scope requirements)
- */
-async function makeHelixRequestWithBroadcasterToken(method, endpoint, body, broadcasterUserId) {
-    try {
-        const userToken = await getBroadcasterAccessToken(broadcasterUserId);
-        if (!userToken) {
-            return { success: false, error: 'Broadcaster access token not available' };
-        }
-
-        // Use the web UI's Client ID (same one that generated the broadcaster token)
-        const clientId = await getClientId();
-
-        const response = await axios({
-            method,
-            url: `https://api.twitch.tv/helix${endpoint}`,
-            data: body,
-            headers: {
-                'Authorization': `Bearer ${userToken}`,
-                'Client-ID': clientId,
-                'Content-Type': 'application/json'
-            },
-            timeout: 15000
-        });
-
-        return { success: true, data: response.data };
-    } catch (error) {
-        // 409 Conflict means the subscription already exists - treat as success
-        if (error.response && error.response.status === 409) {
-            logger.debug({
-                method,
-                endpoint,
-                type: body?.type,
-                broadcasterUserId
-            }, 'EventSub subscription already exists (409) - treating as success');
-            return { success: true, data: error.response.data };
-        }
-
-        logger.error({
-            err: error.response ? error.response.data : error.message,
-            method,
-            endpoint,
-            broadcasterUserId
-        }, 'Error making Helix request with broadcaster token');
-        return { success: false, error: error.message };
-    }
-}
 
 /**
  * Get all EventSub subscriptions
@@ -535,8 +485,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
     // Scope-gated subscription types (subscribe, cheer, follow, channel points)
     // require the broadcaster to have granted specific OAuth scopes to the app.
     // Without authorization, these calls always return 403 Forbidden.
-    const broadcasterToken = await getBroadcasterAccessToken(broadcasterUserId);
-    const hasBroadcasterAuth = !!broadcasterToken;
+    const hasBroadcasterAuth = await hasBroadcasterOAuth(broadcasterUserId);
 
     if (!hasBroadcasterAuth) {
         // List the scope-gated types being skipped for visibility
@@ -728,10 +677,30 @@ export async function subscribeAllManagedChannelsToTtsEvents() {
                 const userId = userResponseArray[0].id;
                 const subResults = await subscribeChannelToTtsEvents(userId);
 
+                // Classify: if all succeeded, it's successful.
+                // If some failed but critical types (chat) succeeded, it's partial.
+                // If critical types failed, it's a real failure.
+                const criticalTypes = ['channel.chat.message', 'channel.chat.notification'];
+                const hasCriticalFailure = subResults.failed.some(f => criticalTypes.includes(f.type));
+
                 if (subResults.failed.length === 0) {
                     results.successful.push({ channel: channelName, userId, events: subResults.successful });
+                } else if (!hasCriticalFailure) {
+                    // Partial success — critical types registered, optional scope-gated types may have been skipped
+                    results.successful.push({
+                        channel: channelName,
+                        userId,
+                        events: subResults.successful,
+                        skippedOptional: subResults.failed.map(f => f.type)
+                    });
+                    logger.info({
+                        channelName,
+                        userId,
+                        succeeded: subResults.successful,
+                        failed: subResults.failed.map(f => f.type)
+                    }, 'Channel subscribed with partial success (non-critical types skipped)');
                 } else {
-                    results.failed.push({ channel: channelName, error: 'Some subscriptions failed', details: subResults.failed });
+                    results.failed.push({ channel: channelName, error: 'Critical subscriptions failed', details: subResults.failed });
                 }
             } catch (error) {
                 logger.error({ err: error, channelName }, 'Error subscribing channel to TTS EventSub');

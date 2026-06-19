@@ -1,4 +1,6 @@
-import emojibaseData from 'emojibase-data/en/data.json' with { type: 'json' };
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const emojibaseData = require('emojibase-data/en/data.json');
 
 // Build a Map once at module load for O(1) emoji-to-label lookups.
 // emojibase-data covers Emoji 17 / Unicode 17 / CLDR 48 (updated Nov 2025).

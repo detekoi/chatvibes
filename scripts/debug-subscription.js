@@ -4,7 +4,7 @@ import { subscribeChannelChatMessage } from '../src/components/twitch/twitchSubs
 import { getBotUserId } from '../src/components/twitch/chatClient.js';
 import { getUsersByLogin } from '../src/components/twitch/helixClient.js';
 import { initializeHelixClient } from '../src/components/twitch/helixClient.js';
-import { getClientId } from '../src/components/twitch/auth.js';
+import { getClientId } from '../src/components/twitch/tokenManager.js';
 
 import config from '../src/config/index.js';
 

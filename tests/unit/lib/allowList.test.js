@@ -1,5 +1,4 @@
 // tests/unit/lib/allowList.test.js
-import { jest } from '@jest/globals';
 
 // Import directly — no mocking needed since the module is now a pure in-memory cache
 const {

@@ -85,7 +85,7 @@ async function fetchNewAppAccessToken() {
             timeout: 10000,
         });
 
-        if (response.data?.access_token && response.data?.expires_in) {
+        if (response.data?.access_token && response.data?.expires_in != null) {
             appAccessToken = response.data.access_token;
             tokenExpiryTime = Date.now() + (response.data.expires_in * 1000);
             logger.info(`WildcatTTS: App Access Token fetched. Expires in: ${response.data.expires_in}s`);
@@ -148,6 +148,8 @@ function clearCachedAppAccessToken() {
 // Bot User Access Token (refresh_token grant – used for chat messages)
 // ---------------------------------------------------------------------------
 
+let botUserAccessToken = null;
+let botTokenExpiryTime = 0;
 let isRefreshing = false; // prevent concurrent refreshes
 
 /**
@@ -209,8 +211,15 @@ async function refreshBotUserToken() {
         if (response.status === 200 && response.data?.access_token) {
             const newAccessToken = response.data.access_token;
             const newRefreshToken = response.data.refresh_token;
+            const expiresIn = response.data.expires_in;
 
-            logger.info('WildcatTTS: Bot User Access Token refreshed successfully.');
+            // Cache the new token with expiry
+            botUserAccessToken = newAccessToken;
+            botTokenExpiryTime = (expiresIn != null)
+                ? Date.now() + (expiresIn * 1000)
+                : Date.now() + (4 * 60 * 60 * 1000); // default 4h if missing
+
+            logger.info({ expiresIn }, 'WildcatTTS: Bot User Access Token refreshed successfully.');
 
             if (newRefreshToken && newRefreshToken !== refreshToken) {
                 logger.info('WildcatTTS: Received a new refresh token – persisting to Secret Manager.');
@@ -254,11 +263,18 @@ async function refreshBotUserToken() {
 
 /**
  * Returns a valid Bot User Access Token (WITH the oauth: prefix), refreshing if needed.
+ * Uses an in-memory cache to avoid unnecessary Secret Manager reads and Twitch API calls.
  * Call this before connecting to IRC or sending authenticated chat messages.
  * @returns {Promise<string|null>}
  */
 async function getValidBotUserToken() {
-    logger.info('WildcatTTS: Requesting valid Bot User Token – attempting refresh...');
+    // Check cached token first
+    if (botUserAccessToken && Date.now() < (botTokenExpiryTime - (TOKEN_REFRESH_BUFFER_SECONDS * 1000))) {
+        logger.debug('WildcatTTS: Using cached Bot User Token.');
+        return `oauth:${botUserAccessToken}`;
+    }
+
+    logger.info('WildcatTTS: Bot User Token expired or missing – refreshing...');
     const newToken = await refreshBotUserToken();
 
     if (newToken) {

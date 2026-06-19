@@ -186,9 +186,9 @@ export const T302_SUPPORTED_VOICE_IDS = [
  * Verified 2026-03-06: all 475 voices (including former "Wavespeed-only" voices)
  * work on 302.ai. Wavespeed fallback is handled by retry logic in generateSpeech().
  * @param {string} voiceId - The voice ID to check.
- * @returns {'302'|'wavespeed'} - The provider to use.
+ * @returns {'302'} - The provider to use (always 302.ai).
  */
-export function getProviderForVoice(voiceId) {
+export function getProviderForVoice(_voiceId) {
     return '302';
 }
 
