@@ -61,7 +61,15 @@ describe('ttsService module', () => {
 
     jest.unstable_mockModule('../../src/components/tts/ttsConstants.js', () => ({
       TTS_SPEED_DEFAULT: 1.0,
-      TTS_PITCH_DEFAULT: 0
+      TTS_PITCH_DEFAULT: 0,
+      LEGACY_SAFE_EMOTIONS: ['happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised'],
+      LEGACY_SAFE_LANGUAGE_BOOSTS: [
+        'auto', 'Chinese', 'Chinese,Yue', 'English', 'Arabic',
+        'Russian', 'Spanish', 'French', 'Portuguese', 'German',
+        'Turkish', 'Dutch', 'Ukrainian', 'Vietnamese', 'Indonesian',
+        'Japanese', 'Italian', 'Korean', 'Thai', 'Polish',
+        'Romanian', 'Greek', 'Czech', 'Finnish', 'Hindi'
+      ]
     }));
 
     jest.unstable_mockModule('../../src/components/tts/wavespeedVoices.js', () => mockWavespeedVoices);
@@ -129,7 +137,7 @@ describe('ttsService module', () => {
       );
     });
 
-    test('should map "auto" emotion to "neutral"', async () => {
+    test('should omit "auto" emotion from API call (auto-detect)', async () => {
       mockAxios.mockResolvedValue({
         data: {
           status: 'completed',
@@ -141,13 +149,9 @@ describe('ttsService module', () => {
         emotion: 'auto'
       });
 
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            emotion: 'neutral'
-          })
-        })
-      );
+      // "auto" maps to undefined (omitted from API call for auto-detect)
+      const callData = mockAxios.mock.calls[0][0].data;
+      expect(callData.emotion).toBeUndefined();
     });
 
     test('should map "Automatic" language boost to "auto"', async () => {

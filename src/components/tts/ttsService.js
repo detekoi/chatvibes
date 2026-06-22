@@ -2,7 +2,7 @@
 import axios from 'axios';
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
-import { TTS_SPEED_DEFAULT, TTS_PITCH_DEFAULT } from './ttsConstants.js';
+import { TTS_SPEED_DEFAULT, TTS_PITCH_DEFAULT, LEGACY_SAFE_EMOTIONS, LEGACY_SAFE_LANGUAGE_BOOSTS } from './ttsConstants.js';
 import { getAllVoices, getVoicesByLanguage } from './wavespeedVoices.js';
 import { getProviderForVoice } from './voiceMigration.js';
 
@@ -17,29 +17,32 @@ let lastVoiceListFetchTime = 0;
 const VOICE_LIST_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
 /**
- * Map legacy emotion values to Wavespeed-compatible values
+ * Map emotion for the MiniMax API.
+ * "neutral" is a user-facing alias meaning "auto-detect" — we omit it from the API call.
+ * For the Wavespeed/speech-02-turbo fallback, calm and fluent are not supported.
  * @param {string} emotion - The emotion value
- * @returns {string} - Mapped emotion value
+ * @param {'302'|'wavespeed'} provider - The target provider
+ * @returns {string|undefined} - Mapped emotion value, or undefined to omit
  */
-function mapEmotion(emotion) {
-  // Wavespeed doesn't support "auto", map to "neutral"
-  if (emotion === 'auto') {
-    return 'neutral';
+function mapEmotionForApi(emotion, provider = '302') {
+  if (!emotion || emotion === 'auto' || emotion === 'neutral') {
+    return undefined; // Omit from API call → auto-detect
   }
-  // Wavespeed doesn't support "fluent", map to "neutral"
-  if (emotion === 'fluent') {
-    return 'neutral';
+  // For Wavespeed fallback (speech-02-turbo), strip emotions it doesn't support
+  if (provider === 'wavespeed' && !LEGACY_SAFE_EMOTIONS.includes(emotion)) {
+    logger.debug({ emotion, provider }, 'Emotion not supported by legacy provider, omitting');
+    return undefined;
   }
   return emotion;
 }
 
 /**
- * Map legacy language boost values to Wavespeed-compatible values
+ * Map legacy language boost values to API-compatible values
  * @param {string} languageBoost - The language boost value
  * @returns {string} - Mapped language boost value
  */
 function mapLanguageBoost(languageBoost) {
-  // Map legacy values to Wavespeed format
+  // Map legacy values to MiniMax format
   if (languageBoost === 'None' || languageBoost === 'Automatic') {
     return 'auto';
   }
@@ -58,21 +61,18 @@ async function attemptGeneration(text, voiceId, input, options) {
     timeoutId = setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
   });
 
-  // Safe languages for Wavespeed (speech-02-turbo)
-  // Excludes languages supported by 2.6 but not 02 (e.g. Bulgarian, Danish, etc.)
-  const WAVESPEED_SAFE_LANGUAGES = [
-    "Chinese", "Chinese,Yue", "English", "Arabic", "Russian", "Spanish", "French", "Portuguese",
-    "German", "Turkish", "Dutch", "Ukrainian", "Vietnamese", "Indonesian", "Japanese", "Italian",
-    "Korean", "Thai", "Polish", "Romanian", "Greek", "Czech", "Finnish", "Hindi", "auto"
-  ];
-
-  // Sanitize language_boost for Wavespeed
-  if (input.language_boost && !WAVESPEED_SAFE_LANGUAGES.includes(input.language_boost)) {
+  // Sanitize language_boost for Wavespeed (speech-02-turbo supports fewer languages)
+  if (input.language_boost && !LEGACY_SAFE_LANGUAGE_BOOSTS.includes(input.language_boost)) {
     logger.warn({
       original: input.language_boost,
       voiceId
     }, 'Language boost not supported by Wavespeed, falling back to auto');
     input.language_boost = 'auto';
+  }
+
+  // Sanitize emotion for Wavespeed (speech-02-turbo doesn't support calm/fluent)
+  if (input.emotion) {
+    input.emotion = mapEmotionForApi(input.emotion, 'wavespeed');
   }
 
   const requestConfig = {
@@ -157,7 +157,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       speed: options.speed ?? TTS_SPEED_DEFAULT,
       vol: options.volume ?? 1.0,
       pitch: options.pitch ?? TTS_PITCH_DEFAULT,
-      emotion: mapEmotion(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral'),
+      emotion: mapEmotionForApi(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral', '302'),
     },
     audio_setting: {
       sample_rate: options.sampleRate ?? 32000,
@@ -274,7 +274,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     vol: options.volume ?? 1.0,
     volume: options.volume ?? 1.0,
     pitch: options.pitch ?? TTS_PITCH_DEFAULT,
-    emotion: mapEmotion(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral'),
+    emotion: mapEmotionForApi(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral', '302'),
     language_boost: mapLanguageBoost(options.languageBoost ?? config.tts?.defaultLanguageBoost ?? 'auto'),
     english_normalization: options.englishNormalization !== undefined
       ? options.englishNormalization

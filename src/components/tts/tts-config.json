@@ -1,0 +1,46 @@
+{
+  "VALID_EMOTIONS": [
+    "neutral", "happy", "sad", "angry", "fearful", "disgusted", "surprised",
+    "calm", "fluent"
+  ],
+  "EMOTION_ALIASES": {
+    "auto": "neutral",
+    "mad": "angry",
+    "fear": "fearful",
+    "scared": "fearful",
+    "disgust": "disgusted",
+    "surprise": "surprised",
+    "shocked": "surprised"
+  },
+  "LEGACY_SAFE_EMOTIONS": [
+    "happy", "sad", "angry", "fearful", "disgusted", "surprised"
+  ],
+  "PITCH": {
+    "MIN": -12,
+    "MAX": 12,
+    "DEFAULT": 0
+  },
+  "SPEED": {
+    "MIN": 0.5,
+    "MAX": 2.0,
+    "DEFAULT": 1.0
+  },
+  "VALID_LANGUAGE_BOOSTS": [
+    "auto", "Chinese", "Chinese,Yue", "English", "Arabic",
+    "Russian", "Spanish", "French", "Portuguese", "German",
+    "Turkish", "Dutch", "Ukrainian", "Vietnamese", "Indonesian",
+    "Japanese", "Italian", "Korean", "Thai", "Polish",
+    "Romanian", "Greek", "Czech", "Finnish", "Hindi",
+    "Bulgarian", "Danish", "Hebrew", "Malay", "Persian",
+    "Slovak", "Swedish", "Croatian", "Filipino", "Hungarian",
+    "Norwegian", "Slovenian", "Catalan", "Nynorsk", "Tamil",
+    "Afrikaans"
+  ],
+  "LEGACY_SAFE_LANGUAGE_BOOSTS": [
+    "auto", "Chinese", "Chinese,Yue", "English", "Arabic",
+    "Russian", "Spanish", "French", "Portuguese", "German",
+    "Turkish", "Dutch", "Ukrainian", "Vietnamese", "Indonesian",
+    "Japanese", "Italian", "Korean", "Thai", "Polish",
+    "Romanian", "Greek", "Czech", "Finnish", "Hindi"
+  ]
+}

@@ -189,13 +189,9 @@ describe('TTS Migration', () => {
             expect(url).toBe('https://wavespeed.ai/fallback-sanitized.mp3');
 
             // Verify Wavespeed call used sanitized parameters
-            expect(axios).toHaveBeenNthCalledWith(2, expect.objectContaining({
-                url: expect.stringContaining('wavespeed.ai'),
-                data: expect.objectContaining({
-                    language_boost: 'auto', // Sanitized from 'Bulgarian'
-                    emotion: 'neutral'      // Mapped from 'fluent'
-                })
-            }));
+            const wavespeedCallData = axios.mock.calls[1][0].data;
+            expect(wavespeedCallData.language_boost).toBe('auto'); // Sanitized from 'Bulgarian'
+            expect(wavespeedCallData.emotion).toBeUndefined();     // 'fluent' stripped for legacy provider
         });
     });
 });
