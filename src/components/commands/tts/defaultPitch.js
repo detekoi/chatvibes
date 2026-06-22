@@ -1,4 +1,4 @@
-// src/components/commands/tts/defaultpitch.js
+import { createTtsSettingCommand } from './createTtsSettingCommand.js';
 import {
     setChannelDefaultPitch,
     resetChannelDefaultPitch,
@@ -9,48 +9,25 @@ import {
     TTS_PITCH_MAX,
     TTS_PITCH_DEFAULT
 } from '../../tts/ttsConstants.js';
-import { enqueueMessage } from '../../../lib/chatSender.js';
-import logger from '../../../lib/logger.js';
 
-export default {
+export default createTtsSettingCommand({
     name: 'defaultpitch',
+    property: 'pitch',
     description: `Sets the channel's default TTS pitch (${TTS_PITCH_MIN} to ${TTS_PITCH_MAX}, 0 is normal). Use 'reset' for default (${TTS_PITCH_DEFAULT}).`,
     usage: '!tts defaultpitch <value|reset>',
     permission: 'moderator',
-    execute: async (context) => {
-        const { channel, args, replyToId } = context;
-        const channelNameNoHash = channel.substring(1);
-
-        if (args.length === 0) {
-            const currentConfig = await getTtsState(channelNameNoHash);
-            enqueueMessage(channel, `Current default pitch: ${currentConfig.pitch ?? TTS_PITCH_DEFAULT}. Usage: !tts defaultpitch <value|reset>`, { replyToId });
-            return;
-        }
-
-        const actionOrValue = args[0].toLowerCase();
-        let success;
-
-        if (actionOrValue === 'reset') {
-            success = await resetChannelDefaultPitch(channelNameNoHash);
-            if (success) {
-                enqueueMessage(channel, `Channel default TTS pitch reset to ${TTS_PITCH_DEFAULT}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default pitch reset to ${TTS_PITCH_DEFAULT}.`);
-            } else {
-                enqueueMessage(channel, `Could not reset channel default pitch.`, { replyToId });
-            }
-        } else {
-            const pitchValue = parseInt(actionOrValue, 10);
-            if (isNaN(pitchValue) || pitchValue < TTS_PITCH_MIN || pitchValue > TTS_PITCH_MAX) {
-                enqueueMessage(channel, `Invalid pitch. Must be an integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`, { replyToId });
-                return;
-            }
-            success = await setChannelDefaultPitch(channelNameNoHash, pitchValue);
-            if (success) {
-                enqueueMessage(channel, `Channel default TTS pitch set to ${pitchValue}.`, { replyToId });
-                logger.info(`[${channelNameNoHash}] Channel default pitch set to ${pitchValue}.`);
-            } else {
-                enqueueMessage(channel, `Could not set channel default pitch to ${pitchValue}.`, { replyToId });
-            }
-        }
+    readCurrent: async (context) => {
+        const config = await getTtsState(context.channel.substring(1));
+        return config.pitch ?? TTS_PITCH_DEFAULT;
     },
-};
+    resetSetting: async (context) => resetChannelDefaultPitch(context.channel.substring(1)),
+    setSetting: async (context, val) => setChannelDefaultPitch(context.channel.substring(1), val),
+    parseFn: (str) => parseInt(str, 10),
+    validateFn: (val) => !isNaN(val) && val >= TTS_PITCH_MIN && val <= TTS_PITCH_MAX,
+    validationHint: `Must be an integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`,
+    formatCurrent: (val, usage) => `Current default pitch: ${val}. Usage: ${usage}`,
+    formatSet: (val) => `Channel default TTS pitch set to ${val}.`,
+    formatReset: () => `Channel default TTS pitch reset to ${TTS_PITCH_DEFAULT}.`,
+    logSet: (context, val) => `[${context.channel.substring(1)}] Channel default pitch set to ${val}.`,
+    logReset: (context) => `[${context.channel.substring(1)}] Channel default pitch reset to ${TTS_PITCH_DEFAULT}.`
+});

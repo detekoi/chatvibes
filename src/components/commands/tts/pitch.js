@@ -1,4 +1,4 @@
-// src/components/commands/tts/pitch.js
+import { createTtsSettingCommand } from './createTtsSettingCommand.js';
 import {
     setGlobalUserPreference,
     clearGlobalUserPreference,
@@ -8,47 +8,24 @@ import {
     TTS_PITCH_MIN,
     TTS_PITCH_MAX
 } from '../../tts/ttsConstants.js';
-import { enqueueMessage } from '../../../lib/chatSender.js';
 
-export default {
+export default createTtsSettingCommand({
     name: 'pitch',
+    property: 'pitch preference',
     description: `Sets your personal TTS pitch (${TTS_PITCH_MIN} to ${TTS_PITCH_MAX}, 0 is normal). Use 'reset' for channel default.`,
     usage: '!tts pitch <value|reset>',
-    permission: 'everyone',
-    execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
-        const username = user.username;
-        const userId = user['user-id'];
-
-        if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username, userId);
-            const currentPitch = prefs.pitch;
-            enqueueMessage(channel, `Your current pitch preference: ${currentPitch ?? 'Channel Default'}. Usage: !tts pitch <value|reset>`, { replyToId });
-            return;
-        }
-
-        const actionOrValue = args[0].toLowerCase();
-        let success;
-
-        if (actionOrValue === 'reset' || actionOrValue === 'default') {
-            success = await clearGlobalUserPreference(username, 'pitch', userId);
-            if (success) {
-                enqueueMessage(channel, `Your TTS pitch preference has been reset to the channel default.`, { replyToId });
-            } else {
-                enqueueMessage(channel, `Could not reset your pitch preference.`, { replyToId });
-            }
-        } else {
-            const pitchValue = parseInt(actionOrValue, 10);
-            if (isNaN(pitchValue) || pitchValue < TTS_PITCH_MIN || pitchValue > TTS_PITCH_MAX) {
-                enqueueMessage(channel, `Invalid pitch. Must be an integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`, { replyToId });
-                return;
-            }
-            success = await setGlobalUserPreference(username, 'pitch', pitchValue, userId);
-            if (success) {
-                enqueueMessage(channel, `Your TTS pitch preference set to ${pitchValue}.`, { replyToId });
-            } else {
-                enqueueMessage(channel, `Could not set your pitch preference to ${pitchValue}.`, { replyToId });
-            }
-        }
+    readCurrent: async (context) => {
+        const prefs = await getGlobalUserPreferences(context.user.username, context.user['user-id']);
+        return prefs.pitch;
     },
-};
+    resetSetting: async (context) => clearGlobalUserPreference(context.user.username, 'pitch', context.user['user-id']),
+    setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'pitch', val, context.user['user-id']),
+    parseFn: (str) => parseInt(str, 10),
+    validateFn: (val) => !isNaN(val) && val >= TTS_PITCH_MIN && val <= TTS_PITCH_MAX,
+    validationHint: `Must be an integer between ${TTS_PITCH_MIN} and ${TTS_PITCH_MAX}.`,
+    formatCurrent: (val, usage) => `Your current pitch preference: ${val ?? 'Channel Default'}. Usage: ${usage}`,
+    formatSet: (val) => `Your TTS pitch preference set to ${val}.`,
+    formatReset: () => `Your TTS pitch preference has been reset to the channel default.`,
+    logSet: (context, val) => `[${context.channel.substring(1)}] User ${context.user.username} set pitch preference to ${val}.`,
+    logReset: (context) => `[${context.channel.substring(1)}] User ${context.user.username} reset pitch preference.`
+});

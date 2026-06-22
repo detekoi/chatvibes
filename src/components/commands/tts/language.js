@@ -1,55 +1,31 @@
-// src/components/commands/tts/language.js
+import { createTtsSettingCommand } from './createTtsSettingCommand.js';
 import {
     setGlobalUserPreference,
     clearGlobalUserPreference,
     getGlobalUserPreferences
 } from '../../tts/ttsState.js';
 import { VALID_LANGUAGE_BOOSTS } from '../../tts/ttsConstants.js';
-import { enqueueMessage } from '../../../lib/chatSender.js';
 
 const docLink = 'https://docs.wildcat.chat/wildcatttsdocs.html#language-boost';
 
-export default {
-    name: 'language', // Also mapped to 'lang'
+export default createTtsSettingCommand({
+    name: 'language',
+    property: 'language preference',
     description: `Sets your preferred TTS language boost. Use 'auto', 'none', or 'reset' for channel default. See !tts languageslist or ${docLink} for options.`,
     usage: `!tts language <language_name|auto|none|reset> (Full list: ${docLink})`,
-    permission: 'everyone',
-    execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
-        const username = user.username;
-        const userId = user['user-id'];
-
-        if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username, userId);
-            const currentLang = prefs.languageBoost;
-            // Updated message to include the docLink
-            enqueueMessage(channel, `Your current language preference: ${currentLang ?? 'Channel Default'}. Usage: !tts language <language_name|auto|none|reset>. See valid options: ${docLink}`, { replyToId });
-            return;
-        }
-
-        const requestedLang = args[0].toLowerCase();
-        let success;
-
-        if (['reset', 'default', 'automatic', 'auto', 'none'].includes(requestedLang)) {
-            success = await clearGlobalUserPreference(username, 'languageBoost', userId);
-            if (success) {
-                enqueueMessage(channel, `Your TTS language preference has been reset to the channel default (Automatic/None).`, { replyToId });
-            } else {
-                enqueueMessage(channel, `Could not reset your language preference.`, { replyToId });
-            }
-        } else {
-            const foundLang = VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === requestedLang);
-            if (!foundLang) {
-                // Updated message to include the docLink
-                enqueueMessage(channel, `Invalid language. See available languages: ${docLink}`, { replyToId });
-                return;
-            }
-            success = await setGlobalUserPreference(username, 'languageBoost', foundLang, userId);
-            if (success) {
-                enqueueMessage(channel, `Your TTS language preference set to ${foundLang}.`, { replyToId });
-            } else {
-                enqueueMessage(channel, `Could not set your language preference to ${foundLang}.`, { replyToId });
-            }
-        }
+    readCurrent: async (context) => {
+        const prefs = await getGlobalUserPreferences(context.user.username, context.user['user-id']);
+        return prefs.languageBoost;
     },
-};
+    resetSetting: async (context) => clearGlobalUserPreference(context.user.username, 'languageBoost', context.user['user-id']),
+    setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'languageBoost', val, context.user['user-id']),
+    validateFn: (val) => VALID_LANGUAGE_BOOSTS.some(l => l.toLowerCase() === val.toLowerCase()),
+    transformFn: (val) => VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === val.toLowerCase()),
+    validationHint: `See available languages: ${docLink}`,
+    formatCurrent: (val, usage) => `Your current language preference: ${val ?? 'Channel Default'}. Usage: ${usage}`,
+    formatSet: (val) => `Your TTS language preference set to ${val}.`,
+    formatReset: () => `Your TTS language preference has been reset to the channel default (Automatic/None).`,
+    logSet: (context, val) => `[${context.channel.substring(1)}] User ${context.user.username} set language preference to ${val}.`,
+    logReset: (context) => `[${context.channel.substring(1)}] User ${context.user.username} reset language preference.`,
+    resetAliases: ['reset', 'automatic', 'auto', 'none']
+});

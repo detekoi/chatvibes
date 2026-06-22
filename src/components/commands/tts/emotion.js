@@ -1,52 +1,30 @@
-// src/components/commands/tts/emotion.js
-import { setGlobalUserPreference, clearGlobalUserPreference, getGlobalUserPreferences } from '../../tts/ttsState.js';
+import { createTtsSettingCommand } from './createTtsSettingCommand.js';
+import {
+    setGlobalUserPreference,
+    clearGlobalUserPreference,
+    getGlobalUserPreferences
+} from '../../tts/ttsState.js';
 import { VALID_EMOTIONS } from '../../tts/ttsConstants.js';
-import { enqueueMessage } from '../../../lib/chatSender.js';
 
-
-export default {
+export default createTtsSettingCommand({
     name: 'emotion',
+    property: 'emotion preference',
     description: `Sets your preferred TTS emotion. Valid emotions: ${VALID_EMOTIONS.join(', ')}. Use 'auto' or 'reset' to use channel default.`,
     usage: '!tts emotion <emotion_name|auto|reset>',
-    permission: 'everyone',
-    execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
-        const username = user.username;
-        const userId = user['user-id'];
-
-        if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username, userId);
-            const currentEmotion = prefs.emotion;
-            if (currentEmotion) {
-                enqueueMessage(channel, `Your current TTS emotion is set to: ${currentEmotion}. Use '!tts emotion <emotion_name>' to change it or '!tts emotion reset' to use the channel default.`, { replyToId });
-            } else {
-                enqueueMessage(channel, `You haven't set a specific TTS emotion. The channel default will be used. Use '!tts emotion <emotion_name>' to set one.`, { replyToId });
-            }
-            return;
-        }
-
-        const requestedEmotion = args[0].toLowerCase();
-
-        if (requestedEmotion === 'reset' || requestedEmotion === 'default' || requestedEmotion === 'auto') {
-            const success = await clearGlobalUserPreference(username, 'emotion', userId);
-            if (success) {
-                enqueueMessage(channel, `Your TTS emotion preference has been reset. The channel default will now be used.`, { replyToId });
-            } else {
-                enqueueMessage(channel, `Could not reset your TTS emotion preference at this time.`, { replyToId });
-            }
-            return;
-        }
-
-        if (!VALID_EMOTIONS.includes(requestedEmotion)) {
-            enqueueMessage(channel, `Invalid emotion. Valid options are: ${VALID_EMOTIONS.join(', ')}.`, { replyToId });
-            return;
-        }
-
-        const success = await setGlobalUserPreference(username, 'emotion', requestedEmotion, userId);
-        if (success) {
-            enqueueMessage(channel, `Your TTS emotion has been set to: ${requestedEmotion}.`, { replyToId });
-        } else {
-            enqueueMessage(channel, `Could not set your TTS emotion to ${requestedEmotion} at this time.`, { replyToId });
-        }
+    readCurrent: async (context) => {
+        const prefs = await getGlobalUserPreferences(context.user.username, context.user['user-id']);
+        return prefs.emotion;
     },
-};
+    resetSetting: async (context) => clearGlobalUserPreference(context.user.username, 'emotion', context.user['user-id']),
+    setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'emotion', val, context.user['user-id']),
+    validateFn: (val) => VALID_EMOTIONS.includes(val),
+    validationHint: `Valid options are: ${VALID_EMOTIONS.join(', ')}.`,
+    formatCurrent: (val, usage) => val
+        ? `Your current TTS emotion is set to: ${val}. Usage: ${usage}`
+        : `You haven't set a specific TTS emotion. The channel default will be used. Usage: ${usage}`,
+    formatSet: (val) => `Your TTS emotion has been set to: ${val}.`,
+    formatReset: () => `Your TTS emotion preference has been reset. The channel default will now be used.`,
+    logSet: (context, val) => `[${context.channel.substring(1)}] User ${context.user.username} set emotion preference to ${val}.`,
+    logReset: (context) => `[${context.channel.substring(1)}] User ${context.user.username} reset emotion preference.`,
+    resetAliases: ['reset', 'auto']
+});
