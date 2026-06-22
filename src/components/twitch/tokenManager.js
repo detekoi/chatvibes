@@ -150,25 +150,38 @@ function clearCachedAppAccessToken() {
 
 let botUserAccessToken = null;
 let botTokenExpiryTime = 0;
-let isRefreshing = false; // prevent concurrent refreshes
+let refreshPromise = null; // coalesces concurrent refresh attempts
 
 /**
  * Refreshes the Bot User Access Token using the stored Refresh Token.
+ * Concurrent callers will await the same in-flight refresh promise.
  * @returns {Promise<string|null>} The new access token (without oauth: prefix), or null on failure.
  */
 async function refreshBotUserToken() {
-    if (isRefreshing) {
-        logger.warn('WildcatTTS: Bot User Token refresh already in progress. Skipping concurrent request.');
-        return null;
+    if (refreshPromise) {
+        logger.info('WildcatTTS: Bot User Token refresh already in progress. Awaiting existing request.');
+        return refreshPromise;
     }
-    isRefreshing = true;
+    refreshPromise = _doRefreshBotUserToken();
+    try {
+        return await refreshPromise;
+    } finally {
+        refreshPromise = null;
+    }
+}
+
+/**
+ * Internal implementation for refreshing the Bot User Access Token.
+ * Callers should use {@link refreshBotUserToken} which handles promise coalescing.
+ * @returns {Promise<string|null>} The new access token (without oauth: prefix), or null on failure.
+ */
+async function _doRefreshBotUserToken() {
     logger.info('WildcatTTS: Refreshing Bot User Access Token...');
 
     const refreshTokenSecretName = config.secrets.twitchBotRefreshTokenName;
 
     if (!refreshTokenSecretName) {
         logger.error('WildcatTTS: Missing TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME in configuration.');
-        isRefreshing = false;
         return null;
     }
 
@@ -177,7 +190,6 @@ async function refreshBotUserToken() {
 
     if (!clientId || !clientSecret) {
         logger.error('WildcatTTS: Missing Client ID or Secret for Bot User Token refresh.');
-        isRefreshing = false;
         return null;
     }
 
@@ -192,7 +204,6 @@ async function refreshBotUserToken() {
             { err: { code: error.code } },
             'CRITICAL: Failed to retrieve refresh token from Secret Manager. Manual intervention required.'
         );
-        isRefreshing = false;
         return null;
     }
 
@@ -231,7 +242,6 @@ async function refreshBotUserToken() {
                 }
             }
 
-            isRefreshing = false;
             return newAccessToken;
         }
 
@@ -256,8 +266,6 @@ async function refreshBotUserToken() {
             logger.error({ err: error }, errorMessage);
         }
         return null;
-    } finally {
-        isRefreshing = false;
     }
 }
 

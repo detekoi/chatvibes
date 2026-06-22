@@ -2,6 +2,26 @@
 // Accepts both EventSub (boolean flags, variable badge ids) and IRC (string '0'/'1') tag formats.
 import logger from './logger.js';
 
+// Maps Firestore-style ttsPermissionLevel values to internal permission names
+// used by hasPermissionLevel().  Returns null for unrecognized values so callers
+// can deny access instead of silently falling through to 'everyone'.
+const PERMISSION_MAP = {
+    mods: 'moderator',
+    subs: 'subscriber',
+    vip: 'vip',
+    everyone: 'everyone',
+};
+
+export function mapPermissionLevel(ttsPermissionLevel) {
+    if (!ttsPermissionLevel) return 'everyone';
+    const mapped = PERMISSION_MAP[ttsPermissionLevel];
+    if (!mapped) {
+        logger.warn({ ttsPermissionLevel }, 'Unrecognized ttsPermissionLevel — denying access');
+        return null;
+    }
+    return mapped;
+}
+
 // Shared role computation used by both exported functions.
 function _resolveRoles(tags, channelName) {
     const username = tags.username?.toLowerCase();

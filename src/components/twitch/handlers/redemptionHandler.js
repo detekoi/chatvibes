@@ -9,6 +9,13 @@ import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { processMessageUrls } from '../../../lib/urlProcessor.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { Firestore } from '@google-cloud/firestore';
+
+let _firestoreDb = null;
+function getDb() {
+    if (!_firestoreDb) _firestoreDb = new Firestore();
+    return _firestoreDb;
+}
 
 /**
  * Handle Channel Points custom reward redemption events
@@ -206,9 +213,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
  */
 async function getBroadcasterAccessToken(broadcasterId, channelLogin) {
     try {
-        // Dynamically import Firestore
-        const { Firestore } = await import('@google-cloud/firestore');
-        const db = new Firestore();
+        const db = getDb();
 
         // Get user document from managedChannels collection (keyed by broadcaster ID)
         const userDoc = await db.collection('managedChannels').doc(broadcasterId).get();

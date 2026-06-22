@@ -3,7 +3,7 @@ import { getTtsState } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
-import { hasPermission } from '../commandProcessor.js';
+import { hasPermissionLevel, mapPermissionLevel } from '../../../lib/permissions.js';
 import logger from '../../../lib/logger.js';
 
 export default {
@@ -29,19 +29,15 @@ export default {
         }
 
         // Enforce ttsPermissionLevel so !tts respects subscriber/vip/mods gating
-        if (ttsConfig.ttsPermissionLevel && ttsConfig.ttsPermissionLevel !== 'everyone') {
-            let requiredPermission = 'everyone';
-            if (ttsConfig.ttsPermissionLevel === 'mods') {
-                requiredPermission = 'moderator';
-            } else if (ttsConfig.ttsPermissionLevel === 'vip') {
-                requiredPermission = 'vip';
-            } else if (ttsConfig.ttsPermissionLevel === 'subs') {
-                requiredPermission = 'subscriber';
-            }
-            if (!hasPermission(requiredPermission, user, channelNameNoHash)) {
-                logger.debug({ channel: channelNameNoHash, user: user.username, requiredPermission }, 'Skipping !tts say - insufficient ttsPermissionLevel');
-                return;
-            }
+        const requiredPermission = mapPermissionLevel(ttsConfig.ttsPermissionLevel);
+        if (requiredPermission === null) {
+            // Unrecognized permission level — deny access, don't fail open
+            logger.debug({ channel: channelNameNoHash, user: user.username, ttsPermissionLevel: ttsConfig.ttsPermissionLevel }, 'Skipping !tts say - unrecognized ttsPermissionLevel');
+            return;
+        }
+        if (requiredPermission !== 'everyone' && !hasPermissionLevel(requiredPermission, user, channelNameNoHash)) {
+            logger.debug({ channel: channelNameNoHash, user: user.username, requiredPermission }, 'Skipping !tts say - insufficient ttsPermissionLevel');
+            return;
         }
 
         // Apply emote/emoji/URL processing using the shared utility.

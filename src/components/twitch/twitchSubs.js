@@ -5,6 +5,13 @@ import { getHelixClient, getUsersByLogin } from './helixClient.js';
 
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
+import { Firestore } from '@google-cloud/firestore';
+
+let _firestoreDb = null;
+function getDb() {
+    if (!_firestoreDb) _firestoreDb = new Firestore();
+    return _firestoreDb;
+}
 
 /**
  * NOTE: EventSub webhook subscriptions ALWAYS use App Access Tokens for the API call.
@@ -36,6 +43,17 @@ async function makeHelixRequest(method, endpoint, body = null) {
             return { success: true, data: error.response.data };
         }
 
+        // 403 Forbidden means the broadcaster's OAuth scopes are missing or revoked
+        if (error.response && error.response.status === 403) {
+            logger.warn({
+                method,
+                endpoint,
+                type: body?.type,
+                status: 403
+            }, 'EventSub subscription failed — broadcaster OAuth scopes missing or revoked (403)');
+            return { success: false, error: '403 Forbidden: broadcaster OAuth scopes missing or revoked', status: 403 };
+        }
+
         logger.error({
             err: error.response ? error.response.data : error.message,
             method,
@@ -53,8 +71,7 @@ async function makeHelixRequest(method, endpoint, body = null) {
  */
 async function hasBroadcasterOAuth(broadcasterUserId) {
     try {
-        const { Firestore } = await import('@google-cloud/firestore');
-        const db = new Firestore();
+        const db = getDb();
 
         const oauthDoc = await db.collection('users').doc(broadcasterUserId)
             .collection('private').doc('oauth')
@@ -687,6 +704,15 @@ export async function subscribeAllManagedChannelsToTtsEvents() {
                     results.successful.push({ channel: channelName, userId, events: subResults.successful });
                 } else if (!hasCriticalFailure) {
                     // Partial success — critical types registered, optional scope-gated types may have been skipped
+                    // Check if failures are 403s (stale/revoked broadcaster OAuth)
+                    const oauthFailures = subResults.failed.filter(f => f.status === 403);
+                    if (oauthFailures.length > 0) {
+                        logger.error({
+                            channelName,
+                            userId,
+                            failedTypes: oauthFailures.map(f => f.type)
+                        }, 'Broadcaster OAuth appears stale/revoked — scope-gated subscriptions failed with 403');
+                    }
                     results.successful.push({
                         channel: channelName,
                         userId,

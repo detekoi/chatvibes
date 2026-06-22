@@ -5,6 +5,7 @@ import logger from '../../../lib/logger.js';
 import config from '../../../config/index.js';
 import { convertEventSubToTags } from '../eventSubToTags.js';
 import { processMessage as processCommand, hasPermission } from '../../commands/commandProcessor.js';
+import { mapPermissionLevel } from '../../../lib/permissions.js';
 import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
@@ -119,6 +120,13 @@ export async function handleChatMessage(event, channelName) {
         if (ttsFragments.length > 0 && ttsFragments[0].type === 'text') {
             ttsFragments[0] = { ...ttsFragments[0], text: ttsFragments[0].text.replace(/^\s+/, '') };
         }
+    } else if (event.reply && ttsFragments?.length > 0 && ttsFragments[0].type === 'text') {
+        // Fallback: if Twitch sends the reply target as plain text rather than a mention
+        // fragment, strip it from the text to stay consistent with the text-level strip above.
+        ttsFragments[0] = { ...ttsFragments[0], text: ttsFragments[0].text.replace(/^@\S+\s*/, '') };
+        if (!ttsFragments[0].text) {
+            ttsFragments = ttsFragments.slice(1);
+        }
     }
 
     // Build command-specific fragments: strip the leading "!tts" text prefix so
@@ -165,16 +173,9 @@ export async function handleChatMessage(event, channelName) {
                 if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
                     // In 'all' mode, cheers must also pass the ttsPermissionLevel check
                     if (ttsConfig.mode === 'all') {
-                        let requiredPermission = 'everyone';
-                        if (ttsConfig.ttsPermissionLevel === 'mods') {
-                            requiredPermission = 'moderator';
-                        } else if (ttsConfig.ttsPermissionLevel === 'vip') {
-                            requiredPermission = 'vip';
-                        } else if (ttsConfig.ttsPermissionLevel === 'subs') {
-                            requiredPermission = 'subscriber';
-                        }
-                        if (!hasPermission(requiredPermission, tags, channelName)) {
-                            logger.debug({ channel: channelName, user: username, requiredPermission, bits }, 'Skipping cheer - insufficient permission');
+                        const requiredPermission = mapPermissionLevel(ttsConfig.ttsPermissionLevel);
+                        if (requiredPermission === null || (!hasPermission(requiredPermission, tags, channelName) && requiredPermission !== 'everyone')) {
+                            logger.debug({ channel: channelName, user: username, requiredPermission: requiredPermission ?? ttsConfig.ttsPermissionLevel, bits }, 'Skipping cheer - insufficient permission');
                             return;
                         }
                     }
@@ -192,13 +193,10 @@ export async function handleChatMessage(event, channelName) {
         }
         // Handle regular chat messages (no bits)
         else if (ttsConfig.mode === 'all') {
-            let requiredPermission = 'everyone';
-            if (ttsConfig.ttsPermissionLevel === 'mods') {
-                requiredPermission = 'moderator';
-            } else if (ttsConfig.ttsPermissionLevel === 'vip') {
-                requiredPermission = 'vip';
-            } else if (ttsConfig.ttsPermissionLevel === 'subs') {
-                requiredPermission = 'subscriber';
+            const requiredPermission = mapPermissionLevel(ttsConfig.ttsPermissionLevel);
+            if (requiredPermission === null) {
+                logger.debug({ channel: channelName, user: username, ttsPermissionLevel: ttsConfig.ttsPermissionLevel }, 'Skipping chat - unrecognized ttsPermissionLevel');
+                return;
             }
 
             if (hasPermission(requiredPermission, tags, channelName)) {
