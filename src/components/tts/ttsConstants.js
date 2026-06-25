@@ -65,3 +65,8 @@ export function normalizeEmotion(emotion) {
     if (VALID_EMOTIONS.includes(lower)) return lower;
     return EMOTION_ALIASES[lower] || 'neutral';
 }
+
+export const DOC_LINKS = {
+    voices: 'https://docs.wildcat.chat/wildcatttsdocs.html#voices',
+    languageBoost: 'https://docs.wildcat.chat/wildcatttsdocs.html#language-boost',
+};

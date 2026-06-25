@@ -4,9 +4,9 @@ import {
     resetChannelDefaultLanguage,
     getTtsState
 } from '../../tts/ttsState.js';
-import { VALID_LANGUAGE_BOOSTS, DEFAULT_TTS_SETTINGS } from '../../tts/ttsConstants.js';
+import { VALID_LANGUAGE_BOOSTS, DEFAULT_TTS_SETTINGS, DOC_LINKS } from '../../tts/ttsConstants.js';
 
-const docLink = 'https://docs.wildcat.chat/wildcatttsdocs.html#language-boost';
+const docLink = DOC_LINKS.languageBoost;
 
 export default createTtsSettingCommand({
     name: 'defaultlanguage',

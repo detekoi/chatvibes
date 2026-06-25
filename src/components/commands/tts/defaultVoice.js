@@ -1,6 +1,7 @@
 // src/components/commands/tts/defaultvoice.js
 import { setTtsState, getTtsState } from '../../tts/ttsState.js';
 import { getAvailableVoices } from '../../tts/ttsService.js';
+import { DOC_LINKS } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 import config from '../../../config/index.js'; // To get the system default voice
@@ -49,8 +50,7 @@ export default {
         const matchedVoice = availableVoices.find(v => v.id.toLowerCase() === requestedVoiceIdInput.toLowerCase());
 
         if (!matchedVoice) {
-            const voicesCmdDocLink = 'https://docs.wildcat.chat/wildcatttsdocs.html#voices';
-            enqueueMessage(channel, `Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${voicesCmdDocLink} (or use !tts voices for link)`, { replyToId });
+            enqueueMessage(channel, `Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${DOC_LINKS.voices} (or use !tts voices for link)`, { replyToId });
             logger.warn(`[${channelNameNoHash}] Attempted to set invalid channel default voice: ${requestedVoiceIdInput}`);
             return;
         }

@@ -120,11 +120,11 @@ async function attemptGeneration(text, voiceId, input, options) {
     logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned failed status.');
 
     // Provide specific error messages based on the failure reason
-    if (data.error && data.error.includes("you don't have access to this voice_id")) {
+    if (data.error?.includes("you don't have access to this voice_id")) {
       throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
     }
 
-    if (data.error && data.error.includes("voice_id")) {
+    if (data.error?.includes("voice_id")) {
       throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
     }
 
