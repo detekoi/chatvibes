@@ -5,6 +5,7 @@ import logger from '../../../lib/logger.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { pronounService } from '../../../lib/pronounService.js';
 
 /** Synthetic subscription type used to route watch streak events from channel.chat.notification */
 export const WATCH_STREAK_TYPE = 'channel.chat.notification.watch_streak';
@@ -193,7 +194,25 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         readFullUrls: ttsConfig.readFullUrls || false,
                     });
                     if (formattedMessage) {
-                        ttsText += ` They said: ${formattedMessage}`;
+                        let pronounSubject = 'They';
+                        if (streakLogin !== 'someone') {
+                            const pronouns = await new Promise(resolve => {
+                                let done = false;
+                                const timer = setTimeout(() => {
+                                    done = true;
+                                    resolve(null);
+                                }, 500);
+                                pronounService.getUserPronouns(streakLogin).then(res => {
+                                    if (!done) { done = true; clearTimeout(timer); resolve(res); }
+                                }).catch(() => {
+                                    if (!done) { done = true; clearTimeout(timer); resolve(null); }
+                                });
+                            });
+                            if (pronouns?.Subject) {
+                                pronounSubject = pronouns.Subject;
+                            }
+                        }
+                        ttsText += ` ${pronounSubject} said: ${formattedMessage}`;
                     }
                 }
             }

@@ -31,6 +31,22 @@ jest.unstable_mockModule('../../src/lib/formatTtsText.js', () => ({
     formatTtsText: mockFormatTtsText
 }));
 
+const mockPronounService = {
+    getUserPronouns: jest.fn().mockResolvedValue({
+        Subject: 'They',
+        subject: 'they',
+        Object: 'Them',
+        object: 'them',
+        Possessive: 'Their',
+        possessive: 'their',
+        Reflexive: 'Themself',
+        reflexive: 'themself'
+    })
+};
+jest.unstable_mockModule('../../src/lib/pronounService.js', () => ({
+    pronounService: mockPronounService
+}));
+
 const { handleNotification, WATCH_STREAK_TYPE } = await import('../../src/components/twitch/handlers/notificationHandler.js');
 
 describe('notificationHandler', () => {
