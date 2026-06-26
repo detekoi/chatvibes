@@ -5,7 +5,7 @@ import { getHelixClient, getUsersByLogin } from './helixClient.js';
 
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
-import { Firestore } from '@google-cloud/firestore';
+import { Firestore, FieldPath } from '@google-cloud/firestore';
 
 let _firestoreDb = null;
 function getDb() {
@@ -30,11 +30,14 @@ function getDb() {
 async function makeHelixRequest(method, endpoint, body = null) {
     try {
         const helixClient = getHelixClient();
-        const response = await helixClient({ method, url: endpoint, data: body });
+        // Tell the interceptor that 403/409 are handled here with full business context
+        const response = await helixClient({ method, url: endpoint, data: body, _callerHandledStatuses: [403, 409] });
         return { success: true, data: response.data };
     } catch (error) {
+        const status = error.response?.status;
+
         // 409 Conflict means the subscription already exists - treat as success
-        if (error.response && error.response.status === 409) {
+        if (status === 409) {
             logger.debug({
                 method,
                 endpoint,
@@ -44,7 +47,7 @@ async function makeHelixRequest(method, endpoint, body = null) {
         }
 
         // 403 Forbidden means the broadcaster's OAuth scopes are missing or revoked
-        if (error.response && error.response.status === 403) {
+        if (status === 403) {
             logger.warn({
                 method,
                 endpoint,
@@ -57,9 +60,10 @@ async function makeHelixRequest(method, endpoint, body = null) {
         logger.error({
             err: error.response ? error.response.data : error.message,
             method,
-            endpoint
+            endpoint,
+            status
         }, 'Error making Helix request');
-        return { success: false, error: error.message };
+        return { success: false, error: error.message, status };
     }
 }
 
@@ -67,29 +71,39 @@ async function makeHelixRequest(method, endpoint, body = null) {
  * Check whether a broadcaster has completed OAuth (has a stored access token).
  * Uses a Firestore select() projection to avoid reading the full token value.
  * @param {string} broadcasterUserId - The broadcaster's Twitch user ID
- * @returns {Promise<boolean>} True if the broadcaster has a stored access token
+ * @returns {Promise<{authorized: boolean, reliable: boolean}>}
+ *   authorized — true if the broadcaster has a stored access token
+ *   reliable  — true if the check completed without infrastructure errors;
+ *               false means the result fell back to a safe default and should
+ *               not be used to downgrade log severity
  */
 async function hasBroadcasterOAuth(broadcasterUserId) {
     try {
         const db = getDb();
 
-        const oauthDoc = await db.collection('users').doc(broadcasterUserId)
-            .collection('private').doc('oauth')
+        // Query via the subcollection to use .select() for field projection,
+        // avoiding reading sensitive bearer/refresh tokens into the Node.js heap.
+        // (.select() is a Query method, not available on DocumentReference)
+        const snapshot = await db.collection('users').doc(broadcasterUserId)
+            .collection('private')
+            .where(FieldPath.documentId(), '==', 'oauth')
+            .select('twitchAccessToken')
+            .limit(1)
             .get();
 
-        if (!oauthDoc.exists) {
+        if (snapshot.empty) {
             logger.debug({ broadcasterUserId }, 'Broadcaster OAuth doc not found');
-            return false;
+            return { authorized: false, reliable: true };
         }
 
-        const hasToken = !!oauthDoc.data()?.twitchAccessToken;
+        const hasToken = !!snapshot.docs[0].data()?.twitchAccessToken;
         if (!hasToken) {
             logger.debug({ broadcasterUserId }, 'Broadcaster OAuth doc exists but no access token');
         }
-        return hasToken;
+        return { authorized: hasToken, reliable: true };
     } catch (error) {
         logger.warn({ err: error, broadcasterUserId }, 'Error checking broadcaster OAuth status');
-        return false;
+        return { authorized: false, reliable: false };
     }
 }
 
@@ -502,7 +516,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
     // Scope-gated subscription types (subscribe, cheer, follow, channel points)
     // require the broadcaster to have granted specific OAuth scopes to the app.
     // Without authorization, these calls always return 403 Forbidden.
-    const hasBroadcasterAuth = await hasBroadcasterOAuth(broadcasterUserId);
+    const { authorized: hasBroadcasterAuth, reliable: oauthCheckReliable } = await hasBroadcasterOAuth(broadcasterUserId);
 
     if (!hasBroadcasterAuth) {
         // List the scope-gated types being skipped for visibility
@@ -514,6 +528,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         logger.info({
             broadcasterUserId,
             skippedTypes,
+            oauthCheckReliable,
             reason: 'Broadcaster has not completed OAuth — scope-gated subscriptions skipped'
         }, `Skipping ${skippedTypes.length} scope-gated EventSub subscriptions (broadcaster not authorized)`);
     }
@@ -552,7 +567,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.subscribe');
         } else {
-            results.failed.push({ type: 'channel.subscribe', error: result.error });
+            results.failed.push({ type: 'channel.subscribe', error: result.error, status: result.status });
         }
     }
 
@@ -561,7 +576,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.subscription.message');
         } else {
-            results.failed.push({ type: 'channel.subscription.message', error: result.error });
+            results.failed.push({ type: 'channel.subscription.message', error: result.error, status: result.status });
         }
     }
 
@@ -570,7 +585,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.subscription.gift');
         } else {
-            results.failed.push({ type: 'channel.subscription.gift', error: result.error });
+            results.failed.push({ type: 'channel.subscription.gift', error: result.error, status: result.status });
         }
     }
 
@@ -579,7 +594,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.cheer');
         } else {
-            results.failed.push({ type: 'channel.cheer', error: result.error });
+            results.failed.push({ type: 'channel.cheer', error: result.error, status: result.status });
         }
     }
 
@@ -588,7 +603,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.raid');
         } else {
-            results.failed.push({ type: 'channel.raid', error: result.error });
+            results.failed.push({ type: 'channel.raid', error: result.error, status: result.status });
         }
     }
 
@@ -597,7 +612,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.follow');
         } else {
-            results.failed.push({ type: 'channel.follow', error: result.error });
+            results.failed.push({ type: 'channel.follow', error: result.error, status: result.status });
         }
     }
 
@@ -606,7 +621,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.channel_points_custom_reward_redemption.add');
         } else {
-            results.failed.push({ type: 'channel.channel_points_custom_reward_redemption.add', error: result.error });
+            results.failed.push({ type: 'channel.channel_points_custom_reward_redemption.add', error: result.error, status: result.status });
         }
     }
 
@@ -624,7 +639,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.channel_points_custom_reward_redemption.update');
         } else {
-            results.failed.push({ type: 'channel.channel_points_custom_reward_redemption.update', error: result.error });
+            results.failed.push({ type: 'channel.channel_points_custom_reward_redemption.update', error: result.error, status: result.status });
         }
     }
 
@@ -643,14 +658,21 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         for (const criticalType of criticalTypes) {
             const failure = results.failed.find(f => f.type === criticalType);
             if (failure) {
-                if (!hasBroadcasterAuth && failure.status === 403) {
-                    // Expected condition for unauthenticated broadcasters - they haven't granted us scopes
-                    logger.info({
+                // Only treat as expected noise when ALL of:
+                //  1. oauthCheckReliable — Firestore didn't error (so we trust the result)
+                //  2. !hasBroadcasterAuth — broadcaster genuinely never completed OAuth
+                //  3. failure.status === 403 — Twitch confirmed missing scopes (not a 5xx/timeout)
+                // Chat subscriptions are bot-scoped (user:read:chat), but Twitch still returns
+                // 403 when the broadcaster hasn't authorized the app at all. If the OAuth check
+                // itself failed (reliable=false), we can't distinguish bot misconfiguration
+                // from an unauthenticated broadcaster, so we must keep it CRITICAL.
+                if (oauthCheckReliable && !hasBroadcasterAuth && failure.status === 403) {
+                    logger.warn({
                         broadcasterUserId,
-                        type: criticalType
-                    }, `Skipped subscribing to ${criticalType} (broadcaster not authorized)`);
+                        type: criticalType,
+                        status: failure.status
+                    }, `Failed to subscribe to ${criticalType} (broadcaster not authorized)`);
                 } else {
-                    // Genuine failure (e.g. server error, or 403 when they SHOULD be authenticated)
                     logger.error({
                         broadcasterUserId,
                         error: failure.error,

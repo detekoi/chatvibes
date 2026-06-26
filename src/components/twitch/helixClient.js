@@ -89,22 +89,22 @@ async function initializeHelixClient() {
                 // that falls out of the range of 2xx
                 const rateLimitRemaining = error.response.headers['ratelimit-remaining'];
 
+                // If the caller declared it will handle certain statuses with full
+                // business context, emit only a debug trace to avoid double-logging.
+                const callerHandled = error.config?._callerHandledStatuses || [];
+                if (callerHandled.includes(error.response.status)) {
+                    logger.debug({
+                        ...commonLogData,
+                        status: error.response.status,
+                    }, `Helix API call returned status ${error.response.status} (caller-handled)`);
                 // Downgrade 409 Conflict to debug log (common for EventSub duplicates)
-                if (error.response.status === 409) {
+                } else if (error.response.status === 409) {
                     logger.debug({
                         ...commonLogData,
                         status: error.response.status,
                         responseBody: error.response.data,
                         rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : 'N/A',
                     }, `Helix API call failed with status ${error.response.status} (Conflict - likely already exists)`);
-                } else if (error.response.status === 403) {
-                    // Downgrade 403 to warn log (expected for unauthenticated broadcasters missing scopes)
-                    logger.warn({
-                        ...commonLogData,
-                        status: error.response.status,
-                        responseBody: error.response.data,
-                        rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : 'N/A',
-                    }, `Helix API call failed with status ${error.response.status} (Forbidden)`);
                 } else {
                     logger.error({
                         ...commonLogData,
