@@ -97,6 +97,14 @@ async function initializeHelixClient() {
                         responseBody: error.response.data,
                         rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : 'N/A',
                     }, `Helix API call failed with status ${error.response.status} (Conflict - likely already exists)`);
+                } else if (error.response.status === 403) {
+                    // Downgrade 403 to warn log (expected for unauthenticated broadcasters missing scopes)
+                    logger.warn({
+                        ...commonLogData,
+                        status: error.response.status,
+                        responseBody: error.response.data,
+                        rateLimitRemaining: rateLimitRemaining ? parseInt(rateLimitRemaining, 10) : 'N/A',
+                    }, `Helix API call failed with status ${error.response.status} (Forbidden)`);
                 } else {
                     logger.error({
                         ...commonLogData,

@@ -75,7 +75,7 @@ async function hasBroadcasterOAuth(broadcasterUserId) {
 
         const oauthDoc = await db.collection('users').doc(broadcasterUserId)
             .collection('private').doc('oauth')
-            .select('twitchAccessToken').get();
+            .get();
 
         if (!oauthDoc.exists) {
             logger.debug({ broadcasterUserId }, 'Broadcaster OAuth doc not found');
@@ -88,7 +88,7 @@ async function hasBroadcasterOAuth(broadcasterUserId) {
         }
         return hasToken;
     } catch (error) {
-        logger.error({ err: error, broadcasterUserId }, 'Error checking broadcaster OAuth status');
+        logger.warn({ err: error, broadcasterUserId }, 'Error checking broadcaster OAuth status');
         return false;
     }
 }
@@ -543,7 +543,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.chat.message');
         } else {
-            results.failed.push({ type: 'channel.chat.message', error: result.error });
+            results.failed.push({ type: 'channel.chat.message', error: result.error, status: result.status });
         }
     }
 
@@ -615,7 +615,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         if (result.success) {
             results.successful.push('channel.chat.notification');
         } else {
-            results.failed.push({ type: 'channel.chat.notification', error: result.error });
+            results.failed.push({ type: 'channel.chat.notification', error: result.error, status: result.status });
         }
     }
 
@@ -643,11 +643,21 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         for (const criticalType of criticalTypes) {
             const failure = results.failed.find(f => f.type === criticalType);
             if (failure) {
-                logger.error({
-                    broadcasterUserId,
-                    error: failure.error,
-                    type: criticalType
-                }, `CRITICAL: Failed to subscribe to ${criticalType} - watch streak and/or chat events will not be received!`);
+                if (!hasBroadcasterAuth && failure.status === 403) {
+                    // Expected condition for unauthenticated broadcasters - they haven't granted us scopes
+                    logger.info({
+                        broadcasterUserId,
+                        type: criticalType
+                    }, `Skipped subscribing to ${criticalType} (broadcaster not authorized)`);
+                } else {
+                    // Genuine failure (e.g. server error, or 403 when they SHOULD be authenticated)
+                    logger.error({
+                        broadcasterUserId,
+                        error: failure.error,
+                        type: criticalType,
+                        status: failure.status
+                    }, `CRITICAL: Failed to subscribe to ${criticalType} - watch streak and/or chat events will not be received!`);
+                }
             }
         }
 
