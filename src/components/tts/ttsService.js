@@ -145,7 +145,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
     throw new Error('302.ai API key is missing');
   }
 
-  const T302_TIMEOUT_MS = 15000; // 15 seconds
+  const T302_TIMEOUT_MS = 5000; // 5 seconds
   const startTime = Date.now();
 
   const input = {
