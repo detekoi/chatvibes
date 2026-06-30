@@ -17,14 +17,16 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
  * @param {string} channelName - The channel where redemption occurred
  * @param {string} rewardId - The reward ID for potential rejection
  * @param {string} userId - The Twitch User ID for voice preference resolution
+ * @param {Array|null} [fragments=null] - Twitch message fragments for emote processing (from chatHandler)
  */
-export function addRedemption(redemptionId, userInput, userName, channelName, rewardId = null, userId = null) {
+export function addRedemption(redemptionId, userInput, userName, channelName, rewardId = null, userId = null, fragments = null) {
     const entry = {
         userInput,
         userName,
         channelName,
         rewardId,
         userId,
+        fragments,
         timestamp: Date.now()
     };
 
@@ -34,6 +36,7 @@ export function addRedemption(redemptionId, userInput, userName, channelName, re
         redemptionId,
         userName,
         channelName,
+        hasFragments: !!fragments,
         textPreview: userInput?.substring(0, 30)
     }, 'Added redemption to cache');
 }

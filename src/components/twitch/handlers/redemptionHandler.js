@@ -4,11 +4,11 @@
 import logger from '../../../lib/logger.js';
 import * as redemptionCache from '../redemptionCache.js';
 import { isChannelAllowed } from '../../../lib/allowList.js';
-import { getTtsState } from '../../tts/ttsState.js';
+import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
-import { processMessageUrls } from '../../../lib/urlProcessor.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { consumeFragments } from '../redemptionFragmentCache.js';
 import { Firestore } from '@google-cloud/firestore';
 
 let _firestoreDb = null;
@@ -82,8 +82,11 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
                 textPreview: userInput?.substring(0, 30)
             }, 'Channel Points redemption pending approval - adding to cache');
 
-            // Store rewardId along with redemption for later rejection if needed
-            redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId, userId);
+            // Store rewardId along with redemption for later rejection if needed.
+            // Also grab any fragments the chatHandler may have cached (best-effort,
+            // see redemptionFragmentCache.js for multi-instance caveats).
+            const cachedFragments = consumeFragments(rewardId, channelLogin, userId);
+            redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId, userId, cachedFragments);
         } else if (status === 'fulfilled') {
             // Redemption was auto-approved (Skip Queue enabled) - validate and play immediately
             logger.info({
@@ -141,8 +144,14 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
  * Generates announcement text like "<user> redeemed <reward title>: <user input>"
  */
 export async function handleRedemptionAnnouncement(subscriptionType, event, channelLogin, ttsConfig) {
-    // Only announce on redemption.add events
+    // Only announce on redemption.add events with fulfilled status.
+    // Unfulfilled (pending approval) redemptions should not be announced because
+    // the streamer may cancel them — announcing prematurely is irreversible.
     if (subscriptionType !== 'channel.channel_points_custom_reward_redemption.add') {
+        return;
+    }
+    if (event?.status === 'unfulfilled') {
+        logger.debug({ channelLogin }, 'Skipping announcement for unfulfilled redemption (pending approval)');
         return;
     }
 
@@ -181,9 +190,9 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
             logger.debug({ channelLogin, user: userLogin }, 'Redemption user_input contains banned word — announcing redemption only');
         } else {
             // Run user_input through formatting pipeline (URLs, emotes, emoji)
-            // user_input is a plain string with no fragment data
             const emoteMode = ttsConfig.emoteMode || 'describe';
-            const formattedInput = await formatTtsText(userInput, null, {
+            const fragments = consumeFragments(rewardId, userId, channelLogin);
+            const formattedInput = await formatTtsText(userInput, fragments, {
                 emoteMode,
                 channelEmoteMode: emoteMode,
                 readFullUrls: ttsConfig.readFullUrls || false,
@@ -364,8 +373,41 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
         return { ok: false, reason };
     }
 
-    // Process URLs based on channel configuration
-    const processedMessage = processMessageUrls(redeemMessage, ttsConfig.readFullUrls);
+    // Check if chat event arrived first and stashed fragment data.
+    // NOTE: This is best-effort in multi-instance deployments. The fragment cache
+    // is in-memory (same pattern as redemptionCache.js). When the chat message and
+    // redemption events hit different Cloud Run instances, fragments won't be found
+    // and we fall back to raw text — identical to the pre-fix behavior.
+    let fragments = consumeFragments(rewardId, userId, channelLogin);
+
+    // For manual-approval redemptions, fragments may have been stashed in the
+    // redemptionCache entry (which has 24h TTL) since the short-lived fragment
+    // cache would have expired by the time the streamer approves.
+    if (!fragments) {
+        const cachedRedemption = redemptionCache.getRedemption(redemptionId);
+        if (cachedRedemption?.fragments) {
+            fragments = cachedRedemption.fragments;
+            logger.debug({ redemptionId }, 'Using fragments from redemption cache (manual approval path)');
+        }
+    }
+
+    // Resolve emote mode: user preference → channel default → 'describe'
+    const userEmoteMode = await getUserEmoteModePreference(userName, userId);
+    const channelEmoteMode = ttsConfig.emoteMode || 'describe';
+    const emoteMode = userEmoteMode || channelEmoteMode;
+
+    // Run user_input through full formatting pipeline (emotes, URLs, emoji)
+    const processedMessage = await formatTtsText(redeemMessage, fragments, {
+        emoteMode,
+        channelEmoteMode,
+        readFullUrls: ttsConfig.readFullUrls || false,
+    });
+
+    // Guard against empty result (e.g. all-emote message with emoteMode='skip')
+    if (!processedMessage) {
+        logger.debug({ channelLogin, userName, redemptionId }, 'Processed redemption message is empty after formatting - skipping TTS');
+        return { ok: true };
+    }
 
     // Get shared session info
     const sharedSessionInfo = await getSharedSessionInfo(channelLogin);

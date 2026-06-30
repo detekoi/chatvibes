@@ -37,7 +37,8 @@ jest.unstable_mockModule('../../src/lib/allowList.js', () => ({
 }));
 
 jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
-    getTtsState: jest.fn().mockResolvedValue({})
+    getTtsState: jest.fn().mockResolvedValue({}),
+    getUserEmoteModePreference: jest.fn().mockResolvedValue(null)
 }));
 
 jest.unstable_mockModule('../../src/lib/urlProcessor.js', () => ({
@@ -50,11 +51,19 @@ jest.unstable_mockModule('../../src/lib/formatTtsText.js', () => ({
     formatTtsText: mockFormatTtsText
 }));
 
+// Mock redemptionFragmentCache
+const mockConsumeFragments = jest.fn().mockReturnValue(null);
+jest.unstable_mockModule('../../src/components/twitch/redemptionFragmentCache.js', () => ({
+    consumeFragments: mockConsumeFragments,
+    storeFragments: jest.fn()
+}));
+
 const { handleRedemptionAnnouncement } = await import('../../src/components/twitch/handlers/redemptionHandler.js');
 
 describe('handleRedemptionAnnouncement', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        mockConsumeFragments.mockReturnValue(null);
     });
 
     const defaultTtsConfig = {
@@ -234,8 +243,7 @@ describe('handleRedemptionAnnouncement', () => {
         );
     });
 
-    it('should announce unfulfilled redemptions (pending approval)', async () => {
-        mockFormatTtsText.mockResolvedValueOnce('play despacito');
+    it('should NOT announce unfulfilled redemptions (pending approval)', async () => {
         const event = {
             user_name: 'TestUser',
             user_login: 'testuser',
@@ -251,14 +259,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
-            'testchannel',
-            expect.objectContaining({
-                text: 'TestUser redeemed Song Request: play despacito',
-                user: 'TestUser',
-            }),
-            null
-        );
+        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
     });
 
     it('should use fallback name when user_name is missing', async () => {

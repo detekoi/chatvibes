@@ -11,6 +11,7 @@ import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { isGeminiAvailable } from '../../../lib/emotes/index.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { storeFragments } from '../redemptionFragmentCache.js';
 
 /**
  * Handle channel.chat.message events
@@ -30,17 +31,24 @@ export async function handleChatMessage(event, channelName) {
 
     logger.debug({ channelName, user: username, text: messageText, bits }, 'Chat message event');
 
-    // Get shared session info
-    const sharedSessionInfo = await getSharedSessionInfo(channelName);
-
     // Skip if channel points redemption (handled by EventSub channel.channel_points_custom_reward_redemption.add)
+    // Stash fragment data BEFORE any async work to minimize the race window with the
+    // redemption handler, which may call consumeFragments concurrently.
     if (event.channel_points_custom_reward_id) {
-        logger.debug({
+        const userId = event.chatter_user_id || event.user_id;
+        const fragments = event.message?.fragments || null;
+        storeFragments(
+            event.channel_points_custom_reward_id,
+            userId,
             channelName,
-            rewardId: event.channel_points_custom_reward_id
-        }, 'Channel Points redemption detected - ignoring (handled by EventSub)');
+            fragments,
+            event.message?.text || ''
+        );
         return;
     }
+
+    // Get shared session info (after channel-points early-return to avoid wasted async work)
+    const sharedSessionInfo = await getSharedSessionInfo(channelName);
 
     // Convert EventSub event to IRC-style tags for command processor
     const tags = convertEventSubToTags(event);
