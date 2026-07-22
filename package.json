@@ -41,7 +41,7 @@
         "firebase-admin": "^13.5.0",
         "jsonwebtoken": "^9.0.2",
         "pino": "^8.15.0",
-        "sharp": "^0.34.5",
+        "sharp": "^0.35.0",
         "tmi.js": "^1.8.5",
         "winston": "^3.19.0",
         "ws": "^8.21.0"
