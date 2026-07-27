@@ -233,13 +233,16 @@ const broadcasterIdCache = new Map();
 
 /**
  * Get a broadcaster's user ID by channel login name.
- * Cached indefinitely since broadcaster IDs never change.
+ * Cached indefinitely unless forceRefresh is true.
  * @param {string} channelLogin - The channel login name (without #)
+ * @param {boolean} forceRefresh - Whether to bypass the cache and fetch fresh from Twitch
  * @returns {Promise<string|null>}
  */
-async function getBroadcasterIdByLogin(channelLogin) {
-    const cached = broadcasterIdCache.get(channelLogin);
-    if (cached) return cached;
+async function getBroadcasterIdByLogin(channelLogin, forceRefresh = false) {
+    if (!forceRefresh) {
+        const cached = broadcasterIdCache.get(channelLogin);
+        if (cached) return cached;
+    }
     const users = await getUsersByLogin([channelLogin]);
     if (users && users.length > 0) {
         broadcasterIdCache.set(channelLogin, users[0].id);

@@ -4,6 +4,7 @@
 import logger from '../../lib/logger.js';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import { OAuth2Client } from 'google-auth-library';
+import { extractBearerToken } from '../../lib/authUtils.js';
 
 const client = new SecretManagerServiceClient();
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'chatvibestts';
@@ -19,7 +20,7 @@ const oidcClient = new OAuth2Client();
 // scripts/setup-auto-cleanup.sh gives the Cloud Scheduler job. The audience is
 // the deployed service URL, which is already in the environment as PUBLIC_URL;
 // CLEANUP_OIDC_AUDIENCE only needs setting if the two ever diverge.
-const CLEANUP_OIDC_AUDIENCE = process.env.CLEANUP_OIDC_AUDIENCE || process.env.PUBLIC_URL || '';
+const CLEANUP_OIDC_AUDIENCE = process.env.CLEANUP_OIDC_AUDIENCE || '';
 const CLEANUP_INVOKER_SA = process.env.CLEANUP_INVOKER_SA || 'chatvibestts@appspot.gserviceaccount.com';
 
 /**
@@ -35,14 +36,9 @@ async function verifyCloudSchedulerCaller(req) {
         return { ok: false, reason: 'CLEANUP_OIDC_AUDIENCE is not configured' };
     }
 
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-        return { ok: false, reason: 'Missing OIDC bearer token' };
-    }
-
-    const idToken = authHeader.slice('Bearer '.length).trim();
+    const idToken = extractBearerToken(req.headers.authorization);
     if (!idToken) {
-        return { ok: false, reason: 'Empty OIDC bearer token' };
+        return { ok: false, reason: 'Missing or empty OIDC bearer token' };
     }
 
     try {
@@ -59,6 +55,15 @@ async function verifyCloudSchedulerCaller(req) {
 
         return { ok: true };
     } catch (error) {
+        // google-auth-library prefixes every failure to fetch Google's signing
+        // certs (DNS/connection issues as well as HTTP error statuses) with this
+        // exact string, in both getFederatedSignonCertsAsync and
+        // getIapPublicKeysAsync. Anything else (bad signature, expired, wrong
+        // audience, malformed JWT) means the certs were fetched fine and the
+        // token itself is invalid, so it is not retryable.
+        if (error.message?.includes('Failed to retrieve verification certificates')) {
+            return { ok: false, retryable: true, reason: `Unable to fetch Google verification certs: ${error.message}` };
+        }
         return { ok: false, reason: `OIDC verification failed: ${error.message}` };
     }
 }
@@ -142,6 +147,12 @@ export async function handleSecretCleanup(req, res) {
     const auth = await verifyCloudSchedulerCaller(req);
 
     if (!auth.ok) {
+        if (auth.retryable) {
+            logger.error({ ip: req.ip, reason: auth.reason }, 'Transient error verifying cleanup request');
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Service Unavailable' }));
+            return;
+        }
         // Note: never log req.headers here — it carries the caller's bearer token.
         logger.warn({ ip: req.ip, reason: auth.reason }, 'Unauthorized cleanup request');
         res.writeHead(403, { 'Content-Type': 'application/json' });

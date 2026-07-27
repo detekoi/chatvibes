@@ -8,6 +8,7 @@ import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
 import { isChannelAllowed } from '../../lib/allowList.js';
 import { handleSecretCleanup } from './cleanupEndpoint.js';
+import { extractBearerToken } from '../../lib/authUtils.js';
 
 import {
     getTtsState,
@@ -79,13 +80,10 @@ const apiRateLimiter = rateLimit({
 // ---------------------------------------------------------------------------
 
 /**
- * Channel-scoped JWT guard.
- * Takes the channel from the route's :channel param, falling back to a
- * channelLogin field in the JSON body for routes that are not path-scoped.
+ * Channel-scoped JWT guard core logic.
  * Sets req.channelName and req.userLogin on success.
  */
-async function verifyChannelAccess(req, res, next) {
-    const requestedChannel = req.params.channel ?? req.body?.channelLogin;
+async function _doVerifyChannelAccess(req, res, next, requestedChannel) {
     const channelName = typeof requestedChannel === 'string' ? requestedChannel.toLowerCase() : undefined;
 
     if (!channelName) {
@@ -96,14 +94,9 @@ async function verifyChannelAccess(req, res, next) {
         return res.status(403).json({ success: false, error: 'Forbidden: Channel is not allowed to use this service' });
     }
 
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, error: 'Authorization token is required' });
-    }
-
-    const token = authHeader.split(' ')[1];
+    const token = extractBearerToken(req.headers.authorization);
     if (!token) {
-        return res.status(401).json({ success: false, error: 'Bearer token is missing' });
+        return res.status(401).json({ success: false, error: 'Authorization token is required or missing' });
     }
 
     try {
@@ -137,16 +130,30 @@ async function verifyChannelAccess(req, res, next) {
 }
 
 /**
+ * Channel-scoped JWT guard (Path scoped).
+ * Takes the channel from the route's :channel param.
+ */
+async function verifyChannelAccess(req, res, next) {
+    return _doVerifyChannelAccess(req, res, next, req.params.channel);
+}
+
+/**
+ * Channel-scoped JWT guard (Body scoped).
+ * Takes the channel from the JSON body's channelLogin field.
+ */
+async function verifyChannelAccessFromBody(req, res, next) {
+    return _doVerifyChannelAccess(req, res, next, req.body?.channelLogin);
+}
+
+/**
  * Light-weight JWT check used by /api/tts/test — validates the token is
  * genuine but does not enforce channel ownership.
  */
 function verifyAnyValidToken(req, res, next) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ success: false, error: 'Authorization token is required' });
+    const token = extractBearerToken(req.headers.authorization);
+    if (!token) {
+        return res.status(401).json({ success: false, error: 'Authorization token is required or missing' });
     }
-
-    const token = authHeader.split(' ')[1];
     try {
         jwt.verify(token, JWT_SECRET_KEY, {
             audience: ['wildcat-tts-api', 'chatvibes-api'],
@@ -327,8 +334,9 @@ async function handleEventSubSetup(req, res) {
     try {
         // Resolve the broadcaster ID from the verified login rather than trusting
         // a userId in the body, which would let a caller target another channel.
+        // Force refresh to prevent a stale cached ID if the user recently renamed their account.
         const { getBroadcasterIdByLogin } = await import('../twitch/helixClient.js');
-        const userId = await getBroadcasterIdByLogin(channelLogin);
+        const userId = await getBroadcasterIdByLogin(channelLogin, true);
 
         if (!userId) {
             return res.status(404).json({ success: false, error: 'Could not resolve Twitch user for this channel' });
@@ -397,7 +405,7 @@ export function createApiRouter() {
 
     // ── System / admin ────────────────────────────────────────────────────
     // Channel taken from the body's channelLogin and checked against the token.
-    router.post('/setup-eventsub', verifyChannelAccess, handleEventSubSetup);
+    router.post('/setup-eventsub', verifyChannelAccessFromBody, handleEventSubSetup);
     router.post('/admin/secret-cleanup', handleSecretCleanup);
 
     // ── Channel-scoped (full JWT + ownership) ─────────────────────────────
