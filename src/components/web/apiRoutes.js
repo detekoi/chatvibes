@@ -68,9 +68,10 @@ const apiRateLimiter = rateLimit({
     max: 100,
     standardHeaders: true,
     legacyHeaders: false,
-    // Correctly extract IP when behind a proxy (like Cloud Run)
-    keyGenerator: req =>
-        req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress,
+    // No custom keyGenerator: the default keys on req.ip, which Express derives
+    // from X-Forwarded-For according to the `trust proxy` setting in server.js.
+    // Reading the header directly would let a client pick its own bucket by
+    // sending an X-Forwarded-For of its choosing.
 });
 
 // ---------------------------------------------------------------------------
@@ -79,14 +80,16 @@ const apiRateLimiter = rateLimit({
 
 /**
  * Channel-scoped JWT guard.
- * Expects the route to have a :channel param (set by Express via the route definition).
+ * Takes the channel from the route's :channel param, falling back to a
+ * channelLogin field in the JSON body for routes that are not path-scoped.
  * Sets req.channelName and req.userLogin on success.
  */
 async function verifyChannelAccess(req, res, next) {
-    const channelName = req.params.channel?.toLowerCase();
+    const requestedChannel = req.params.channel ?? req.body?.channelLogin;
+    const channelName = typeof requestedChannel === 'string' ? requestedChannel.toLowerCase() : undefined;
 
     if (!channelName) {
-        return res.status(400).json({ success: false, error: 'Channel name not found in URL' });
+        return res.status(400).json({ success: false, error: 'Channel name not found in request' });
     }
 
     if (!isChannelAllowed(channelName)) {
@@ -316,15 +319,21 @@ async function handleTtsBannedWordsDelete(req, res) {
 }
 
 async function handleEventSubSetup(req, res) {
-    const { channelLogin, userId } = req.body;
+    // channelLogin was verified against the token by verifyChannelAccess.
+    const channelLogin = req.channelName;
 
-    if (!channelLogin) {
-        return res.status(400).json({ success: false, error: 'Missing channelLogin' });
-    }
-
-    logger.info({ channelLogin, userId }, 'Setting up EventSub subscriptions');
+    logger.info({ channelLogin }, 'Setting up EventSub subscriptions');
 
     try {
+        // Resolve the broadcaster ID from the verified login rather than trusting
+        // a userId in the body, which would let a caller target another channel.
+        const { getBroadcasterIdByLogin } = await import('../twitch/helixClient.js');
+        const userId = await getBroadcasterIdByLogin(channelLogin);
+
+        if (!userId) {
+            return res.status(404).json({ success: false, error: 'Could not resolve Twitch user for this channel' });
+        }
+
         const { subscribeChannelToTtsEvents } = await import('../twitch/twitchSubs.js');
         const result = await subscribeChannelToTtsEvents(userId, {
             subscribe: true,
@@ -387,7 +396,8 @@ export function createApiRouter() {
     router.post('/tts/test', verifyAnyValidToken, handleTtsTest);
 
     // ── System / admin ────────────────────────────────────────────────────
-    router.post('/setup-eventsub', handleEventSubSetup);
+    // Channel taken from the body's channelLogin and checked against the token.
+    router.post('/setup-eventsub', verifyChannelAccess, handleEventSubSetup);
     router.post('/admin/secret-cleanup', handleSecretCleanup);
 
     // ── Channel-scoped (full JWT + ownership) ─────────────────────────────

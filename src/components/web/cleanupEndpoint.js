@@ -3,10 +3,63 @@
 
 import logger from '../../lib/logger.js';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
+import { OAuth2Client } from 'google-auth-library';
 
 const client = new SecretManagerServiceClient();
 const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT || 'chatvibestts';
 const VERSIONS_TO_KEEP = 2;
+
+// ---------------------------------------------------------------------------
+// Caller authentication
+// ---------------------------------------------------------------------------
+
+const oidcClient = new OAuth2Client();
+
+// Must match the --oidc-token-audience and --oidc-service-account-email that
+// scripts/setup-auto-cleanup.sh gives the Cloud Scheduler job.
+const CLEANUP_OIDC_AUDIENCE = process.env.CLEANUP_OIDC_AUDIENCE || '';
+const CLEANUP_INVOKER_SA = process.env.CLEANUP_INVOKER_SA || 'chatvibestts@appspot.gserviceaccount.com';
+
+/**
+ * Verifies the caller is the Cloud Scheduler job, by validating the Google-signed
+ * OIDC token it attaches. Headers alone (X-CloudScheduler, User-Agent) prove
+ * nothing — any client can send them — so the token is the only real evidence.
+ *
+ * @returns {Promise<{ok: boolean, reason?: string}>}
+ */
+async function verifyCloudSchedulerCaller(req) {
+    if (!CLEANUP_OIDC_AUDIENCE) {
+        // Fail closed: without an expected audience we cannot tell who minted the token.
+        return { ok: false, reason: 'CLEANUP_OIDC_AUDIENCE is not configured' };
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+        return { ok: false, reason: 'Missing OIDC bearer token' };
+    }
+
+    const idToken = authHeader.slice('Bearer '.length).trim();
+    if (!idToken) {
+        return { ok: false, reason: 'Empty OIDC bearer token' };
+    }
+
+    try {
+        // Checks the Google signature, issuer, expiry, and audience.
+        const ticket = await oidcClient.verifyIdToken({
+            idToken,
+            audience: CLEANUP_OIDC_AUDIENCE,
+        });
+        const payload = ticket.getPayload();
+
+        if (payload?.email_verified !== true || payload.email !== CLEANUP_INVOKER_SA) {
+            return { ok: false, reason: 'Token identity is not the cleanup invoker service account' };
+        }
+
+        return { ok: true };
+    } catch (error) {
+        return { ok: false, reason: `OIDC verification failed: ${error.message}` };
+    }
+}
 
 /**
  * Clean up old secret versions, keeping only the latest N versions
@@ -84,12 +137,11 @@ async function performCleanup() {
  * to avoid Cloud Scheduler timeouts
  */
 export async function handleSecretCleanup(req, res) {
-    // Verify request is from Cloud Scheduler (check for cron header)
-    const isCloudScheduler = req.headers['x-cloudscheduler'] === 'true' ||
-                            req.headers['user-agent']?.includes('Google-Cloud-Scheduler');
+    const auth = await verifyCloudSchedulerCaller(req);
 
-    if (!isCloudScheduler) {
-        logger.warn({ ip: req.socket.remoteAddress, headers: req.headers }, 'Unauthorized cleanup request');
+    if (!auth.ok) {
+        // Note: never log req.headers here — it carries the caller's bearer token.
+        logger.warn({ ip: req.ip, reason: auth.reason }, 'Unauthorized cleanup request');
         res.writeHead(403, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Forbidden' }));
         return;

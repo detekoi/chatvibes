@@ -1,5 +1,11 @@
 #!/bin/bash
 # Setup automated weekly secret cleanup via Cloud Scheduler
+#
+# The endpoint authenticates the caller by verifying the OIDC token this job
+# attaches, so the values below must match the service's environment:
+#   SERVICE_URL  -> CLEANUP_OIDC_AUDIENCE
+#   invoker SA   -> CLEANUP_INVOKER_SA
+# A mismatch makes every scheduled run fail with 403.
 
 set -e
 

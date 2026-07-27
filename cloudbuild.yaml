@@ -2,6 +2,9 @@ substitutions:
   _PROJECT_ID: "906125386407"
   _REGION: "us-central1"
   _SERVICE_NAME: "chatvibes-tts-service"
+  # Service account Cloud Scheduler uses to invoke /api/admin/secret-cleanup.
+  # Must match --oidc-service-account-email in scripts/setup-auto-cleanup.sh.
+  _CLEANUP_INVOKER_SA: "chatvibestts@appspot.gserviceaccount.com"
 
 steps:
 - name: 'gcr.io/cloud-builders/docker'
@@ -26,7 +29,7 @@ steps:
     - '--port'
     - '8080'
     - '--set-env-vars'
-    - 'GOOGLE_CLOUD_PROJECT=${_PROJECT_ID},TWITCH_BOT_USERNAME=WildcatTTS'
+    - 'GOOGLE_CLOUD_PROJECT=${_PROJECT_ID},TWITCH_BOT_USERNAME=WildcatTTS,CLEANUP_OIDC_AUDIENCE=https://${_SERVICE_NAME}-${_PROJECT_ID}.${_REGION}.run.app,CLEANUP_INVOKER_SA=${_CLEANUP_INVOKER_SA}'
     - '--set-secrets'
     - |
       WAVESPEED_API_KEY=projects/${_PROJECT_ID}/secrets/WAVESPEED_API_KEY/versions/latest,

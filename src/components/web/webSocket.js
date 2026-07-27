@@ -6,6 +6,7 @@ import logger from '../../lib/logger.js';
 import { isChannelAllowed, getChannelNameFromId } from '../../lib/allowList.js';
 import { getTtsState } from '../tts/ttsState.js';
 import { getSecretValue } from '../../lib/secretManager.js';
+import { getClientIp } from '../../lib/clientIp.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -177,8 +178,7 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
         let channelName = null;
         let tokenFromUrl = null;
 
-        const clientIP =
-            req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+        const clientIP = getClientIp(req);
 
         try {
             const urlObj = new URL(req.url, `http://${req.headers.host}`);

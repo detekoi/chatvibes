@@ -186,6 +186,8 @@ The Channel Points → TTS feature works with all TTS modes:
       * `WAVESPEED_API_KEY`: Your Wavespeed AI API key.
       * `GOOGLE_CLOUD_PROJECT`: Your Google Cloud Project ID (e.g., "chatvibestts").
       * `TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME`: Full resource name of the secret in Google Secret Manager holding the Twitch User Refresh Token for the `TWITCH_BOT_USERNAME` (e.g., `projects/chatvibestts/secrets/twitch-bot-refresh-token/versions/latest`).
+      * `CLEANUP_OIDC_AUDIENCE`: Audience the Cloud Scheduler job mints its OIDC token for — the deployed service URL (e.g. `https://chatvibes-tts-service-906125386407.us-central1.run.app`). Must match `--oidc-token-audience` in `scripts/setup-auto-cleanup.sh`. `/api/admin/secret-cleanup` rejects every request when this is unset.
+      * `CLEANUP_INVOKER_SA`: (Optional, defaults to `chatvibestts@appspot.gserviceaccount.com`) Service account allowed to invoke the cleanup endpoint. Must match `--oidc-service-account-email` in `scripts/setup-auto-cleanup.sh`.
       * `LOG_LEVEL`: (Optional, defaults to `info`, use `trace` or `debug` for more verbose logging).
       * `PINO_PRETTY_LOGGING`: (Optional, set to `true` for pretty console logs in development).
       * Other optional TTS defaults like `TTS_DEFAULT_VOICE_ID`, `TTS_DEFAULT_EMOTION`.
