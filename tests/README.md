@@ -1,6 +1,6 @@
-# WildcatTTS TTS Test Suite
+# WildcatTTS Test Suite
 
-Comprehensive test suite for the WildcatTTS TTS bot, including unit tests, integration tests, and test utilities.
+This repository contains unit tests, integration tests, and test utilities for the WildcatTTS bot.
 
 ## Table of Contents
 
@@ -15,12 +15,12 @@ Comprehensive test suite for the WildcatTTS TTS bot, including unit tests, integ
 
 ### Prerequisites
 
-- Node.js >= 18.0.0
-- Jest testing framework (already included in devDependencies)
+- Node.js version 22.0.0 or later.
+- Jest testing framework (included in `devDependencies`).
 
 ### Installation
 
-Tests are automatically available after running:
+To install test dependencies, run:
 
 ```bash
 npm install
@@ -34,7 +34,7 @@ npm install
 npm test
 ```
 
-### Run Specific Test File
+### Run a Specific Test File
 
 ```bash
 npm test -- allowViewerPreferences.test.js
@@ -68,34 +68,34 @@ npm test -- tests/unit/
 
 ```
 tests/
-├── README.md                           # This file
+├── README.md                           # Documentation
 ├── setup.js                            # Global test setup
 ├── helpers/                            # Test utilities and helpers
-│   ├── mockFirestore.js               # Firestore mocking utilities
-│   └── testData.js                    # Test data fixtures
+│   ├── mockFirestore.js                # Firestore mock functions
+│   └── testData.js                     # Test data fixtures
 ├── integration/                        # Integration tests
-│   └── allowViewerPreferences.test.js # Tests for viewer preferences feature
-└── unit/                              # Unit tests
-    └── ttsState.test.js               # Tests for ttsState module
+│   └── allowViewerPreferences.test.js  # Viewer preferences feature tests
+└── unit/                               # Unit tests
+    └── ttsState.test.js                # ttsState module tests
 ```
 
 ## Test Categories
 
 ### Integration Tests (`tests/integration/`)
 
-Integration tests verify that multiple components work together correctly. They test:
+Integration tests verify that multiple components work together. They test:
 
-- Feature workflows end-to-end
+- End-to-end feature workflows
 - Component interactions
 - Data flow through the system
 
-**Example: allowViewerPreferences.test.js**
+**Example: `allowViewerPreferences.test.js`**
 
-Tests the complete viewer preferences feature including:
-- Applying user-specific voice settings
-- Falling back to channel defaults
-- Respecting the allowViewerPreferences toggle
-- Global vs. channel-specific preferences
+Tests the complete viewer preferences feature:
+- Applies user-specific voice settings.
+- Falls back to channel defaults.
+- Respects the `allowViewerPreferences` toggle.
+- Tests global and channel-specific preferences.
 
 ### Unit Tests (`tests/unit/`)
 
@@ -106,12 +106,12 @@ Unit tests verify individual modules and functions in isolation. They test:
 - Error handling
 - State management
 
-**Example: ttsState.test.js**
+**Example: `ttsState.test.js`**
 
-Tests the ttsState module including:
-- Config retrieval and caching
-- User preference management
-- Firestore interactions
+Tests the `ttsState` module:
+- Retrieves and caches configuration.
+- Manages user preferences.
+- Handles Firestore operations.
 
 ## Writing Tests
 
@@ -119,7 +119,7 @@ Tests the ttsState module including:
 
 - Integration tests: `tests/integration/<feature>.test.js`
 - Unit tests: `tests/unit/<module>.test.js`
-- Test files must end with `.test.js` or `.spec.js`
+- Test file names must end with `.test.js` or `.spec.js`.
 
 ### Basic Test Template
 
@@ -165,7 +165,7 @@ describe('Feature Name', () => {
 
 ### Using Mock Firestore
 
-The `mockFirestore.js` helper provides a complete mock of Firestore operations:
+The `mockFirestore.js` helper provides mock functions for Firestore operations:
 
 ```javascript
 import { createMockFirestore, FieldValue } from '../helpers/mockFirestore.js';
@@ -186,7 +186,7 @@ const data = snapshot.data();
 
 ### Using Test Data
 
-Pre-defined test data fixtures are available in `testData.js`:
+Pre-defined test data fixtures are located in `testData.js`:
 
 ```javascript
 import {
@@ -205,7 +205,7 @@ await channelDoc.set(mockChannelConfig);
 
 ### Viewing Coverage Reports
 
-After running tests with coverage, open the HTML report:
+To view the coverage report after you run tests, open `coverage/index.html` in your browser:
 
 ```bash
 npm test -- --coverage
@@ -216,15 +216,15 @@ start coverage/index.html  # Windows
 
 ### Coverage Goals
 
-- **Unit tests**: Aim for 80%+ coverage
-- **Integration tests**: Focus on critical user flows
-- **Overall**: Maintain 70%+ coverage
+- **Unit tests**: Reach 80% coverage or higher.
+- **Integration tests**: Focus on critical user flows.
+- **Overall**: Maintain 70% coverage or higher.
 
 ## Best Practices
 
 ### 1. Test Behavior, Not Implementation
 
-✅ **Good**: Test what the function does
+✅ **Good**: Test the output of the function.
 ```javascript
 test('should use channel default when viewer preferences disabled', async () => {
   const result = await enqueue(channel, message);
@@ -232,7 +232,7 @@ test('should use channel default when viewer preferences disabled', async () => 
 });
 ```
 
-❌ **Bad**: Test internal implementation details
+❌ **Bad**: Test internal function calls.
 ```javascript
 test('should call getUserVoicePreference exactly once', async () => {
   await enqueue(channel, message);
@@ -242,7 +242,7 @@ test('should call getUserVoicePreference exactly once', async () => {
 
 ### 2. Use Descriptive Test Names
 
-Test names should clearly describe what is being tested:
+Write test names that state the exact behavior under test:
 
 ```javascript
 // Good
@@ -252,7 +252,7 @@ test('should ignore user voice preferences when allowViewerPreferences is false'
 test('test viewer prefs', ...)
 ```
 
-### 3. Follow Arrange-Act-Assert Pattern
+### 3. Follow the Arrange-Act-Assert Pattern
 
 ```javascript
 test('example test', async () => {
@@ -270,7 +270,7 @@ test('example test', async () => {
 
 ### 4. Keep Tests Independent
 
-Each test should be able to run in isolation:
+Each test must run independently without state pollution:
 
 ```javascript
 beforeEach(async () => {
@@ -282,7 +282,7 @@ beforeEach(async () => {
 
 ### 5. Test Edge Cases
 
-Don't just test the happy path:
+Test failure states and unexpected inputs:
 
 ```javascript
 describe('getUserPreferences', () => {
@@ -313,7 +313,7 @@ npm test -- --verbose
 node --inspect-brk node_modules/.bin/jest --runInBand
 ```
 
-Then open `chrome://inspect` in Chrome.
+Open `chrome://inspect` in Chrome to debug.
 
 ## CI/CD Integration
 
@@ -331,7 +331,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '22'
       - run: npm ci
       - run: npm test -- --coverage
       - uses: codecov/codecov-action@v3
@@ -343,24 +343,24 @@ jobs:
 
 ### For a New Feature
 
-1. Create test data fixtures in `tests/helpers/testData.js`
-2. Write integration test in `tests/integration/<feature>.test.js`
-3. Write unit tests for new modules in `tests/unit/<module>.test.js`
-4. Run tests and verify coverage
-5. Update this README if needed
+1. Create test data fixtures in `tests/helpers/testData.js`.
+2. Write integration tests in `tests/integration/<feature>.test.js`.
+3. Write unit tests for new modules in `tests/unit/<module>.test.js`.
+4. Run tests and check code coverage.
+5. Update this README file if necessary.
 
 ### For a Bug Fix
 
-1. Write a failing test that reproduces the bug
-2. Fix the bug
-3. Verify the test now passes
-4. Add regression test to prevent future issues
+1. Write a failing test that reproduces the bug.
+2. Fix the bug in source code.
+3. Run the test to make sure that it passes.
+4. Add a regression test to prevent future issues.
 
 ## Troubleshooting
 
 ### "Cannot find module" Errors
 
-Make sure you're using ES modules syntax and `.js` extensions:
+Make sure that you use ES module import statements with `.js` file extensions:
 
 ```javascript
 // Correct
@@ -370,9 +370,9 @@ import { something } from './path/to/module.js';
 import { something } from './path/to/module';
 ```
 
-### Mock Not Working
+### Mock Function Not Working
 
-Ensure mocks are set up before importing the module:
+Make sure that you define mocks before you import the target module:
 
 ```javascript
 // Correct order
@@ -384,9 +384,9 @@ const module = await import('...');
 jest.unstable_mockModule('...', () => ({ ... }));
 ```
 
-### Tests Timing Out
+### Test Timeouts
 
-Increase timeout for slow tests:
+Increase the timeout for slow tests:
 
 ```javascript
 test('slow operation', async () => {
@@ -396,13 +396,13 @@ test('slow operation', async () => {
 
 ## Contributing
 
-When contributing tests:
+When you contribute tests:
 
-1. Follow the existing patterns and structure
-2. Ensure all tests pass before committing
-3. Maintain or improve code coverage
-4. Add comments for complex test scenarios
-5. Update documentation for new test utilities
+1. Follow existing patterns and file structure.
+2. Make sure that all tests pass before you commit code.
+3. Maintain or increase code coverage.
+4. Add comments for complex test scenarios.
+5. Update documentation for new test utilities.
 
 ## Resources
 
@@ -412,8 +412,8 @@ When contributing tests:
 
 ## Support
 
-For questions or issues with tests:
+If you have questions about tests:
 
-1. Check this README first
-2. Review existing test files for examples
-3. Open an issue on GitHub with the `testing` label
+1. Read this README file.
+2. Review existing test files for implementation examples.
+3. Open an issue on GitHub with the `testing` label.
