@@ -61,7 +61,6 @@
         "node": ">=22.0.0"
     },
     "overrides": {
-        "minimatch": ">=10.2.1",
         "firebase-admin": {
             "uuid": "^11.1.1"
         }
