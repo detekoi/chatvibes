@@ -14,6 +14,7 @@ export default {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   testTimeout: 10000,
+  setupFiles: ['<rootDir>/tests/env.setup.js'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   verbose: true,
 };
