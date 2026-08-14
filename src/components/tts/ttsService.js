@@ -158,6 +158,11 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       vol: options.volume ?? 1.0,
       pitch: options.pitch ?? TTS_PITCH_DEFAULT,
       emotion: mapEmotionForApi(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral', '302'),
+      // t2a_v2 spells this text_normalization and expects it inside voice_setting.
+      // The flat english_normalization the Wavespeed wrapper takes is accepted
+      // here but silently ignored — this API ignores unknown keys rather than
+      // erroring — so it has to be sent under this name to have any effect.
+      text_normalization: options.englishNormalization ?? false,
     },
     audio_setting: {
       sample_rate: options.sampleRate ?? 32000,
@@ -209,6 +214,15 @@ async function attemptGeneration302(text, voiceId, options = {}) {
     }
 
     const result = response.data;
+
+    // MiniMax reports failures as HTTP 200 with a non-zero base_resp code
+    // (1002 rate limit, 1004 auth, 1039 TPM, 1042 invalid characters, 2013 bad
+    // params), so the status has to be read out of the body.
+    if (result.base_resp?.status_code !== undefined && result.base_resp.status_code !== 0) {
+      const { status_code: code, status_msg: msg } = result.base_resp;
+      logger.error({ code, msg, endpoint: T302_ENDPOINT, voiceId, durationMs }, '302.ai returned an API-level error');
+      throw new Error(`302.ai API error ${code}: ${msg}`);
+    }
 
     // 302.ai response structure check
     if (result.data && result.data.url) {

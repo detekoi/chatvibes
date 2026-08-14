@@ -65,6 +65,7 @@ describe('TTS Migration', () => {
                         status: 2
                     },
                     base_resp: {
+                        status_code: 0,
                         status_msg: 'success'
                     }
                 }
@@ -73,6 +74,39 @@ describe('TTS Migration', () => {
             const url = await generateSpeech('Hello', 'English_expressive_narrator');
 
             expect(url).toBe('https://302.ai/audio-alt.mp3');
+        });
+
+        it('should treat a non-zero base_resp code as a failure and fall back', async () => {
+            // MiniMax reports failures as HTTP 200 with a non-zero base_resp code,
+            // so the body has to be inspected rather than trusting the status.
+            axios
+                .mockResolvedValueOnce({
+                    data: {
+                        base_resp: { status_code: 1002, status_msg: 'rate limit exceeded' }
+                    }
+                })
+                .mockResolvedValueOnce({
+                    data: { data: { status: 'completed', outputs: ['https://wavespeed.ai/fallback.mp3'] } }
+                });
+
+            const url = await generateSpeech('Hello', 'English_expressive_narrator');
+
+            expect(url).toBe('https://wavespeed.ai/fallback.mp3');
+            expect(axios).toHaveBeenCalledTimes(2);
+        });
+
+        it('should send text_normalization inside voice_setting when englishNormalization is on', async () => {
+            axios.mockResolvedValue({
+                data: {
+                    data: { audio: 'https://302.ai/audio.mp3', status: 2 },
+                    base_resp: { status_code: 0, status_msg: 'success' }
+                }
+            });
+
+            await generateSpeech('I paid $1,299', 'English_expressive_narrator', { englishNormalization: true });
+
+            const payload = axios.mock.calls[0][0].data;
+            expect(payload.voice_setting.text_normalization).toBe(true);
         });
 
         it('should call 302.ai endpoint for previously wavespeed-only voice', async () => {
