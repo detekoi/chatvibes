@@ -103,6 +103,21 @@
     { "match": "omfg", "say": "oh my fucking god" },
     { "match": "af", "say": "as fuck" },
     { "match": "jfc", "say": "jesus fucking christ" },
-    { "match": "o7", "say": "salute" }
+    { "match": "o7", "say": "salute" },
+    { "match": "wtf", "say": "what the fuck" },
+    { "match": "lmao", "say": "laugh my ass off" },
+    { "match": "ffs", "say": "for fuck's sake" },
+    { "match": "eli5", "say": "explain like i'm five" },
+    { "match": "pmo", "say": "piss me off" },
+    { "match": "dpmo", "say": "don't piss me off" },
+    { "match": "omg", "say": "oh my god" },
+    { "match": "fyi", "say": "for your information" },
+    { "match": "asap", "say": "as soon as possible" },
+    { "match": "ikr", "say": "i know right" },
+    { "match": "ttyl", "say": "talk to you later" },
+    { "match": "1v1", "say": "one v one" },
+    { "match": "rofl", "say": "rolling on the floor laughing" },
+    { "match": "roflmao", "say": "rolling on the floor laughing my ass off" },
+    { "match": "lmfao", "say": "laughing my fucking ass off" }
   ]
 }
