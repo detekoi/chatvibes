@@ -54,7 +54,15 @@ export async function handleNotification(subscriptionType, event, channelName, t
 
             const months = event.cumulative_months || event.duration_months || 0;
             const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
-            ttsText = `${resubUser} resubscribed for ${months} months${tier}!`;
+
+            // Sub streak (consecutive months). Twitch sends null when the viewer opts
+            // not to share it, and a 1-month "streak" isn't worth announcing.
+            const streakMonths = Number(event.streak_months);
+            const streak = Number.isFinite(streakMonths) && streakMonths >= 2
+                ? `, on a ${streakMonths} month streak`
+                : '';
+
+            ttsText = `${resubUser} resubscribed for ${months} months${streak}${tier}!`;
 
             // Append the viewer's resub message if present, after moderation + formatting
             const rawResubMessage = event.message?.text?.trim();
@@ -73,13 +81,16 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     });
                     if (formattedMessage) {
                         ttsText += ` ${formattedMessage}`;
+                    } else {
+                        logger.info({ channelName, user: resubLogin, emoteMode, viewerMessage: rawResubMessage },
+                            'Resub message formatted to empty (likely all emotes under emoteMode=skip) — announcing resub only');
                     }
                 }
             }
 
             username = resubUser;
             userId = event.user_id;
-            logger.info({ channelName, user: resubUser, months, tier: event.tier, message: rawResubMessage || null }, 'Resubscription event');
+            logger.info({ channelName, user: resubUser, months, streakMonths: event.streak_months ?? null, tier: event.tier, viewerMessage: rawResubMessage || null }, 'Resubscription event');
             break;
         }
 
@@ -213,13 +224,16 @@ export async function handleNotification(subscriptionType, event, channelName, t
                             }
                         }
                         ttsText += ` ${pronounSubject} said: ${formattedMessage}`;
+                    } else {
+                        logger.info({ channelName, user: streakLogin, emoteMode, viewerMessage: rawStreakMessage },
+                            'Watch streak message formatted to empty (likely all emotes under emoteMode=skip) — announcing streak only');
                     }
                 }
             }
 
             username = streakUser;
             userId = event.chatter_user_id;
-            logger.info({ channelName, user: streakUser, streakCount, message: rawStreakMessage || null }, 'Watch streak event');
+            logger.info({ channelName, user: streakUser, streakCount, viewerMessage: rawStreakMessage || null }, 'Watch streak event');
             break;
         }
 

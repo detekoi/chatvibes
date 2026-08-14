@@ -227,6 +227,87 @@ describe('notificationHandler', () => {
             );
         });
 
+        it('should announce the sub streak when the viewer shares it', async () => {
+            const event = {
+                user_name: 'Resubber',
+                user_login: 'resubber',
+                tier: '1000',
+                cumulative_months: 25,
+                streak_months: 12
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({
+                    text: 'Resubber resubscribed for 25 months, on a 12 month streak (Tier 1)!'
+                }),
+                null
+            );
+        });
+
+        it('should omit the sub streak when the viewer does not share it', async () => {
+            // Twitch sends streak_months: null when the viewer opts out of sharing
+            const event = {
+                user_name: 'Resubber',
+                user_login: 'resubber',
+                tier: '1000',
+                cumulative_months: 25,
+                streak_months: null
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({
+                    text: 'Resubber resubscribed for 25 months (Tier 1)!'
+                }),
+                null
+            );
+        });
+
+        it('should omit a 1 month sub streak as it reads awkwardly', async () => {
+            const event = {
+                user_name: 'Resubber',
+                user_login: 'resubber',
+                tier: '1000',
+                cumulative_months: 2,
+                streak_months: 1
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'Resubber resubscribed for 2 months (Tier 1)!' }),
+                null
+            );
+        });
+
+        it('should combine sub streak and resub message', async () => {
+            mockFormatTtsText.mockResolvedValueOnce('Love this stream!');
+            const event = {
+                user_name: 'Resubber',
+                user_login: 'resubber',
+                tier: '2000',
+                cumulative_months: 30,
+                streak_months: 30,
+                message: { text: 'Love this stream!' }
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({
+                    text: 'Resubber resubscribed for 30 months, on a 30 month streak (Tier 2)! Love this stream!'
+                }),
+                null
+            );
+        });
+
         it('should skip resub TTS when user is on the ignore list', async () => {
             const event = {
                 user_name: 'SpamBot',
@@ -409,7 +490,7 @@ describe('notificationHandler', () => {
             );
             expect(mockFormatTtsText).not.toHaveBeenCalled();
             expect(mockLogger.info).toHaveBeenCalledWith(
-                expect.objectContaining({ channelName: 'testchannel', user: 'viewer23', streakCount: 5, message: null }),
+                expect.objectContaining({ channelName: 'testchannel', user: 'viewer23', streakCount: 5, viewerMessage: null }),
                 'Watch streak event'
             );
         });
@@ -438,7 +519,7 @@ describe('notificationHandler', () => {
                 null
             );
             expect(mockLogger.info).toHaveBeenCalledWith(
-                expect.objectContaining({ user: 'turboicehusky', streakCount: 10, message: '10!' }),
+                expect.objectContaining({ user: 'turboicehusky', streakCount: 10, viewerMessage: '10!' }),
                 'Watch streak event'
             );
         });

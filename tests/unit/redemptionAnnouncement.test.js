@@ -26,18 +26,22 @@ jest.unstable_mockModule('../../src/lib/logger.js', () => ({
 }));
 
 // Mock modules used by handleChannelPointsRedemption that we don't need for announcement tests
+const mockAddRedemption = jest.fn();
+const mockGetRedemption = jest.fn().mockReturnValue(null);
+const mockRemoveRedemption = jest.fn();
 jest.unstable_mockModule('../../src/components/twitch/redemptionCache.js', () => ({
-    addRedemption: jest.fn(),
-    getRedemption: jest.fn(),
-    removeRedemption: jest.fn()
+    addRedemption: mockAddRedemption,
+    getRedemption: mockGetRedemption,
+    removeRedemption: mockRemoveRedemption
 }));
 
 jest.unstable_mockModule('../../src/lib/allowList.js', () => ({
     isChannelAllowed: jest.fn().mockResolvedValue(true)
 }));
 
+const mockGetTtsState = jest.fn().mockResolvedValue({});
 jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
-    getTtsState: jest.fn().mockResolvedValue({}),
+    getTtsState: mockGetTtsState,
     getUserEmoteModePreference: jest.fn().mockResolvedValue(null)
 }));
 
@@ -58,12 +62,44 @@ jest.unstable_mockModule('../../src/components/twitch/redemptionFragmentCache.js
     storeFragments: jest.fn()
 }));
 
-const { handleRedemptionAnnouncement } = await import('../../src/components/twitch/handlers/redemptionHandler.js');
+const { handleRedemptionAnnouncement, handleChannelPointsRedemption } = await import('../../src/components/twitch/handlers/redemptionHandler.js');
+
+describe('handleChannelPointsRedemption fragment cache', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockConsumeFragments.mockReturnValue(null);
+        mockGetTtsState.mockResolvedValue({
+            engineEnabled: true,
+            channelPoints: { enabled: true, rewardId: 'tts-reward' }
+        });
+    });
+
+    it('should look up stashed fragments with the documented argument order', async () => {
+        await handleChannelPointsRedemption(
+            'channel.channel_points_custom_reward_redemption.add',
+            {
+                id: 'redemption-9',
+                broadcaster_user_id: '111',
+                broadcaster_user_login: 'testchannel',
+                user_login: 'testuser',
+                user_id: '4242',
+                reward: { id: 'tts-reward' },
+                user_input: 'hello',
+                status: 'unfulfilled'
+            }
+        );
+
+        // storeFragments keys on (rewardId, userId, channelLogin) — a transposed
+        // lookup here silently missed the cache on every manual-approval redemption.
+        expect(mockConsumeFragments).toHaveBeenCalledWith('tts-reward', '4242', 'testchannel');
+    });
+});
 
 describe('handleRedemptionAnnouncement', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockConsumeFragments.mockReturnValue(null);
+        mockGetRedemption.mockReturnValue(null);
     });
 
     const defaultTtsConfig = {
@@ -180,11 +216,14 @@ describe('handleRedemptionAnnouncement', () => {
         expect(mockPublishTtsEvent).not.toHaveBeenCalled();
     });
 
-    it('should ignore redemption.update events', async () => {
+    it('should announce a queued redemption once the streamer approves it', async () => {
+        mockFormatTtsText.mockResolvedValueOnce('play despacito');
         const event = {
+            id: 'redemption-1',
             user_name: 'TestUser',
-            reward: { id: 'reward-123', title: 'Hydrate' },
-            user_input: '',
+            user_login: 'testuser',
+            reward: { id: 'reward-123', title: 'Song Request' },
+            user_input: 'play despacito',
             status: 'fulfilled'
         };
 
@@ -195,7 +234,125 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
+        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            'testchannel',
+            expect.objectContaining({ text: 'TestUser redeemed Song Request: play despacito' }),
+            null
+        );
+    });
+
+    it('should not announce the same redemption twice', async () => {
+        const event = {
+            id: 'redemption-dup',
+            user_name: 'TestUser',
+            user_login: 'testuser',
+            reward: { id: 'reward-123', title: 'Hydrate' },
+            user_input: '',
+            status: 'fulfilled'
+        };
+
+        // Guards against Twitch emitting .update alongside .add for skip-queue rewards
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add', event, 'testchannel', defaultTtsConfig);
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.update', event, 'testchannel', defaultTtsConfig);
+
+        expect(mockPublishTtsEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not announce a redemption that was canceled instead of approved', async () => {
+        const event = {
+            id: 'redemption-2',
+            user_name: 'TestUser',
+            user_login: 'testuser',
+            reward: { id: 'reward-123', title: 'Song Request' },
+            user_input: 'play despacito',
+            status: 'canceled'
+        };
+
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.update',
+            event,
+            'testchannel',
+            defaultTtsConfig
+        );
+
         expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockRemoveRedemption).toHaveBeenCalledWith('redemption-2');
+    });
+
+    it('should stash a pending redemption instead of announcing it', async () => {
+        mockConsumeFragments.mockReturnValue([{ type: 'text', text: 'play despacito' }]);
+        const event = {
+            id: 'redemption-3',
+            user_name: 'TestUser',
+            user_login: 'testuser',
+            user_id: '4242',
+            reward: { id: 'reward-123', title: 'Song Request' },
+            user_input: 'play despacito',
+            status: 'unfulfilled'
+        };
+
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add',
+            event,
+            'testchannel',
+            defaultTtsConfig
+        );
+
+        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        // Fragments are stashed on the 24h cache so they survive until approval
+        expect(mockAddRedemption).toHaveBeenCalledWith(
+            'redemption-3', 'play despacito', 'testuser', 'testchannel', 'reward-123', '4242',
+            [{ type: 'text', text: 'play despacito' }]
+        );
+        expect(mockConsumeFragments).toHaveBeenCalledWith('reward-123', '4242', 'testchannel');
+    });
+
+    it('should reuse stashed fragments when announcing on approval', async () => {
+        const stashed = [{ type: 'emote', text: 'Kappa' }];
+        mockConsumeFragments.mockReturnValue(null);
+        mockGetRedemption.mockReturnValue({ fragments: stashed });
+        mockFormatTtsText.mockResolvedValueOnce('(a sarcastic face emote)');
+
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.update',
+            {
+                id: 'redemption-4',
+                user_name: 'TestUser',
+                user_login: 'testuser',
+                reward: { id: 'reward-123', title: 'Song Request' },
+                user_input: 'Kappa',
+                status: 'fulfilled'
+            },
+            'testchannel',
+            defaultTtsConfig
+        );
+
+        expect(mockFormatTtsText).toHaveBeenCalledWith('Kappa', stashed, expect.any(Object));
+        expect(mockPublishTtsEvent).toHaveBeenCalled();
+    });
+
+    it('should not touch the redemption cache for the configured TTS reward', async () => {
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add',
+            {
+                id: 'redemption-5',
+                user_name: 'TestUser',
+                user_login: 'testuser',
+                reward: { id: 'tts-reward', title: 'TTS' },
+                user_input: 'hello',
+                status: 'unfulfilled'
+            },
+            'testchannel',
+            { ...defaultTtsConfig, channelPoints: { rewardId: 'tts-reward' } }
+        );
+
+        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        // handleChannelPointsRedemption owns this reward's cache entries — clobbering
+        // them here would destroy the fragments it just stashed.
+        expect(mockAddRedemption).not.toHaveBeenCalled();
+        expect(mockConsumeFragments).not.toHaveBeenCalled();
     });
 
     it('should handle missing reward title gracefully', async () => {

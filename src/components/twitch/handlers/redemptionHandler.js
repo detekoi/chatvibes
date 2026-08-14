@@ -17,6 +17,39 @@ function getDb() {
     return _firestoreDb;
 }
 
+// Redemption IDs already announced, so a redemption can't be announced twice.
+// Twitch's docs don't state whether an auto-fulfilled (skip-queue) redemption also
+// emits an .update alongside its .add; if it does, the two arrive seconds apart on
+// the same instance and the second is suppressed here. A queued redemption approved
+// minutes later may land on a different instance and miss this guard — that fails
+// toward announcing, which is the behavior we want.
+const announcedRedemptions = new Map(); // redemptionId -> timestamp
+const ANNOUNCED_TTL_MS = 15 * 60 * 1000;
+
+function markAnnounced(redemptionId) {
+    if (!redemptionId) return;
+    announcedRedemptions.set(redemptionId, Date.now());
+}
+
+function wasAnnounced(redemptionId) {
+    if (!redemptionId) return false;
+    const at = announcedRedemptions.get(redemptionId);
+    if (at === undefined) return false;
+    if (Date.now() - at > ANNOUNCED_TTL_MS) {
+        announcedRedemptions.delete(redemptionId);
+        return false;
+    }
+    return true;
+}
+
+const announcedPruneInterval = setInterval(() => {
+    const now = Date.now();
+    for (const [id, at] of announcedRedemptions.entries()) {
+        if (now - at > ANNOUNCED_TTL_MS) announcedRedemptions.delete(id);
+    }
+}, ANNOUNCED_TTL_MS);
+announcedPruneInterval.unref();
+
 /**
  * Handle Channel Points custom reward redemption events
  * This is the NEW implementation that uses EventSub instead of chat messages
@@ -85,7 +118,7 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
             // Store rewardId along with redemption for later rejection if needed.
             // Also grab any fragments the chatHandler may have cached (best-effort,
             // see redemptionFragmentCache.js for multi-instance caveats).
-            const cachedFragments = consumeFragments(rewardId, channelLogin, userId);
+            const cachedFragments = consumeFragments(rewardId, userId, channelLogin);
             redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId, userId, cachedFragments);
         } else if (status === 'fulfilled') {
             // Redemption was auto-approved (Skip Queue enabled) - validate and play immediately
@@ -142,19 +175,25 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
  * Handle Channel Points redemption announcement via TTS
  * Announces ALL reward redemptions (not just the configured TTS reward)
  * Generates announcement text like "<user> redeemed <reward title>: <user input>"
+ *
+ * Announcement is deferred until the redemption is actually fulfilled, because
+ * announcing a pending redemption the streamer then cancels is irreversible:
+ *   .add    + fulfilled   -> announce (reward skips the request queue)
+ *   .add    + unfulfilled -> stay silent, stash fragments for the approval path
+ *   .update + fulfilled   -> announce (streamer just approved it)
+ *   .update + canceled    -> stay silent, drop the stashed entry
+ * Twitch does not send .update for auto-fulfilled redemptions, so a reward can
+ * never be announced twice.
  */
 export async function handleRedemptionAnnouncement(subscriptionType, event, channelLogin, ttsConfig) {
-    // Only announce on redemption.add events with fulfilled status.
-    // Unfulfilled (pending approval) redemptions should not be announced because
-    // the streamer may cancel them — announcing prematurely is irreversible.
-    if (subscriptionType !== 'channel.channel_points_custom_reward_redemption.add') {
-        return;
-    }
-    if (event?.status === 'unfulfilled') {
-        logger.debug({ channelLogin }, 'Skipping announcement for unfulfilled redemption (pending approval)');
+    const isAdd = subscriptionType === 'channel.channel_points_custom_reward_redemption.add';
+    const isUpdate = subscriptionType === 'channel.channel_points_custom_reward_redemption.update';
+    if (!isAdd && !isUpdate) {
         return;
     }
 
+    const status = event?.status;
+    const redemptionId = event?.id;
     const rewardTitle = event?.reward?.title;
     const rewardId = event?.reward?.id;
     const userInput = (event?.user_input || '').trim();
@@ -162,10 +201,35 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     const userLogin = (event?.user_login || userName).toLowerCase();
     const userId = event?.user_id;
 
-    // Skip if this is the configured TTS reward (already handled by handleChannelPointsRedemption)
+    // Skip if this is the configured TTS reward (already handled by handleChannelPointsRedemption).
+    // This must come before any cache access below — handleChannelPointsRedemption runs first for
+    // that reward and owns both the fragment cache and the redemption cache entry.
     const configuredRewardId = ttsConfig.channelPoints?.rewardId || ttsConfig.channelPointRewardId;
     if (configuredRewardId && rewardId === configuredRewardId) {
         logger.debug({ channelLogin, rewardId }, 'Skipping redemption announcement for configured TTS reward');
+        return;
+    }
+
+    if (isAdd && status === 'unfulfilled') {
+        // Pending approval — hold onto the chat fragments now, since the short-lived
+        // fragment cache will have expired by the time the streamer approves.
+        const pendingFragments = consumeFragments(rewardId, userId, channelLogin);
+        redemptionCache.addRedemption(
+            redemptionId, userInput, userLogin, channelLogin, rewardId, userId, pendingFragments
+        );
+        logger.debug({ channelLogin, redemptionId }, 'Redemption pending approval — deferring announcement');
+        return;
+    }
+
+    if (isUpdate && status !== 'fulfilled') {
+        // Canceled/rejected — never announced, so just drop the stashed entry.
+        if (redemptionId) redemptionCache.removeRedemption(redemptionId);
+        logger.debug({ channelLogin, redemptionId, status }, 'Redemption not fulfilled — skipping announcement');
+        return;
+    }
+
+    if (wasAnnounced(redemptionId)) {
+        logger.debug({ channelLogin, redemptionId }, 'Redemption already announced — skipping duplicate');
         return;
     }
 
@@ -189,9 +253,13 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         if (hasBannedWord) {
             logger.debug({ channelLogin, user: userLogin }, 'Redemption user_input contains banned word — announcing redemption only');
         } else {
-            // Run user_input through formatting pipeline (URLs, emotes, emoji)
+            // Run user_input through formatting pipeline (URLs, emotes, emoji).
+            // On the approval path the short-lived fragment cache has long expired, so
+            // fall back to fragments stashed on the pending .add (24h TTL).
             const emoteMode = ttsConfig.emoteMode || 'describe';
-            const fragments = consumeFragments(rewardId, userId, channelLogin);
+            const fragments = consumeFragments(rewardId, userId, channelLogin)
+                || (isUpdate ? redemptionCache.getRedemption(redemptionId)?.fragments : null)
+                || null;
             const formattedInput = await formatTtsText(userInput, fragments, {
                 emoteMode,
                 channelEmoteMode: emoteMode,
@@ -199,9 +267,16 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
             });
             if (formattedInput) {
                 ttsText += `: ${formattedInput}`;
+            } else {
+                logger.info({ channelLogin, user: userLogin, emoteMode, viewerMessage: userInput },
+                    'Redemption user_input formatted to empty (likely all emotes under emoteMode=skip) — announcing redemption only');
             }
         }
     }
+
+    // Announcement is committed from here on, so the stashed entry is no longer needed.
+    if (redemptionId) redemptionCache.removeRedemption(redemptionId);
+    markAnnounced(redemptionId);
 
     logger.info({ channelLogin, userName, userId, rewardTitle, hasUserInput: !!userInput }, 'Announcing Channel Points redemption via TTS');
 
