@@ -118,7 +118,7 @@ async function verifyChannelAccessFromBody(req, res, next) {
 // ---------------------------------------------------------------------------
 
 async function handleEventSubSetup(req, res) {
-    // channelLogin was verified against the token by verifyChannelAccess.
+    // channelLogin was verified against the token by verifyChannelAccessFromBody.
     const channelLogin = req.channelName;
 
     logger.info({ channelLogin }, 'Setting up EventSub subscriptions');

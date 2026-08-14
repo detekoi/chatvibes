@@ -33,9 +33,6 @@ export const DEFAULT_TTS_SETTINGS = {
 // All valid emotions (speech-2.8-turbo full set + "neutral" as user-facing auto-detect alias)
 export const VALID_EMOTIONS = ttsConfig.VALID_EMOTIONS;
 
-// Emotion aliases for normalizing user input (e.g. "mad" → "angry")
-export const EMOTION_ALIASES = ttsConfig.EMOTION_ALIASES;
-
 // Emotions safe for the Wavespeed/speech-02-turbo fallback path (no calm/fluent)
 export const LEGACY_SAFE_EMOTIONS = ttsConfig.LEGACY_SAFE_EMOTIONS;
 
@@ -52,19 +49,6 @@ export const VALID_LANGUAGE_BOOSTS = ttsConfig.VALID_LANGUAGE_BOOSTS;
 
 // Languages safe for the Wavespeed/speech-02-turbo fallback path (25 languages)
 export const LEGACY_SAFE_LANGUAGE_BOOSTS = ttsConfig.LEGACY_SAFE_LANGUAGE_BOOSTS;
-
-/**
- * Normalizes emotion input using aliases from tts-config.json.
- * Resolves synonyms (e.g. "mad" → "angry", "auto" → "neutral") and lowercases.
- * @param {string|null|undefined} emotion - Raw emotion value
- * @returns {string} - Canonical emotion token, defaults to "neutral"
- */
-export function normalizeEmotion(emotion) {
-    if (!emotion) return 'neutral';
-    const lower = emotion.toLowerCase().trim();
-    if (VALID_EMOTIONS.includes(lower)) return lower;
-    return EMOTION_ALIASES[lower] || 'neutral';
-}
 
 export const DOC_LINKS = {
     voices: 'https://docs.wildcat.chat/wildcatttsdocs.html#voices',
