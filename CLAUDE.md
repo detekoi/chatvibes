@@ -74,13 +74,16 @@ export TWITCH_CHANNELS=yourchannel
   (`PRONUNCIATION_DEFAULTS` in `tts-config.json`) merged with per-channel overrides stored in the
   `pronunciations` map on the channel config. A channel entry with an empty value switches off the
   built-in of the same name; deleting the key restores it.
-  - The built-in list was trimmed against the live API — see `docs/pronunciation-probe-results.md`
-    and `scripts/probe-pronunciation.js`. Only entries the model actually gets wrong or reads as
-    bare letters are included. Notably `lol` is deliberately absent: MiniMax already reads it as
-    "el oh el", which is the natural result.
-  - Matching is case-insensitive and anchored to word boundaries using `\p{L}\p{N}` lookarounds
-    rather than `\b`, which is ASCII-only and would misfire on non-English text. Replacement is a
-    single pass, so an expansion is never re-scanned by another rule.
+  - The built-in list was seeded from a live-API probe — see
+    `docs/pronunciation-probe-results.md` and `scripts/probe-pronunciation.js`. Notably `lol` is
+    deliberately absent: MiniMax already reads it as "el oh el", which is the natural result.
+  - **An acronym is pinned if its expansion carries profanity, even when MiniMax expands it
+    unaided.** The profanity filter runs on the text we send, so when the model does the expanding
+    the profane words exist only in the audio, downstream of the filter — `wtf` was spoken in full
+    on a channel with filtering on. Model-side expansion is also unstable between renders (`lmao`
+    heard phonetically, `omg` as "oh em gee"), so it is not relied on for anything.
+  - Matching is case-insensitive and single-pass, so an expansion is never re-scanned by another
+    rule. Word boundaries use `\p{L}\p{N}` lookarounds rather than `\b`, which is ASCII-only.
   - MiniMax's own `pronunciation_dict` API parameter is deliberately **not** used: the probe showed
     it matches case-sensitively, so `LFG` would not match a `lfg` entry.
 - **Profanity filter** (`src/lib/profanity/`): off by default, per channel. Word lists for all 40
@@ -90,8 +93,19 @@ export TWITCH_CHANNELS=yourchannel
   - Applied in `ttsQueue.enqueue`, not `formatTtsText`, because a viewer can override
     `languageBoost` for their own messages and that is only resolved there. When the viewer's
     language differs from the channel's, both lists apply.
+  - **English is always in the active rule set**, whatever the channel language. The pronunciation
+    dictionary is English-only and runs everywhere, so a Spanish channel still gets "let's fucking
+    go" out of `lfg`; loading only the Spanish list would send that through untouched.
   - `languageBoost: 'auto'` (the default) uses the English list; language cannot be detected per
     message.
+  - Slurs map to the literal word `"slur"` rather than a milder insult — a softened slur still
+    lands as the thing it was. English only so far.
+  - For scripts written without spaces (Han, Kana, Thai, Lao, Khmer, Myanmar) the `\p{L}`
+    lookarounds are the wrong boundary test, since neighbouring characters are letters even at a
+    real word edge. Those terms are matched bare and validated against `Intl.Segmenter` word
+    boundaries instead, which is what separates 你在**操**什么 (filter it) from **操作**系统
+    ("operating system", leave it). Segmentation is computed lazily, so English channels pay
+    nothing for it.
 
 
 ## Key Files

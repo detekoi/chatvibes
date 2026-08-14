@@ -30,6 +30,32 @@ const MASK_CLOSE = '\uE001';
 // Both sentinels, for stripping them out of incoming text.
 const MASK_CHARS = /[\uE000\uE001]/g;
 
+// Scripts written without spaces between words. A \p{L} lookaround is the
+// wrong boundary test for these, because neighbouring characters are letters
+// even at a real word edge.
+const CONTINUOUS_SCRIPT =
+    /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
+
+// Word segmentation stands in for the missing boundaries. It is what separates
+// "你在操什么" (操 is its own word, filter it) from "操作系统" (操 is the first
+// half of "操作", leave it alone). One instance, reused across messages.
+const SEGMENTER = new Intl.Segmenter(undefined, { granularity: 'word' });
+
+/**
+ * Offsets at which a word starts or ends. A continuous-script match is only
+ * genuine if both its edges land on one.
+ * @param {string} text
+ * @returns {Set<number>}
+ */
+function segmentBoundaries(text) {
+    const bounds = new Set([0, text.length]);
+    for (const { index, segment } of SEGMENTER.segment(text)) {
+        bounds.add(index);
+        bounds.add(index + segment.length);
+    }
+    return bounds;
+}
+
 /**
  * Escape a literal string for safe use inside a RegExp alternation.
  * Match keys are user-supplied, so an unescaped "." or "(" would either
@@ -51,7 +77,7 @@ export function escapeLiteral(s) {
  * @param {Record<string, string>} entries
  * @param {object} [options]
  * @param {boolean} [options.caseSensitive=false]
- * @returns {{re: RegExp, map: Map<string, string>, size: number, caseSensitive: boolean} | null}
+ * @returns {{re: RegExp, map: Map<string, string>, size: number, caseSensitive: boolean, needsSegmentation: boolean} | null}
  *     Null when there is nothing to match, so callers can skip the pass.
  */
 export function compileRules(entries, { caseSensitive = false } = {}) {
@@ -70,18 +96,28 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
 
     if (map.size === 0) return null;
 
+    // Lookarounds are applied per alternative rather than around the whole
+    // group, because they are wrong for scripts that do not put spaces between
+    // words: in "你在操什么" the character before "操" is itself a letter, so a
+    // \p{L} lookbehind rejects a match that should have been found. Those terms
+    // are matched bare and validated against word segmentation instead.
+    let needsSegmentation = false;
     const alternation = [...map.keys()]
         .sort((a, b) => b.length - a.length)
-        .map(escapeLiteral)
+        .map(key => {
+            const literal = escapeLiteral(key);
+            if (!CONTINUOUS_SCRIPT.test(key)) {
+                return `(?<![\\p{L}\\p{N}_])${literal}(?![\\p{L}\\p{N}_])`;
+            }
+            needsSegmentation = true;
+            return literal;
+        })
         .join('|');
 
     const flags = caseSensitive ? 'gu' : 'giu';
-    const re = new RegExp(
-        `(?<![\\p{L}\\p{N}_])(?:${alternation})(?![\\p{L}\\p{N}_])`,
-        flags
-    );
+    const re = new RegExp(`(?:${alternation})`, flags);
 
-    return { re, map, size: map.size, caseSensitive };
+    return { re, map, size: map.size, caseSensitive, needsSegmentation };
 }
 
 /**
@@ -115,10 +151,23 @@ export function applyRewrites(text, rules) {
         return `${MASK_OPEN}${urls.length - 1}${MASK_CLOSE}`;
     });
 
+    // Computed lazily and at most once per message: segmentation is only
+    // needed if a continuous-script term actually matches, which never happens
+    // for an English channel.
+    let bounds = null;
+
     // lastIndex is reset explicitly: the rule set is memoized and reused across
     // messages, and a stale lastIndex would skip the start of a string.
     rules.re.lastIndex = 0;
-    const rewritten = masked.replace(rules.re, match => {
+    const rewritten = masked.replace(rules.re, (match, offset) => {
+        // Latin-script terms carry their own lookarounds in the pattern and are
+        // already correctly bounded, so they skip this entirely.
+        if (rules.needsSegmentation && CONTINUOUS_SCRIPT.test(match)) {
+            bounds ??= segmentBoundaries(masked);
+            if (!bounds.has(offset) || !bounds.has(offset + match.length)) {
+                return match;
+            }
+        }
         const key = rules.caseSensitive ? match : match.toLowerCase();
         return rules.map.get(key) ?? match;
     });

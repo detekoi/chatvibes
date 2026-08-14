@@ -128,6 +128,68 @@ describe('ttsQueue module', () => {
     });
   });
 
+  describe('enqueue profanity filter', () => {
+    // These drive enqueue itself rather than getProfanityRules, because the
+    // defect being guarded against was in the argument list at the call site:
+    // testing the helper directly passes either way.
+    const enqueueAs = async (config, text) => {
+      mockTtsState.getTtsState.mockResolvedValue({
+        ...mockChannelConfig, engineEnabled: true, allowViewerPreferences: true, ...config,
+      });
+      mockTtsState.getChannelTtsConfig.mockResolvedValue({
+        ...mockChannelConfig, languageBoost: config.languageBoost,
+      });
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+      ttsQueue.clearQueue(TEST_CHANNEL);
+      await ttsQueue.enqueue(TEST_CHANNEL, { text, user: TEST_USER, type: 'chat' });
+      return ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue[0]?.text;
+    };
+
+    test('leaves text alone when the filter is off', async () => {
+      const out = await enqueueAs(
+        { profanityFilterEnabled: false, languageBoost: 'English' },
+        'what the fuck'
+      );
+      expect(out).toBe('what the fuck');
+    });
+
+    test('cleans profanity when the filter is on', async () => {
+      const out = await enqueueAs(
+        { profanityFilterEnabled: true, languageBoost: 'English' },
+        'what the fuck'
+      );
+      expect(out).toBe('what the freak');
+    });
+
+    test('cleans English profanity on a non-English channel', async () => {
+      // The acronym dictionary is English-only and runs for every channel, so
+      // English profanity reaches this point even on a Spanish one. Passing
+      // only the channel language here would let it straight through.
+      const out = await enqueueAs(
+        { profanityFilterEnabled: true, languageBoost: 'Spanish' },
+        "let's fucking go"
+      );
+      expect(out).toBe("let's freaking go");
+    });
+
+    test('still cleans the channel language on a non-English channel', async () => {
+      const out = await enqueueAs(
+        { profanityFilterEnabled: true, languageBoost: 'Spanish' },
+        'que mierda'
+      );
+      expect(out).toBe('que miércoles');
+    });
+
+    test('cleans both languages when a viewer diverges from the channel', async () => {
+      mockTtsState.getUserLanguagePreference.mockResolvedValue('Spanish');
+      const out = await enqueueAs(
+        { profanityFilterEnabled: true, languageBoost: 'German' },
+        'mierda scheisse shit'
+      );
+      expect(out).toBe('miércoles Mist shoot');
+    });
+  });
+
   describe('enqueue', () => {
     test('should enqueue message with default settings', async () => {
       // Pause queue to prevent immediate processing

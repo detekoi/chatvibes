@@ -13,6 +13,9 @@ export default [
       sourceType: 'module',
       globals: {
         ...globals.node,
+        // Not in globals.node or globals.es2022, but built into Node. Used for
+        // word segmentation in scripts that do not put spaces between words.
+        Intl: 'readonly',
       },
     },
     plugins: {

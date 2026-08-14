@@ -128,7 +128,15 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     // on the channel's alone would let a viewer speaking another one through.
     let finalText = text;
     if (ttsStatus.profanityFilterEnabled) {
-        const rules = getProfanityRules([ttsStatus.languageBoost, finalVoiceOptions.languageBoost]);
+        // English is always in the set, whatever the channel's language. The
+        // pronunciation dictionary is English-only and runs for every channel,
+        // so "lfg" becomes "let's fucking go" even on a Spanish one. Loading
+        // only the Spanish list would send that straight through untouched.
+        const rules = getProfanityRules([
+            ttsStatus.languageBoost,
+            finalVoiceOptions.languageBoost,
+            'English',
+        ]);
         if (rules) {
             finalText = applyRewrites(text, rules);
             if (finalText !== text) {

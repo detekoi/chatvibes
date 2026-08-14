@@ -162,3 +162,89 @@ describe('slurs', () => {
         expect(speak('what a faggot', { filter: false })).toBe('what a faggot');
     });
 });
+
+describe('non-English channels', () => {
+    // The acronym dictionary is English-only and runs for every channel, so a
+    // Spanish channel still gets "let's fucking go" out of "lfg". Loading only
+    // the Spanish profanity list would send that through untouched, which is
+    // how ttsQueue ends up asking for English on top of the channel language.
+    it.each([
+        ['lfg', "let's freaking go"],
+        ['wtf', 'what the freak'],
+        ['stfu', 'shut the freak up'],
+        ['lmfao', 'laughing my freaking butt off'],
+        ['omfg', 'oh my freaking god'],
+    ])('cleans the English expansion of %s on a Spanish channel', (token, expected) => {
+        const expanded = applyRewrites(token, pron());
+        const rules = getProfanityRules(['Spanish', 'Spanish', 'English']);
+        expect(applyRewrites(expanded, rules)).toBe(expected);
+    });
+
+    it('still cleans the channel language too', () => {
+        const rules = getProfanityRules(['Spanish', 'Spanish', 'English']);
+        expect(applyRewrites('que mierda', rules)).toBe('que miércoles');
+    });
+});
+
+describe('scripts written without spaces between words', () => {
+    // \p{L} lookarounds are the wrong boundary test here: every neighbouring
+    // character is a letter, even at a genuine word edge. Matching is validated
+    // against Intl word segmentation instead.
+    it.each([
+        ['Chinese', '你在操什么', '你在哎呀什么'],
+        ['Chinese', '他妈的太难了', '真是的太难了'],
+        ['Japanese', 'あいつ死ねよ', 'あいつやめてよ'],
+        ['Japanese', 'くそゲーム', 'しまったゲーム'],
+        ['Thai', 'มันเหี้ยมาก', 'มันแย่จังมาก'],
+    ])('%s filters mid-sentence: %s', (lang, input, expected) => {
+        expect(applyRewrites(input, getProfanityRules(lang))).toBe(expected);
+    });
+
+    it.each([
+        ['Chinese', '操作系统'],   // "operating system", not 操 on its own
+        ['Chinese', '体操比赛'],   // "gymnastics competition"
+        ['Chinese', '操场很大'],   // "the playground is big"
+        ['Chinese', '操心'],       // "to worry"
+        ['Japanese', 'ばかり食べる'], // "ばかり" (only), not "ばか" (idiot)
+        ['Japanese', '馬車に乗る'],   // "horse carriage"
+        ['Thai', 'กูเกิลค้นหา'],     // "Google search"
+    ])('%s leaves the innocent compound %s alone', (lang, input) => {
+        expect(applyRewrites(input, getProfanityRules(lang))).toBe(input);
+    });
+
+    it('does not change how Latin-script text is matched', () => {
+        // A rule set spanning both kinds of script must not loosen the English
+        // side: those terms keep their own lookarounds in the pattern.
+        const mixed = getProfanityRules(['Chinese', 'English']);
+        expect(applyRewrites('lollipop assassin a class act', mixed))
+            .toBe('lollipop assassin a class act');
+        expect(applyRewrites('what the fuck', mixed)).toBe('what the freak');
+        expect(applyRewrites('操作系统', mixed)).toBe('操作系统');
+        expect(applyRewrites('你在操什么', mixed)).toBe('你在哎呀什么');
+    });
+});
+
+describe('list hygiene', () => {
+    it('has no term mixing Latin with Cyrillic or Greek characters', () => {
+        // A homoglyph typo compiles fine and simply never matches: the Japanese
+        // "aho" entry began with a Cyrillic "а" and was dead on arrival.
+        const lists = JSON.parse(
+            readFileSync('src/lib/profanity/profanityLists.json', 'utf8')
+        );
+        const mixed = [];
+        for (const [lang, data] of Object.entries(lists)) {
+            if (lang.startsWith('_')) continue;
+            for (const { term } of data.entries) {
+                const latin = /[a-z]/i.test(term);
+                const cyrillic = /[Ѐ-ӿ]/.test(term);
+                const greek = /[Ͱ-Ͽ]/.test(term);
+                if (latin && (cyrillic || greek)) mixed.push(`${lang}: ${term}`);
+            }
+        }
+        expect(mixed).toEqual([]);
+    });
+
+    it('filters romaji "aho" in Japanese', () => {
+        expect(applyRewrites('aho', getProfanityRules('Japanese'))).not.toBe('aho');
+    });
+});

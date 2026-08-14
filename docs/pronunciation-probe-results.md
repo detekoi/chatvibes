@@ -115,20 +115,37 @@ the phrase reads naturally; left alone where the letters are idiomatic
 
 ## Already expanded by the model
 
-No entry needed.
+**This section's original conclusion — "no entry needed" — was wrong, and every
+token here now has a dictionary entry.** Two things came out of live use that
+the probe could not see:
+
+1. **The expansion is not stable between renders.** `lmao` was later heard read
+   phonetically, `omg` as "oh em gee", and `ffs` as "double F's". A single
+   probe run samples one render and cannot detect that.
+2. **Model-side expansion defeats the profanity filter.** The filter runs on the
+   text we send. When the model does the expanding, the profane words only ever
+   exist in the audio, downstream of the filter — so `wtf` was spoken in full on
+   a channel that had filtering switched on.
+
+The rule that replaced it: **any acronym is pinned if its natural expansion
+carries profanity, or if a correct reading matters.** Relying on the model to
+expand anything is not safe.
+
+Note also that `ffs` → "double F's" and `eli5` → "eli five" were never correct
+expansions in the first place.
 
 | Token | How MiniMax says it | In the dictionary? |
 |---|---|---|
-| `1v1` | one v one | no |
-| `asap` | as soon as possible | no |
-| `eli5` | eli five | no |
-| `ffs` | double F's | no |
-| `fyi` | for your information | no |
-| `ikr` | I know right | no |
-| `lmao` | laugh my ass off | no |
-| `omg` | oh my god | no |
-| `ttyl` | talk to you later | no |
-| `wtf` | what the fuck | no |
+| `1v1` | one v one | yes |
+| `asap` | as soon as possible | yes |
+| `eli5` | eli five | yes |
+| `ffs` | double F's | yes |
+| `fyi` | for your information | yes |
+| `ikr` | I know right | yes |
+| `lmao` | laugh my ass off | yes |
+| `omg` | oh my god | yes |
+| `ttyl` | talk to you later | yes |
+| `wtf` | what the fuck | yes |
 
 ## Said as a real word
 
@@ -150,7 +167,7 @@ Correct as-is — these are pronounced as words in chat too.
 | `pog` | pog | no |
 | `qol` | col | yes |
 | `rip` | rip | no |
-| `rofl` | rofl | no |
+| `rofl` | rofl | yes |
 | `sus` | sus | no |
 | `til` | till | no |
 | `uwu` | oo-oo | no |

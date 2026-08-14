@@ -303,7 +303,6 @@
       { "term": "бля", "replacement": "блін" },
       { "term": "сука", "replacement": "сушка" },
       { "term": "хуй", "replacement": "хрін" },
-      { "term": "піzdець", "replacement": "капець" },
       { "term": "піздець", "replacement": "капець" },
       { "term": "їбати", "replacement": "ялинки" },
       { "term": "довбойоб", "replacement": "роззява" },
@@ -378,7 +377,7 @@
       { "term": "殺す", "replacement": "やっつける" },
       { "term": "ばか", "replacement": "おバカ" },
       { "term": "馬鹿", "replacement": "おバカ" },
-      { "term": "аho", "replacement": "おバカ" },
+      { "term": "aho", "replacement": "おバカ" },
       { "term": "あほ", "replacement": "おバカ" },
       { "term": "きちがい", "replacement": "無茶" },
       { "term": "うざい", "replacement": "うるさい" },
@@ -514,7 +513,6 @@
       { "term": "สัตว์", "replacement": "แย่จัง" },
       { "term": "ไอ้เวร", "replacement": "เจ้าตัวแสบ" },
       { "term": "แม่ง", "replacement": "จริงๆ" },
-      { "term": "กู", "replacement": "ฉัน" },
       { "term": "มึง", "replacement": "เธอ" }
     ]
   },
