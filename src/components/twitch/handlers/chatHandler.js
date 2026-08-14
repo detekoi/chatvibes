@@ -11,6 +11,7 @@ import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { isGeminiAvailable } from '../../../lib/emotes/index.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { storeFragments } from '../redemptionFragmentCache.js';
 
 /**
@@ -157,7 +158,7 @@ export async function handleChatMessage(event, channelName) {
     if (processedCommandName) {
         // Read non-tts commands aloud in 'all' mode
         if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
-            const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls });
+            const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls, pronunciationRules: getPronunciationRules(ttsConfig) });
             if (processedMessage) {
                 await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'command', messageId: event.message_id }, sharedSessionInfo);
                 logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
@@ -187,7 +188,7 @@ export async function handleChatMessage(event, channelName) {
                             return;
                         }
                     }
-                    const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls });
+                    const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls, pronunciationRules: getPronunciationRules(ttsConfig) });
                     if (processedMessage) {
                         await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
                         logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
@@ -208,7 +209,7 @@ export async function handleChatMessage(event, channelName) {
             }
 
             if (hasPermission(requiredPermission, tags, channelName)) {
-                const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls });
+                const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls, pronunciationRules: getPronunciationRules(ttsConfig) });
                 if (processedMessage) {
                     await publishTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
                     logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');

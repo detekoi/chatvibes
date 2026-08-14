@@ -46,7 +46,9 @@ jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
 }));
 
 jest.unstable_mockModule('../../src/lib/urlProcessor.js', () => ({
-    processMessageUrls: jest.fn((text) => text)
+    processMessageUrls: jest.fn((text) => text),
+    // The rewrite engine imports this to mask URL spans before matching.
+    URL_REGEX: /(https?:\/\/\S+|\b\w+\.[a-z]{2,}\b)/gi,
 }));
 
 // Mock formatTtsText — pass through by default, can be overridden per test

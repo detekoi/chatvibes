@@ -5,6 +5,7 @@ import logger from '../../../lib/logger.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { pronounService } from '../../../lib/pronounService.js';
 
 /** Synthetic subscription type used to route watch streak events from channel.chat.notification */
@@ -78,6 +79,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         emoteMode,
                         channelEmoteMode: emoteMode,
                         readFullUrls: ttsConfig.readFullUrls || false,
+                        pronunciationRules: getPronunciationRules(ttsConfig),
                     });
                     if (formattedMessage) {
                         ttsText += ` ${formattedMessage}`;
@@ -203,6 +205,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         emoteMode,
                         channelEmoteMode: emoteMode,
                         readFullUrls: ttsConfig.readFullUrls || false,
+                        pronunciationRules: getPronunciationRules(ttsConfig),
                     });
                     if (formattedMessage) {
                         let pronounSubject = 'They';

@@ -6,8 +6,8 @@ import WebSocket from 'ws';
 import logger from '../../lib/logger.js';
 import { getTtsState, getAllChannelConfigs, onYouTubeConfigChange } from '../tts/ttsState.js';
 import { publishTtsEvent } from '../../lib/pubsub.js';
-import { processMessageUrls } from '../../lib/urlProcessor.js';
-import { replaceEmojisWithText, stripEmojis } from '../../lib/emojiUtils.js';
+import { formatTtsText } from '../../lib/formatTtsText.js';
+import { getPronunciationRules } from '../../lib/textRewrite/pronunciation.js';
 import { processYouTubeEmotes } from './ytEmoteProcessor.js';
 
 const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://ytchat.wildcat.chat/ws';
@@ -217,13 +217,16 @@ async function _handleMessage(channelId, msg) {
 
     logger.debug({ channelId, emoteMode, hasEmoteFragments: !!msg.emoteFragments }, 'YouTube Chat: Emote mode resolved');
 
-    // Processing pipeline: YouTube custom emotes → URLs → Unicode emoji
-    let processedText = await processYouTubeEmotes(
-        messageText, msg.emoteFragments || null, emoteMode, emoteMode
-    );
-    processedText = processMessageUrls(processedText, ttsConfig.readFullUrls);
-    const processEmoji = emoteMode === 'skip' ? stripEmojis : replaceEmojisWithText;
-    processedText = processEmoji(processedText);
+    // Shared pipeline: emotes → URLs → Unicode emoji → pronunciations.
+    // Only the emote step differs from Twitch, so it is injected rather than
+    // the whole pipeline being duplicated here.
+    let processedText = await formatTtsText(messageText, msg.emoteFragments || null, {
+        emoteMode,
+        channelEmoteMode: emoteMode,
+        readFullUrls: ttsConfig.readFullUrls,
+        pronunciationRules: getPronunciationRules(ttsConfig),
+        emoteProcessor: processYouTubeEmotes,
+    });
 
     if (!processedText.trim()) return;
 

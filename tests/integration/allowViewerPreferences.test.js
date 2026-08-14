@@ -4,7 +4,8 @@
 import { jest } from '@jest/globals';
 import {
   createMockFirestore,
-  FieldValue
+  FieldValue,
+  FieldPath
 } from '../helpers/mockFirestore.js';
 import {
   TEST_CHANNEL,
@@ -33,7 +34,8 @@ describe('allowViewerPreferences Feature', () => {
     // Mock Firestore initialization
     jest.unstable_mockModule('@google-cloud/firestore', () => ({
       Firestore: jest.fn(() => mockDb),
-      FieldValue: FieldValue
+      FieldValue: FieldValue,
+      FieldPath: FieldPath
     }));
 
     // Mock TTS service

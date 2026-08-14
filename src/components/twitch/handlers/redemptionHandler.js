@@ -8,6 +8,7 @@ import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { consumeFragments } from '../redemptionFragmentCache.js';
 import { Firestore } from '@google-cloud/firestore';
 
@@ -264,6 +265,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
                 emoteMode,
                 channelEmoteMode: emoteMode,
                 readFullUrls: ttsConfig.readFullUrls || false,
+                pronunciationRules: getPronunciationRules(ttsConfig),
             });
             if (formattedInput) {
                 ttsText += `: ${formattedInput}`;
@@ -476,6 +478,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
         emoteMode,
         channelEmoteMode,
         readFullUrls: ttsConfig.readFullUrls || false,
+        pronunciationRules: getPronunciationRules(ttsConfig),
     });
 
     // Guard against empty result (e.g. all-emote message with emoteMode='skip')

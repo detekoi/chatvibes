@@ -4,7 +4,8 @@
 import { jest } from '@jest/globals';
 import {
   createMockFirestore,
-  FieldValue
+  FieldValue,
+  FieldPath
 } from '../helpers/mockFirestore.js';
 import {
   TEST_CHANNEL,
@@ -24,7 +25,8 @@ describe('ttsState module', () => {
 
     jest.unstable_mockModule('@google-cloud/firestore', () => ({
       Firestore: jest.fn(() => mockDb),
-      FieldValue: FieldValue
+      FieldValue: FieldValue,
+      FieldPath: FieldPath
     }));
 
     jest.unstable_mockModule('../../src/components/tts/ttsService.js', () => ({
@@ -292,6 +294,95 @@ describe('ttsState module', () => {
 
       const mode = await ttsState.getUserEmoteModePreference(TEST_USER);
       expect(mode).toBeNull();
+    });
+  });
+
+  describe('pronunciations', () => {
+    const doc = () => mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL);
+
+    beforeEach(async () => {
+      await doc().set({ ...mockChannelConfig });
+      await ttsState.initializeTtsState();
+    });
+
+    test('hydrates a fresh channel with an empty map, never undefined', async () => {
+      // ignoredUsers has no default and its add path throws on a fresh channel
+      // as a result; pronunciations must not repeat that.
+      const state = await ttsState.getTtsState('a-channel-that-does-not-exist');
+      expect(state.pronunciations).toEqual({});
+    });
+
+    test('setPronunciation stores the entry', async () => {
+      expect(await ttsState.setPronunciation(TEST_CHANNEL, 'wcat', 'wildcat')).toBe(true);
+
+      const stored = (await doc().get()).data();
+      expect(stored.pronunciations).toEqual({ wcat: 'wildcat' });
+    });
+
+    test('setPronunciation leaves sibling entries alone', async () => {
+      await ttsState.setPronunciation(TEST_CHANNEL, 'wcat', 'wildcat');
+      await ttsState.setPronunciation(TEST_CHANNEL, 'lfg', 'lets go');
+
+      const stored = (await doc().get()).data();
+      expect(stored.pronunciations).toEqual({ wcat: 'wildcat', lfg: 'lets go' });
+    });
+
+    test('setPronunciation updates the cache immediately', async () => {
+      await ttsState.setPronunciation(TEST_CHANNEL, 'wcat', 'wildcat');
+
+      const state = await ttsState.getTtsState(TEST_CHANNEL);
+      expect(state.pronunciations.wcat).toBe('wildcat');
+    });
+
+    test('setPronunciation swaps in a new map object so memoized rules recompile', async () => {
+      const before = (await ttsState.getTtsState(TEST_CHANNEL)).pronunciations;
+      await ttsState.setPronunciation(TEST_CHANNEL, 'wcat', 'wildcat');
+      const after = (await ttsState.getTtsState(TEST_CHANNEL)).pronunciations;
+
+      expect(after).not.toBe(before);
+    });
+
+    test('an empty value is stored, which is how a built-in is switched off', async () => {
+      await ttsState.setPronunciation(TEST_CHANNEL, 'lfg', '');
+
+      const stored = (await doc().get()).data();
+      expect(stored.pronunciations.lfg).toBe('');
+    });
+
+    test('removePronunciation deletes just that key', async () => {
+      await ttsState.setPronunciation(TEST_CHANNEL, 'wcat', 'wildcat');
+      await ttsState.setPronunciation(TEST_CHANNEL, 'lfg', 'lets go');
+
+      expect(await ttsState.removePronunciation(TEST_CHANNEL, 'wcat')).toBe(true);
+
+      const stored = (await doc().get()).data();
+      expect(stored.pronunciations).toEqual({ lfg: 'lets go' });
+    });
+
+    test('removePronunciation handles keys with spaces and hyphens', async () => {
+      // A dotted string field path would need backtick quoting for these.
+      await ttsState.setPronunciation(TEST_CHANNEL, 'e-girl', 'ee girl');
+      await ttsState.setPronunciation(TEST_CHANNEL, 'good game', 'gg');
+
+      expect(await ttsState.removePronunciation(TEST_CHANNEL, 'e-girl')).toBe(true);
+
+      const stored = (await doc().get()).data();
+      expect(stored.pronunciations).toEqual({ 'good game': 'gg' });
+    });
+
+    test('removing an entry that is not there reports success', async () => {
+      // NOT_FOUND means the desired end state already holds.
+      expect(await ttsState.removePronunciation(TEST_CHANNEL, 'nothing-here')).toBe(true);
+    });
+
+    test('clearPronunciations empties the map without touching other settings', async () => {
+      await ttsState.setPronunciation(TEST_CHANNEL, 'wcat', 'wildcat');
+
+      expect(await ttsState.clearPronunciations(TEST_CHANNEL)).toBe(true);
+
+      const stored = (await doc().get()).data();
+      expect(stored.pronunciations).toEqual({});
+      expect(stored.voiceId).toBe(mockChannelConfig.voiceId);
     });
   });
 });

@@ -36,6 +36,8 @@ beforeEach(() => {
 
     jest.unstable_mockModule('../../src/lib/urlProcessor.js', () => ({
         processMessageUrls: mockProcessMessageUrls,
+        // The rewrite engine imports this to mask URL spans before matching.
+        URL_REGEX: /(https?:\/\/\S+|\b\w+\.[a-z]{2,}\b)/gi,
     }));
 
     jest.unstable_mockModule('../../src/lib/emojiUtils.js', () => ({

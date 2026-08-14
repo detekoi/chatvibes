@@ -580,7 +580,14 @@ describe('notificationHandler', () => {
             expect(mockFormatTtsText).toHaveBeenCalledWith(
                 'https://twitch.tv/somechannel',
                 [{ type: 'text', text: 'https://twitch.tv/somechannel' }],
-                { emoteMode: 'skip', channelEmoteMode: 'skip', readFullUrls: true }
+                {
+                    emoteMode: 'skip',
+                    channelEmoteMode: 'skip',
+                    readFullUrls: true,
+                    // A compiled rule set built from the built-in dictionary.
+                    // Its contents are covered by textRewrite.test.js.
+                    pronunciationRules: expect.objectContaining({ re: expect.any(RegExp) }),
+                }
             );
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',

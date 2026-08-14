@@ -64,6 +64,34 @@ export TWITCH_CHANNELS=yourchannel
   - `!tts clear` - Clears the pending TTS queue (does not stop current audio).
   - `!tts lang <language>` - Set your preferred language boost.
   - `!tts defaultlanguage <language>` - (Mod) Set channel's default language boost.
+  - `!tts pronounce <word> = <how to say it>` - (Mod) Add or update a channel pronunciation.
+  - `!tts pronounce list | remove <word> | off <word> | test <text> | defaults` - (Mod) Manage the dictionary. `off` disables a built-in without deleting it; `test` previews an expansion without speaking it.
+  - `!tts profanity on|off|status` - (Mod) Toggle the profanity filter (off by default).
+
+## Pronunciation and Profanity
+
+- **Pronunciation dictionary** (`src/lib/textRewrite/`): a built-in list of Twitch acronyms
+  (`PRONUNCIATION_DEFAULTS` in `tts-config.json`) merged with per-channel overrides stored in the
+  `pronunciations` map on the channel config. A channel entry with an empty value switches off the
+  built-in of the same name; deleting the key restores it.
+  - The built-in list was trimmed against the live API — see `docs/pronunciation-probe-results.md`
+    and `scripts/probe-pronunciation.js`. Only entries the model actually gets wrong or reads as
+    bare letters are included. Notably `lol` is deliberately absent: MiniMax already reads it as
+    "el oh el", which is the natural result.
+  - Matching is case-insensitive and anchored to word boundaries using `\p{L}\p{N}` lookarounds
+    rather than `\b`, which is ASCII-only and would misfire on non-English text. Replacement is a
+    single pass, so an expansion is never re-scanned by another rule.
+  - MiniMax's own `pronunciation_dict` API parameter is deliberately **not** used: the probe showed
+    it matches case-sensitively, so `LFG` would not match a `lfg` entry.
+- **Profanity filter** (`src/lib/profanity/`): off by default, per channel. Word lists for all 40
+  `languageBoost` values are hand-authored in `profanityLists.json` and validated by
+  `tests/unit/profanityLists.test.js`. Substitution, not bleeping — an empty replacement would let
+  a message reduce to `""`, which every caller drops silently instead of speaking.
+  - Applied in `ttsQueue.enqueue`, not `formatTtsText`, because a viewer can override
+    `languageBoost` for their own messages and that is only resolved there. When the viewer's
+    language differs from the channel's, both lists apply.
+  - `languageBoost: 'auto'` (the default) uses the English list; language cannot be detected per
+    message.
 
 
 ## Key Files

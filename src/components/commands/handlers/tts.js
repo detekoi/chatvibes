@@ -29,6 +29,8 @@ import bitsconfig from '../tts/bits.js';
 import permission from '../tts/permission.js';
 import preferences from '../tts/preferences.js';
 import emoteCmd from '../tts/emote.js';
+import pronounce from '../tts/pronounce.js';
+import profanity from '../tts/profanity.js';
 import { hasPermission } from '../commandProcessor.js'; // Import the centralized function
 // Create subcommands object
 const ttsSubCommands = {
@@ -65,6 +67,11 @@ const ttsSubCommands = {
     prefs: preferences,
     settings: preferences,
     emote: emoteCmd,
+    pronounce,
+    pronunciation: pronounce,
+    pronounciation: pronounce, // common misspelling
+    profanity,
+    profanityfilter: profanity,
 };
 
 export default {

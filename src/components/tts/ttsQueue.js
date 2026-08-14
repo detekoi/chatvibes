@@ -15,6 +15,8 @@ import {
 } from './ttsState.js';
 import { sendAudioToChannel, hasActiveClients } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
+import { getProfanityRules } from '../../lib/profanity/index.js';
+import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
 
 let db;
 const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
@@ -119,7 +121,23 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
 
     logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: VoiceID='${finalVoiceOptions.voiceId}', Emotion='${finalVoiceOptions.emotion}', Speed=${finalVoiceOptions.speed}, Pitch=${finalVoiceOptions.pitch}, LanguageBoost='${finalVoiceOptions.languageBoost}'`);
 
-    cq.queue.push({ type, text, user, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo });
+    // Profanity filter (opt-in). This is the last text step, and it runs here
+    // rather than in formatTtsText because a viewer can override languageBoost
+    // for their own messages and that override is only resolved above. When the
+    // viewer's language differs from the channel's, both lists apply — filtering
+    // on the channel's alone would let a viewer speaking another one through.
+    let finalText = text;
+    if (ttsStatus.profanityFilterEnabled) {
+        const rules = getProfanityRules([ttsStatus.languageBoost, finalVoiceOptions.languageBoost]);
+        if (rules) {
+            finalText = applyRewrites(text, rules);
+            if (finalText !== text) {
+                logger.debug(`[${channelName}] Profanity filter applied to message from ${user || 'event'}.`);
+            }
+        }
+    }
+
+    cq.queue.push({ type, text: finalText, user, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
 }

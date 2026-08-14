@@ -7,7 +7,7 @@ import logger from './logger.js';
  * - Full URLs with protocol: http://example.com, https://www.site.com/path
  * - Domains without protocol: example.com, www.domain.org
  */
-const URL_REGEX = /(https?:\/\/\S+|\b\w+\.[a-z]{2,}\b)/gi;
+export const URL_REGEX = /(https?:\/\/\S+|\b\w+\.[a-z]{2,}\b)/gi;
 
 /**
  * Extracts a human-readable domain name from a URL string

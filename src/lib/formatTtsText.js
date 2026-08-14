@@ -7,6 +7,7 @@ import logger from './logger.js';
 import { processMessageUrls } from './urlProcessor.js';
 import { replaceEmojisWithText, stripEmojis } from './emojiUtils.js';
 import { isGeminiAvailable, processMessageWithEmoteDescriptions } from './emotes/index.js';
+import { applyRewrites } from './textRewrite/replaceEngine.js';
 
 /**
  * Apply the full TTS text formatting pipeline to a message.
@@ -15,6 +16,17 @@ import { isGeminiAvailable, processMessageWithEmoteDescriptions } from './emotes
  *   1. Process Twitch emotes in fragments according to emoteMode (read / skip / describe)
  *   2. Process URLs (shorten to domain or pass through)
  *   3. Process Unicode emojis (describe or strip based on emoteMode)
+ *   4. Expand pronunciation dictionary entries (LFG -> "lets fucking go")
+ *
+ * Pronunciation runs last so it sees the final string exactly once: emote
+ * descriptions and emoji names are generated English and should be expanded
+ * too, and running before step 2 would expand acronyms inside hostnames and
+ * hand corrupted URLs to processMessageUrls.
+ *
+ * The profanity filter is step 5 and deliberately lives in ttsQueue.enqueue
+ * instead. A viewer can override languageBoost for their own messages, and
+ * that override is only resolved there — filtering here would apply the
+ * channel's language to a viewer speaking another one.
  *
  * @param {string} text - The plain-text message content.
  * @param {Array<{type: string, text: string, emote?: object}>|null} fragments
@@ -24,11 +36,16 @@ import { isGeminiAvailable, processMessageWithEmoteDescriptions } from './emotes
  * @param {string} options.emoteMode - Resolved emote mode: 'read' | 'skip' | 'describe'.
  * @param {string} options.channelEmoteMode - Channel-level default (used as describe fallback).
  * @param {boolean} [options.readFullUrls=false] - Whether to read full URLs aloud.
+ * @param {object|null} [options.pronunciationRules=null] - Compiled rule set from
+ *     getPronunciationRules, or null to skip the pass.
+ * @param {Function} [options.emoteProcessor] - Emote step override, same
+ *     signature as processEmoteFragments. YouTube passes its own processor so
+ *     both platforms share the rest of the pipeline rather than duplicating it.
  * @returns {Promise<string>} The processed TTS-ready text.
  */
-export async function formatTtsText(text, fragments, { emoteMode = 'read', channelEmoteMode = 'read', readFullUrls = false } = {}) {
-    // Step 1: Process Twitch emotes via fragment data
-    let processed = await processEmoteFragments(text, fragments, emoteMode, channelEmoteMode);
+export async function formatTtsText(text, fragments, { emoteMode = 'read', channelEmoteMode = 'read', readFullUrls = false, pronunciationRules = null, emoteProcessor = processEmoteFragments } = {}) {
+    // Step 1: Process emotes via fragment data
+    let processed = await emoteProcessor(text, fragments, emoteMode, channelEmoteMode);
 
     // Step 2: Process URLs
     processed = processMessageUrls(processed, readFullUrls);
@@ -36,6 +53,11 @@ export async function formatTtsText(text, fragments, { emoteMode = 'read', chann
     // Step 3: Process Unicode emojis
     const processEmoji = emoteMode === 'skip' ? stripEmojis : replaceEmojisWithText;
     processed = processEmoji(processed);
+
+    // Step 4: Expand pronunciation dictionary entries
+    if (pronunciationRules) {
+        processed = applyRewrites(processed, pronunciationRules);
+    }
 
     return processed;
 }

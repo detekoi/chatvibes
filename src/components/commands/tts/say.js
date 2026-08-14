@@ -3,6 +3,7 @@ import { getTtsState } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import { publishTtsEvent } from '../../../lib/pubsub.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { hasPermissionLevel, mapPermissionLevel } from '../../../lib/permissions.js';
 import logger from '../../../lib/logger.js';
 
@@ -48,6 +49,7 @@ export default {
             emoteMode: eventData.emoteMode || 'read',
             channelEmoteMode: eventData.channelEmoteMode || 'read',
             readFullUrls: ttsConfig.readFullUrls,
+            pronunciationRules: getPronunciationRules(ttsConfig),
         });
 
         // Use the processed result if available (null/undefined means processing wasn't possible),

@@ -1,5 +1,5 @@
 // src/components/tts/ttsState.js
-import { Firestore, FieldValue } from '@google-cloud/firestore';
+import { Firestore, FieldValue, FieldPath } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 import {
     DEFAULT_TTS_SETTINGS,
@@ -452,6 +452,101 @@ export async function removeIgnoredUser(channelName, username) {
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to remove user from TTS ignore list in Firestore.');
+        return false;
+    }
+}
+
+// --- Pronunciation dictionary (channel overrides for the built-in acronyms) ---
+//
+// Stored as a map field rather than an array, so arrayUnion/arrayRemove do not
+// apply. Writes deep-merge a single key; deletes go through a FieldPath.
+
+/**
+ * Add or update one channel pronunciation.
+ * Pass an empty string as `say` to switch off a built-in of the same name.
+ * @param {string} channelName
+ * @param {string} match Already normalized by normalizeMatchKey.
+ * @param {string} say
+ * @returns {Promise<boolean>}
+ */
+export async function setPronunciation(channelName, match, say) {
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
+    try {
+        // merge:true deep-merges nested maps key by key, so this touches only
+        // the one entry and leaves the rest of the dictionary alone.
+        await docRef.set({
+            pronunciations: { [match]: say },
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        const config = await getTtsState(channelId);
+        // A fresh object, not a mutation: getPronunciationRules memoizes on the
+        // identity of this map, so mutating in place would serve stale rules.
+        config.pronunciations = { ...(config.pronunciations || {}), [match]: say };
+        channelConfigsCache.set(channelId, config);
+        logger.info(`[${channelName}] Pronunciation set: "${match}" -> "${say}"`);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, match }, 'Failed to set pronunciation in Firestore.');
+        return false;
+    }
+}
+
+/**
+ * Remove one channel pronunciation. A built-in of the same name comes back.
+ * @param {string} channelName
+ * @param {string} match Already normalized by normalizeMatchKey.
+ * @returns {Promise<boolean>}
+ */
+export async function removePronunciation(channelName, match) {
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
+    try {
+        // FieldPath segments are taken literally. A dotted string would be
+        // parsed instead, so a key containing a space or hyphen would need
+        // backtick quoting and one containing a dot would target the wrong
+        // nesting entirely.
+        await docRef.update(new FieldPath('pronunciations', match), FieldValue.delete(),
+            'updatedAt', FieldValue.serverTimestamp());
+
+        const config = await getTtsState(channelId);
+        const next = { ...(config.pronunciations || {}) };
+        delete next[match];
+        config.pronunciations = next;
+        channelConfigsCache.set(channelId, config);
+        logger.info(`[${channelName}] Pronunciation removed: "${match}"`);
+        return true;
+    } catch (error) {
+        // 5 is NOT_FOUND: the entry was already gone, which is the desired end state.
+        if (error.code === 5) return true;
+        logger.error({ err: error, channel: channelName, match }, 'Failed to remove pronunciation from Firestore.');
+        return false;
+    }
+}
+
+/**
+ * Drop every channel pronunciation, restoring the built-ins.
+ * @param {string} channelName
+ * @returns {Promise<boolean>}
+ */
+export async function clearPronunciations(channelName) {
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
+    try {
+        // Not merge:true — a merge would leave the existing keys in place.
+        await docRef.set({
+            pronunciations: {},
+            updatedAt: FieldValue.serverTimestamp()
+        }, { mergeFields: ['pronunciations', 'updatedAt'] });
+
+        const config = await getTtsState(channelId);
+        config.pronunciations = {};
+        channelConfigsCache.set(channelId, config);
+        logger.info(`[${channelName}] All channel pronunciations cleared.`);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName }, 'Failed to clear pronunciations in Firestore.');
         return false;
     }
 }
