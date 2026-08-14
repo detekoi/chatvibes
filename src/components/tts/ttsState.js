@@ -427,54 +427,6 @@ export async function removeIgnoredUser(channelName, username) {
     }
 }
 
-// Functions for managing banned words/phrases
-export async function addBannedWord(channelName, word) {
-    const channelId = resolveChannelId(channelName);
-    const lowerWord = word.toLowerCase().trim();
-    if (!lowerWord) return false;
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
-    try {
-        await docRef.set({
-            bannedWords: FieldValue.arrayUnion(lowerWord),
-            updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
-        // Update cache
-        const config = await getTtsState(channelId);
-        if (!config.bannedWords) config.bannedWords = [];
-        if (!config.bannedWords.includes(lowerWord)) {
-            config.bannedWords.push(lowerWord);
-        }
-        channelConfigsCache.set(channelId, config);
-        return true;
-    } catch (error) {
-        logger.error({ err: error, channel: channelName, word: lowerWord }, 'Failed to add banned word in Firestore.');
-        return false;
-    }
-}
-
-export async function removeBannedWord(channelName, word) {
-    const channelId = resolveChannelId(channelName);
-    const lowerWord = word.toLowerCase().trim();
-    if (!lowerWord) return false;
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
-    try {
-        await docRef.update({
-            bannedWords: FieldValue.arrayRemove(lowerWord),
-            updatedAt: FieldValue.serverTimestamp()
-        });
-        // Update cache
-        const config = await getTtsState(channelId);
-        if (config.bannedWords) {
-            config.bannedWords = config.bannedWords.filter(w => w !== lowerWord);
-        }
-        channelConfigsCache.set(channelId, config);
-        return true;
-    } catch (error) {
-        logger.error({ err: error, channel: channelName, word: lowerWord }, 'Failed to remove banned word from Firestore.');
-        return false;
-    }
-}
-
 // Get user-specific emotion preference
 export async function getUserEmotionPreference(channelName, username, userId) {
     const channelConfig = await getTtsState(channelName);
@@ -821,41 +773,6 @@ export async function clearUserSpeedPreference(channelName, username, userId) {
     } catch (error) {
         if (error.code === 5) { return true; }
         logger.error({ err: error, channel: channelName, user: userKey }, 'Failed to clear user TTS speed preference.');
-        return false;
-    }
-}
-
-// --- Functions for Voice Volumes ---
-export async function getVoiceVolumes(channelName) {
-    const config = await getTtsState(channelName);
-    return config.voiceVolumes || {};
-}
-
-export async function setVoiceVolume(channelName, voiceId, volume) {
-    const channelId = resolveChannelId(channelName);
-    const parsedVolume = parseFloat(volume);
-    if (isNaN(parsedVolume) || parsedVolume <= 0 || parsedVolume > 10) {
-        logger.warn(`[${channelName}] Attempt to set invalid volume '${volume}' for voice ${voiceId}.`);
-        return false;
-    }
-    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
-    try {
-        // Use dot notation for nested update in Firestore
-        await docRef.set({
-            voiceVolumes: { [voiceId]: parsedVolume },
-            updatedAt: FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        logger.info(`[${channelName}] Voice volume updated for ${voiceId}: ${parsedVolume}`);
-
-        // Update cache
-        const currentConfig = channelConfigsCache.get(channelId) || await getTtsState(channelId);
-        if (!currentConfig.voiceVolumes) currentConfig.voiceVolumes = {};
-        currentConfig.voiceVolumes[voiceId] = parsedVolume;
-        channelConfigsCache.set(channelId, currentConfig);
-        return true;
-    } catch (error) {
-        logger.error({ err: error, channel: channelName, voiceId, volume }, 'Failed to set voice volume in Firestore.');
         return false;
     }
 }

@@ -10,25 +10,6 @@ import { isChannelAllowed } from '../../lib/allowList.js';
 import { handleSecretCleanup } from './cleanupEndpoint.js';
 import { extractBearerToken } from '../../lib/authUtils.js';
 
-import {
-    getTtsState,
-    setTtsState,
-    addIgnoredUser,
-    removeIgnoredUser,
-    addBannedWord,
-    removeBannedWord,
-    VALID_EMOTE_MODES,
-} from '../tts/ttsState.js';
-
-import {
-    VALID_EMOTIONS,
-    VALID_LANGUAGE_BOOSTS,
-    TTS_PITCH_MIN,
-    TTS_PITCH_MAX,
-    TTS_SPEED_MIN,
-    TTS_SPEED_MAX,
-} from '../tts/ttsConstants.js';
-
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
@@ -81,10 +62,12 @@ const apiRateLimiter = rateLimit({
 // ---------------------------------------------------------------------------
 
 /**
- * Channel-scoped JWT guard core logic.
+ * Channel-scoped JWT guard. Takes the channel from the JSON body's
+ * channelLogin field and checks it against the token's userLogin claim.
  * Sets req.channelName and req.userLogin on success.
  */
-async function _doVerifyChannelAccess(req, res, next, requestedChannel) {
+async function verifyChannelAccessFromBody(req, res, next) {
+    const requestedChannel = req.body?.channelLogin;
     const channelName = typeof requestedChannel === 'string' ? requestedChannel.toLowerCase() : undefined;
 
     if (!channelName) {
@@ -130,209 +113,9 @@ async function _doVerifyChannelAccess(req, res, next, requestedChannel) {
     }
 }
 
-/**
- * Channel-scoped JWT guard (Path scoped).
- * Takes the channel from the route's :channel param.
- */
-async function verifyChannelAccess(req, res, next) {
-    return _doVerifyChannelAccess(req, res, next, req.params.channel);
-}
-
-/**
- * Channel-scoped JWT guard (Body scoped).
- * Takes the channel from the JSON body's channelLogin field.
- */
-async function verifyChannelAccessFromBody(req, res, next) {
-    return _doVerifyChannelAccess(req, res, next, req.body?.channelLogin);
-}
-
-/**
- * Light-weight JWT check used by /api/tts/test — validates the token is
- * genuine but does not enforce channel ownership.
- */
-function verifyAnyValidToken(req, res, next) {
-    const token = extractBearerToken(req.headers.authorization);
-    if (!token) {
-        return res.status(401).json({ success: false, error: 'Authorization token is required or missing' });
-    }
-    try {
-        jwt.verify(token, JWT_SECRET_KEY, {
-            audience: ['wildcat-tts-api', 'chatvibes-api'],
-            issuer: ['wildcat-tts-auth', 'chatvibes-auth'],
-        });
-        next();
-    } catch {
-        return res.status(401).json({ success: false, error: 'Invalid or expired token' });
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
-
-async function validateTtsSetting(key, value) {
-    switch (key) {
-        case 'engineEnabled':
-        case 'speakEvents':
-        case 'speakCheerEvents':
-        case 'speakRedemptionEvents':
-        case 'speakWatchStreakEvents':
-        case 'anonymizeFollowers':
-        case 'bitsModeEnabled':
-        case 'readFullUrls':
-        case 'allowViewerPreferences':
-        case 'botRespondsInChat':
-        case 'englishNormalization':
-        case 'youtubeEnabled':
-            return typeof value === 'boolean';
-        case 'emoteMode':
-            return VALID_EMOTE_MODES.includes(value);
-        case 'youtubeHandle':
-            return typeof value === 'string' && value.length <= 100;
-        case 'mode':
-            return ['all', 'command', 'bits_points_only'].includes(value);
-        case 'ttsPermissionLevel':
-            return ['everyone', 'subs', 'mods', 'vip'].includes(value);
-        case 'emotion':
-            return VALID_EMOTIONS.includes(value.toLowerCase());
-        case 'languageBoost':
-            return VALID_LANGUAGE_BOOSTS.includes(value);
-        case 'pitch': {
-            const pitch = parseInt(value, 10);
-            return !isNaN(pitch) && pitch >= TTS_PITCH_MIN && pitch <= TTS_PITCH_MAX;
-        }
-        case 'speed': {
-            const speed = parseFloat(value);
-            return !isNaN(speed) && speed >= TTS_SPEED_MIN && speed <= TTS_SPEED_MAX;
-        }
-        case 'bitsMinimumAmount': {
-            const amount = parseInt(value, 10);
-            return !isNaN(amount) && amount >= 0;
-        }
-        case 'voiceId':
-            return typeof value === 'string' && value.length > 0;
-        default:
-            if (key.startsWith('voiceVolumes.')) {
-                const volume = parseFloat(value);
-                return !isNaN(volume) && volume > 0 && volume <= 10;
-            }
-            if (key === 'bannedWords') {
-                return Array.isArray(value) && value.every(w => typeof w === 'string');
-            }
-            logger.warn(`Unknown TTS setting key: ${key}`);
-            return false;
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
-
-async function handleVoicesEndpoint(req, res) {
-    try {
-        const { getAvailableVoices } = await import('../tts/ttsService.js');
-        const voiceList = await getAvailableVoices();
-
-        if (voiceList && voiceList.length > 0) {
-            return res.json({ success: true, voices: voiceList.map(v => v.id || v) });
-        }
-    } catch (error) {
-        logger.error({ err: error }, 'Failed to fetch voices from TTS service');
-    }
-
-    // Fallback voices (Wavespeed defaults)
-    const fallbackVoices = [
-        'Friendly_Person', 'Wise_Woman', 'Deep_Voice_Man', 'Calm_Woman',
-        'Casual_Guy', 'Lively_Girl', 'Patient_Man', 'Young_Knight',
-        'Determined_Man', 'Lovely_Girl', 'Decent_Boy', 'Elegant_Man',
-    ];
-    return res.json({ success: true, voices: fallbackVoices });
-}
-
-async function handleTtsTest(req, res) {
-    const { text, voiceId, pitch, speed, volume, emotion, languageBoost, englishNormalization } = req.body;
-
-    if (!text) {
-        return res.status(400).json({ success: false, error: 'Text is required' });
-    }
-
-    try {
-        const { generateSpeech } = await import('../tts/ttsService.js');
-        const audioUrl = await generateSpeech(text, voiceId, {
-            pitch, speed, volume, emotion, languageBoost, englishNormalization,
-        });
-        return res.json({ success: true, audioUrl });
-    } catch (error) {
-        logger.error({ err: error }, 'TTS Test generation failed');
-        return res.status(500).json({ success: false, error: error.message || 'Failed to generate audio' });
-    }
-}
-
-async function handleTtsSettingsGet(req, res) {
-    const settings = await getTtsState(req.channelName);
-    const payload = {
-        ...settings,
-        englishNormalization: settings.englishNormalization !== undefined ? settings.englishNormalization : false,
-    };
-    return res.json({ success: true, settings: payload });
-}
-
-async function handleTtsSettingsPut(req, res) {
-    const { key, value } = req.body;
-
-    if (!await validateTtsSetting(key, value)) {
-        return res.status(400).json({ success: false, error: `Invalid setting: ${key} = ${value}` });
-    }
-
-    const success = await setTtsState(req.channelName, key, value);
-    return success
-        ? res.json({ success: true, message: 'Setting updated successfully' })
-        : res.status(500).json({ success: false, error: 'Failed to update setting' });
-}
-
-async function handleTtsIgnorePost(req, res) {
-    const { username } = req.body;
-    if (!username) return res.status(400).json({ success: false, error: 'Username required' });
-
-    const success = await addIgnoredUser(req.channelName, username);
-    return success
-        ? res.json({ success: true, message: `User ${username} added to ignore list` })
-        : res.status(500).json({ success: false, error: 'Failed to add user to ignore list' });
-}
-
-async function handleTtsIgnoreDelete(req, res) {
-    const { username } = req.body;
-    if (!username) return res.status(400).json({ success: false, error: 'Username required' });
-
-    const success = await removeIgnoredUser(req.channelName, username);
-    return success
-        ? res.json({ success: true, message: `User ${username} removed from ignore list` })
-        : res.status(500).json({ success: false, error: 'Failed to remove user from ignore list' });
-}
-
-async function handleTtsBannedWordsPost(req, res) {
-    const { word } = req.body;
-    if (!word || typeof word !== 'string' || !word.trim()) {
-        return res.status(400).json({ success: false, error: 'Word or phrase required' });
-    }
-
-    const success = await addBannedWord(req.channelName, word);
-    return success
-        ? res.json({ success: true, message: 'Word/phrase added to banned list' })
-        : res.status(500).json({ success: false, error: 'Failed to add word to banned list' });
-}
-
-async function handleTtsBannedWordsDelete(req, res) {
-    const { word } = req.body;
-    if (!word || typeof word !== 'string' || !word.trim()) {
-        return res.status(400).json({ success: false, error: 'Word or phrase required' });
-    }
-
-    const success = await removeBannedWord(req.channelName, word);
-    return success
-        ? res.json({ success: true, message: 'Word/phrase removed from banned list' })
-        : res.status(500).json({ success: false, error: 'Failed to remove word from banned list' });
-}
 
 async function handleEventSubSetup(req, res) {
     // channelLogin was verified against the token by verifyChannelAccess.
@@ -406,26 +189,12 @@ export function createApiRouter() {
     // Parse JSON bodies (1 MB limit) for all API routes
     router.use(expressJson({ limit: BODY_SIZE_LIMIT }));
 
-    // ── Public ────────────────────────────────────────────────────────────
-    router.get('/voices', handleVoicesEndpoint);
-
-    // ── Lightly-protected (valid JWT, no channel check) ───────────────────
-    router.post('/tts/test', verifyAnyValidToken, handleTtsTest);
-
-    // ── System / admin ────────────────────────────────────────────────────
     // Channel taken from the body's channelLogin and checked against the token.
+    // Called server-to-server by the web UI's auth flow.
     router.post('/setup-eventsub', verifyChannelAccessFromBody, handleEventSubSetup);
+
+    // Invoked by Cloud Scheduler.
     router.post('/admin/secret-cleanup', handleSecretCleanup);
-
-    // ── Channel-scoped (full JWT + ownership) ─────────────────────────────
-    router.get('/tts/settings/channel/:channel', verifyChannelAccess, handleTtsSettingsGet);
-    router.put('/tts/settings/channel/:channel', verifyChannelAccess, handleTtsSettingsPut);
-
-    router.post('/tts/ignore/channel/:channel', verifyChannelAccess, handleTtsIgnorePost);
-    router.delete('/tts/ignore/channel/:channel', verifyChannelAccess, handleTtsIgnoreDelete);
-
-    router.post('/tts/banned-words/channel/:channel', verifyChannelAccess, handleTtsBannedWordsPost);
-    router.delete('/tts/banned-words/channel/:channel', verifyChannelAccess, handleTtsBannedWordsDelete);
 
     // ── Catch-all 404 ─────────────────────────────────────────────────────
     router.use((_req, res) => {
