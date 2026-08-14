@@ -86,9 +86,10 @@ export function validateSay(raw) {
     }
 
     // A URL in the spoken form would be re-expanded by the URL processor on a
-    // later pass, or read out character by character.
-    URL_REGEX.lastIndex = 0;
-    if (new RegExp(URL_REGEX.source, URL_REGEX.flags).test(say)) {
+    // later pass, or read out character by character. Built without the global
+    // flag: a one-shot test has no use for lastIndex, and reusing the shared
+    // URL_REGEX export would leave its lastIndex mutated for other callers.
+    if (new RegExp(URL_REGEX.source, 'i').test(say)) {
         return { ok: false, reason: 'cannot contain a link' };
     }
 
@@ -101,20 +102,32 @@ export function validateSay(raw) {
  * @returns {Record<string, string>}
  */
 export function buildEffectiveMap(channelEntries = {}) {
-    const merged = { ...DEFAULTS_MAP, ...(channelEntries || {}) };
+    // Null prototype so that a legal match key which happens to name an
+    // Object.prototype member ("constructor") cannot resolve through the chain.
+    // Callers are then free to use `in` or a bare lookup on the result.
+    const merged = Object.assign(Object.create(null), DEFAULTS_MAP, channelEntries || {});
     for (const key of Object.keys(merged)) {
         if (merged[key] === DISABLED) delete merged[key];
     }
     return merged;
 }
 
-// Memoized on the identity of the channel's pronunciations object. The
-// Firestore snapshot listener rebuilds the whole config object on every write,
-// so a new object identity is exactly the signal that the rules are stale.
-// Keying by channel name instead would serve stale rules forever.
-let lastSource = null;
-let lastEnabled = null;
-let lastRules = null;
+// Compiled rules are memoized on the identity of the channel's pronunciations
+// object. The Firestore snapshot listener rebuilds the whole config object on
+// every write, so a new identity is exactly the signal that the rules are
+// stale; keying by channel name instead would serve stale rules forever.
+//
+// A WeakMap rather than a single slot, because the bot serves many channels at
+// once and their messages interleave. A one-entry cache would be invalidated by
+// every message from a different channel, recompiling the whole dictionary
+// (object merge, longest-first sort, regex build) each time.
+let overrideRules = new WeakMap();
+
+// Channels with no overrides of their own all compile to the same rule set, so
+// they share one entry instead of one per config object. This is the common
+// case by a wide margin.
+let defaultRules;
+let defaultRulesComputed = false;
 
 /**
  * Compiled rule set for a channel, or null when there is nothing to apply.
@@ -124,18 +137,27 @@ let lastRules = null;
 export function getPronunciationRules(channelConfig) {
     if (!channelConfig || channelConfig.pronunciationEnabled === false) return null;
 
-    const source = channelConfig.pronunciations || null;
-    if (source === lastSource && lastEnabled === true) return lastRules;
+    const source = channelConfig.pronunciations;
 
-    lastSource = source;
-    lastEnabled = true;
-    lastRules = compileRules(buildEffectiveMap(source));
-    return lastRules;
+    if (!source || Object.keys(source).length === 0) {
+        if (!defaultRulesComputed) {
+            defaultRules = compileRules(buildEffectiveMap());
+            defaultRulesComputed = true;
+        }
+        return defaultRules;
+    }
+
+    const cached = overrideRules.get(source);
+    if (cached !== undefined) return cached;
+
+    const rules = compileRules(buildEffectiveMap(source));
+    overrideRules.set(source, rules);
+    return rules;
 }
 
 /** Exported for tests, which need to defeat the memo between cases. */
 export function _resetPronunciationMemo() {
-    lastSource = null;
-    lastEnabled = null;
-    lastRules = null;
+    overrideRules = new WeakMap();
+    defaultRules = undefined;
+    defaultRulesComputed = false;
 }

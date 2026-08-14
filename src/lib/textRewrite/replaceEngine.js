@@ -27,6 +27,9 @@ import { URL_REGEX } from '../urlProcessor.js';
 const MASK_OPEN = '\uE000';
 const MASK_CLOSE = '\uE001';
 
+// Both sentinels, for stripping them out of incoming text.
+const MASK_CHARS = /[\uE000\uE001]/g;
+
 /**
  * Escape a literal string for safe use inside a RegExp alternation.
  * Match keys are user-supplied, so an unescaped "." or "(" would either
@@ -96,11 +99,18 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
 export function applyRewrites(text, rules) {
     if (!rules || typeof text !== 'string' || !text) return text;
 
+    // Strip any sentinel characters the message already contained. Without
+    // this, a message carrying both a URL and a forged MASK_OPEN + digits +
+    // MASK_CLOSE sequence would have that forgery rewritten into a copy of the
+    // URL by the restore pass below. These are Private Use Area code points
+    // with no legitimate use in chat, so dropping them costs nothing.
+    const safe = text.replace(MASK_CHARS, '');
+
     const urls = [];
     // A fresh regex each call: URL_REGEX carries the g flag, and a shared
     // instance would leak lastIndex between messages.
     const urlRe = new RegExp(URL_REGEX.source, URL_REGEX.flags);
-    const masked = text.replace(urlRe, match => {
+    const masked = safe.replace(urlRe, match => {
         urls.push(match);
         return `${MASK_OPEN}${urls.length - 1}${MASK_CLOSE}`;
     });

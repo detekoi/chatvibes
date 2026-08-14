@@ -126,6 +126,24 @@ describe('replaceEngine', () => {
             expect(applyRewrites('a.com then b.org lfg', rules()))
                 .toBe('a.com then b.org lets fucking go');
         });
+
+        it('ignores a forged mask sentinel in the message', () => {
+            // A chatter sending the Private Use Area sentinels verbatim could
+            // otherwise get the restore pass to splice a copy of a real URL in
+            // wherever they placed the forgery.
+            const forged = 'check example.com and \uE0000\uE001 here lfg';
+            const out = applyRewrites(forged, rules());
+            expect(out).toBe('check example.com and 0 here lets fucking go');
+            // Exactly one occurrence of the URL, and no sentinels survive.
+            expect(out.match(/example\.com/g)).toHaveLength(1);
+            expect(out).not.toMatch(/[\uE000\uE001]/);
+        });
+
+        it('strips sentinels even when there is no URL to restore', () => {
+            // They would otherwise be forwarded to the TTS API as-is.
+            expect(applyRewrites('plain \uE0000\uE001 text lfg', rules()))
+                .toBe('plain 0 text lets fucking go');
+        });
     });
 
     describe('compileRules', () => {
@@ -277,6 +295,22 @@ describe('pronunciation', () => {
         it('tolerates null', () => {
             expect(() => buildEffectiveMap(null)).not.toThrow();
         });
+
+        it('returns a map with no prototype to collide with', () => {
+            // "constructor" is a legal match key. On a normal object it would
+            // resolve through Object.prototype, so a bare lookup or `in` check
+            // would treat it as present when it is not.
+            const map = buildEffectiveMap({});
+            expect(Object.getPrototypeOf(map)).toBeNull();
+            expect(map.constructor).toBeUndefined();
+            expect('constructor' in map).toBe(false);
+        });
+
+        it('stores "constructor" as an ordinary entry', () => {
+            const map = buildEffectiveMap({ constructor: 'con struct or' });
+            expect(map.constructor).toBe('con struct or');
+            expect(applyRewrites('constructor', compileRules(map))).toBe('con struct or');
+        });
     });
 
     describe('getPronunciationRules', () => {
@@ -300,6 +334,40 @@ describe('pronunciation', () => {
             const second = getPronunciationRules({ pronunciations: { wcat: 'wild cat' } });
             expect(first).not.toBe(second);
             expect(applyRewrites('wcat', second)).toBe('wild cat');
+        });
+
+        it('does not thrash when channels interleave', () => {
+            // The bot serves many channels at once and their messages arrive
+            // interleaved. A single-slot cache would be invalidated on every
+            // switch and recompile the whole dictionary each time.
+            const a = { pronunciations: { acat: 'alpha cat' } };
+            const b = { pronunciations: { bcat: 'beta cat' } };
+
+            const a1 = getPronunciationRules(a);
+            const b1 = getPronunciationRules(b);
+            const a2 = getPronunciationRules(a);
+            const b2 = getPronunciationRules(b);
+
+            expect(a2).toBe(a1);
+            expect(b2).toBe(b1);
+            expect(a1).not.toBe(b1);
+        });
+
+        it('shares one rule set across channels with no overrides', () => {
+            // Distinct config objects, but identical effective dictionaries.
+            const first = getPronunciationRules({ pronunciations: {} });
+            const second = getPronunciationRules({ pronunciations: {} });
+            const third = getPronunciationRules({});
+            expect(second).toBe(first);
+            expect(third).toBe(first);
+        });
+
+        it('keeps channels isolated from each other', () => {
+            const a = getPronunciationRules({ pronunciations: { acat: 'alpha cat' } });
+            const b = getPronunciationRules({ pronunciations: { bcat: 'beta cat' } });
+
+            expect(applyRewrites('acat bcat', a)).toBe('alpha cat bcat');
+            expect(applyRewrites('acat bcat', b)).toBe('acat beta cat');
         });
     });
 });

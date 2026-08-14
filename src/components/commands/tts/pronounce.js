@@ -93,7 +93,7 @@ export default {
                     reply('Usage: !tts pronounce remove <word>');
                     return;
                 }
-                if (!(match in channelEntries)) {
+                if (!Object.hasOwn(channelEntries, match)) {
                     reply(`"${match}" is not a custom pronunciation for this channel.`);
                     return;
                 }
@@ -158,8 +158,11 @@ export default {
                 return;
             }
 
-            // The cap counts stored entries; updating an existing key is always allowed.
-            const isNew = !(match in channelEntries);
+            // The cap counts stored entries; updating an existing key is always
+            // allowed. hasOwn rather than `in`, which also sees Object.prototype
+            // members: "constructor" is a legal match key and would otherwise
+            // look like an existing entry and skip the cap check.
+            const isNew = !Object.hasOwn(channelEntries, match);
             if (isNew && Object.keys(channelEntries).length >= PRONUNCIATION_LIMITS.MAX_CUSTOM_ENTRIES) {
                 reply(`This channel already has ${PRONUNCIATION_LIMITS.MAX_CUSTOM_ENTRIES} custom pronunciations. Remove one first.`);
                 return;
@@ -172,7 +175,9 @@ export default {
             }
 
             logger.info({ channel: channelName, match, say: say.value, user: user.username }, 'Pronunciation set via command');
-            const overrides = buildEffectiveMap({})[match] !== undefined && isNew;
+            // hasOwn, not a bare lookup: "constructor" resolves through
+            // Object.prototype and would falsely report a built-in override.
+            const overrides = Object.hasOwn(buildEffectiveMap({}), match) && isNew;
             reply(overrides
                 ? `"${match}" will now be said as "${say.value}" (overriding the built-in).`
                 : `"${match}" will now be said as "${say.value}".`);

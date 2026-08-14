@@ -110,6 +110,30 @@ describe('TTS pronunciation commands', () => {
             expect(ttsStateMock.setPronunciation).toHaveBeenCalledWith('testchannel', 'word5', 'updated');
         });
 
+        it('does not let "constructor" slip past the cap', async () => {
+            // It is a legal match key and an Object.prototype member, so an `in`
+            // check would report it as already present and skip the cap.
+            const full = {};
+            for (let i = 0; i < 100; i++) full[`word${i}`] = 'thing';
+            ttsStateMock.getTtsState.mockResolvedValue({ pronunciations: full });
+
+            await pronounce.execute(context(['constructor', '=', 'con struct or']));
+            expect(ttsStateMock.setPronunciation).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/100 custom pronunciations/);
+        });
+
+        it('refuses to remove "constructor" when it was never set', async () => {
+            await pronounce.execute(context(['remove', 'constructor']));
+            expect(ttsStateMock.removePronunciation).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/not a custom pronunciation/);
+        });
+
+        it('adds "constructor" normally when under the cap', async () => {
+            await pronounce.execute(context(['constructor', '=', 'con struct or']));
+            expect(ttsStateMock.setPronunciation)
+                .toHaveBeenCalledWith('testchannel', 'constructor', 'con struct or');
+        });
+
         it('lists custom entries', async () => {
             ttsStateMock.getTtsState.mockResolvedValue({ pronunciations: { wcat: 'wildcat' } });
             await pronounce.execute(context(['list']));
