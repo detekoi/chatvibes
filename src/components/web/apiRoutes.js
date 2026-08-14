@@ -17,6 +17,7 @@ import {
     removeIgnoredUser,
     addBannedWord,
     removeBannedWord,
+    VALID_EMOTE_MODES,
 } from '../tts/ttsState.js';
 
 import {
@@ -173,13 +174,21 @@ async function validateTtsSetting(key, value) {
     switch (key) {
         case 'engineEnabled':
         case 'speakEvents':
+        case 'speakCheerEvents':
+        case 'speakRedemptionEvents':
         case 'speakWatchStreakEvents':
+        case 'anonymizeFollowers':
         case 'bitsModeEnabled':
         case 'readFullUrls':
         case 'allowViewerPreferences':
         case 'botRespondsInChat':
         case 'englishNormalization':
+        case 'youtubeEnabled':
             return typeof value === 'boolean';
+        case 'emoteMode':
+            return VALID_EMOTE_MODES.includes(value);
+        case 'youtubeHandle':
+            return typeof value === 'string' && value.length <= 100;
         case 'mode':
             return ['all', 'command', 'bits_points_only'].includes(value);
         case 'ttsPermissionLevel':
