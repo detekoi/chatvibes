@@ -295,7 +295,24 @@ export async function processQueue(channelName) {
                         sendAudioToChannel(targetChannel, audio);
                         logger.info(`[SharedChat:${sessionId}] Sent audio to ${targetChannel} for ${cq.currentUserSpeaking}`);
                     } else {
-                        logger.debug(`[SharedChat:${sessionId}] No active clients for ${targetChannel}, skipping`);
+                        // Only this instance's sockets are reachable from here, and only
+                        // one instance ever wins the claim for a message. So a participant
+                        // whose browser source is attached to a *different* instance is
+                        // silently skipped and hears nothing.
+                        //
+                        // This cannot distinguish that from a participant who simply has
+                        // no browser source open anywhere — both look identical locally.
+                        // To tell them apart, cross-reference `logKey: WS_CLIENT_REGISTERED`
+                        // for this channel around the same timestamp: if some instance had
+                        // a client for it, this was real audio loss.
+                        logger.warn({
+                            logKey: 'SHARED_CHAT_PARTICIPANT_UNREACHABLE',
+                            sessionId,
+                            targetChannel,
+                            originChannel: channelName,
+                            participants: channels,
+                            instance: process.env.K_REVISION || 'local',
+                        }, `[SharedChat:${sessionId}] No local clients for ${targetChannel} — audio not delivered to that participant`);
                     }
                 }
             } else {

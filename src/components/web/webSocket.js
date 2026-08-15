@@ -381,6 +381,18 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
         }
         channelClients.get(channelName).add(ws);
 
+        // Records which instance a browser source landed on. Audio for a channel is
+        // only ever sent from the one instance that won the claim for that message,
+        // so a channel appearing here under two instances at once means the sources
+        // on the losing instance are silent. Group this log by channel over a window
+        // to find those: more than one distinct `instance` for a channel is the signal.
+        logger.info({
+            logKey: 'WS_CLIENT_REGISTERED',
+            channel: channelName,
+            instance: process.env.K_REVISION || 'local',
+            clientsForChannelHere: channelClients.get(channelName).size,
+        }, `WebSocket client registered for channel ${channelName}`);
+
         if (onClientConnect) onClientConnect(channelName);
 
         ws.send(JSON.stringify({
