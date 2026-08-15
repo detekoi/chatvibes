@@ -123,6 +123,10 @@ describe('getProfanityRules', () => {
     test('filters English profanity', () => {
         expect(applyRewrites('what the fuck', getProfanityRules('English')))
             .toBe('what the freak');
+        expect(applyRewrites('this is shit', getProfanityRules('English')))
+            .toBe('this is shoot');
+        expect(applyRewrites('we bought snacks and shit', getProfanityRules('English')))
+            .toBe('we bought snacks and stuff');
     });
 
     test('leaves clean text alone', () => {
