@@ -3,7 +3,7 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import logger from '../../lib/logger.js';
-import { isChannelAllowed, getChannelNameFromId } from '../../lib/allowList.js';
+import { isChannelAllowed, resolveToChannelName } from '../../lib/allowList.js';
 import { getTtsState, setTtsState } from '../tts/ttsState.js';
 import { getSecretValue } from '../../lib/secretManager.js';
 import { getClientIp } from '../../lib/clientIp.js';
@@ -75,19 +75,6 @@ function recordAuthFailure(clientIP) {
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
-
-/**
- * Resolve a channel identifier (login name or numeric ID) to the lowercase
- * login name used as the key in channelClients.
- */
-function resolveToChannelName(identifier) {
-    const lower = identifier.toLowerCase();
-    // If it's a numeric ID, look up the login name
-    if (/^\d+$/.test(lower)) {
-        return getChannelNameFromId(identifier) || lower;
-    }
-    return lower;
-}
 
 /**
  * Returns true if the given channel currently has at least one connected

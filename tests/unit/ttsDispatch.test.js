@@ -159,16 +159,41 @@ describe('dispatchYouTubeTtsEvent', () => {
         expect(slowMs).toBeGreaterThanOrEqual(250);
     });
 
-    test('falls back to publishing when the message carries no id to claim on', async () => {
-        // Without a stable key there is nothing to deduplicate on, so the Pub/Sub
-        // claim — which hashes the text instead — stays as the last guard.
+    test('claims on message content when the message carries no id', async () => {
+        // Publishing unclaimed would mean one Pub/Sub message per instance, since the
+        // proxy broadcasts to all of them. Claiming on the content keeps it to one.
         mockHasActiveClients.mockReturnValue(true);
 
         const result = await dispatchYouTubeTtsEvent('12345', { ...YT_EVENT, messageId: null });
 
         expect(result).toBe(true);
+        expect(mockClaimOnce).toHaveBeenCalledTimes(1);
+        expect(mockEnqueue).toHaveBeenCalled();
+        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+    });
+
+    test('derives the same content claim key on every instance', async () => {
+        // The key has to be a pure function of the message: anything instance-local
+        // (a timestamp, a random id) would look valid while never colliding, so every
+        // instance would claim successfully and the viewer would hear it N times.
+        mockHasActiveClients.mockReturnValue(true);
+        const noId = { ...YT_EVENT, messageId: null };
+
+        await dispatchYouTubeTtsEvent('12345', noId);
+        const firstDoc = mockClaimOnce.mock.calls[0][0];
+
+        jest.clearAllMocks();
+        mockClaimOnce.mockResolvedValue(true);
+        await dispatchYouTubeTtsEvent('12345', { ...noId });
+        const secondDoc = mockClaimOnce.mock.calls[0][0];
+
+        expect(firstDoc.id).toBe(secondDoc.id);
+        expect(firstDoc.id).toEqual(expect.stringContaining('12345|'));
+    });
+
+    test('refuses a channel with no id at all', async () => {
+        expect(await dispatchYouTubeTtsEvent(null, YT_EVENT)).toBe(false);
         expect(mockClaimOnce).not.toHaveBeenCalled();
-        expect(mockPublishTtsEvent).toHaveBeenCalled();
-        expect(mockEnqueue).not.toHaveBeenCalled();
+        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
     });
 });

@@ -11,6 +11,7 @@
 // Deliberately kept out of lib/pubsub.js: that module is the Pub/Sub transport and
 // must not depend on the TTS queue.
 
+import crypto from 'crypto';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 import logger from './logger.js';
 import { publishTtsEvent } from './pubsub.js';
@@ -87,13 +88,22 @@ export async function dispatchTtsEvent(channelName, eventData, sharedSessionInfo
  * @returns {Promise<boolean>} false if another instance had already claimed it.
  */
 export async function dispatchYouTubeTtsEvent(channelId, eventData) {
+    if (!channelId) return false;
+
     const messageId = eventData?.messageId;
-    if (!channelId || !messageId) {
-        // No stable key to claim on, so deduplication is impossible. Publishing keeps
-        // the Pub/Sub claim (which falls back to hashing the text) as the last guard.
-        logger.warn({ channelId, messageId }, 'YouTube event lacks a claim key; falling back to Pub/Sub');
-        await publishTtsEvent(channelId, eventData, null);
-        return true;
+    // Without YouTube's id there is no stable key, so fall back to the content the way
+    // the Pub/Sub claim does. Publishing unclaimed instead would have every instance
+    // publish its own copy of the same message, since the proxy broadcasts to all of
+    // them — the downstream claim would still collapse it to one spoken clip, but only
+    // after N trips through Pub/Sub.
+    const claimKey = messageId
+        ? `${channelId}|${messageId}`
+        : `${channelId}|${crypto.createHash('sha1')
+            .update(`${(eventData?.user || '').toLowerCase()}|${(eventData?.text || '').trim()}`)
+            .digest('hex')}`;
+
+    if (!messageId) {
+        logger.warn({ channelId }, 'YouTube event has no message id; claiming on its content instead');
     }
 
     const servesHere = hasActiveClients(channelId);
@@ -101,15 +111,15 @@ export async function dispatchYouTubeTtsEvent(channelId, eventData) {
 
     if (!db) db = new Firestore();
     const now = Date.now();
-    const docRef = db.collection(YT_CLAIM_COLLECTION).doc(`${channelId}|${messageId}`);
+    const docRef = db.collection(YT_CLAIM_COLLECTION).doc(claimKey);
 
     const claimed = await claimOnce(docRef, {
         channel: channelId,
-        messageId,
+        messageId: messageId || null,
         instance: process.env.K_REVISION || 'local',
         createdAtMs: now,
         expireAt: Timestamp.fromMillis(now + YT_CLAIM_TTL_MS),
-    }, now, { channel: channelId, messageId, platform: 'youtube' });
+    }, now, { channel: channelId, messageId: messageId || 'N/A', platform: 'youtube' });
 
     if (!claimed) return false;
 

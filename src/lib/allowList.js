@@ -60,6 +60,26 @@ export function getChannelNameFromId(twitchUserId) {
 }
 
 /**
+ * Resolves a channel identifier — login name or numeric Twitch User ID — to the
+ * lowercase login name.
+ *
+ * The two forms both circulate: Twitch handlers carry the login, while the YouTube
+ * chat client carries the broadcaster ID. Anything keying a map on a raw identifier
+ * must funnel it through here first, or the same channel ends up under two keys.
+ * Falls back to the lowercased input when the ID is not in the allow-list cache.
+ *
+ * @param {string} identifier
+ * @returns {string}
+ */
+export function resolveToChannelName(identifier) {
+  const lower = String(identifier).toLowerCase();
+  if (/^\d+$/.test(lower)) {
+    return getChannelNameFromId(identifier) || lower;
+  }
+  return lower;
+}
+
+/**
  * Bulk-update the allowed set from Firestore managedChannels data.
  * Called by channelManager after loading active channels.
  * @param {Array<{name: string, twitchUserId: string|null}>} channels

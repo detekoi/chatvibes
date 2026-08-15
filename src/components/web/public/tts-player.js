@@ -268,7 +268,11 @@ function stopCurrentAudio() {
     releaseAudioUrl(currentObjectUrl);
     currentObjectUrl = null;
     isPlaying = false;
-    // Note: This doesn't clear the audioQueue, allowing a 'resume' or next item to play.
+    // Deliberately does not clear audioQueue — `!tts stop` drops the clip that is
+    // playing, not the ones behind it. Those have to be started explicitly: nothing
+    // else will, since onended never fires for audio that was paused rather than
+    // finished, so without this the queue sat idle until the next message arrived.
+    playNextInQueue();
 }
 
 function stopAllAudio() { // For !tts clear or full stop

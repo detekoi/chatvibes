@@ -61,15 +61,24 @@ export async function claimOnce(docRef, payload, now, logContext = {}) {
         }
     }
 
+    // The key is taken. Re-claiming a lapsed document has to be atomic: a plain
+    // read-then-write would let two instances both observe the same expired claim and
+    // both proceed, which is the one thing this function exists to prevent. That is
+    // why the whole operation used to be a transaction. Only this branch needs to
+    // be — it runs solely for duplicates, so the common path keeps its single
+    // round trip while the guarantee is unchanged.
     try {
-        const snap = await docRef.get();
-        const data = snap.exists ? (snap.data() || {}) : {};
-        if (!isClaimExpired(data, now)) {
-            logger.info({ ...logContext, ageMs: now - (data.createdAtMs || 0) }, 'Duplicate blocked by existing claim');
-            return false;
-        }
-        await docRef.set(payload, { merge: true });
-        return true;
+        return await docRef.firestore.runTransaction(async (tx) => {
+            const snap = await tx.get(docRef);
+            const data = snap.exists ? (snap.data() || {}) : {};
+            if (snap.exists && !isClaimExpired(data, now)) {
+                logger.info({ ...logContext, ageMs: now - (data.createdAtMs || 0), claimedBy: data.instance || 'unknown' },
+                    'Duplicate blocked by existing claim');
+                return false;
+            }
+            tx.set(docRef, payload, { merge: true });
+            return true;
+        });
     } catch (err) {
         logger.warn({ err, ...logContext }, 'Claim failed; proceeding without dedupe');
         return true;

@@ -90,6 +90,12 @@ export class MockDocumentReference {
     this._id = id;
   }
 
+  // Real DocumentReferences expose this, and callers that build a composite doc id
+  // (see the dedup claims in lib/ttsDispatch.js) need to assert on it.
+  get id() {
+    return this._id;
+  }
+
   async get() {
     return new MockDocumentSnapshot(this._data, this._id, !!this._data, this);
   }

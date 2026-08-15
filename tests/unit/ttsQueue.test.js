@@ -105,6 +105,12 @@ describe('ttsQueue module', () => {
     }));
 
     ttsQueue = await import('../../src/components/tts/ttsQueue.js');
+
+    // Real allowList, not a mock: the queue key depends on its ID→login resolution,
+    // so stubbing it would test the stub. Imported after resetModules so it is the
+    // same instance ttsQueue holds.
+    const allowList = await import('../../src/lib/allowList.js');
+    allowList.addAllowedChannel(TEST_CHANNEL, '12345');
   });
 
   describe('getOrCreateChannelQueue', () => {
@@ -136,6 +142,21 @@ describe('ttsQueue module', () => {
       const queue2 = ttsQueue.getOrCreateChannelQueue('channel2');
 
       expect(queue1).not.toBe(queue2);
+    });
+
+    test('should give the numeric ID and the login name the same queue', () => {
+      // Twitch handlers pass the login, the YouTube chat client passes the broadcaster
+      // ID. Keyed raw, one channel got two queues: the two platforms spoke over each
+      // other, and !tts pause/clear/stop only reached the Twitch one.
+      const byId = ttsQueue.getOrCreateChannelQueue('12345');
+      const byName = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
+
+      expect(byId).toBe(byName);
+    });
+
+    test('should treat a channel name case-insensitively', () => {
+      expect(ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL.toUpperCase()))
+        .toBe(ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL.toLowerCase()));
     });
   });
 

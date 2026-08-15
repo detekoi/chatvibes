@@ -32,7 +32,7 @@ beforeEach(async () => {
     }));
     jest.unstable_mockModule('../../src/lib/allowList.js', () => ({
         isChannelAllowed: jest.fn(() => true),
-        getChannelNameFromId: jest.fn(id => id)
+        resolveToChannelName: jest.fn(id => String(id).toLowerCase())
     }));
     jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
         getTtsState: mockGetTtsState,

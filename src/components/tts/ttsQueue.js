@@ -17,6 +17,7 @@ import { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, STOP_CURR
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
+import { resolveToChannelName } from '../../lib/allowList.js';
 
 let db;
 const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
@@ -25,7 +26,19 @@ const channelQueues = new Map();
 const MAX_QUEUE_LENGTH = 50;
 const PREFETCH_AHEAD = 2; // Number of queued items to prefetch concurrently
 
+/**
+ * Get the queue for a channel, creating it on first use.
+ *
+ * The key is normalised because the same channel reaches this function under two
+ * identifiers: Twitch handlers pass the login name, while the YouTube chat client
+ * passes the numeric broadcaster ID. Keying on the raw string gave one channel two
+ * independent queues — so YouTube and Twitch messages played over each other instead
+ * of taking turns, and `!tts pause`, `!tts clear` and `!tts stop` reached only the
+ * Twitch one. hasActiveClients and sendAudioToChannel already normalise, which is why
+ * audio still arrived and the split was invisible.
+ */
 export function getOrCreateChannelQueue(channelName) {
+    channelName = resolveToChannelName(channelName);
     if (!channelQueues.has(channelName)) {
         channelQueues.set(channelName, {
             queue: [],
