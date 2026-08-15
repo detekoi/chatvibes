@@ -5,7 +5,7 @@ import logger from '../../../lib/logger.js';
 import * as redemptionCache from '../redemptionCache.js';
 import { isChannelAllowed } from '../../../lib/allowList.js';
 import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
-import { publishTtsEvent } from '../../../lib/pubsub.js';
+import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
@@ -285,7 +285,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     // Get shared session info for distribution
     const sharedSessionInfo = await getSharedSessionInfo(channelLogin);
 
-    await publishTtsEvent(channelLogin, {
+    await dispatchTtsEvent(channelLogin, {
         text: ttsText,
         user: userName,
         userId,
@@ -497,7 +497,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
         textPreview: processedMessage.substring(0, 30)
     }, 'Publishing Channel Points TTS redemption to Pub/Sub');
 
-    await publishTtsEvent(channelLogin, {
+    await dispatchTtsEvent(channelLogin, {
         text: processedMessage,
         user: userName,
         userId,

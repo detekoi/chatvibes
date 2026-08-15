@@ -35,6 +35,18 @@ gcloud firestore fields ttls update expireAt \
 echo "✓ TTL policy enabled for processedTtsEvents"
 echo ""
 
+# Enable TTL for processedYouTubeMessages collection
+echo "Setting TTL policy on 'processedYouTubeMessages' collection..."
+gcloud firestore fields ttls update expireAt \
+  --collection-group=processedYouTubeMessages \
+  --enable-ttl \
+  --project="$PROJECT_ID" \
+  --database="$DATABASE_ID" \
+  --quiet
+
+echo "✓ TTL policy enabled for processedYouTubeMessages"
+echo ""
+
 echo "✓ All TTL policies configured successfully!"
 echo ""
 echo "Note: Documents will now be automatically deleted after their 'expireAt' timestamp."

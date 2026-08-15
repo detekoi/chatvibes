@@ -11,6 +11,7 @@ import { initGeminiClient, initEmoteDescriptionStore } from './lib/emotes/index.
 import * as ttsQueue from './components/tts/ttsQueue.js';
 import { initializeWebServer } from './components/web/server.js';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
+import { claimOnce } from './lib/firestoreClaim.js';
 import crypto from 'crypto';
 
 
@@ -107,49 +108,25 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
     const now = Date.now();
     const expireAt = Timestamp.fromMillis(now + ttlMs);
 
-    try {
-        const result = await firestore.runTransaction(async (tx) => {
-            const snap = await tx.get(docRef);
-            if (snap.exists) {
-                const data = snap.data() || {};
-                // Check both old (expireAtMs) and new (expireAt) formats for backward compatibility
-                let expired = true;
-                if (data.expireAt instanceof Timestamp) {
-                    expired = data.expireAt.toMillis() <= now;
-                } else if (typeof data.expireAtMs === 'number') {
-                    expired = data.expireAtMs <= now;
-                }
+    const payload = {
+        channel: channelName,
+        user,
+        messageId: messageId || null,
+        createdAtMs: now,
+        expireAt: expireAt, // Firestore Timestamp for TTL policy
+    };
 
-                if (!expired) {
-                    const dedupMethod = usingMessageId ? 'messageId' : 'text-based';
-                    const keyDisplay = keyRaw.substring(0, 80);
-                    logger.info({
-                        channel: channelName,
-                        user,
-                        textPreview: text?.substring(0, 30),
-                        messageId: messageId || 'N/A',
-                        dedupMethod,
-                        keyRawPreview: keyDisplay,
-                        ageMs: now - (data.createdAtMs || 0)
-                    }, `TTS message blocked: Duplicate in Firestore (${dedupMethod}) - msgId: ${messageId || 'NONE'} - key: ${keyDisplay}`);
-                    return false; // already claimed recently
-                }
-            }
-            tx.set(docRef, {
-                channel: channelName,
-                user,
-                messageId: messageId || null,
-                createdAtMs: now,
-                expireAt: expireAt, // Firestore Timestamp for TTL policy
-            }, { merge: true });
-            return true;
-        });
-        return result;
-    } catch (err) {
-        // On Firestore error, fail-open to avoid message loss
-        logger.warn({ err }, 'Pub/Sub global dedupe claim failed; proceeding without dedupe');
-        return true;
-    }
+    // One round trip on the common path; only a real duplicate pays for the second.
+    // See src/lib/firestoreClaim.js for the expiry semantics.
+    return claimOnce(docRef, payload, now, {
+        channel: channelName,
+        user,
+        textPreview: text?.substring(0, 30),
+        messageId: messageId || 'N/A',
+        dedupMethod: usingMessageId ? 'messageId' : 'text-based',
+        keyRawPreview: keyRaw.substring(0, 80),
+        source: 'pubsub',
+    });
 }
 
 // Export shutdown state checker for use by other modules

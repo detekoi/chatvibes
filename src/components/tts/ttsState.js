@@ -30,13 +30,14 @@ const youtubeConfigChangeListeners = [];
 const globalUserPrefsCache = new Map();
 const GLOBAL_PREFS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
-// In-memory cache for user emote mode preferences: key -> { mode, cachedAt }
-const userEmoteModePrefCache = new Map();
-const EMOTE_MODE_CACHE_TTL_MS = 60 * 1000; // 60 seconds
-
-// Both per-user caches are keyed by chatter, so on a busy channel they would
-// otherwise grow for the lifetime of the process — entries expire on read but
-// a chatter who never speaks again is never read, and so never evicted.
+// The 60s TTL is the staleness bound for dashboard edits and cannot simply be
+// raised: the web UI is a separate Firebase Functions app that writes this
+// collection directly, so it has no way to invalidate this cache. Bot-side writes
+// go through setGlobalUserPreference, which deletes the entry outright.
+//
+// This cache is keyed by chatter, so on a busy channel it would otherwise grow for
+// the lifetime of the process — entries expire on read but a chatter who never
+// speaks again is never read, and so never evicted.
 const USER_CACHE_MAX_ENTRIES = 5000;
 
 /**
@@ -235,7 +236,9 @@ export async function setTtsState(channelName, key, value) {
 export async function getGlobalUserPreferences(username, userId) {
     if (!db) db = new Firestore();
     // Use userId as primary cache key, fall back to username
-    const cacheKey = userId || username.toLowerCase();
+    const lowerUser = username ? username.toLowerCase() : null;
+    const cacheKey = userId || lowerUser;
+    if (!cacheKey) return {};
     const cached = globalUserPrefsCache.get(cacheKey);
     if (cached && (Date.now() - cached.cachedAt) < GLOBAL_PREFS_CACHE_TTL_MS) {
         return cached.data;
@@ -250,14 +253,17 @@ export async function getGlobalUserPreferences(username, userId) {
                 return data;
             }
         }
-        // Fallback to username
-        const lowerUser = username.toLowerCase();
-        const docRef = db.collection(USER_PREFS_COLLECTION).doc(lowerUser);
-        const docSnap = await docRef.get();
-        if (docSnap.exists) {
-            const data = docSnap.data() || {};
-            setBoundedCacheEntry(globalUserPrefsCache, cacheKey, { data, cachedAt: Date.now() }, GLOBAL_PREFS_CACHE_TTL_MS);
-            return data;
+        // Fallback to username. Callers may pass a userId with no username, so this
+        // leg is skipped rather than assumed — getUserEmoteModePreference delegates
+        // here and has always accepted one identifier without the other.
+        if (lowerUser) {
+            const docRef = db.collection(USER_PREFS_COLLECTION).doc(lowerUser);
+            const docSnap = await docRef.get();
+            if (docSnap.exists) {
+                const data = docSnap.data() || {};
+                setBoundedCacheEntry(globalUserPrefsCache, cacheKey, { data, cachedAt: Date.now() }, GLOBAL_PREFS_CACHE_TTL_MS);
+                return data;
+            }
         }
         // Cache the empty result too to avoid repeated Firestore misses
         setBoundedCacheEntry(globalUserPrefsCache, cacheKey, { data: {}, cachedAt: Date.now() }, GLOBAL_PREFS_CACHE_TTL_MS);
@@ -325,44 +331,22 @@ export const VALID_EMOTE_MODES = ['read', 'skip', 'describe'];
  * @returns {Promise<string|null>} - 'read' | 'skip' | 'describe' | null (allows channel default fallback)
  */
 export async function getUserEmoteModePreference(username, userId) {
-    if (!db) db = new Firestore();
-    const cacheKey = userId || (username ? username.toLowerCase() : null);
-    if (cacheKey) {
-        const cached = userEmoteModePrefCache.get(cacheKey);
-        if (cached && (Date.now() - cached.cachedAt) < EMOTE_MODE_CACHE_TTL_MS) {
-            return cached.mode;
-        }
-    }
+    if (!username && !userId) return null;
     try {
-        // Try userId first (primary)
-        if (userId) {
-            const userIdDoc = await db.collection(USER_PREFS_COLLECTION).doc(userId).get();
-            if (userIdDoc.exists) {
-                const data = userIdDoc.data();
-                if (data?.emoteMode !== undefined && VALID_EMOTE_MODES.includes(data.emoteMode)) {
-                    if (cacheKey) setBoundedCacheEntry(userEmoteModePrefCache, cacheKey, { mode: data.emoteMode, cachedAt: Date.now() }, EMOTE_MODE_CACHE_TTL_MS);
-                    return data.emoteMode;
-                }
-            }
-        }
-        // Fallback to username
-        if (username) {
-            const lowerUser = username.toLowerCase();
-            const usernameDoc = await db.collection(USER_PREFS_COLLECTION).doc(lowerUser).get();
-            if (usernameDoc.exists) {
-                const data = usernameDoc.data();
-                if (data?.emoteMode !== undefined && VALID_EMOTE_MODES.includes(data.emoteMode)) {
-                    if (cacheKey) setBoundedCacheEntry(userEmoteModePrefCache, cacheKey, { mode: data.emoteMode, cachedAt: Date.now() }, EMOTE_MODE_CACHE_TTL_MS);
-                    return data.emoteMode;
-                }
-            }
-        }
-        // Cache the null result to avoid repeated Firestore misses
-        if (cacheKey) setBoundedCacheEntry(userEmoteModePrefCache, cacheKey, { mode: null, cachedAt: Date.now() }, EMOTE_MODE_CACHE_TTL_MS);
-        return null; // No preference set, allows channel default fallback
+        // emoteMode lives on the same ttsUserPreferences document as every other
+        // global preference, so this delegates rather than reading it a second time.
+        // It used to keep its own cache and its own userId-then-username lookup,
+        // which meant a cold cache cost up to four document reads of one document —
+        // two here, two more when the queue resolved the rest of the preferences.
+        // Sharing the cache also means a write through setGlobalUserPreference now
+        // invalidates emoteMode; the separate cache was never invalidated on write,
+        // so a change was ignored for up to a minute.
+        const prefs = await getGlobalUserPreferences(username, userId);
+        const mode = prefs?.emoteMode;
+        return mode !== undefined && VALID_EMOTE_MODES.includes(mode) ? mode : null;
     } catch (error) {
         logger.error({ err: error, user: username, userId }, 'Failed to get emoteMode preference.');
-        return null;
+        return null; // No preference set, allows channel default fallback
     }
 }
 

@@ -2,7 +2,7 @@
 // Handles Twitch event notifications (subscriptions, raids, follows, cheers, watch streaks)
 
 import logger from '../../../lib/logger.js';
-import { publishTtsEvent } from '../../../lib/pubsub.js';
+import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
@@ -262,7 +262,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
         // Get shared session info for distribution to all participating channels
         const sharedSessionInfo = await getSharedSessionInfo(channelName);
 
-        await publishTtsEvent(channelName, {
+        await dispatchTtsEvent(channelName, {
             text: ttsText,
             user: username,
             userId,

@@ -4,9 +4,10 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import logger from '../../lib/logger.js';
 import { isChannelAllowed, getChannelNameFromId } from '../../lib/allowList.js';
-import { getTtsState } from '../tts/ttsState.js';
+import { getTtsState, setTtsState } from '../tts/ttsState.js';
 import { getSecretValue } from '../../lib/secretManager.js';
 import { getClientIp } from '../../lib/clientIp.js';
+import { enqueueMessage } from '../../lib/chatSender.js';
 
 // ---------------------------------------------------------------------------
 // State
@@ -14,6 +15,14 @@ import { getClientIp } from '../../lib/clientIp.js';
 
 // channelName (lowercase) -> Set of WebSocket clients
 const channelClients = new Map();
+
+// Sentinel accepted by sendAudioToChannel in place of an audio payload.
+export const STOP_CURRENT_AUDIO = 'STOP_CURRENT_AUDIO';
+
+// How long before nagging a channel again about an outdated browser source. The
+// notice stops for good once the source is refreshed, since a current player
+// announces binaryAudio on connect and is never counted as stale again.
+const STALE_PLAYER_NOTICE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // ---------------------------------------------------------------------------
 // Auth rate limiting
@@ -91,39 +100,127 @@ export function hasActiveClients(channelName) {
 }
 
 /**
- * Send an audio URL or a control command to all connected clients for a channel.
- * Pass 'STOP_CURRENT_AUDIO' as audioUrlOrCommand to send a stop signal.
+ * Tell a channel, in chat, that its browser source is running an outdated player.
+ *
+ * Guarded by a timestamp on the channel config rather than an in-memory flag, so a
+ * reconnect, an instance swap or a redeploy does not re-nag. enqueueMessage already
+ * returns silently when botRespondsInChat is false, so silent-mode channels are left
+ * alone — they keep working via the URL path regardless.
  */
-export function sendAudioToChannel(channelName, audioUrlOrCommand) {
+async function notifyStalePlayer(channelName) {
+    const state = await getTtsState(channelName);
+    const last = state.stalePlayerNoticeAt || 0;
+    if (Date.now() - last < STALE_PLAYER_NOTICE_INTERVAL_MS) return;
+
+    // Record before sending: a failed send is far better than a nag loop.
+    await setTtsState(channelName, 'stalePlayerNoticeAt', Date.now());
+
+    await enqueueMessage(
+        channelName,
+        'Heads up: your WildcatTTS browser source is running an outdated version. ' +
+        'Right-click the source in OBS and choose Refresh to get noticeably faster audio.'
+    );
+    logger.info({ channel: channelName }, 'Sent stale-player refresh notice to chat');
+}
+
+/**
+ * True if any client currently connected for this channel is running a player that
+ * cannot accept binary audio frames.
+ *
+ * The queue calls this *before* generating, so it can ask the provider for a URL
+ * instead of inline bytes. That keeps an OBS source on a cached old player working
+ * — just without the latency win — rather than going silent. Once every client for
+ * the channel has refreshed, the channel returns to the fast inline-bytes path.
+ */
+export function channelPrefersUrlAudio(channelName) {
+    const resolved = resolveToChannelName(channelName);
+    const clients = channelClients.get(resolved);
+    if (!clients || clients.size === 0) return false;
+
+    for (const ws of clients) {
+        if (ws.readyState === WebSocket.OPEN && !ws.supportsBinaryAudio) return true;
+    }
+    return false;
+}
+
+/**
+ * Describe an audio payload for logging without dumping a whole buffer.
+ */
+function describePayload(payload) {
+    if (payload === STOP_CURRENT_AUDIO) return 'STOP_CURRENT_AUDIO';
+    if (payload?.kind === 'buffer') return `${payload.data.length} bytes (${payload.mime})`;
+    return String(payload?.url ?? payload).substring(0, 80);
+}
+
+/**
+ * Send audio or a control command to all connected clients for a channel.
+ *
+ * `payload` is either the 'STOP_CURRENT_AUDIO' sentinel or a discriminated audio
+ * object from generateSpeech: `{kind:'buffer', data, mime}` or `{kind:'url', url}`.
+ *
+ * Buffers go out as raw binary frames, which is the whole point of the exercise —
+ * it keeps the audio on the socket that is already open to the right Cloud Run
+ * instance, with no CDN fetch and no instance-affinity problem. Clients that have
+ * not announced binary support (an OBS source running a cached older player) fall
+ * back to the URL flow so their audio keeps working, and get nudged to refresh.
+ */
+export function sendAudioToChannel(channelName, payload) {
     const resolved = resolveToChannelName(channelName);
     const clients = channelClients.get(resolved);
 
     if (!clients || clients.size === 0) {
         logger.info(
-            `No active TTS WebSocket clients for channel: ${resolved}. Audio not sent: ${audioUrlOrCommand.substring(0, 50)}`
+            `No active TTS WebSocket clients for channel: ${resolved}. Audio not sent: ${describePayload(payload)}`
         );
         return;
     }
 
-    const messagePayload = {
-        type: audioUrlOrCommand === 'STOP_CURRENT_AUDIO' ? 'stopAudio' : 'playAudio',
-        url: audioUrlOrCommand !== 'STOP_CURRENT_AUDIO' ? audioUrlOrCommand : undefined,
-    };
-    const message = JSON.stringify(messagePayload);
+    const isStop = payload === STOP_CURRENT_AUDIO;
+    const jsonMessage = isStop
+        ? JSON.stringify({ type: 'stopAudio' })
+        : payload.kind === 'url'
+            ? JSON.stringify({ type: 'playAudio', url: payload.url })
+            : null;
 
     logger.debug(
-        `Sending to ${clients.size} client(s) for channel ${resolved}: ${message.substring(0, 100)}...`
+        `Sending to ${clients.size} client(s) for channel ${resolved}: ${describePayload(payload)}`
     );
 
+    let staleClients = 0;
+
     clients.forEach(ws => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(message);
-        } else {
+        if (ws.readyState !== WebSocket.OPEN) {
             logger.warn(
                 `TTS WebSocket client for ${resolved} not open (state: ${ws.readyState}). Message not sent.`
             );
+            return;
+        }
+
+        if (jsonMessage !== null) {
+            ws.send(jsonMessage);
+            return;
+        }
+
+        if (ws.supportsBinaryAudio) {
+            ws.send(payload.data);
+        } else {
+            // Should be unreachable: channelPrefersUrlAudio makes the queue request a
+            // URL from the provider whenever any client here is stale, so a buffer
+            // never reaches one. Counted rather than assumed, in case a stale client
+            // connects between that check and this send.
+            staleClients++;
         }
     });
+
+    if (staleClients > 0) {
+        logger.warn(
+            { channel: resolved, staleClients },
+            'TTS client(s) on an outdated player could not receive binary audio'
+        );
+        notifyStalePlayer(resolved).catch(err =>
+            logger.error({ err, channel: resolved }, 'Failed to send stale-player chat notice')
+        );
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -287,6 +384,10 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
             return;
         }
 
+        // Assume no binary support until the client says otherwise. Players older
+        // than the binary-audio change never send a hello, so absence is the signal.
+        ws.supportsBinaryAudio = false;
+
         // Register client
         if (!channelClients.has(channelName)) {
             channelClients.set(channelName, new Set());
@@ -311,6 +412,13 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
                     } catch (sendErr) {
                         logger.warn({ err: sendErr, channel: channelName }, 'Failed to send pong response');
                     }
+                } else if (parsedMessage?.type === 'hello') {
+                    const features = Array.isArray(parsedMessage.features) ? parsedMessage.features : [];
+                    ws.supportsBinaryAudio = features.includes('binaryAudio');
+                    logger.debug(
+                        { channel: channelName, features },
+                        `Client announced features; binary audio ${ws.supportsBinaryAudio ? 'supported' : 'unsupported'}`
+                    );
                 }
             } catch {
                 logger.warn(

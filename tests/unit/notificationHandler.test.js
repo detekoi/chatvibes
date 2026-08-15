@@ -4,7 +4,7 @@
 import { jest } from '@jest/globals';
 
 // Mock dependencies before imports
-const mockPublishTtsEvent = jest.fn().mockResolvedValue(undefined);
+const mockDispatchTtsEvent = jest.fn().mockResolvedValue(undefined);
 const mockGetSharedSessionInfo = jest.fn().mockResolvedValue(null);
 const mockLogger = {
     info: jest.fn(),
@@ -13,8 +13,11 @@ const mockLogger = {
     error: jest.fn()
 };
 
-jest.unstable_mockModule('../../src/lib/pubsub.js', () => ({
-    publishTtsEvent: mockPublishTtsEvent
+// Handlers now route through ttsDispatch, which decides between enqueueing locally
+// and publishing to Pub/Sub. Mocking at that boundary keeps these tests where they
+// were — asserting what the handler emits — without dragging in the web server graph.
+jest.unstable_mockModule('../../src/lib/ttsDispatch.js', () => ({
+    dispatchTtsEvent: mockDispatchTtsEvent
 }));
 
 jest.unstable_mockModule('../../src/components/twitch/eventUtils.js', () => ({
@@ -65,7 +68,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscribe', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'TestUser just subscribed (Tier 1)!',
@@ -96,7 +99,7 @@ describe('notificationHandler', () => {
             await handleNotification('channel.subscribe', event, 'testchannel');
 
             // Should NOT publish TTS event
-            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
 
             // Should log debug message about skipping
             expect(mockLogger.debug).toHaveBeenCalledWith(
@@ -122,7 +125,7 @@ describe('notificationHandler', () => {
             await handleNotification('channel.subscribe', event, 'testchannel');
 
             // Should generate TTS (is_gift is undefined/falsy)
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'TestUser just subscribed (Tier 1)!',
@@ -146,7 +149,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.gift', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'Gifter just gifted 1 Tier 1 sub!',
@@ -166,7 +169,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.gift', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: '5 Tier 1 gift subs from an anonymous gifter!',
@@ -187,7 +190,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.gift', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'GenerousGifter just gifted 10 Tier 1 subs!',
@@ -217,7 +220,7 @@ describe('notificationHandler', () => {
                 null,
                 expect.objectContaining({ emoteMode: 'describe', readFullUrls: false })
             );
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
                     text: 'Resubber resubscribed for 12 months (Tier 1)! They said: Love this stream!',
@@ -238,7 +241,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.message', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
                     text: 'Resubber resubscribed for 25 months, on a 12 month streak (Tier 1)!'
@@ -259,7 +262,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.message', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
                     text: 'Resubber resubscribed for 25 months (Tier 1)!'
@@ -279,7 +282,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.message', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({ text: 'Resubber resubscribed for 2 months (Tier 1)!' }),
                 null
@@ -299,7 +302,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.message', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
                     text: 'Resubber resubscribed for 30 months, on a 30 month streak (Tier 2)! They said: Love this stream!'
@@ -322,7 +325,7 @@ describe('notificationHandler', () => {
             await handleNotification('channel.subscription.message', event, 'testchannel');
 
             expect(mockPronounService.getUserPronouns).toHaveBeenCalledWith('resubber');
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
                     text: 'Resubber resubscribed for 12 months (Tier 1)! She said: Love this stream!'
@@ -343,7 +346,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.message', event, 'testchannel', ttsConfig);
 
-            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
             expect(mockFormatTtsText).not.toHaveBeenCalled();
         });
 
@@ -359,7 +362,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.message', event, 'testchannel', ttsConfig);
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({ text: 'viewer23 resubscribed for 3 months (Tier 1)!' }),
                 null
@@ -378,7 +381,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscribe', event, 'testchannel', ttsConfig);
 
-            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         });
 
         it('should skip cheer TTS when non-anonymous user is on the ignore list', async () => {
@@ -392,7 +395,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.cheer', event, 'testchannel', ttsConfig);
 
-            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         });
 
         it('should handle raid event', async () => {
@@ -404,7 +407,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.raid', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'Raider is raiding with 42 viewers!',
@@ -423,7 +426,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.follow', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'Someone new just followed!',
@@ -442,7 +445,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.follow', event, 'testchannel', { anonymizeFollowers: true });
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'Someone new just followed!',
@@ -461,7 +464,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.follow', event, 'testchannel', { anonymizeFollowers: false });
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'NewFollower just followed!',
@@ -482,7 +485,7 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.cheer', event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'Cheerer cheered 100 bits!',
@@ -506,7 +509,7 @@ describe('notificationHandler', () => {
 
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 { text: 'viewer23 is on a 5 stream watch streak!', user: 'viewer23', userId: '49912639', type: 'event' },
                 null
@@ -536,7 +539,7 @@ describe('notificationHandler', () => {
                 [{ type: 'text', text: '10!' }],
                 expect.objectContaining({ emoteMode: 'describe', readFullUrls: false })
             );
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 { text: 'turboicehusky is on a 10 stream watch streak! They said: 10!', user: 'turboicehusky', userId: '12345678', type: 'event' },
                 null
@@ -560,7 +563,7 @@ describe('notificationHandler', () => {
 
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel', ttsConfig);
 
-            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
             expect(mockFormatTtsText).not.toHaveBeenCalled();
         });
 
@@ -578,7 +581,7 @@ describe('notificationHandler', () => {
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel', ttsConfig);
 
             // Still announces the streak, but without the user's message
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({ text: 'viewer23 is on a 7 stream watch streak!' }),
                 null
@@ -612,7 +615,7 @@ describe('notificationHandler', () => {
                     pronunciationRules: expect.objectContaining({ re: expect.any(RegExp) }),
                 }
             );
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({ text: 'viewer23 is on a 4 stream watch streak! They said: twitch.tv' }),
                 null
@@ -628,7 +631,7 @@ describe('notificationHandler', () => {
 
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
 
-            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 { text: 'Someone is on a 3 stream watch streak!', user: 'Someone', userId: '49912639', type: 'event' },
                 null
@@ -646,7 +649,7 @@ describe('notificationHandler', () => {
 
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
 
-            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
             expect(mockLogger.warn).toHaveBeenCalledWith(
                 expect.objectContaining({ channelName: 'testchannel', user: 'viewer23' }),
                 expect.stringContaining('invalid streak_count')
@@ -664,7 +667,7 @@ describe('notificationHandler', () => {
 
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
 
-            expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         });
     });
 });

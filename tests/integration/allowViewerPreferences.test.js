@@ -39,7 +39,11 @@ describe('allowViewerPreferences Feature', () => {
     }));
 
     // Mock TTS service
-    mockGenerateSpeech = jest.fn().mockResolvedValue('https://example.com/audio.wav');
+    mockGenerateSpeech = jest.fn().mockResolvedValue({
+      kind: 'buffer',
+      data: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
+      mime: 'audio/mpeg'
+    });
     jest.unstable_mockModule('../../src/components/tts/ttsService.js', () => ({
       generateSpeech: mockGenerateSpeech,
       getAvailableVoices: jest.fn().mockResolvedValue([
@@ -53,7 +57,9 @@ describe('allowViewerPreferences Feature', () => {
     // Mock WebSocket server
     jest.unstable_mockModule('../../src/components/web/server.js', () => ({
       sendAudioToChannel: jest.fn(),
-      hasActiveClients: jest.fn(() => true)
+      hasActiveClients: jest.fn(() => true),
+      channelPrefersUrlAudio: jest.fn(() => false),
+      STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
     }));
 
     // Import modules after mocking

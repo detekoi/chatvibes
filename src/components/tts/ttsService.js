@@ -115,7 +115,10 @@ async function attemptGeneration(text, voiceId, input, options) {
   if (data.status === 'completed' && data.outputs && data.outputs.length > 0) {
     const audioUrl = data.outputs[0];
     logger.info({ outputUrl: audioUrl, predictionId: data.id }, 'TTS audio generated successfully via Wavespeed AI');
-    return audioUrl;
+    // Wavespeed only ever hands back a URL — it has no inline-bytes mode. Its CDN
+    // is CloudFront (~200ms), not the China bucket 302.ai uses, so this stays on
+    // the URL path rather than being downloaded server-side onto the hot path.
+    return { kind: 'url', url: audioUrl };
   } else if (data.status === 'failed') {
     logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned failed status.');
 
@@ -136,6 +139,27 @@ async function attemptGeneration(text, voiceId, input, options) {
   }
 }
 
+// Synthesis time at 302.ai scales with text length, so a flat timeout is wrong at
+// both ends. Measured medians/maxima (5 samples each): 3ch 1503/1753, 36ch
+// 1843/2148, 89ch 2209/2515, 267ch 3892/4105, 500ch 4478/6241. The old flat 5s
+// was loose enough to stall short messages for seconds and *tight enough that
+// max-length messages timed out*, dropping them onto Wavespeed — which measured
+// 4.5s against 302's ~2.2s, so failing over is a downgrade, not a safety net.
+// The budget therefore sits above the observed maximum rather than near the median.
+const T302_TIMEOUT_BASE_MS = 2500;
+const T302_TIMEOUT_PER_CHAR_MS = 9;
+const T302_TIMEOUT_MAX_MS = 8000;
+
+/**
+ * Per-request timeout for a 302.ai call, scaled to the text length.
+ * @param {string} text - The text being synthesised.
+ * @returns {number} Timeout in milliseconds.
+ */
+function t302TimeoutFor(text) {
+  const len = typeof text === 'string' ? text.length : 0;
+  return Math.min(T302_TIMEOUT_MAX_MS, T302_TIMEOUT_BASE_MS + T302_TIMEOUT_PER_CHAR_MS * len);
+}
+
 /**
  * Internal function to attempt TTS generation via 302.ai
  */
@@ -145,7 +169,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
     throw new Error('302.ai API key is missing');
   }
 
-  const T302_TIMEOUT_MS = 5000; // 5 seconds
+  const timeoutMs = t302TimeoutFor(text);
   const startTime = Date.now();
 
   const input = {
@@ -171,7 +195,12 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       channel: options.channel === 'mono' ? 1 : options.channel === 'stereo' ? 2 : 1,
     },
     language_boost: mapLanguageBoost(options.languageBoost ?? config.tts?.defaultLanguageBoost ?? 'auto'),
-    output_format: 'url'
+    // 'hex' returns the audio inline in this same response. 'url' hands back an
+    // Alibaba OSS link in Wulanchabu, China, which the OBS browser source then had
+    // to fetch itself — measured at 866-1090ms on every single clip. Taking the
+    // bytes here and pushing them down the already-open WebSocket deletes that hop.
+    // Only a channel with an outdated player still connected asks for 'url'.
+    output_format: options.preferUrlOutput ? 'url' : 'hex'
   };
 
   // Log request details for debugging
@@ -197,7 +226,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       'Content-Type': 'application/json'
     },
     data: input,
-    timeout: T302_TIMEOUT_MS
+    timeout: timeoutMs
   };
 
   if (options.signal) {
@@ -224,25 +253,30 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       throw new Error(`302.ai API error ${code}: ${msg}`);
     }
 
-    // 302.ai response structure check
-    if (result.data && result.data.url) {
-      const audioUrl = result.data.url;
-      logger.info({ outputUrl: audioUrl, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai');
-      return audioUrl;
-    } else if (result.data && result.data.audio) {
-      // Some endpoints return 'audio' instead of 'url'
-      const audioUrl = result.data.audio;
-      logger.info({ outputUrl: audioUrl, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai (audio field)');
-      return audioUrl;
-    } else if (result.url) {
-      // Some endpoints might return url directly
-      const audioUrl = result.url;
-      logger.info({ outputUrl: audioUrl, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai (direct url)');
-      return audioUrl;
-    } else {
-      logger.error({ result, endpoint: T302_ENDPOINT, durationMs }, '302.ai returned unexpected response format.');
+    // MiniMax returns the payload in data.audio for BOTH output formats — a URL
+    // string under output_format 'url', hex-encoded bytes under 'hex'. There is no
+    // data.url field; the branch that used to test for one never matched, and every
+    // request had been falling through to a branch commented as a fallback. Since
+    // the two formats are indistinguishable by shape, dispatch on what we asked for.
+    const audio = result.data?.audio;
+    if (typeof audio !== 'string' || audio.length === 0) {
+      logger.error({ result, endpoint: T302_ENDPOINT, durationMs }, '302.ai returned no audio payload.');
       throw new Error(`302.ai API returned unexpected response format: ${JSON.stringify(result)}`);
     }
+
+    if (input.output_format === 'url') {
+      logger.info({ outputUrl: audio, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai (url output)');
+      return { kind: 'url', url: audio };
+    }
+
+    const data = Buffer.from(audio, 'hex');
+    if (data.length === 0) {
+      logger.error({ endpoint: T302_ENDPOINT, durationMs, hexLength: audio.length }, '302.ai audio payload did not decode as hex.');
+      throw new Error('302.ai API returned an undecodable audio payload');
+    }
+
+    logger.info({ bytes: data.length, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai');
+    return { kind: 'buffer', data, mime: 'audio/mpeg' };
   } catch (error) {
     const durationMs = Date.now() - startTime;
     const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.includes('timeout'));
@@ -267,6 +301,15 @@ async function attemptGeneration302(text, voiceId, options = {}) {
   }
 }
 
+/**
+ * Generate speech audio for a piece of text.
+ *
+ * Returns a discriminated payload rather than a bare URL, because the two providers
+ * deliver audio differently: 302.ai hands back the bytes inline, Wavespeed a CDN link.
+ * Callers must branch on `kind` — see sendAudioToChannel in components/web/webSocket.js.
+ *
+ * @returns {Promise<{kind: 'buffer', data: Buffer, mime: string} | {kind: 'url', url: string}>}
+ */
 export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId || 'Friendly_Person', options = {}) {
   logger.info({
     logKey: "TTS_GENERATE_SPEECH_CALLED",
@@ -312,18 +355,18 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      let audioUrl;
+      let audio;
       if (is302) {
         // If this is a retry and the provider is 302, we might want to fallback to Wavespeed
         // But only if the voice is actually supported by Wavespeed (which they all are currently)
         if (attempt > 0) {
           logger.warn({ text: text.substring(0, 30) }, 'Falling back to Wavespeed API after 302.ai failure');
-          audioUrl = await attemptGeneration(text, voiceId, input, options);
+          audio = await attemptGeneration(text, voiceId, input, options);
         } else {
-          audioUrl = await attemptGeneration302(text, voiceId, options);
+          audio = await attemptGeneration302(text, voiceId, options);
         }
       } else {
-        audioUrl = await attemptGeneration(text, voiceId, input, options);
+        audio = await attemptGeneration(text, voiceId, input, options);
       }
 
       // Log successful retry
@@ -331,7 +374,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
         logger.info({ attempt, text: text.substring(0, 30), provider: is302 && attempt > 0 ? 'wavespeed (fallback)' : provider }, 'TTS generation succeeded after retry');
       }
 
-      return audioUrl;
+      return audio;
     } catch (error) {
       lastError = error;
 

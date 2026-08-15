@@ -12,6 +12,15 @@ import {
   mockChannelConfig
 } from '../helpers/testData.js';
 
+// generateSpeech returns a discriminated payload, not a bare URL: 302.ai hands back
+// inline bytes and Wavespeed a CDN link. These helpers build each shape.
+const audioPayload = (url) => ({ kind: 'url', url });
+const bufferPayload = (bytes = [0xff, 0xfb, 0x90, 0x00]) => ({
+  kind: 'buffer',
+  data: Buffer.from(bytes),
+  mime: 'audio/mpeg'
+});
+
 describe('ttsQueue module', () => {
   let mockDb;
   let mockLogger;
@@ -40,7 +49,9 @@ describe('ttsQueue module', () => {
 
     mockWebServer = {
       sendAudioToChannel: jest.fn(),
-      hasActiveClients: jest.fn().mockReturnValue(true)
+      hasActiveClients: jest.fn().mockReturnValue(true),
+      channelPrefersUrlAudio: jest.fn().mockReturnValue(false),
+      STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
     };
 
     mockTtsState = {
@@ -104,7 +115,7 @@ describe('ttsQueue module', () => {
       expect(queue.queue).toEqual([]);
       expect(queue.isPaused).toBe(false);
       expect(queue.isProcessing).toBe(false);
-      expect(queue.currentSpeechUrl).toBeNull();
+      expect(queue.currentSpeech).toBeNull();
       expect(queue.currentUserSpeaking).toBeNull();
       expect(queue.prefetchResults).toBeInstanceOf(Map);
       expect(queue.prefetchResults.size).toBe(0);
@@ -368,7 +379,7 @@ describe('ttsQueue module', () => {
     });
 
     test('should prevent processing when paused', async () => {
-      mockTtsService.generateSpeech.mockResolvedValue('http://example.com/audio.mp3');
+      mockTtsService.generateSpeech.mockResolvedValue(audioPayload('http://example.com/audio.mp3'));
 
       await ttsQueue.pauseQueue(TEST_CHANNEL);
 
@@ -388,7 +399,7 @@ describe('ttsQueue module', () => {
 
   describe('resumeQueue', () => {
     test('should resume queue and start processing', async () => {
-      mockTtsService.generateSpeech.mockResolvedValue('http://example.com/audio.mp3');
+      mockTtsService.generateSpeech.mockResolvedValue(audioPayload('http://example.com/audio.mp3'));
 
       await ttsQueue.pauseQueue(TEST_CHANNEL);
 
@@ -429,12 +440,12 @@ describe('ttsQueue module', () => {
 
     test('should not affect current speech', async () => {
       const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
-      queue.currentSpeechUrl = 'http://example.com/audio.mp3';
+      queue.currentSpeech = audioPayload('http://example.com/audio.mp3');
       queue.currentUserSpeaking = TEST_USER;
 
       await ttsQueue.clearQueue(TEST_CHANNEL);
 
-      expect(queue.currentSpeechUrl).toBe('http://example.com/audio.mp3');
+      expect(queue.currentSpeech).toEqual(audioPayload('http://example.com/audio.mp3'));
       expect(queue.currentUserSpeaking).toBe(TEST_USER);
     });
   });
@@ -442,7 +453,7 @@ describe('ttsQueue module', () => {
   describe('stopCurrentSpeech', () => {
     test('should stop current audio playback', async () => {
       const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
-      queue.currentSpeechUrl = 'http://example.com/audio.mp3';
+      queue.currentSpeech = audioPayload('http://example.com/audio.mp3');
       queue.currentUserSpeaking = TEST_USER;
 
       const result = await ttsQueue.stopCurrentSpeech(TEST_CHANNEL);
@@ -452,7 +463,7 @@ describe('ttsQueue module', () => {
         TEST_CHANNEL,
         'STOP_CURRENT_AUDIO'
       );
-      expect(queue.currentSpeechUrl).toBeNull();
+      expect(queue.currentSpeech).toBeNull();
       expect(queue.currentUserSpeaking).toBeNull();
     });
 
@@ -545,8 +556,8 @@ describe('ttsQueue module', () => {
     });
 
     test('should process preserved items when client reconnects', async () => {
-      const audioUrl1 = 'http://example.com/audio1.mp3';
-      const audioUrl2 = 'http://example.com/audio2.mp3';
+      const audioUrl1 = audioPayload('http://example.com/audio1.mp3');
+      const audioUrl2 = audioPayload('http://example.com/audio2.mp3');
       mockWebServer.hasActiveClients.mockReturnValue(false);
 
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'First message', user: TEST_USER });
@@ -569,7 +580,7 @@ describe('ttsQueue module', () => {
     });
 
     test('should generate speech and send to client', async () => {
-      const audioUrl = 'http://example.com/audio.mp3';
+      const audioUrl = audioPayload('http://example.com/audio.mp3');
       mockTtsService.generateSpeech.mockResolvedValue(audioUrl);
 
       await ttsQueue.enqueue(TEST_CHANNEL, {
@@ -587,6 +598,48 @@ describe('ttsQueue module', () => {
       );
     });
 
+    test('should forward inline audio bytes to the client unchanged', async () => {
+      const payload = bufferPayload();
+      mockTtsService.generateSpeech.mockResolvedValue(payload);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Test message', user: TEST_USER });
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith(TEST_CHANNEL, payload);
+      const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
+      expect(queue.currentSpeech).toBe(payload);
+    });
+
+    test('should ask for URL output when a client cannot take binary audio', async () => {
+      // An OBS source on a cached older player has no way to receive inline bytes,
+      // so the provider is asked for a link instead — slower, but it still plays.
+      mockWebServer.channelPrefersUrlAudio.mockReturnValue(true);
+      mockTtsService.generateSpeech.mockResolvedValue(audioPayload('http://example.com/audio.mp3'));
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Test message', user: TEST_USER });
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(mockTtsService.generateSpeech).toHaveBeenCalledWith(
+        'Test message',
+        expect.any(String),
+        expect.objectContaining({ preferUrlOutput: true })
+      );
+    });
+
+    test('should ask for inline bytes when every client is current', async () => {
+      mockWebServer.channelPrefersUrlAudio.mockReturnValue(false);
+      mockTtsService.generateSpeech.mockResolvedValue(bufferPayload());
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Test message', user: TEST_USER });
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(mockTtsService.generateSpeech).toHaveBeenCalledWith(
+        'Test message',
+        expect.any(String),
+        expect.objectContaining({ preferUrlOutput: false })
+      );
+    });
+
     test('should handle speech generation errors gracefully', async () => {
       mockTtsService.generateSpeech.mockRejectedValue(new Error('API Error'));
 
@@ -601,12 +654,12 @@ describe('ttsQueue module', () => {
       expect(mockLogger.error).toHaveBeenCalled();
 
       const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL);
-      expect(queue.currentSpeechUrl).toBeNull();
+      expect(queue.currentSpeech).toBeNull();
     });
 
     test('should process multiple items sequentially', async () => {
-      const audioUrl1 = 'http://example.com/audio1.mp3';
-      const audioUrl2 = 'http://example.com/audio2.mp3';
+      const audioUrl1 = audioPayload('http://example.com/audio1.mp3');
+      const audioUrl2 = audioPayload('http://example.com/audio2.mp3');
 
       mockTtsService.generateSpeech
         .mockResolvedValueOnce(audioUrl1)
@@ -629,7 +682,7 @@ describe('ttsQueue module', () => {
     });
 
     test('should send audio to multiple channels in shared session', async () => {
-      const audioUrl = 'http://example.com/audio.mp3';
+      const audioUrl = audioPayload('http://example.com/audio.mp3');
       mockTtsService.generateSpeech.mockResolvedValue(audioUrl);
 
       const sharedSessionInfo = {
@@ -662,8 +715,8 @@ describe('ttsQueue module', () => {
       const firstPromise = new Promise(resolve => { resolveFirst = resolve; });
       mockTtsService.generateSpeech
         .mockReturnValueOnce(firstPromise)
-        .mockResolvedValueOnce('http://example.com/audio2.mp3')
-        .mockResolvedValueOnce('http://example.com/audio3.mp3');
+        .mockResolvedValueOnce(audioPayload('http://example.com/audio2.mp3'))
+        .mockResolvedValueOnce(audioPayload('http://example.com/audio3.mp3'));
 
       // Pause, enqueue 3 items, then resume
       await ttsQueue.pauseQueue(TEST_CHANNEL);
@@ -683,12 +736,12 @@ describe('ttsQueue module', () => {
       expect(mockTtsService.generateSpeech).toHaveBeenCalledTimes(3);
 
       // Resolve first to let queue continue
-      resolveFirst('http://example.com/audio1.mp3');
+      resolveFirst(audioPayload('http://example.com/audio1.mp3'));
     });
 
     test('should reuse prefetched result instead of calling generateSpeech again', async () => {
-      const audioUrl1 = 'http://example.com/audio1.mp3';
-      const audioUrl2 = 'http://example.com/audio2.mp3';
+      const audioUrl1 = audioPayload('http://example.com/audio1.mp3');
+      const audioUrl2 = audioPayload('http://example.com/audio2.mp3');
 
       mockTtsService.generateSpeech
         .mockResolvedValueOnce(audioUrl1)
@@ -716,7 +769,7 @@ describe('ttsQueue module', () => {
       const firstPromise = new Promise(resolve => { resolveFirst = resolve; });
       mockTtsService.generateSpeech
         .mockReturnValueOnce(firstPromise)
-        .mockResolvedValueOnce('http://example.com/audio2.mp3');
+        .mockResolvedValueOnce(audioPayload('http://example.com/audio2.mp3'));
 
       await ttsQueue.pauseQueue(TEST_CHANNEL);
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'First', user: TEST_USER });
@@ -733,11 +786,11 @@ describe('ttsQueue module', () => {
       expect(queue.prefetchResults.size).toBe(0);
 
       // Resolve first to unblock
-      resolveFirst('http://example.com/audio1.mp3');
+      resolveFirst(audioPayload('http://example.com/audio1.mp3'));
     });
 
     test('should continue processing when a prefetch fails', async () => {
-      const audioUrl1 = 'http://example.com/audio1.mp3';
+      const audioUrl1 = audioPayload('http://example.com/audio1.mp3');
 
       mockTtsService.generateSpeech
         .mockResolvedValueOnce(audioUrl1)

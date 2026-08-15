@@ -13,7 +13,7 @@ import {
     getUserLanguagePreference,
     getUserEnglishNormalizationPreference
 } from './ttsState.js';
-import { sendAudioToChannel, hasActiveClients } from '../web/server.js';
+import { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, STOP_CURRENT_AUDIO } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
@@ -31,7 +31,7 @@ export function getOrCreateChannelQueue(channelName) {
             queue: [],
             isPaused: false,
             isProcessing: false,
-            currentSpeechUrl: null,
+            currentSpeech: null,
             currentSpeechController: null,
             currentUserSpeaking: null, // Tracks who/what triggered the current/last speech
             prefetchResults: new Map(), // event -> { promise: Promise<url>, controller: AbortController }
@@ -167,6 +167,7 @@ function startPrefetch(channelName) {
         const controller = new AbortController();
         const promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
             ...event.voiceConfig,
+            preferUrlOutput: channelPrefersUrlAudio(channelName),
             signal: controller.signal
         }).catch(err => {
             // Swallow abort errors; log others as warnings.
@@ -228,7 +229,7 @@ export async function processQueue(channelName) {
         cq.currentSpeechController.abort(); // Abort if a previous one was somehow stuck
     }
     cq.currentSpeechController = null;
-    cq.currentSpeechUrl = null;
+    cq.currentSpeech = null;
     cq.currentUserSpeaking = event.user || 'event_tts'; // Set user for the current item
 
     // Start prefetching upcoming items while we process the current one
@@ -237,7 +238,7 @@ export async function processQueue(channelName) {
     logger.info(`[${channelName}] Processing TTS for ${cq.currentUserSpeaking} (Voice: ${event.voiceConfig.voiceId}, Emotion: ${event.voiceConfig.emotion}, Lang: ${event.voiceConfig.languageBoost}): "${event.text.substring(0, 30)}..."`);
 
     try {
-        let audioUrl;
+        let audio;
 
         // Check if this event was already prefetched
         const prefetched = cq.prefetchResults.get(event);
@@ -247,22 +248,26 @@ export async function processQueue(channelName) {
             // currentSpeechController because the request is already in-flight.
             // If stopCurrentSpeech is called, cancelAllPrefetches handles it.
             logger.debug(`[${channelName}] Using prefetched result for "${event.text.substring(0, 30)}..."`);
-            audioUrl = await prefetched.promise;
+            audio = await prefetched.promise;
         } else {
             // No prefetch available — generate normally with a new controller
             const controller = new AbortController();
             cq.currentSpeechController = controller;
-            audioUrl = await generateSpeech(event.text, event.voiceConfig.voiceId, { ...event.voiceConfig, signal: controller.signal });
+            audio = await generateSpeech(event.text, event.voiceConfig.voiceId, {
+                ...event.voiceConfig,
+                preferUrlOutput: channelPrefersUrlAudio(channelName),
+                signal: controller.signal
+            });
 
             // Check if this specific generation was aborted
             if (controller.signal.aborted) {
                 logger.info(`[${channelName}] Speech generation for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} was aborted while processing.`);
-                audioUrl = null;
+                audio = null;
             }
         }
 
-        if (audioUrl) {
-            cq.currentSpeechUrl = audioUrl;
+        if (audio) {
+            cq.currentSpeech = audio;
             // currentUserSpeaking is already set for this audio
 
             // Send audio to all channels in shared session if applicable
@@ -274,7 +279,7 @@ export async function processQueue(channelName) {
                 // Send to all participating channels
                 for (const targetChannel of channels) {
                     if (hasActiveClients(targetChannel)) {
-                        sendAudioToChannel(targetChannel, audioUrl);
+                        sendAudioToChannel(targetChannel, audio);
                         logger.info(`[SharedChat:${sessionId}] Sent audio to ${targetChannel} for ${cq.currentUserSpeaking}`);
                     } else {
                         logger.debug(`[SharedChat:${sessionId}] No active clients for ${targetChannel}, skipping`);
@@ -282,13 +287,13 @@ export async function processQueue(channelName) {
                 }
             } else {
                 // Normal single-channel audio delivery
-                sendAudioToChannel(channelName, audioUrl);
-                logger.info(`[${channelName}] Sent audio URL to web for ${cq.currentUserSpeaking}: ${audioUrl}`);
+                sendAudioToChannel(channelName, audio);
+                logger.info(`[${channelName}] Sent audio to web for ${cq.currentUserSpeaking} (${audio.kind})`);
             }
         } else {
-            // No URL — issue in generateSpeech, prefetch failure, or aborted
-            logger.warn(`[${channelName}] generateSpeech returned no URL for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking}.`);
-            // currentSpeechUrl remains null, currentUserSpeaking will be cleared in finally
+            // No audio — issue in generateSpeech, prefetch failure, or aborted
+            logger.warn(`[${channelName}] generateSpeech returned no audio for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking}.`);
+            // currentSpeech remains null, currentUserSpeaking will be cleared in finally
         }
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -296,8 +301,8 @@ export async function processQueue(channelName) {
         } else {
             logger.error({ err: error, channel: channelName, eventText: event.text.substring(0, 30) }, 'Error processing TTS event in queue');
         }
-        // Ensure currentSpeechUrl is null on error. currentUserSpeaking will be cleared in finally if the controller matches.
-        cq.currentSpeechUrl = null;
+        // Ensure currentSpeech is null on error. currentUserSpeaking will be cleared in finally if the controller matches.
+        cq.currentSpeech = null;
     } finally {
         // Only nullify the controller if it's the one we just used for this task
         // and it hasn't already been nulled by a concurrent stopCurrentSpeech call.
@@ -305,10 +310,10 @@ export async function processQueue(channelName) {
             cq.currentSpeechController = null;
         }
 
-        // If the speech URL is null at this point (generation failed, was aborted, or never set),
+        // If the speech is null at this point (generation failed, was aborted, or never set),
         // then the currentUserSpeaking for *this specific event* should also be cleared,
         // as there's no active speech associated with them from this attempt.
-        if (!cq.currentSpeechUrl && cq.currentUserSpeaking === (event.user || 'event_tts')) {
+        if (!cq.currentSpeech && cq.currentUserSpeaking === (event.user || 'event_tts')) {
             cq.currentUserSpeaking = null;
         }
 
@@ -318,18 +323,18 @@ export async function processQueue(channelName) {
             setImmediate(() => processQueue(channelName));
         } else if (!cq.isPaused && cq.queue.length === 0) {
             // Queue is empty.
-            // If currentSpeechUrl is null (last item failed/aborted), currentUserSpeaking should also be null.
-            if (!cq.currentSpeechUrl) {
+            // If currentSpeech is null (last item failed/aborted), currentUserSpeaking should also be null.
+            if (!cq.currentSpeech) {
                 cq.currentUserSpeaking = null;
             }
-            logger.debug(`[${channelName}] TTS Queue is empty and processing finished. Last speaker (if audio was sent): ${cq.currentUserSpeaking}, URL: ${cq.currentSpeechUrl}`);
+            logger.debug(`[${channelName}] TTS Queue is empty and processing finished. Last speaker (if audio was sent): ${cq.currentUserSpeaking}`);
         }
     }
 }
 
 export async function stopCurrentSpeech(channelName) {
     const cq = getOrCreateChannelQueue(channelName);
-    logger.info(`[${channelName}] Attempting to stop current speech. Speaker: ${cq.currentUserSpeaking}, URL: ${cq.currentSpeechUrl}, Controller: ${!!cq.currentSpeechController}`);
+    logger.info(`[${channelName}] Attempting to stop current speech. Speaker: ${cq.currentUserSpeaking}, Playing: ${!!cq.currentSpeech}, Controller: ${!!cq.currentSpeechController}`);
 
     let stoppedSomethingSignificant = false;
 
@@ -342,15 +347,15 @@ export async function stopCurrentSpeech(channelName) {
         cq.currentSpeechController.abort();
         cq.currentSpeechController = null; // Clear the controller as it's now aborted
         stoppedSomethingSignificant = true;
-        // The currentUserSpeaking and currentSpeechUrl related to this aborted generation
+        // The currentUserSpeaking and currentSpeech related to this aborted generation
         // should be cleared by the processQueue's finally block when the AbortError is caught.
     }
 
-    // If a speech URL was set (meaning audio was likely sent to client)
-    if (cq.currentSpeechUrl) {
-        logger.info(`[${channelName}] Sending STOP_CURRENT_AUDIO to client for speech by ${cq.currentUserSpeaking || 'unknown/event'} (URL: ${cq.currentSpeechUrl}).`);
-        sendAudioToChannel(channelName, 'STOP_CURRENT_AUDIO');
-        cq.currentSpeechUrl = null;      // Clear the URL
+    // If audio was set (meaning it was likely already sent to the client)
+    if (cq.currentSpeech) {
+        logger.info(`[${channelName}] Sending STOP_CURRENT_AUDIO to client for speech by ${cq.currentUserSpeaking || 'unknown/event'}.`);
+        sendAudioToChannel(channelName, STOP_CURRENT_AUDIO);
+        cq.currentSpeech = null;         // Clear the audio
         cq.currentUserSpeaking = null;   // Clear the associated speaker
         stoppedSomethingSignificant = true;
     }
@@ -358,8 +363,8 @@ export async function stopCurrentSpeech(channelName) {
     // If nothing was actively being generated or tracked as playing by the server,
     // still send a stop signal to the client as a precaution.
     if (!stoppedSomethingSignificant) {
-        logger.info(`[${channelName}] No active URL or generation controller on server. Sending precautionary STOP_CURRENT_AUDIO to client.`);
-        sendAudioToChannel(channelName, 'STOP_CURRENT_AUDIO');
+        logger.info(`[${channelName}] No active audio or generation controller on server. Sending precautionary STOP_CURRENT_AUDIO to client.`);
+        sendAudioToChannel(channelName, STOP_CURRENT_AUDIO);
         // Do not set stoppedSomethingSignificant = true here, as the server didn't actively stop its own tracked process.
     }
 
@@ -386,7 +391,7 @@ export async function clearQueue(channelName) {
     // Abort all active prefetches since their queue items are now gone
     cancelAllPrefetches(channelName);
     logger.info(`[${channelName}] TTS queue cleared of ${itemsCleared} pending messages. This does not stop actively playing/generating audio.`);
-    // Does NOT affect cq.currentSpeechUrl, cq.currentUserSpeaking, or cq.currentSpeechController
+    // Does NOT affect cq.currentSpeech, cq.currentUserSpeaking, or cq.currentSpeechController
 }
 
 /**

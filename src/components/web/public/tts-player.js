@@ -2,6 +2,20 @@ const audioPlayer = document.getElementById('ttsAudioPlayer');
 const audioQueue = [];
 let isPlaying = false;
 
+// Object URLs this player created from inline audio frames. Tracked so they can be
+// revoked after playback — an OBS source runs for the length of a stream, and every
+// un-revoked clip stays in memory until the page is reloaded. Also serves as proof
+// of local origin when validating what we are about to feed the <audio> element.
+const ownObjectUrls = new Set();
+let currentObjectUrl = null;
+
+function releaseAudioUrl(url) {
+    if (url && ownObjectUrls.has(url)) {
+        URL.revokeObjectURL(url);
+        ownObjectUrls.delete(url);
+    }
+}
+
 // Determine WebSocket protocol based on current page protocol
 const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 // Construct URL using current host (hostname and port)
@@ -76,6 +90,15 @@ function connectWebSocket() {
     ws.onopen = () => {
         console.log('TTS WebSocket connected successfully.');
         reconnectAttempts = 0; // Reset on successful connection
+        // Announce what this player understands. The server sends audio as raw
+        // binary frames only to clients that declare 'binaryAudio'; without this
+        // it asks the TTS provider for a URL instead, which still works but is
+        // roughly a second slower per clip.
+        try {
+            ws.send(JSON.stringify({ type: 'hello', features: ['binaryAudio'] }));
+        } catch (e) {
+            console.warn('TTS WebSocket: error sending hello', e);
+        }
         // Start client keepalive ping
         if (keepaliveTimer) {
             clearInterval(keepaliveTimer);
@@ -95,6 +118,19 @@ function connectWebSocket() {
     };
 
     ws.onmessage = (event) => {
+        // Binary frame: the audio bytes themselves, sent inline over this socket so
+        // the browser never has to fetch them from a CDN. Object URLs are revoked
+        // once played (see releaseAudioUrl) — without that an OBS source running for
+        // a whole stream would hold on to every clip it has ever played.
+        if (event.data instanceof Blob) {
+            const blob = event.data.type ? event.data : new Blob([event.data], { type: 'audio/mpeg' });
+            const objectUrl = URL.createObjectURL(blob);
+            ownObjectUrls.add(objectUrl);
+            audioQueue.push(objectUrl);
+            playNextInQueue();
+            return;
+        }
+
         try {
             const data = JSON.parse(event.data);
             console.log('TTS WebSocket received data:', data); // Log all received data
@@ -168,9 +204,16 @@ function playNextInQueue() {
     const audioUrl = audioQueue.shift();
     console.log('Player: Attempting to play audio:', audioUrl);
 
+    // Release the previous clip's bytes now that we are moving on.
+    releaseAudioUrl(currentObjectUrl);
+    currentObjectUrl = ownObjectUrls.has(audioUrl) ? audioUrl : null;
+
     // As a defensive measure, re-validate the URL before assigning it to the audio element.
-    // isSafeAudioUrl returns the sanitized href or null.
-    const safeSrc = isSafeAudioUrl(audioUrl);
+    // isSafeAudioUrl returns the sanitized href or null. Object URLs we minted
+    // ourselves are exempt: they are blob: scheme, which isSafeAudioUrl rejects by
+    // design, and membership in ownObjectUrls is proof of local origin — a URL
+    // string arriving over the socket can never be in that set.
+    const safeSrc = currentObjectUrl || isSafeAudioUrl(audioUrl);
     if (!safeSrc) {
         console.warn('Player: Skipping unsafe audio URL from queue:', audioUrl);
         isPlaying = false;
@@ -201,12 +244,18 @@ function playNextInQueue() {
 
 audioPlayer.onended = () => {
     console.log('TTS Player: Audio finished playing.');
+    // Release here rather than only on the next clip, so the last message of a quiet
+    // period does not sit in memory until somebody speaks again.
+    releaseAudioUrl(currentObjectUrl);
+    currentObjectUrl = null;
     isPlaying = false;
     playNextInQueue();
 };
 
 audioPlayer.onerror = (e) => {
     console.error('TTS Player: <audio> element error:', e);
+    releaseAudioUrl(currentObjectUrl);
+    currentObjectUrl = null;
     isPlaying = false;
     playNextInQueue();
 };
@@ -216,6 +265,8 @@ function stopCurrentAudio() {
     audioPlayer.pause();
     audioPlayer.currentTime = 0; // Reset time
     audioPlayer.src = ""; // Clear source
+    releaseAudioUrl(currentObjectUrl);
+    currentObjectUrl = null;
     isPlaying = false;
     // Note: This doesn't clear the audioQueue, allowing a 'resume' or next item to play.
 }
@@ -225,7 +276,11 @@ function stopAllAudio() { // For !tts clear or full stop
     audioPlayer.pause();
     audioPlayer.currentTime = 0;
     audioPlayer.src = "";
+    releaseAudioUrl(currentObjectUrl);
+    currentObjectUrl = null;
     isPlaying = false;
+    // Discard bytes for clips that will now never play.
+    audioQueue.forEach(releaseAudioUrl);
     audioQueue.length = 0; // Clear the queue
 }
 

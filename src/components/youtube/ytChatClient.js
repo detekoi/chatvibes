@@ -5,7 +5,7 @@
 import WebSocket from 'ws';
 import logger from '../../lib/logger.js';
 import { getTtsState, getAllChannelConfigs, onYouTubeConfigChange } from '../tts/ttsState.js';
-import { publishTtsEvent } from '../../lib/pubsub.js';
+import { dispatchYouTubeTtsEvent } from '../../lib/ttsDispatch.js';
 import { formatTtsText } from '../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../lib/textRewrite/pronunciation.js';
 import { processYouTubeEmotes } from './ytEmoteProcessor.js';
@@ -294,14 +294,20 @@ async function _handleMessage(channelId, msg) {
         ttsType,
         textPreview: finalText.substring(0, 50),
         platform: 'youtube',
-    }, 'YouTube Chat: Publishing TTS event');
+    }, 'YouTube Chat: Dispatching TTS event');
 
-    await publishTtsEvent(channelId, {
+    await dispatchYouTubeTtsEvent(channelId, {
         text: finalText,
         user: username,
         userId: msg.channelId || null, // YouTube channel ID as userId
         type: ttsType,
-        messageId: msg.id || `yt-${Date.now()}`,
+        // YouTube's own message id, identical on every instance receiving the proxy
+        // broadcast, which is what makes it usable as a dedup key. Deliberately null
+        // rather than a generated fallback: a per-instance value like `yt-${Date.now()}`
+        // looks like a valid key while differing everywhere, which silently defeats
+        // dedup and speaks the message once per instance. Null makes the callers fall
+        // back to text-based deduplication instead.
+        messageId: msg.id || null,
         platform: 'youtube',
     });
 }

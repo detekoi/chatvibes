@@ -317,6 +317,49 @@ describe('ttsState module', () => {
       const mode = await ttsState.getUserEmoteModePreference(TEST_USER);
       expect(mode).toBeNull();
     });
+
+    test('should share one cached document read with getGlobalUserPreferences', async () => {
+      // emoteMode is a field on the same ttsUserPreferences document as every other
+      // global preference. These used to keep separate caches and separate lookups,
+      // so a cold cache cost up to four reads of one document per message.
+      const userDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
+      await userDoc.set({ emoteMode: 'skip', voiceId: 'Wise_Woman' });
+
+      const getSpy = jest.spyOn(userDoc, 'get');
+
+      const mode = await ttsState.getUserEmoteModePreference(TEST_USER, TEST_USER_ID);
+      const prefs = await ttsState.getGlobalUserPreferences(TEST_USER, TEST_USER_ID);
+
+      expect(mode).toBe('skip');
+      expect(prefs.voiceId).toBe('Wise_Woman');
+      // One read total for both lookups. Before this shared a cache it was two, and
+      // up to four once each fell back from the userId doc to the username doc.
+      expect(getSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test('should observe an emoteMode change written through setGlobalUserPreference', async () => {
+      const userDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
+      await userDoc.set({ emoteMode: 'read' });
+
+      expect(await ttsState.getUserEmoteModePreference(TEST_USER, TEST_USER_ID)).toBe('read');
+
+      await ttsState.setGlobalUserPreference(TEST_USER, 'emoteMode', 'describe', TEST_USER_ID);
+
+      // The old dedicated cache was never invalidated on write, so this returned the
+      // stale value for up to a minute. Sharing the global cache fixes that.
+      expect(await ttsState.getUserEmoteModePreference(TEST_USER, TEST_USER_ID)).toBe('describe');
+    });
+
+    test('should tolerate a userId with no username', async () => {
+      const userDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
+      await userDoc.set({ emoteMode: 'skip' });
+
+      expect(await ttsState.getUserEmoteModePreference(null, TEST_USER_ID)).toBe('skip');
+    });
+
+    test('should return null when given neither identifier', async () => {
+      expect(await ttsState.getUserEmoteModePreference(null, null)).toBeNull();
+    });
   });
 
   describe('pronunciations', () => {

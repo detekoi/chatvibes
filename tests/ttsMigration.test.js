@@ -10,6 +10,19 @@ const { default: axios } = await import('axios');
 const { getProviderForVoice } = await import('../src/components/tts/voiceMigration.js');
 const { generateSpeech } = await import('../src/components/tts/ttsService.js');
 
+// A minimal but real MP3 head: ID3 tag followed by a frame sync, hex-encoded the way
+// MiniMax returns it under output_format 'hex'. The payload lives in data.audio for
+// both output formats — there is no data.url field on this API.
+const MP3_BYTES = [0x49, 0x44, 0x33, 0x04, 0x00, 0xff, 0xfb, 0x90, 0x00];
+const MP3_HEX = Buffer.from(MP3_BYTES).toString('hex');
+const hex302Response = (hex = MP3_HEX) => ({
+    data: {
+        data: { audio: hex, status: 2 },
+        base_resp: { status_code: 0, status_msg: 'success' }
+    }
+});
+const expectedBuffer = { kind: 'buffer', data: Buffer.from(MP3_BYTES), mime: 'audio/mpeg' };
+
 describe('TTS Migration', () => {
     describe('getProviderForVoice', () => {
         it('should return 302 for supported voices', () => {
@@ -35,17 +48,11 @@ describe('TTS Migration', () => {
         });
 
         it('should call 302.ai endpoint for supported voice', async () => {
-            axios.mockResolvedValue({
-                data: {
-                    data: {
-                        url: 'https://302.ai/audio.mp3'
-                    }
-                }
-            });
+            axios.mockResolvedValue(hex302Response());
 
-            const url = await generateSpeech('Hello', 'English_expressive_narrator');
+            const audio = await generateSpeech('Hello', 'English_expressive_narrator');
 
-            expect(url).toBe('https://302.ai/audio.mp3');
+            expect(audio).toEqual(expectedBuffer);
             expect(axios).toHaveBeenCalledWith(expect.objectContaining({
                 url: expect.stringContaining('302.ai'),
                 data: expect.objectContaining({
@@ -57,23 +64,47 @@ describe('TTS Migration', () => {
             }));
         });
 
-        it('should handle 302.ai response with data.audio field', async () => {
+        it('should request hex output so the audio arrives inline', async () => {
+            axios.mockResolvedValue(hex302Response());
+
+            await generateSpeech('Hello', 'English_expressive_narrator');
+
+            expect(axios.mock.calls[0][0].data.output_format).toBe('hex');
+        });
+
+        it('should return a URL when the caller asks for one', async () => {
+            // A channel with an outdated browser source cannot take inline bytes, so
+            // the same data.audio field carries a link instead. Nothing in the shape
+            // distinguishes the two — only the output_format we asked for does.
             axios.mockResolvedValue({
                 data: {
-                    data: {
-                        audio: 'https://302.ai/audio-alt.mp3',
-                        status: 2
-                    },
-                    base_resp: {
-                        status_code: 0,
-                        status_msg: 'success'
-                    }
+                    data: { audio: 'https://302.ai/audio-alt.mp3', status: 2 },
+                    base_resp: { status_code: 0, status_msg: 'success' }
                 }
             });
 
-            const url = await generateSpeech('Hello', 'English_expressive_narrator');
+            const audio = await generateSpeech('Hello', 'English_expressive_narrator', { preferUrlOutput: true });
 
-            expect(url).toBe('https://302.ai/audio-alt.mp3');
+            expect(audio).toEqual({ kind: 'url', url: 'https://302.ai/audio-alt.mp3' });
+            expect(axios.mock.calls[0][0].data.output_format).toBe('url');
+        });
+
+        it('should scale the request timeout with the text length', async () => {
+            axios.mockResolvedValue(hex302Response());
+
+            await generateSpeech('Hi', 'English_expressive_narrator');
+            const shortTimeout = axios.mock.calls[0][0].timeout;
+
+            jest.clearAllMocks();
+            axios.mockResolvedValue(hex302Response());
+            await generateSpeech('x'.repeat(500), 'English_expressive_narrator');
+            const longTimeout = axios.mock.calls[0][0].timeout;
+
+            // A max-length Twitch message measured up to 6241ms, so it must be allowed
+            // more than the old flat 5000ms; a two-character one must be allowed less.
+            expect(shortTimeout).toBeLessThan(5000);
+            expect(longTimeout).toBeGreaterThan(6241);
+            expect(longTimeout).toBeLessThanOrEqual(8000);
         });
 
         it('should treat a non-zero base_resp code as a failure and fall back', async () => {
@@ -89,18 +120,15 @@ describe('TTS Migration', () => {
                     data: { data: { status: 'completed', outputs: ['https://wavespeed.ai/fallback.mp3'] } }
                 });
 
-            const url = await generateSpeech('Hello', 'English_expressive_narrator');
+            const audio = await generateSpeech('Hello', 'English_expressive_narrator');
 
-            expect(url).toBe('https://wavespeed.ai/fallback.mp3');
+            expect(audio).toEqual({ kind: 'url', url: 'https://wavespeed.ai/fallback.mp3' });
             expect(axios).toHaveBeenCalledTimes(2);
         });
 
         it('should send text_normalization inside voice_setting when englishNormalization is on', async () => {
             axios.mockResolvedValue({
-                data: {
-                    data: { audio: 'https://302.ai/audio.mp3', status: 2 },
-                    base_resp: { status_code: 0, status_msg: 'success' }
-                }
+                ...hex302Response()
             });
 
             await generateSpeech('I paid $1,299', 'English_expressive_narrator', { englishNormalization: true });
@@ -110,17 +138,11 @@ describe('TTS Migration', () => {
         });
 
         it('should call 302.ai endpoint for previously wavespeed-only voice', async () => {
-            axios.mockResolvedValue({
-                data: {
-                    data: {
-                        url: 'https://302.ai/audio.mp3'
-                    }
-                }
-            });
+            axios.mockResolvedValue(hex302Response());
 
-            const url = await generateSpeech('Hello', 'Wise_Woman');
+            const audio = await generateSpeech('Hello', 'Wise_Woman');
 
-            expect(url).toBe('https://302.ai/audio.mp3');
+            expect(audio).toEqual(expectedBuffer);
             expect(axios).toHaveBeenCalledWith(expect.objectContaining({
                 url: expect.stringContaining('302.ai'),
                 data: expect.objectContaining({
@@ -133,13 +155,7 @@ describe('TTS Migration', () => {
         });
 
         it('should pass language boost through to 302.ai for all voices', async () => {
-            axios.mockResolvedValue({
-                data: {
-                    data: {
-                        url: 'https://302.ai/audio.mp3'
-                    }
-                }
-            });
+            axios.mockResolvedValue(hex302Response());
 
             // 'Bulgarian' is supported by 302.ai
             await generateSpeech('Hello', 'Wise_Woman', { languageBoost: 'Bulgarian' });
@@ -153,13 +169,7 @@ describe('TTS Migration', () => {
         });
 
         it('should allow supported language boost for 302.ai', async () => {
-            axios.mockResolvedValue({
-                data: {
-                    data: {
-                        url: 'https://302.ai/audio.mp3'
-                    }
-                }
-            });
+            axios.mockResolvedValue(hex302Response());
 
             // 'Bulgarian' is supported by 302
             await generateSpeech('Hello', 'English_expressive_narrator', { languageBoost: 'Bulgarian' });
@@ -186,9 +196,9 @@ describe('TTS Migration', () => {
                 }
             });
 
-            const url = await generateSpeech('Hello', 'English_expressive_narrator');
+            const audio = await generateSpeech('Hello', 'English_expressive_narrator');
 
-            expect(url).toBe('https://wavespeed.ai/audio-fallback.mp3');
+            expect(audio).toEqual({ kind: 'url', url: 'https://wavespeed.ai/audio-fallback.mp3' });
             expect(axios).toHaveBeenCalledTimes(2);
             // First call to 302
             expect(axios).toHaveBeenNthCalledWith(1, expect.objectContaining({
@@ -215,12 +225,12 @@ describe('TTS Migration', () => {
             });
 
             // Use parameters supported by 302 but NOT Wavespeed
-            const url = await generateSpeech('Hello', 'English_expressive_narrator', {
+            const audio = await generateSpeech('Hello', 'English_expressive_narrator', {
                 languageBoost: 'Bulgarian', // Unsupported by Wavespeed
                 emotion: 'fluent'           // Unsupported by Wavespeed
             });
 
-            expect(url).toBe('https://wavespeed.ai/fallback-sanitized.mp3');
+            expect(audio).toEqual({ kind: 'url', url: 'https://wavespeed.ai/fallback-sanitized.mp3' });
 
             // Verify Wavespeed call used sanitized parameters
             const wavespeedCallData = axios.mock.calls[1][0].data;

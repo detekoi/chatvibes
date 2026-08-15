@@ -1,7 +1,7 @@
 // src/components/commands/tts/say.js
 import { getTtsState } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
-import { publishTtsEvent } from '../../../lib/pubsub.js';
+import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { hasPermissionLevel, mapPermissionLevel } from '../../../lib/permissions.js';
@@ -61,7 +61,7 @@ export default {
         }
 
         // Publish to Pub/Sub for deduplication across instances
-        await publishTtsEvent(channelNameNoHash, {
+        await dispatchTtsEvent(channelNameNoHash, {
             text: finalText,
             user: user.username,
             userId: user['user-id'],

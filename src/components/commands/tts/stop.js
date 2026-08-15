@@ -20,7 +20,7 @@ export default {
         let canStop = false;
 
         // Check if there's anything to stop from the server's perspective
-        const isSomethingToStopServerSide = cq.currentSpeechUrl || cq.currentSpeechController;
+        const isSomethingToStopServerSide = cq.currentSpeech || cq.currentSpeechController;
 
         if (isSomethingToStopServerSide) {
             // Case 1: User stopping their own message

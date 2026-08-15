@@ -89,9 +89,9 @@ describe('ttsService module', () => {
         }
       });
 
-      const result = await ttsService.generateSpeech('Hello world', 'Test_Voice');
+      const audio = await ttsService.generateSpeech('Hello world', 'Test_Voice');
 
-      expect(result).toBe(audioUrl);
+      expect(audio).toEqual({ kind: 'url', url: audioUrl });
       expect(mockAxios).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'POST',
@@ -267,9 +267,9 @@ describe('ttsService module', () => {
         }
       });
 
-      const result = await ttsService.generateSpeech('Test', 'Voice');
+      const audio = await ttsService.generateSpeech('Test', 'Voice');
 
-      expect(result).toBe('https://audio.url');
+      expect(audio).toEqual({ kind: 'url', url: 'https://audio.url' });
     });
 
     test('should throw error when API returns failed status', async () => {

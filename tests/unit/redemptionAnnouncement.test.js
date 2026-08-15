@@ -4,7 +4,7 @@
 import { jest } from '@jest/globals';
 
 // Mock dependencies before imports
-const mockPublishTtsEvent = jest.fn().mockResolvedValue(undefined);
+const mockDispatchTtsEvent = jest.fn().mockResolvedValue(undefined);
 const mockGetSharedSessionInfo = jest.fn().mockResolvedValue(null);
 const mockLogger = {
     info: jest.fn(),
@@ -13,8 +13,11 @@ const mockLogger = {
     error: jest.fn()
 };
 
-jest.unstable_mockModule('../../src/lib/pubsub.js', () => ({
-    publishTtsEvent: mockPublishTtsEvent
+// Handlers now route through ttsDispatch, which decides between enqueueing locally
+// and publishing to Pub/Sub. Mocking at that boundary keeps these tests where they
+// were — asserting what the handler emits — without dragging in the web server graph.
+jest.unstable_mockModule('../../src/lib/ttsDispatch.js', () => ({
+    dispatchTtsEvent: mockDispatchTtsEvent
 }));
 
 jest.unstable_mockModule('../../src/components/twitch/eventUtils.js', () => ({
@@ -131,7 +134,7 @@ describe('handleRedemptionAnnouncement', () => {
             null,
             expect.objectContaining({ emoteMode: 'describe', readFullUrls: false })
         );
-        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+        expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
             expect.objectContaining({
                 text: 'TestUser redeemed Hydrate: drink some water!',
@@ -157,7 +160,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+        expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
             {
                 text: 'TestUser redeemed Do 10 Pushups',
@@ -188,7 +191,7 @@ describe('handleRedemptionAnnouncement', () => {
             ttsConfig
         );
 
-        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         expect(mockLogger.debug).toHaveBeenCalledWith(
             expect.objectContaining({ channelLogin: 'testchannel', rewardId: 'tts-reward-id' }),
             'Skipping redemption announcement for configured TTS reward'
@@ -215,7 +218,7 @@ describe('handleRedemptionAnnouncement', () => {
             ttsConfig
         );
 
-        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
     });
 
     it('should announce a queued redemption once the streamer approves it', async () => {
@@ -236,7 +239,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+        expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
             expect.objectContaining({ text: 'TestUser redeemed Song Request: play despacito' }),
             null
@@ -259,7 +262,7 @@ describe('handleRedemptionAnnouncement', () => {
         await handleRedemptionAnnouncement(
             'channel.channel_points_custom_reward_redemption.update', event, 'testchannel', defaultTtsConfig);
 
-        expect(mockPublishTtsEvent).toHaveBeenCalledTimes(1);
+        expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
     });
 
     it('should not announce a redemption that was canceled instead of approved', async () => {
@@ -279,7 +282,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         expect(mockRemoveRedemption).toHaveBeenCalledWith('redemption-2');
     });
 
@@ -302,7 +305,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         // Fragments are stashed on the 24h cache so they survive until approval
         expect(mockAddRedemption).toHaveBeenCalledWith(
             'redemption-3', 'play despacito', 'testuser', 'testchannel', 'reward-123', '4242',
@@ -332,7 +335,7 @@ describe('handleRedemptionAnnouncement', () => {
         );
 
         expect(mockFormatTtsText).toHaveBeenCalledWith('Kappa', stashed, expect.any(Object));
-        expect(mockPublishTtsEvent).toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).toHaveBeenCalled();
     });
 
     it('should not touch the redemption cache for the configured TTS reward', async () => {
@@ -350,7 +353,7 @@ describe('handleRedemptionAnnouncement', () => {
             { ...defaultTtsConfig, channelPoints: { rewardId: 'tts-reward' } }
         );
 
-        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         // handleChannelPointsRedemption owns this reward's cache entries — clobbering
         // them here would destroy the fragments it just stashed.
         expect(mockAddRedemption).not.toHaveBeenCalled();
@@ -372,7 +375,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
     });
 
     it('should trim whitespace from user input', async () => {
@@ -392,7 +395,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+        expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
             expect.objectContaining({
                 text: 'TestUser redeemed Say Something: hello world',
@@ -418,7 +421,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
     });
 
     it('should use fallback name when user_name is missing', async () => {
@@ -435,7 +438,7 @@ describe('handleRedemptionAnnouncement', () => {
             defaultTtsConfig
         );
 
-        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+        expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
             {
                 text: 'Someone redeemed Hydrate',
@@ -463,7 +466,7 @@ describe('handleRedemptionAnnouncement', () => {
             ttsConfig
         );
 
-        expect(mockPublishTtsEvent).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         expect(mockFormatTtsText).not.toHaveBeenCalled();
     });
 
@@ -484,7 +487,7 @@ describe('handleRedemptionAnnouncement', () => {
             ttsConfig
         );
 
-        expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+        expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
             expect.objectContaining({ text: 'viewer23 redeemed Say Something' }),
             null

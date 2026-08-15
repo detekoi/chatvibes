@@ -8,6 +8,7 @@ import logger from '../../lib/logger.js';
 import { isChannelAllowed } from '../../lib/allowList.js';
 import { getTtsState } from '../tts/ttsState.js';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
+import { claimOnce } from '../../lib/firestoreClaim.js';
 
 // Import event handlers
 import { handleChatMessage } from './handlers/chatHandler.js';
@@ -43,46 +44,16 @@ function pruneOldProcessedIds(nowTs) {
 async function claimEventSubMessageGlobal(messageId) {
     const docRef = processedEventSubIds.doc(messageId);
     const now = Date.now();
-    const expireAt = Timestamp.fromMillis(now + EVENTSUB_DEDUP_TTL_MS);
+    const payload = {
+        eventSubMessageId: messageId,
+        instance: process.env.K_REVISION || 'local',
+        createdAtMs: now,
+        expireAt: Timestamp.fromMillis(now + EVENTSUB_DEDUP_TTL_MS), // Firestore Timestamp for TTL policy
+    };
 
-    try {
-        const result = await firestore.runTransaction(async (tx) => {
-            const snap = await tx.get(docRef);
-            if (snap.exists) {
-                const data = snap.data() || {};
-                // Check both old (expireAtMs) and new (expireAt) formats for backward compatibility
-                let expired = true;
-                if (data.expireAt instanceof Timestamp) {
-                    expired = data.expireAt.toMillis() <= now;
-                } else if (typeof data.expireAtMs === 'number') {
-                    expired = data.expireAtMs <= now;
-                }
-
-                if (!expired) {
-                    // Already claimed by another instance
-                    logger.info({
-                        eventSubMessageId: messageId,
-                        ageMs: now - (data.createdAtMs || 0),
-                        claimedBy: data.instance || 'unknown'
-                    }, 'EventSub webhook already processed by another instance - skipping');
-                    return false;
-                }
-            }
-            // Claim it
-            tx.set(docRef, {
-                eventSubMessageId: messageId,
-                instance: process.env.K_REVISION || 'local',
-                createdAtMs: now,
-                expireAt: expireAt, // Firestore Timestamp for TTL policy
-            }, { merge: true });
-            return true;
-        });
-        return result;
-    } catch (err) {
-        // On Firestore error, fail-open to avoid message loss
-        logger.warn({ err, messageId }, 'EventSub global claim failed; proceeding without global dedupe');
-        return true;
-    }
+    // One round trip on the common path, where runTransaction cost two
+    // (BeginTransaction + read, then Commit) on every single message.
+    return claimOnce(docRef, payload, now, { eventSubMessageId: messageId, source: 'eventsub' });
 }
 
 /**
