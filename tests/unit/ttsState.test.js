@@ -74,6 +74,28 @@ describe('ttsState module', () => {
       expect(state.voiceId).toBeDefined();
       expect(state.userPreferences).toEqual({});
     });
+
+    // A failed read used to take the same path as a missing document, caching
+    // defaults for a channel that has real settings. The channel then stayed on
+    // them — with the profanity filter off — until the listener happened to
+    // deliver the doc.
+    test('does not cache defaults when the Firestore read fails', async () => {
+      await ttsState.initializeTtsState();
+
+      // Created after startup, so it is not in the cache the listener warmed.
+      const channelDoc = mockDb.collection('ttsChannelConfigs').doc('latecomer');
+      await channelDoc.set({ ...mockChannelConfig, profanityFilterEnabled: true });
+
+      const realGet = channelDoc.get.bind(channelDoc);
+      channelDoc.get = jest.fn().mockRejectedValue(new Error('firestore unavailable'));
+
+      const duringOutage = await ttsState.getTtsState('latecomer');
+      expect(duringOutage.profanityFilterEnabled).toBe(false);
+
+      channelDoc.get = realGet;
+      const afterRecovery = await ttsState.getTtsState('latecomer');
+      expect(afterRecovery.profanityFilterEnabled).toBe(true);
+    });
   });
 
   describe('setTtsState', () => {

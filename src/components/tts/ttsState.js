@@ -195,6 +195,12 @@ export async function getTtsState(channelName) {
         }
     } catch (error) {
         logger.error({ err: error, channel: channelName }, `Error fetching TTS state for ${channelName} from Firestore.`);
+        // A failed read is not evidence the channel is new. Caching defaults here
+        // would leave the channel on them until the collection listener next
+        // delivers the doc — long enough to speak a message with the wrong
+        // settings, and profanityFilterEnabled defaults to off. Serve defaults for
+        // this call only and leave the cache for the listener to fill.
+        return { ...DEFAULT_TTS_SETTINGS, userPreferences: {} };
     }
     // No document exists - this is a new channel, use defaults (botRespondsInChat: false)
     const defaultConfigCopy = { ...DEFAULT_TTS_SETTINGS, userPreferences: {} };
