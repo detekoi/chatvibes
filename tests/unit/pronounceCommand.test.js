@@ -249,6 +249,34 @@ describe('TTS pronunciation commands', () => {
             expect(ttsStateMock.setTtsState).toHaveBeenCalledWith('testchannel', 'profanityFilterEnabled', false);
         });
 
+        // "on" reads as if it turns profanity on. These verbs say what happens.
+        it.each(['block', 'filter', 'censor', 'clean', 'enable'])('%s turns the filter on', async (verb) => {
+            await profanity.execute(context([verb]));
+            expect(ttsStateMock.setTtsState).toHaveBeenCalledWith('testchannel', 'profanityFilterEnabled', true);
+        });
+
+        it.each(['allow', 'unfilter', 'raw', 'disable'])('%s turns the filter off', async (verb) => {
+            ttsStateMock.getTtsState.mockResolvedValue({ languageBoost: 'English', profanityFilterEnabled: true });
+            await profanity.execute(context([verb]));
+            expect(ttsStateMock.setTtsState).toHaveBeenCalledWith('testchannel', 'profanityFilterEnabled', false);
+        });
+
+        it('accepts a verb in any case', async () => {
+            await profanity.execute(context(['BLOCK']));
+            expect(ttsStateMock.setTtsState).toHaveBeenCalledWith('testchannel', 'profanityFilterEnabled', true);
+        });
+
+        it('states the effect, not just the state, when switching on', async () => {
+            await profanity.execute(context(['block']));
+            expect(reply()).toMatch(/softened before they are spoken/);
+        });
+
+        it('states the effect, not just the state, when switching off', async () => {
+            ttsStateMock.getTtsState.mockResolvedValue({ languageBoost: 'English', profanityFilterEnabled: true });
+            await profanity.execute(context(['allow']));
+            expect(reply()).toMatch(/read as written/);
+        });
+
         it('does not rewrite the setting when it is already correct', async () => {
             ttsStateMock.getTtsState.mockResolvedValue({ languageBoost: 'English', profanityFilterEnabled: true });
             await profanity.execute(context(['on']));

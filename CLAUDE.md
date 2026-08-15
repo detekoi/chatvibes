@@ -66,7 +66,7 @@ export TWITCH_CHANNELS=yourchannel
   - `!tts defaultlanguage <language>` - (Mod) Set channel's default language boost.
   - `!tts pronounce <word> = <how to say it>` - (Mod) Add or update a channel pronunciation.
   - `!tts pronounce list | remove <word> | off <word> | test <text> | defaults` - (Mod) Manage the dictionary. `off` disables a built-in without deleting it; `test` previews an expansion without speaking it.
-  - `!tts profanity on|off|status` - (Mod) Toggle the profanity filter (off by default).
+  - `!tts profanity block|allow|status` - (Mod) Start or stop the profanity filter (off by default). The verb names the outcome because `on` reads as if it enables profanity; `on`/`off` and a few synonyms are still accepted.
 
 ## Pronunciation and Profanity
 

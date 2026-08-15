@@ -9,11 +9,24 @@ import { getTtsState, setTtsState } from '../../tts/ttsState.js';
 import { getProfanityListInfo } from '../../../lib/profanity/index.js';
 import logger from '../../../lib/logger.js';
 
-const USAGE = '!tts profanity <on|off|status>';
+const USAGE = '!tts profanity <block|allow|status>';
+
+// The verb has to name the outcome. "!tts profanity on" reads as if it turns
+// profanity on, which is the opposite of what it does; block/allow cannot be
+// read backwards, since the thing being blocked is right there in the command.
+// on/off stay accepted — they are what the docs shipped with and what mods have
+// in their muscle memory.
+const ENABLE_WORDS = new Set(['block', 'filter', 'censor', 'clean', 'on', 'enable']);
+const DISABLE_WORDS = new Set(['allow', 'unfilter', 'raw', 'off', 'disable']);
+
+// Every reply states the effect rather than the setting. If someone did read the
+// command backwards, the confirmation is where they find out.
+const ON_EFFECT = 'swear words are softened before they are spoken';
+const OFF_EFFECT = 'messages are read as written';
 
 export default {
     name: 'profanity',
-    description: 'Turn the TTS profanity filter on or off, or show its status.',
+    description: 'Block or allow profanity in TTS, or show the filter status.',
     usage: USAGE,
     permission: 'moderator',
     execute: async (context) => {
@@ -28,7 +41,10 @@ export default {
             const info = getProfanityListInfo(ttsConfig.languageBoost);
 
             if (subAction === 'status') {
-                const state = ttsConfig.profanityFilterEnabled ? 'ON' : 'OFF';
+                const enabled = Boolean(ttsConfig.profanityFilterEnabled);
+                const state = enabled
+                    ? `ON — ${ON_EFFECT}`
+                    : `OFF — ${OFF_EFFECT}`;
                 if (info.entries === 0) {
                     reply(`Profanity filter: ${state}. No word list exists for "${info.language}", so nothing would be filtered.`);
                     return;
@@ -44,14 +60,16 @@ export default {
                 return;
             }
 
-            if (subAction !== 'on' && subAction !== 'off') {
-                reply(`Usage: ${USAGE}`);
+            const enable = ENABLE_WORDS.has(subAction) ? true
+                : DISABLE_WORDS.has(subAction) ? false
+                : null;
+            if (enable === null) {
+                reply(`Usage: ${USAGE} — "on" and "off" also work.`);
                 return;
             }
 
-            const enable = subAction === 'on';
-            if (ttsConfig.profanityFilterEnabled === enable) {
-                reply(`Profanity filter is already ${enable ? 'on' : 'off'}.`);
+            if (Boolean(ttsConfig.profanityFilterEnabled) === enable) {
+                reply(`Profanity filter is already ${enable ? 'on' : 'off'} — ${enable ? ON_EFFECT : OFF_EFFECT}.`);
                 return;
             }
 
@@ -64,7 +82,7 @@ export default {
             logger.info({ channel: channelName, enabled: enable, user: user.username }, 'Profanity filter toggled');
 
             if (!enable) {
-                reply('Profanity filter off. Messages will be read as written.');
+                reply(`Profanity filter off — ${OFF_EFFECT}.`);
                 return;
             }
 
@@ -73,7 +91,7 @@ export default {
                 return;
             }
             const note = info.isFallback ? ' Channel language is "auto", so the English list is in use.' : '';
-            reply(`Profanity filter on. ${info.entries} ${info.language} words will be softened.${note}`);
+            reply(`Profanity filter on — ${info.entries} ${info.language} words will be softened before they are spoken.${note}`);
         } catch (error) {
             logger.error({ err: error, channel: channelName, args }, 'Error in !tts profanity');
             reply('Something went wrong handling that command.');
