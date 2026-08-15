@@ -14,6 +14,7 @@ const TOKEN = 'test-obs-token';
 let mockGetTtsState;
 let mockSetTtsState;
 let mockEnqueueMessage;
+let mockIsChannelAllowed;
 let webSocketModule;
 let server;
 let wss;
@@ -30,8 +31,9 @@ beforeEach(async () => {
     jest.unstable_mockModule('../../src/lib/logger.js', () => ({
         default: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() }
     }));
+    mockIsChannelAllowed = jest.fn(() => true);
     jest.unstable_mockModule('../../src/lib/allowList.js', () => ({
-        isChannelAllowed: jest.fn(() => true),
+        isChannelAllowed: mockIsChannelAllowed,
         resolveToChannelName: jest.fn(id => String(id).toLowerCase())
     }));
     jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
@@ -89,6 +91,60 @@ const bufferPayload = (bytes = [0x49, 0x44, 0x33, 0xff, 0xfb]) => ({
     kind: 'buffer',
     data: Buffer.from(bytes),
     mime: 'audio/mpeg'
+});
+
+/**
+ * Connect and resolve with how the handshake ended: 'open' when the upgrade
+ * completed, or the HTTP status the server answered with when it refused.
+ */
+function attemptConnect(query) {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/${query}`);
+    return new Promise(resolve => {
+        ws.on('open', () => resolve({ outcome: 'open', ws }));
+        ws.on('unexpected-response', (_req, res) => {
+            ws.terminate();
+            resolve({ outcome: 'rejected', status: res.statusCode });
+        });
+        ws.on('error', err => resolve({ outcome: 'error', err }));
+    });
+}
+
+describe('upgrade gate', () => {
+    // A rejection that arrives after the handshake succeeds is what turned a
+    // stale OBS browser source into a reconnect storm: the player counts the
+    // upgrade as a success, resets its backoff, and retries forever.
+    test('refuses a channel outside the allow-list before upgrading', async () => {
+        mockIsChannelAllowed.mockReturnValue(false);
+
+        const result = await attemptConnect(`?channel=notallowed&token=${TOKEN}`);
+
+        expect(result.outcome).toBe('rejected');
+        expect(result.status).toBe(403);
+    });
+
+    test('refuses a connection with no channel or token before upgrading', async () => {
+        const result = await attemptConnect('?channel=only');
+
+        expect(result.outcome).toBe('rejected');
+        expect(result.status).toBe(400);
+    });
+
+    test('upgrades an allow-listed channel', async () => {
+        const result = await attemptConnect(`?channel=${CHANNEL}&token=${TOKEN}`);
+
+        expect(result.outcome).toBe('open');
+        result.ws.close();
+    });
+
+    test('closes with 1008 rather than refusing when only the token is wrong', async () => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/?channel=${CHANNEL}&token=wrong-token`);
+        const closeCode = await new Promise(resolve => {
+            ws.on('close', code => resolve(code));
+            ws.on('error', () => {});
+        });
+
+        expect(closeCode).toBe(1008);
+    });
 });
 
 describe('WebSocket audio delivery', () => {

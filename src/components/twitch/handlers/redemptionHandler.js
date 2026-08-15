@@ -3,7 +3,7 @@
 
 import logger from '../../../lib/logger.js';
 import * as redemptionCache from '../redemptionCache.js';
-import { isChannelAllowed } from '../../../lib/allowList.js';
+import { isChannelActive } from '../../../lib/allowList.js';
 import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
@@ -74,10 +74,11 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
         userInputPreview: userInput?.substring(0, 30)
     }, 'Received Channel Points redemption event');
 
-    // Verify channel is allowed (by broadcaster ID)
+    // Verify the bot is switched on for this channel (by broadcaster ID). Being
+    // on the allow-list is not enough: a deactivated channel stays approved.
     const broadcasterId = event?.broadcaster_user_id;
-    if (!broadcasterId || !isChannelAllowed(broadcasterId)) {
-        logger.debug({ channelLogin, broadcasterId, subscriptionType }, 'Channel Points event for non-allowed channel - ignoring');
+    if (!broadcasterId || !isChannelActive(broadcasterId)) {
+        logger.debug({ channelLogin, broadcasterId, subscriptionType }, 'Channel Points event for inactive or non-allowed channel - ignoring');
         return;
     }
 

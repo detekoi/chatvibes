@@ -74,6 +74,62 @@ function recordAuthFailure(clientIP) {
 }
 
 // ---------------------------------------------------------------------------
+// Upgrade gate
+// ---------------------------------------------------------------------------
+
+/**
+ * Screens a connection before the WebSocket handshake completes, so a rejected
+ * client gets an HTTP error instead of an upgrade it immediately loses.
+ *
+ * Rejecting after the upgrade is what turned a stale OBS browser source into a
+ * reconnect storm: the handshake succeeding fires the player's onopen, which
+ * resets its attempt counter, so the backoff and the ten-attempt cap never
+ * applied and the source retried every second indefinitely. A pre-upgrade
+ * refusal fails the connection outright and lets the player give up.
+ *
+ * Token validation stays in the connection handler — it needs Firestore, and
+ * this gate must stay synchronous and cheap.
+ */
+function verifyUpgrade({ req }, done) {
+    const clientIP = getClientIp(req);
+
+    let channelName = null;
+    let token = null;
+    try {
+        const urlObj = new URL(req.url, `http://${req.headers.host}`);
+        channelName = urlObj.searchParams.get('channel')?.toLowerCase();
+        token = urlObj.searchParams.get('token');
+    } catch (e) {
+        logger.error({ err: e, url: req.url }, 'Error parsing channel/token from WebSocket URL');
+        return done(false, 400, 'Invalid URL format');
+    }
+
+    if (!channelName || !token) {
+        logger.warn('TTS WebSocket connection rejected: Channel or Token missing from URL.');
+        return done(false, 400, 'Channel and token required');
+    }
+
+    const rateLimitCheck = checkRateLimit(clientIP);
+    if (!rateLimitCheck.allowed) {
+        logger.warn(
+            { channel: channelName, clientIP, retryAfter: rateLimitCheck.retryAfter },
+            'Rate limit exceeded for WebSocket authentication attempts'
+        );
+        return done(false, 429, 'Too many failed authentication attempts');
+    }
+
+    if (!isChannelAllowed(channelName)) {
+        logger.warn({ channel: channelName, clientIP }, 'Rejecting WS connection: Channel not in allow-list');
+        recordAuthFailure(clientIP);
+        return done(false, 403, 'Channel not allowed');
+    }
+
+    // Hand the parsed values to the connection handler rather than re-parsing there.
+    req.wsAuth = { channelName, token, clientIP };
+    return done(true);
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -220,7 +276,7 @@ export function sendAudioToChannel(channelName, payload) {
  * overlay connections.  Returns the WebSocketServer instance.
  */
 export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) {
-    const wss = new WebSocketServer({ server: httpServer });
+    const wss = new WebSocketServer({ server: httpServer, verifyClient: verifyUpgrade });
     logger.info('WildcatTTS TTS WebSocket Server initialized and attached to HTTP server.');
 
     // Periodically clean up stale auth-failure records
@@ -260,50 +316,9 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
         ws.isAlive = true;
         ws.on('pong', heartbeat);
 
-        let channelName = null;
-        let tokenFromUrl = null;
-
-        const clientIP = getClientIp(req);
-
-        try {
-            const urlObj = new URL(req.url, `http://${req.headers.host}`);
-            channelName = urlObj.searchParams.get('channel')?.toLowerCase();
-            tokenFromUrl = urlObj.searchParams.get('token');
-        } catch (e) {
-            logger.error({ err: e, url: req.url }, 'Error parsing channel/token from WebSocket URL');
-            ws.close(1008, 'Invalid URL format');
-            return;
-        }
-
-        if (!channelName || !tokenFromUrl) {
-            logger.warn('TTS WebSocket connection rejected: Channel or Token missing from URL.');
-            ws.send(JSON.stringify({ type: 'error', message: 'Channel and token are required.' }));
-            ws.close(1008, 'Channel and token required');
-            return;
-        }
-
-        // Rate-limit check before any expensive operations
-        const rateLimitCheck = checkRateLimit(clientIP);
-        if (!rateLimitCheck.allowed) {
-            logger.warn(
-                { channel: channelName, clientIP, retryAfter: rateLimitCheck.retryAfter },
-                'Rate limit exceeded for WebSocket authentication attempts'
-            );
-            ws.send(JSON.stringify({
-                type: 'error',
-                message: `Too many failed authentication attempts. Try again in ${rateLimitCheck.retryAfter} seconds.`,
-            }));
-            ws.close(1008, 'Rate limit exceeded');
-            return;
-        }
-
-        // Allow-list check
-        if (!isChannelAllowed(channelName)) {
-            logger.warn({ channel: channelName }, 'Rejecting WS connection: Channel not in allow-list');
-            ws.close(1008, 'Channel not allowed');
-            recordAuthFailure(clientIP);
-            return;
-        }
+        // URL parsing, the rate-limit check and the allow-list check all ran in
+        // verifyUpgrade before the handshake; it left the parsed values here.
+        const { channelName, token: tokenFromUrl, clientIP } = req.wsAuth;
 
         // Token validation
         try {

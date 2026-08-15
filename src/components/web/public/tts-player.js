@@ -89,7 +89,11 @@ function connectWebSocket() {
 
     ws.onopen = () => {
         console.log('TTS WebSocket connected successfully.');
-        reconnectAttempts = 0; // Reset on successful connection
+        // The attempt counter is deliberately NOT reset here. The server can accept
+        // the upgrade and then close the socket (bad token), so treating onopen as
+        // success would zero the counter on every rejected attempt and reconnect
+        // forever at the shortest delay. It is reset on 'registered' instead, which
+        // only arrives after the server has authenticated this client.
         // Announce what this player understands. The server sends audio as raw
         // binary frames only to clients that declare 'binaryAudio'; without this
         // it asks the TTS provider for a URL instead, which still works but is
@@ -148,6 +152,7 @@ function connectWebSocket() {
                 stopAllAudio();
             } else if (data.type === 'registered') {
                 console.log(`TTS WebSocket registered for channel: ${data.channel}. Message: ${data.message}`);
+                reconnectAttempts = 0; // Authenticated — this connection really succeeded
             } else if (data.type === 'pong') {
                 // Server responded to app-level ping; nothing else to do
                 // Could update a lastSeen timestamp if desired
@@ -179,6 +184,14 @@ function connectWebSocket() {
             clearInterval(keepaliveTimer);
             keepaliveTimer = null;
         }
+        // 1008 is a policy rejection (channel not allowed, bad token). Retrying
+        // cannot change the answer, so stop rather than hammer the server until
+        // the attempt cap runs out.
+        if (event.code === 1008) {
+            console.error(`TTS WebSocket: server refused this connection ("${event.reason}"). Not retrying — check the browser source URL, then refresh it.`);
+            return;
+        }
+
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
             reconnectAttempts++;
             // Use faster initial reconnect delay, then exponential backoff

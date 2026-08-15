@@ -39,7 +39,8 @@ jest.unstable_mockModule('../../src/components/twitch/redemptionCache.js', () =>
 }));
 
 jest.unstable_mockModule('../../src/lib/allowList.js', () => ({
-    isChannelAllowed: jest.fn().mockResolvedValue(true)
+    isChannelAllowed: jest.fn().mockReturnValue(true),
+    isChannelActive: jest.fn().mockReturnValue(true)
 }));
 
 const mockGetTtsState = jest.fn().mockResolvedValue({});

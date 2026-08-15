@@ -6,7 +6,7 @@ import crypto from 'crypto';
 import config from '../../config/index.js';
 import logger from '../../lib/logger.js';
 import { INSTANCE_ID } from '../../lib/instanceId.js';
-import { isChannelAllowed } from '../../lib/allowList.js';
+import { isChannelActive } from '../../lib/allowList.js';
 import { getTtsState } from '../tts/ttsState.js';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 import { claimOnce } from '../../lib/firestoreClaim.js';
@@ -193,7 +193,7 @@ export async function eventSubHandler(req, res, rawBody) {
             // Also announce the redemption via TTS if speakRedemptionEvents is enabled
             const broadcasterId = event?.broadcaster_user_id;
             const channelLogin = (event?.broadcaster_user_login || event?.broadcaster_user_name)?.toLowerCase();
-            if (broadcasterId && isChannelAllowed(broadcasterId)) {
+            if (broadcasterId && isChannelActive(broadcasterId)) {
                 try {
                     const redemptionTtsConfig = await getTtsState(channelLogin);
                     // Default to speakEvents value for backward compat, then true
@@ -211,7 +211,10 @@ export async function eventSubHandler(req, res, rawBody) {
             return;
         }
 
-        // Common check for TTS-related events: Is channel allowed?
+        // Common check for TTS-related events: is the bot switched on for this
+        // channel? Approval alone is not enough — a channel that deactivated the
+        // bot stays on the allow-list but must not be spoken in, and a stale
+        // EventSub subscription can outlive the deactivation that unsubscribed it.
         const broadcasterUserId = event?.broadcaster_user_id;
         const channelName = (
             event?.broadcaster_user_name ||
@@ -219,8 +222,8 @@ export async function eventSubHandler(req, res, rawBody) {
             event?.to_broadcaster_user_name
         )?.toLowerCase();
 
-        if (!broadcasterUserId || !isChannelAllowed(broadcasterUserId)) {
-            logger.debug({ channelName, broadcasterUserId, type }, 'EventSub event for non-allowed channel - ignoring');
+        if (!broadcasterUserId || !isChannelActive(broadcasterUserId)) {
+            logger.debug({ channelName, broadcasterUserId, type }, 'EventSub event for inactive or non-allowed channel - ignoring');
             return;
         }
 
