@@ -5,6 +5,7 @@
 import crypto from 'crypto';
 import config from '../../config/index.js';
 import logger from '../../lib/logger.js';
+import { INSTANCE_ID } from '../../lib/instanceId.js';
 import { isChannelAllowed } from '../../lib/allowList.js';
 import { getTtsState } from '../tts/ttsState.js';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
@@ -46,7 +47,7 @@ async function claimEventSubMessageGlobal(messageId) {
     const now = Date.now();
     const payload = {
         eventSubMessageId: messageId,
-        instance: process.env.K_REVISION || 'local',
+        instance: INSTANCE_ID,
         createdAtMs: now,
         expireAt: Timestamp.fromMillis(now + EVENTSUB_DEDUP_TTL_MS), // Firestore Timestamp for TTL policy
     };

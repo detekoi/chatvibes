@@ -3,6 +3,7 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import logger from '../../lib/logger.js';
+import { INSTANCE_ID } from '../../lib/instanceId.js';
 import { isChannelAllowed, resolveToChannelName } from '../../lib/allowList.js';
 import { getTtsState, setTtsState } from '../tts/ttsState.js';
 import { getSecretValue } from '../../lib/secretManager.js';
@@ -389,7 +390,7 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
         logger.info({
             logKey: 'WS_CLIENT_REGISTERED',
             channel: channelName,
-            instance: process.env.K_REVISION || 'local',
+            instance: INSTANCE_ID,
             clientsForChannelHere: channelClients.get(channelName).size,
         }, `WebSocket client registered for channel ${channelName}`);
 

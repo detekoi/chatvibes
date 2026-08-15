@@ -1,6 +1,7 @@
 // src/components/tts/ttsQueue.js
 import { Firestore } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
+import { INSTANCE_ID } from '../../lib/instanceId.js';
 import { generateSpeech } from './ttsService.js';
 import {
     getTtsState,
@@ -311,7 +312,7 @@ export async function processQueue(channelName) {
                             targetChannel,
                             originChannel: channelName,
                             participants: channels,
-                            instance: process.env.K_REVISION || 'local',
+                            instance: INSTANCE_ID,
                         }, `[SharedChat:${sessionId}] No local clients for ${targetChannel} — audio not delivered to that participant`);
                     }
                 }

@@ -1,6 +1,7 @@
 // src/lib/pubsub.js
 import { PubSub } from '@google-cloud/pubsub';
 import logger from './logger.js';
+import { INSTANCE_ID } from './instanceId.js';
 
 const TOPIC_NAME = 'chatvibes-tts-events';
 const SUBSCRIPTION_PREFIX = 'chatvibes-tts-sub';
@@ -61,7 +62,7 @@ export async function publishTtsEvent(channelName, eventData, sharedSessionInfo 
             eventData,
             sharedSessionInfo, // Include shared session metadata if present
             timestamp: Date.now(),
-            source: process.env.K_REVISION || 'local'
+            source: INSTANCE_ID
         };
 
         const dataBuffer = Buffer.from(JSON.stringify(message));
@@ -109,7 +110,7 @@ export async function subscribeTtsEvents(handler) {
 
         // Create a unique subscription name for this instance
         // Each instance gets its own subscription so all instances receive all messages
-        const instanceId = process.env.K_REVISION || 'local';
+        const instanceId = INSTANCE_ID;
         const randomSuffix = Math.random().toString(36).substring(7);
         const subscriptionName = `${SUBSCRIPTION_PREFIX}-${instanceId}-${randomSuffix}`;
 
@@ -140,7 +141,7 @@ export async function subscribeTtsEvents(handler) {
                     channel: channelName,
                     eventMessageId: eventData?.messageId || 'N/A',
                     source,
-                    currentRevision: process.env.K_REVISION || 'local'
+                    currentInstance: INSTANCE_ID
                 };
 
                 if (sharedSessionInfo) {

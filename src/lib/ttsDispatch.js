@@ -14,6 +14,7 @@
 import crypto from 'crypto';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 import logger from './logger.js';
+import { INSTANCE_ID } from './instanceId.js';
 import { publishTtsEvent } from './pubsub.js';
 import { hasActiveClients } from '../components/web/server.js';
 import * as ttsQueue from '../components/tts/ttsQueue.js';
@@ -116,7 +117,7 @@ export async function dispatchYouTubeTtsEvent(channelId, eventData) {
     const claimed = await claimOnce(docRef, {
         channel: channelId,
         messageId: messageId || null,
-        instance: process.env.K_REVISION || 'local',
+        instance: INSTANCE_ID,
         createdAtMs: now,
         expireAt: Timestamp.fromMillis(now + YT_CLAIM_TTL_MS),
     }, now, { channel: channelId, messageId: messageId || 'N/A', platform: 'youtube' });
