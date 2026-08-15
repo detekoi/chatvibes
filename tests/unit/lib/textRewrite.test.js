@@ -87,6 +87,7 @@ describe('replaceEngine', () => {
         it('still expands genuine chat usage', () => {
             expect(applyRewrites('ty for the sub', builtIns())).toBe('thank you for the sub');
             expect(applyRewrites('fr that was insane', builtIns())).toBe('for real that was insane');
+            expect(applyRewrites('brb food', builtIns())).toBe('be right back food');
         });
 
         it('does not expand "til", which usually means "until" in chat', () => {

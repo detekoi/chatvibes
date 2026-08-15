@@ -85,6 +85,7 @@
     { "match": "rn", "say": "right now" },
     { "match": "mb", "say": "my bad" },
     { "match": "wb", "say": "welcome back" },
+    { "match": "brb", "say": "be right back" },
     { "match": "gn", "say": "good night" },
     { "match": "gm", "say": "good morning" },
     { "match": "ty", "say": "thank you" },

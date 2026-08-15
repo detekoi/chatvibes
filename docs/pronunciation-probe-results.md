@@ -54,14 +54,19 @@ Clips are saved so any disputed row can be settled by listening.
 
 Intelligible, but the expansion is how people say these aloud. Included where
 the phrase reads naturally; left alone where the letters are idiomatic
-(`gg`, `brb`, `afk`, `dps`, `rng`, `npc`, `pvp`, `pve`, `aoe`, `kda`).
+(`gg`, `afk`, `dps`, `rng`, `npc`, `pvp`, `pve`, `aoe`, `kda`).
+
+`brb` was in that left-alone list until a channel reported it read as a word
+rather than as letters. The letters were never guaranteed — this is the same
+render-to-render instability as `lmao` and `omg` below — so it is now pinned to
+"be right back".
 
 | Token | How MiniMax says it | In the dictionary? |
 |---|---|---|
 | `af` | A. F. | yes |
 | `afk` | A. F. K. | no |
 | `aoe` | A. O. E. | no |
-| `brb` | B. R. B. | no |
+| `brb` | B. R. B. | yes, added later |
 | `btw` | B. T. W. | yes |
 | `dps` | D. P. S. | no |
 | `fr` | F. R. | yes |
