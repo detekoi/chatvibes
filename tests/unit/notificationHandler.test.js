@@ -220,7 +220,7 @@ describe('notificationHandler', () => {
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
-                    text: 'Resubber resubscribed for 12 months (Tier 1)! Love this stream!',
+                    text: 'Resubber resubscribed for 12 months (Tier 1)! They said: Love this stream!',
                     user: 'Resubber',
                 }),
                 null
@@ -302,7 +302,30 @@ describe('notificationHandler', () => {
             expect(mockPublishTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
-                    text: 'Resubber resubscribed for 30 months, on a 30 month streak (Tier 2)! Love this stream!'
+                    text: 'Resubber resubscribed for 30 months, on a 30 month streak (Tier 2)! They said: Love this stream!'
+                }),
+                null
+            );
+        });
+
+        it('should use the resubber pronouns for the "said" prefix', async () => {
+            mockFormatTtsText.mockResolvedValueOnce('Love this stream!');
+            mockPronounService.getUserPronouns.mockResolvedValueOnce({ Subject: 'She', subject: 'she' });
+            const event = {
+                user_name: 'Resubber',
+                user_login: 'resubber',
+                tier: '1000',
+                cumulative_months: 12,
+                message: { text: 'Love this stream!' }
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockPronounService.getUserPronouns).toHaveBeenCalledWith('resubber');
+            expect(mockPublishTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({
+                    text: 'Resubber resubscribed for 12 months (Tier 1)! She said: Love this stream!'
                 }),
                 null
             );

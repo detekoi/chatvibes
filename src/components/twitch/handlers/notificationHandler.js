@@ -11,6 +11,33 @@ import { pronounService } from '../../../lib/pronounService.js';
 /** Synthetic subscription type used to route watch streak events from channel.chat.notification */
 export const WATCH_STREAK_TYPE = 'channel.chat.notification.watch_streak';
 
+/** How long to wait on the pronoun API before falling back to "They" */
+const PRONOUN_LOOKUP_TIMEOUT_MS = 500;
+
+/**
+ * Subject pronoun for the "<Subject> said:" prefix on a viewer message attached to an
+ * event. Falls back to "They" when the login is unknown, the API has no entry, or the
+ * lookup is slow — an event announcement should never wait on it.
+ */
+async function resolvePronounSubject(login) {
+    if (!login || login === 'someone') return 'They';
+
+    const pronouns = await new Promise(resolve => {
+        let done = false;
+        const timer = setTimeout(() => {
+            done = true;
+            resolve(null);
+        }, PRONOUN_LOOKUP_TIMEOUT_MS);
+        pronounService.getUserPronouns(login).then(res => {
+            if (!done) { done = true; clearTimeout(timer); resolve(res); }
+        }).catch(() => {
+            if (!done) { done = true; clearTimeout(timer); resolve(null); }
+        });
+    });
+
+    return pronouns?.Subject || 'They';
+}
+
 /**
  * Handle event notifications (subs, raids, follows, cheers)
  * Generates appropriate TTS text and publishes to Pub/Sub
@@ -82,7 +109,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         pronunciationRules: getPronunciationRules(ttsConfig),
                     });
                     if (formattedMessage) {
-                        ttsText += ` ${formattedMessage}`;
+                        ttsText += ` ${await resolvePronounSubject(resubLogin)} said: ${formattedMessage}`;
                     } else {
                         logger.info({ channelName, user: resubLogin, emoteMode, viewerMessage: rawResubMessage },
                             'Resub message formatted to empty (likely all emotes under emoteMode=skip) — announcing resub only');
@@ -208,25 +235,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         pronunciationRules: getPronunciationRules(ttsConfig),
                     });
                     if (formattedMessage) {
-                        let pronounSubject = 'They';
-                        if (streakLogin !== 'someone') {
-                            const pronouns = await new Promise(resolve => {
-                                let done = false;
-                                const timer = setTimeout(() => {
-                                    done = true;
-                                    resolve(null);
-                                }, 500);
-                                pronounService.getUserPronouns(streakLogin).then(res => {
-                                    if (!done) { done = true; clearTimeout(timer); resolve(res); }
-                                }).catch(() => {
-                                    if (!done) { done = true; clearTimeout(timer); resolve(null); }
-                                });
-                            });
-                            if (pronouns?.Subject) {
-                                pronounSubject = pronouns.Subject;
-                            }
-                        }
-                        ttsText += ` ${pronounSubject} said: ${formattedMessage}`;
+                        ttsText += ` ${await resolvePronounSubject(streakLogin)} said: ${formattedMessage}`;
                     } else {
                         logger.info({ channelName, user: streakLogin, emoteMode, viewerMessage: rawStreakMessage },
                             'Watch streak message formatted to empty (likely all emotes under emoteMode=skip) — announcing streak only');
