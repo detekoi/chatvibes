@@ -10,6 +10,10 @@ let db = null; // Firestore database instance
 // Collection name (must match the name used in chatsage-web-ui)
 const MANAGED_CHANNELS_COLLECTION = 'managedChannels';
 
+// Login names that were active as of the most recent full Firestore fetch, i.e.
+// the set EventSub was subscribed for at startup. Null until the first fetch.
+let lastFetchedActiveNames = null;
+
 /**
  * Custom error class for channel management operations.
  */
@@ -110,6 +114,12 @@ export async function getActiveManagedChannels() {
         updateAllowedChannels(channels);
 
         const channelNames = channels.filter(ch => ch.isActive).map(ch => ch.name);
+
+        // Baseline for the listener's initial snapshot: these are the channels
+        // startup subscribes to, so anything that differs by the time the
+        // listener attaches was changed in between and still needs syncing.
+        lastFetchedActiveNames = new Set(channelNames);
+
         logger.info(`[ChannelManager] Successfully fetched ${channelNames.length} active managed channels (${channels.length} approved).`);
         logger.debug(`[ChannelManager] Active channels: ${channelNames.join(', ')}`);
 
@@ -148,6 +158,23 @@ export async function syncManagedChannelsWithEventSub() {
 }
 
 /**
+ * Picks out the initial-snapshot documents whose active state no longer matches
+ * what the startup sync subscribed, so only those are synced with EventSub.
+ * Returns nothing when no fetch has run — there is no baseline to compare with,
+ * and re-syncing every channel would mean a Helix call per channel on boot.
+ */
+function changesMissedDuringStartup(changes) {
+    if (!lastFetchedActiveNames) return [];
+    return changes
+        .filter(change => lastFetchedActiveNames.has(change.channelName.toLowerCase()) !== change.isActive)
+        // Every initial-snapshot entry arrives as 'added', but these documents are
+        // ones that changed after startup read them. Reporting them as such is what
+        // lets a channel deactivated during the window be unsubscribed rather than
+        // mistaken for a brand-new document that never had subscriptions.
+        .map(change => ({ ...change, type: 'modified' }));
+}
+
+/**
  * Sets up a listener for changes to the managedChannels collection.
  * @returns {Function} Unsubscribe function to stop listening for changes
  */
@@ -174,8 +201,9 @@ export function listenForChannelChanges() {
                 }
             });
 
-            // Skip EventSub sync on initial snapshot — syncManagedChannelsWithEventSub()
-            // already handled these during startup. Allow-list updates happen below.
+            // Update the caches in real-time. Deactivating switches the bot off but
+            // leaves the channel approved; only a deleted document revokes approval.
+            let changesToSync = changes;
             if (isInitialSnapshot) {
                 isInitialSnapshot = false;
                 // On initial snapshot, only ever ADD. Every document is approved
@@ -184,33 +212,46 @@ export function listenForChannelChanges() {
                 // when duplicate docs exist for the same channel (a legacy name-keyed
                 // doc with isActive=false would clobber the active one).
                 for (const change of changes) {
-                    addAllowedChannel(change.channelName, change.twitchUserId);
                     if (change.isActive) {
                         setChannelActive(change.channelName, change.twitchUserId, true);
+                    } else {
+                        addAllowedChannel(change.channelName, change.twitchUserId);
                     }
                 }
-                logger.info(`[ChannelManager] Initial snapshot: ${changes.length} channels loaded (skipping EventSub sync)`);
-                return;
+
+                // syncManagedChannelsWithEventSub() already subscribed these during
+                // startup, so nothing is normally synced here. The exception is a
+                // channel switched on or off between that sync and this listener
+                // attaching: no other event covers that window, and the channel would
+                // stay wrongly subscribed — or wrongly silent — until the next restart.
+                changesToSync = changesMissedDuringStartup(changes);
+                logger.info(
+                    `[ChannelManager] Initial snapshot: ${changes.length} channels loaded, ` +
+                    `${changesToSync.length} changed since the startup sync`
+                );
+            } else {
+                for (const change of changes) {
+                    if (change.type === 'removed') {
+                        removeAllowedChannel(change.channelName, change.twitchUserId);
+                    } else {
+                        setChannelActive(change.channelName, change.twitchUserId, change.isActive);
+                    }
+                }
             }
 
-            if (changes.length > 0) {
-                logger.info(`[ChannelManager] Detected ${changes.length} channel management changes.`);
+            if (changesToSync.length > 0) {
+                logger.info(`[ChannelManager] Detected ${changesToSync.length} channel management changes.`);
 
                 const { subscribeChannelToTtsEvents } = await import('./twitchSubs.js');
                 const { getUsersByLogin } = await import('./helixClient.js');
 
-                for (const change of changes) {
-                    // Update the caches in real-time. Deactivating switches the bot
-                    // off but leaves the channel approved; only a deleted document
-                    // revokes approval.
-                    if (change.type === 'removed') {
-                        removeAllowedChannel(change.channelName, change.twitchUserId);
-                    } else {
-                        addAllowedChannel(change.channelName, change.twitchUserId);
-                        setChannelActive(change.channelName, change.twitchUserId, change.isActive);
-                    }
+                for (const change of changesToSync) {
+                    // A deleted document is a deactivation as far as Twitch is concerned,
+                    // whatever isActive still said on it: leaving the subscriptions in
+                    // place means webhooks the bot can only discard.
+                    const shouldBeSubscribed = change.type !== 'removed' && change.isActive;
 
-                    if ((change.type === 'added' || change.type === 'modified') && change.isActive) {
+                    if (shouldBeSubscribed) {
                         // Subscribe to events
                         try {
                             let userId = change.twitchUserId;
@@ -232,7 +273,7 @@ export function listenForChannelChanges() {
                         }
                     }
                     // Clean up EventSub subscriptions when channel becomes inactive
-                    else if ((change.type === 'modified' || change.type === 'removed') && !change.isActive) {
+                    else if (change.type !== 'added') {
                         try {
                             const userId = change.twitchUserId;
                             if (userId) {
