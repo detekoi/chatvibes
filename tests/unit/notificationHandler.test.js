@@ -50,7 +50,7 @@ jest.unstable_mockModule('../../src/lib/pronounService.js', () => ({
     pronounService: mockPronounService
 }));
 
-const { handleNotification, WATCH_STREAK_TYPE } = await import('../../src/components/twitch/handlers/notificationHandler.js');
+const { handleNotification, WATCH_STREAK_TYPE, SUB_GIFT_TYPE, COMMUNITY_SUB_GIFT_TYPE } = await import('../../src/components/twitch/handlers/notificationHandler.js');
 
 describe('notificationHandler', () => {
     beforeEach(() => {
@@ -138,7 +138,7 @@ describe('notificationHandler', () => {
     });
 
     describe('channel.subscription.gift event', () => {
-        it('should generate TTS for gift subscription event', async () => {
+        it('should skip TTS - superseded by the chat notification that names the recipient', async () => {
             const event = {
                 user_name: 'Gifter',
                 user_login: 'gifter',
@@ -149,30 +149,74 @@ describe('notificationHandler', () => {
 
             await handleNotification('channel.subscription.gift', event, 'testchannel');
 
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('sub_gift chat notification', () => {
+        it('should name the recipient of a single gift sub', async () => {
+            const event = {
+                notice_type: 'sub_gift',
+                chatter_user_name: 'Gifter',
+                chatter_user_login: 'gifter',
+                chatter_user_id: '123',
+                chatter_is_anonymous: false,
+                sub_gift: {
+                    duration_months: 1,
+                    recipient_user_name: 'Progamer6006',
+                    recipient_user_login: 'progamer6006',
+                    recipient_user_id: '456',
+                    sub_tier: '1000',
+                    community_gift_id: null
+                }
+            };
+
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel');
+
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
-                    text: 'Gifter just gifted 1 Tier 1 sub!',
+                    text: 'Gifter just gifted a Tier 1 sub to Progamer6006!',
                     user: 'Gifter',
+                    userId: '123',
                     type: 'event'
                 },
                 null
             );
         });
 
-        it('should handle anonymous gift subscription', async () => {
+        it('should announce the tier of a higher-tier gift', async () => {
             const event = {
-                tier: '1000',
-                total: 5,
-                is_anonymous: true
+                notice_type: 'sub_gift',
+                chatter_user_name: 'Gifter',
+                chatter_user_id: '123',
+                sub_gift: { recipient_user_name: 'Recipient', sub_tier: '3000' }
             };
 
-            await handleNotification('channel.subscription.gift', event, 'testchannel');
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel');
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'Gifter just gifted a Tier 3 sub to Recipient!' }),
+                null
+            );
+        });
+
+        it('should handle an anonymous gifter', async () => {
+            const event = {
+                notice_type: 'sub_gift',
+                chatter_is_anonymous: true,
+                chatter_user_name: 'AnAnonymousGifter',
+                chatter_user_id: '274598607',
+                sub_gift: { recipient_user_name: 'Recipient', sub_tier: '1000' }
+            };
+
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel');
 
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
-                    text: '5 Tier 1 gift subs from an anonymous gifter!',
+                    text: 'An anonymous gifter just gifted a Tier 1 sub to Recipient!',
                     user: 'anonymous_gifter',
                     type: 'event'
                 },
@@ -180,21 +224,72 @@ describe('notificationHandler', () => {
             );
         });
 
-        it('should handle multiple gift subs', async () => {
+        it('should skip TTS when the notice carries no recipient', async () => {
             const event = {
-                user_name: 'GenerousGifter',
-                tier: '1000',
-                total: 10,
-                is_anonymous: false
+                notice_type: 'sub_gift',
+                chatter_user_name: 'Gifter',
+                sub_gift: { sub_tier: '1000' }
             };
 
-            await handleNotification('channel.subscription.gift', event, 'testchannel');
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel');
+
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('should omit the tier when sub_tier is missing or unrecognised', async () => {
+            const event = {
+                notice_type: 'sub_gift',
+                chatter_user_name: 'Gifter',
+                sub_gift: { recipient_user_name: 'Recipient' }
+            };
+
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel');
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'Gifter just gifted a sub to Recipient!' }),
+                null
+            );
+        });
+    });
+
+    describe('community_sub_gift chat notification', () => {
+        it('should announce the count without naming recipients', async () => {
+            const event = {
+                notice_type: 'community_sub_gift',
+                chatter_user_name: 'GenerousGifter',
+                chatter_user_id: '123',
+                community_sub_gift: { id: 'abc', total: 10, sub_tier: '1000' }
+            };
+
+            await handleNotification(COMMUNITY_SUB_GIFT_TYPE, event, 'testchannel');
 
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 {
                     text: 'GenerousGifter just gifted 10 Tier 1 subs!',
                     user: 'GenerousGifter',
+                    userId: '123',
+                    type: 'event'
+                },
+                null
+            );
+        });
+
+        it('should handle an anonymous mass gift', async () => {
+            const event = {
+                notice_type: 'community_sub_gift',
+                chatter_is_anonymous: true,
+                community_sub_gift: { id: 'abc', total: 5, sub_tier: '1000' }
+            };
+
+            await handleNotification(COMMUNITY_SUB_GIFT_TYPE, event, 'testchannel');
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                {
+                    text: '5 Tier 1 gift subs from an anonymous gifter!',
+                    user: 'anonymous_gifter',
                     type: 'event'
                 },
                 null

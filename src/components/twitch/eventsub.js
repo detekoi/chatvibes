@@ -14,7 +14,7 @@ import { claimOnce } from '../../lib/firestoreClaim.js';
 // Import event handlers
 import { handleChatMessage } from './handlers/chatHandler.js';
 import { handleChannelPointsRedemption, handleRedemptionAnnouncement } from './handlers/redemptionHandler.js';
-import { handleNotification, WATCH_STREAK_TYPE } from './handlers/notificationHandler.js';
+import { handleNotification, WATCH_STREAK_TYPE, SUB_GIFT_TYPE, COMMUNITY_SUB_GIFT_TYPE } from './handlers/notificationHandler.js';
 import * as sharedChatHandler from './handlers/sharedChatHandler.js';
 
 // Firestore for cross-instance EventSub deduplication
@@ -237,34 +237,55 @@ export async function eventSubHandler(req, res, rawBody) {
             return;
         }
 
-        // Route: Chat notifications (watch streaks)
+        // Route: Chat notifications (watch streaks, gift subs)
         // channel.chat.notification delivers many notice types (sub, resub, raid, announcement,
         // prime_paid_upgrade, pay_it_forward, etc.). Most overlap with dedicated EventSub subscriptions
         // we already handle; others (announcement, prime_paid_upgrade, etc.) are intentionally not
-        // processed for TTS. Only watch_streak is handled here as it has no dedicated subscription.
+        // processed for TTS. Handled here: watch_streak (no dedicated subscription exists) and the
+        // gift notices (channel.subscription.gift exists but omits the recipient — see
+        // notificationHandler.SUB_GIFT_TYPE).
         if (type === 'channel.chat.notification') {
             const noticeType = event?.notice_type;
-            if (noticeType !== 'watch_streak') {
-                logger.debug({ channelName, noticeType }, 'Ignoring chat notification — only watch_streak is processed for TTS');
+
+            // Each recipient of a mass gift also gets an individual sub_gift notice carrying the
+            // batch's community_gift_id. The community_sub_gift notice announces the batch, so
+            // dropping these is what keeps a 50-sub gift from producing 51 announcements.
+            if (noticeType === 'sub_gift' && event?.sub_gift?.community_gift_id) {
+                logger.debug({ channelName, communityGiftId: event.sub_gift.community_gift_id },
+                    'Ignoring sub_gift from a mass gift — announced by its community_sub_gift notice');
                 return;
             }
 
-            const watchStreakConfig = await getTtsState(channelName);
-            // Granular toggle: speakWatchStreakEvents (defaults to speakEvents if undefined)
-            const speakWatchStreaks = watchStreakConfig.speakWatchStreakEvents !== undefined
-                ? watchStreakConfig.speakWatchStreakEvents
-                : (watchStreakConfig.speakEvents !== false);
-
-            if (!watchStreakConfig.engineEnabled || !speakWatchStreaks) {
-                logger.debug({ channelName, type }, 'TTS watch streak events disabled for channel - ignoring');
+            const noticeTypeToSyntheticType = {
+                watch_streak: WATCH_STREAK_TYPE,
+                sub_gift: SUB_GIFT_TYPE,
+                community_sub_gift: COMMUNITY_SUB_GIFT_TYPE,
+            };
+            const syntheticType = noticeTypeToSyntheticType[noticeType];
+            if (!syntheticType) {
+                logger.debug({ channelName, noticeType }, 'Ignoring chat notification — notice type is not processed for TTS');
                 return;
             }
 
-            logger.info({ channelName, type, noticeType }, 'Processing watch streak event for TTS');
+            const noticeConfig = await getTtsState(channelName);
+            // Watch streaks have a granular toggle (defaulting to speakEvents); gift subs follow
+            // speakEvents, the same toggle that gated channel.subscription.gift.
+            const speakNotice = syntheticType === WATCH_STREAK_TYPE
+                ? (noticeConfig.speakWatchStreakEvents !== undefined
+                    ? noticeConfig.speakWatchStreakEvents
+                    : (noticeConfig.speakEvents !== false))
+                : !!noticeConfig.speakEvents;
+
+            if (!noticeConfig.engineEnabled || !speakNotice) {
+                logger.debug({ channelName, type, noticeType }, 'TTS chat notification events disabled for channel - ignoring');
+                return;
+            }
+
+            logger.info({ channelName, type, noticeType }, 'Processing chat notification event for TTS');
             try {
-                await handleNotification(WATCH_STREAK_TYPE, event, channelName, watchStreakConfig);
+                await handleNotification(syntheticType, event, channelName, noticeConfig);
             } catch (error) {
-                logger.error({ err: error, channelName }, 'Error handling watch streak notification');
+                logger.error({ err: error, channelName, noticeType }, 'Error handling chat notification');
             }
             return;
         }

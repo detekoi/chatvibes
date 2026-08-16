@@ -11,6 +11,19 @@ import { pronounService } from '../../../lib/pronounService.js';
 /** Synthetic subscription type used to route watch streak events from channel.chat.notification */
 export const WATCH_STREAK_TYPE = 'channel.chat.notification.watch_streak';
 
+/**
+ * Synthetic subscription types for gift subs, routed from channel.chat.notification.
+ *
+ * Gift subs are announced from channel.chat.notification rather than the dedicated
+ * channel.subscription.gift subscription because that payload names only the gifter —
+ * it has no recipient fields at all, so a single gift could only ever be announced as
+ * "X gifted 1 sub!". The sub_gift notice carries recipient_user_name, and it needs only
+ * the bot's own chat scopes, so it also works on channels that never granted
+ * channel:read:subscriptions.
+ */
+export const SUB_GIFT_TYPE = 'channel.chat.notification.sub_gift';
+export const COMMUNITY_SUB_GIFT_TYPE = 'channel.chat.notification.community_sub_gift';
+
 /** How long to wait on the pronoun API before falling back to "They" */
 const PRONOUN_LOOKUP_TIMEOUT_MS = 500;
 
@@ -36,6 +49,15 @@ async function resolvePronounSubject(login) {
     });
 
     return pronouns?.Subject || 'They';
+}
+
+/**
+ * " Tier 1" / " Tier 2" / " Tier 3" from a chat notification's sub_tier ("1000"/"2000"/"3000"),
+ * or "" when the field is missing or not one of those values.
+ */
+function formatSubTier(subTier) {
+    const tier = Number(subTier) / 1000;
+    return Number.isInteger(tier) && tier >= 1 && tier <= 3 ? ` Tier ${tier}` : '';
 }
 
 /**
@@ -124,21 +146,55 @@ export async function handleNotification(subscriptionType, event, channelName, t
         }
 
         case 'channel.subscription.gift': {
-            // Gift subscription(s)
-            const gifterUser = event.user_name || event.user_login || 'An anonymous gifter';
-            const total = event.total || 1;
-            const tier = event.tier ? ` Tier ${event.tier / 1000}` : '';
-            const isAnonymous = event.is_anonymous;
+            // Superseded by the sub_gift / community_sub_gift notices, which name the recipient.
+            // The subscription is still created, so drop its events here to avoid announcing twice.
+            logger.debug({ channelName, gifter: event.user_name, total: event.total },
+                'Ignoring channel.subscription.gift - announced from channel.chat.notification instead');
+            return;
+        }
 
-            if (isAnonymous || !event.user_name) {
+        case SUB_GIFT_TYPE: {
+            // A single gift sub, which is the only case where a recipient can be named.
+            // Gifts that are part of a mass gift carry community_gift_id and are dropped
+            // by the caller — the community_sub_gift notice announces those as a batch.
+            const recipient = event.sub_gift?.recipient_user_name || event.sub_gift?.recipient_user_login;
+            if (!recipient) {
+                logger.warn({ channelName, gifter: event.chatter_user_name }, 'sub_gift notice without a recipient - skipping TTS');
+                return;
+            }
+
+            const isAnonymous = event.chatter_is_anonymous === true || !event.chatter_user_name;
+            const gifterUser = isAnonymous ? 'An anonymous gifter' : event.chatter_user_name;
+            const tier = formatSubTier(event.sub_gift?.sub_tier);
+
+            ttsText = `${gifterUser} just gifted a${tier} sub to ${recipient}!`;
+            if (isAnonymous) {
+                username = 'anonymous_gifter';
+            } else {
+                username = gifterUser;
+                userId = event.chatter_user_id;
+            }
+            logger.info({ channelName, gifter: gifterUser, recipient, tier: event.sub_gift?.sub_tier, isAnonymous }, 'Gift subscription event');
+            break;
+        }
+
+        case COMMUNITY_SUB_GIFT_TYPE: {
+            // A mass gift. Recipients arrive as separate sub_gift notices, so they are not
+            // named here — reading out a 50-name list is worse than reading the count.
+            const total = event.community_sub_gift?.total || 1;
+            const tier = formatSubTier(event.community_sub_gift?.sub_tier);
+            const isAnonymous = event.chatter_is_anonymous === true || !event.chatter_user_name;
+            const gifterUser = isAnonymous ? 'An anonymous gifter' : event.chatter_user_name;
+
+            if (isAnonymous) {
                 ttsText = `${total}${tier} gift ${total === 1 ? 'sub' : 'subs'} from an anonymous gifter!`;
                 username = 'anonymous_gifter';
             } else {
                 ttsText = `${gifterUser} just gifted ${total}${tier} ${total === 1 ? 'sub' : 'subs'}!`;
                 username = gifterUser;
-                userId = event.user_id;
+                userId = event.chatter_user_id;
             }
-            logger.info({ channelName, gifter: gifterUser, total, tier: event.tier, isAnonymous }, 'Gift subscription event');
+            logger.info({ channelName, gifter: gifterUser, total, tier: event.community_sub_gift?.sub_tier, isAnonymous }, 'Community gift subscription event');
             break;
         }
 
