@@ -445,9 +445,11 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
   const MAX_RETRIES = 1;
   let lastError = null;
 
+  // Whether 302 was actually reached on any attempt. Not the same as is302, which only
+  // says the *voice* routes there: with the breaker open, attempt 0 is already Wavespeed.
+  let triedT302 = false;
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    // Whether this attempt actually reached 302, so the catch below only holds 302
-    // responsible for its own failures — with the breaker open, attempt 0 is Wavespeed.
     let calledT302 = false;
     try {
       let audio;
@@ -455,7 +457,9 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
         // If this is a retry and the provider is 302, we might want to fallback to Wavespeed
         // But only if the voice is actually supported by Wavespeed (which they all are currently)
         if (attempt > 0) {
-          logger.warn({ text: text.substring(0, 30) }, 'Falling back to Wavespeed API after 302.ai failure');
+          logger.warn({ text: text.substring(0, 30) }, triedT302
+            ? 'Falling back to Wavespeed API after 302.ai failure'
+            : 'Retrying Wavespeed after a timeout (302.ai circuit open)');
           audio = await attemptGeneration(text, voiceId, input, options);
         } else if (is302CircuitOpen()) {
           // 302 is known-bad right now; skip it rather than paying the timeout again.
@@ -463,6 +467,7 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
           audio = await attemptGeneration(text, voiceId, input, options);
         } else {
           calledT302 = true;
+          triedT302 = true;
           audio = await attemptGeneration302(text, voiceId, options);
           record302Success();
         }
@@ -493,10 +498,13 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
       }
 
       // Determine if we should retry/fallback
-      // For 302.ai, we always try to fallback to Wavespeed on error (timeout or otherwise)
-      // For Wavespeed, we retry only on timeout
+      // A 302 failure is worth a second attempt because that attempt is a *different*
+      // provider. Keying this on is302 rather than what actually ran meant that with
+      // the breaker open, a non-retryable Wavespeed error — a bad voice id, say — was
+      // re-sent to Wavespeed unchanged, to fail again the same way. Wavespeed itself is
+      // only retried on timeout, which is the one error where trying again can differ.
       const isTimeout = error.message && error.message.includes('timed out');
-      const shouldRetry = (is302 && attempt < MAX_RETRIES) || (isTimeout && attempt < MAX_RETRIES);
+      const shouldRetry = (calledT302 || isTimeout) && attempt < MAX_RETRIES;
 
       if (shouldRetry) {
         logger.warn({

@@ -194,6 +194,47 @@ describe('TTS Migration', () => {
                 expect(axios.mock.calls[0][0].url).toContain('302.ai');
             });
 
+            it('does not re-send a non-retryable Wavespeed error while the circuit is open', async () => {
+                // With the circuit open, attempt 0 is already Wavespeed. Deciding the
+                // retry from the *voice's* provider rather than what actually ran sent
+                // a failure like a bad voice id straight back to Wavespeed unchanged,
+                // to fail again identically — a wasted call and a second delay.
+                await failTimes(3);
+
+                axios.mockReset();
+                axios.mockRejectedValue(new Error('Invalid voice: "X" is not available.'));
+                await expect(generateSpeech('bad voice', 'English_expressive_narrator')).rejects.toThrow();
+
+                expect(axios).toHaveBeenCalledTimes(1);
+            });
+
+            it('still retries Wavespeed on a timeout while the circuit is open', async () => {
+                // A timeout is the one error where trying again can genuinely differ.
+                await failTimes(3);
+
+                axios.mockReset();
+                axios.mockRejectedValueOnce(timeout()).mockResolvedValueOnce(wavespeedOk);
+                const audio = await generateSpeech('slow', 'English_expressive_narrator');
+
+                expect(axios).toHaveBeenCalledTimes(2);
+                expect(audio).toEqual({ kind: 'url', url: 'https://wavespeed.ai/fb.mp3' });
+            });
+
+            it('still falls back to Wavespeed when 302 itself fails', async () => {
+                // The behaviour the retry rule exists for, guarded against the fix above.
+                axios.mockReset();
+                axios
+                    .mockRejectedValueOnce(new Error('302.ai API error 1004: auth failed'))
+                    .mockResolvedValueOnce(wavespeedOk);
+
+                const audio = await generateSpeech('hello', 'English_expressive_narrator');
+
+                expect(axios).toHaveBeenCalledTimes(2);
+                expect(axios.mock.calls[0][0].url).toContain('302.ai');
+                expect(axios.mock.calls[1][0].url).toContain('wavespeed');
+                expect(audio).toEqual({ kind: 'url', url: 'https://wavespeed.ai/fb.mp3' });
+            });
+
             it('does not count an aborted request against the breaker', async () => {
                 // !tts stop aborts in-flight generation. That says nothing about
                 // provider health, and letting it trip the breaker would push a
