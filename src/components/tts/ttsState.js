@@ -401,47 +401,70 @@ export async function setObsSocketToken(channelName, token) {
         return false;
     }
 }
-// Functions for managing ignored users
-export async function addIgnoredUser(channelName, username) {
+// --- TTS ignore list (keyed by immutable platform account ID) ---
+//
+// Stored as a map field rather than an array, so arrayUnion/arrayRemove do not
+// apply — the same shape and the same write mechanics as `pronunciations` below.
+// See src/lib/ignoreList.js for the key format.
+
+/**
+ * Add one account to the channel's ignore list.
+ * @param {string} channelName
+ * @param {string} key Built by ignoreKey(platform, accountId).
+ * @param {string} label Display name, shown by !tts ignored and the dashboard.
+ * @returns {Promise<boolean>}
+ */
+export async function addIgnoredUser(channelName, key, label) {
     const channelId = resolveChannelId(channelName);
-    const lowerUser = username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
+        // merge:true deep-merges nested maps key by key, so this touches only
+        // the one entry and leaves the rest of the list alone.
         await docRef.set({
-            ignoredUsers: FieldValue.arrayUnion(lowerUser),
+            ignoredUserIds: { [key]: label },
             updatedAt: FieldValue.serverTimestamp()
         }, { merge: true });
-        // Update cache
-        const config = await getTtsState(channelId); // Fetches or gets from cache
-        if (!config.ignoredUsers.includes(lowerUser)) {
-            config.ignoredUsers.push(lowerUser);
-        }
+
+        const config = await getTtsState(channelId);
+        // A fresh object rather than a mutation, so a caller holding the
+        // previous config does not observe the change behind its back.
+        config.ignoredUserIds = { ...(config.ignoredUserIds || {}), [key]: label };
         channelConfigsCache.set(channelId, config);
+        logger.info(`[${channelName}] TTS ignore added: ${key} ("${label}")`);
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to add user to TTS ignore list in Firestore.');
+        logger.error({ err: error, channel: channelName, key }, 'Failed to add user to TTS ignore list in Firestore.');
         return false;
     }
 }
 
-export async function removeIgnoredUser(channelName, username) {
+/**
+ * Remove one account from the channel's ignore list.
+ * @param {string} channelName
+ * @param {string} key Built by ignoreKey(platform, accountId).
+ * @returns {Promise<boolean>}
+ */
+export async function removeIgnoredUser(channelName, key) {
     const channelId = resolveChannelId(channelName);
-    const lowerUser = username.toLowerCase();
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
-        await docRef.update({
-            ignoredUsers: FieldValue.arrayRemove(lowerUser),
-            updatedAt: FieldValue.serverTimestamp()
-        });
-        // Update cache
-        const config = await getTtsState(channelId); // Fetches or gets from cache
-        if (config.ignoredUsers) {
-            config.ignoredUsers = config.ignoredUsers.filter(user => user !== lowerUser);
-        }
+        // FieldPath segments are taken literally. A dotted string would be
+        // parsed as a path instead, and these keys contain a colon separator
+        // that would need backtick quoting in that form.
+        await docRef.update(new FieldPath('ignoredUserIds', key), FieldValue.delete(),
+            'updatedAt', FieldValue.serverTimestamp());
+
+        const config = await getTtsState(channelId);
+        const next = { ...(config.ignoredUserIds || {}) };
+        delete next[key];
+        config.ignoredUserIds = next;
         channelConfigsCache.set(channelId, config);
+        logger.info(`[${channelName}] TTS ignore removed: ${key}`);
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, user: lowerUser }, 'Failed to remove user from TTS ignore list in Firestore.');
+        // 5 is NOT_FOUND: the entry was already gone, which is the desired end state.
+        if (error.code === 5) return true;
+        logger.error({ err: error, channel: channelName, key }, 'Failed to remove user from TTS ignore list in Firestore.');
         return false;
     }
 }

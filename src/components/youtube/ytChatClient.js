@@ -9,6 +9,7 @@ import { dispatchYouTubeTtsEvent } from '../../lib/ttsDispatch.js';
 import { formatTtsText } from '../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../lib/textRewrite/pronunciation.js';
 import { processYouTubeEmotes } from './ytEmoteProcessor.js';
+import { isYouTubeUserIgnored } from '../../lib/ignoreList.js';
 
 const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://ytchat.wildcat.chat/ws';
 
@@ -18,6 +19,84 @@ const activeConnections = new Map();
 // Reconnect backoff config
 const RECONNECT_DELAYS = [5000, 10000, 30000, 60000]; // 5s, 10s, 30s, 60s cap
 const PING_INTERVAL_MS = 30000; // 30s heartbeat to keep Cloud Run CPU active
+
+// --- Recent YouTube chatters, for resolving "!tts ignore <name>" ---
+//
+// The ignore list stores immutable YouTube channel IDs, but a moderator types a
+// display name. Twitch names resolve through Helix; YouTube has no equivalent
+// the bot can call — the proxy speaks InnerTube and holds no API key, and
+// resolving a handle would need the YouTube Data API. So instead we remember who
+// has spoken recently: in practice a moderator ignores someone *because* they
+// just said something, which is exactly the window this covers.
+//
+// Keyed by Twitch channel ID, then by lowercased display name. Two viewers can
+// share a display name on YouTube, so a name that is ambiguous within the window
+// is reported rather than guessed at.
+const recentYouTubeChatters = new Map();
+const YT_CHATTER_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours — comfortably one stream
+const YT_CHATTER_MAX_PER_CHANNEL = 2000;
+
+/**
+ * Record that a YouTube viewer spoke, so their channel ID can be recovered from
+ * the display name a moderator types.
+ * @param {string} channelId Twitch channel ID (the Firestore doc key)
+ * @param {string} username YouTube display name
+ * @param {string} authorChannelId YouTube channel ID ("UC…")
+ */
+function rememberYouTubeChatter(channelId, username, authorChannelId) {
+    if (!authorChannelId || !username) return;
+    let seen = recentYouTubeChatters.get(channelId);
+    if (!seen) {
+        seen = new Map();
+        recentYouTubeChatters.set(channelId, seen);
+    }
+
+    const key = username.toLowerCase();
+    const existing = seen.get(key);
+    if (existing && existing.authorChannelId !== authorChannelId) {
+        // Same display name, different account. Keep both so the lookup can say
+        // it is ambiguous rather than silently ignoring the wrong person.
+        existing.ambiguous = true;
+        existing.seenAt = Date.now();
+        return;
+    }
+    // Delete first so re-inserting moves the entry to the end: Map preserves
+    // insertion order, which is what makes the oldest-first eviction below work.
+    seen.delete(key);
+    seen.set(key, { authorChannelId, displayName: username, seenAt: Date.now(), ambiguous: false });
+
+    if (seen.size > YT_CHATTER_MAX_PER_CHANNEL) {
+        const now = Date.now();
+        for (const [k, v] of seen) {
+            if (now - v.seenAt >= YT_CHATTER_TTL_MS) seen.delete(k);
+        }
+        while (seen.size > YT_CHATTER_MAX_PER_CHANNEL) {
+            const oldest = seen.keys().next();
+            if (oldest.done) break;
+            seen.delete(oldest.value);
+        }
+    }
+}
+
+/**
+ * Look up a recently-seen YouTube chatter by display name.
+ * @param {string} channelId Twitch channel ID (the Firestore doc key)
+ * @param {string} username Display name as typed, case-insensitive
+ * @returns {{ authorChannelId: string, displayName: string }|null} null when not
+ *   seen recently or when the name matched more than one account.
+ */
+export function findRecentYouTubeChatter(channelId, username) {
+    const entry = recentYouTubeChatters.get(channelId)?.get(String(username).toLowerCase());
+    if (!entry) return null;
+    if (entry.ambiguous) return null;
+    if (Date.now() - entry.seenAt >= YT_CHATTER_TTL_MS) return null;
+    return { authorChannelId: entry.authorChannelId, displayName: entry.displayName };
+}
+
+/** Drop the remembered chatters for a channel. Called when its connection closes. */
+function forgetYouTubeChatters(channelId) {
+    recentYouTubeChatters.delete(channelId);
+}
 
 /**
  * Initialize YouTube chat connections for all channels that have YouTube enabled.
@@ -195,10 +274,14 @@ async function _handleMessage(channelId, msg) {
         return;
     }
 
-    // Check ignored users (YouTube usernames)
-    const lowerUsername = username.toLowerCase();
-    if (ttsConfig.ignoredUsers?.includes(lowerUsername)) {
-        logger.debug({ channelId, username }, 'YouTube Chat: User is ignored, skipping');
+    // Remember who spoke before the ignore check, so a moderator can still name a
+    // viewer that was just muted when they ask to remove them from the list.
+    rememberYouTubeChatter(channelId, username, msg.channelId);
+
+    // Ignore list is keyed by the author's YouTube channel ID (immutable), not by
+    // the display name (changeable). See src/lib/ignoreList.js.
+    if (isYouTubeUserIgnored(ttsConfig, msg.channelId)) {
+        logger.debug({ channelId, username, authorChannelId: msg.channelId }, 'YouTube Chat: User is ignored, skipping');
         return;
     }
 
@@ -341,6 +424,7 @@ export function disconnectYouTubeChat(channelId) {
     }
 
     activeConnections.delete(channelId);
+    forgetYouTubeChatters(channelId);
     logger.info({ channelId }, 'YouTube Chat: Disconnected');
 }
 

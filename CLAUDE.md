@@ -58,7 +58,8 @@ export TWITCH_CHANNELS=yourchannel
   - `!tts mode all/command` - Set whether to read all messages or only commands
   - `!tts voices` - List available voices
   - `!tts emotion <emotion>` - Set speech emotion (neutral, happy, sad, angry, fearful, disgusted, surprised)
-  - `!tts ignore add/del <username>` - Manage ignored users
+  - `!tts ignore add/del <username>` - Manage ignored users. The name is resolved to an immutable
+    account ID at write time, so a rename does not shed the entry; an unresolvable name is refused.
   - `!tts pause/resume` - Pause/resume the TTS queue
   - `!tts stop` - Stops current audio. Users can stop their own messages; mods can stop any.
   - `!tts clear` - Clears the pending TTS queue (does not stop current audio).
@@ -129,8 +130,46 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
 - Emotion settings
 - Language boost setting
 - URL handling (`readFullUrls` - defaults to false, reads only domain names when false)
-- List of ignored users
+- Ignore list (`ignoredUserIds` — see below)
 - User-specific preferences (including language)
+
+### Ignore list (`ignoredUserIds`)
+
+`src/lib/ignoreList.js` owns the format; every check goes through it rather than reading the
+field directly. Entries are a map of `"<platform>:<accountId>"` to a display label:
+
+```
+ignoredUserIds: {
+  "twitch:52343457": "Spammer",
+  "youtube:UCX6OQ3DkcsbYNE6H8uQQuVA": "A YouTube Viewer"
+}
+```
+
+- **The key is an immutable account ID, never a login.** The list used to hold lowercased logins,
+  which a viewer shed by renaming — Twitch allows a login change every 60 days. The reverse was
+  worse: Twitch releases abandoned logins after about six months, so whoever claimed a name still
+  on a list was silently muted with no way to find out why.
+- **The label is for display only.** Nothing matches on it, and it goes stale when someone renames.
+  `!tts ignore del <name>` therefore matches the *stored label* first and only resolves the name
+  afresh if no label matches — resolving first would return the renamed account's ID and miss the
+  entry it belongs to.
+- Both platforms supply an ID on every inbound message: Twitch as `chatter_user_id`/`user_id` on
+  the EventSub payload, YouTube as `authorExternalChannelId`, which `yt-chat-proxy` already
+  forwards as `channelId` (see `internal/youtube/poller.go`).
+- **Adding requires resolving a name to an ID.** Twitch goes through Helix `getUsersByLogin`. A
+  name that resolves to nothing is refused rather than stored, since a stored non-matching name
+  would sit in the list looking effective forever. YouTube has no lookup the bot can call — the
+  proxy speaks InnerTube and holds no API key — so `ytChatClient` keeps a bounded 6-hour cache of
+  recent chatters (`findRecentYouTubeChatter`) that maps a display name back to its channel ID.
+  Names that were ambiguous within that window are reported, not guessed at.
+- Stored as a map, so `arrayUnion`/`arrayRemove` do not apply: writes deep-merge a single key and
+  deletes go through a `FieldPath`, exactly as `pronunciations` does. The colon in the key is why
+  a dotted string path would be wrong.
+- The web dashboard writes the same map (`chatvibes-web-ui`, `functions/src/api/settings.ts`), and
+  resolves through Helix the same way. The viewer self-ignore toggle in `viewer.ts` needs no
+  lookup — the caller is authenticated, so their ID is already in hand.
+- Migrated from the old `ignoredUsers` array by `scripts/migrate_ignored_users_to_ids.js`, which
+  runs in two phases so the bot and dashboard can deploy in any order.
 
 ### Allow-list vs. active (`managedChannels`)
 

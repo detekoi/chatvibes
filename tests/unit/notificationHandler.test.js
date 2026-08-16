@@ -229,10 +229,11 @@ describe('notificationHandler', () => {
                 notice_type: 'sub_gift',
                 chatter_user_name: 'Gifter',
                 chatter_user_login: 'gifter',
+                chatter_user_id: '4001',
                 sub_gift: { recipient_user_name: 'Recipient', sub_tier: '1000' }
             };
 
-            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel', { ignoredUsers: ['gifter'] });
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel', { ignoredUserIds: { 'twitch:4001': 'Gifter' } });
 
             expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         });
@@ -242,10 +243,11 @@ describe('notificationHandler', () => {
                 notice_type: 'sub_gift',
                 chatter_is_anonymous: true,
                 chatter_user_name: 'AnAnonymousGifter',
+                chatter_user_id: '4002',
                 sub_gift: { recipient_user_name: 'Recipient', sub_tier: '1000' }
             };
 
-            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel', { ignoredUsers: ['ananonymousgifter'] });
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel', { ignoredUserIds: { 'twitch:4002': 'AnAnonymousGifter' } });
 
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
@@ -311,10 +313,11 @@ describe('notificationHandler', () => {
                 notice_type: 'community_sub_gift',
                 chatter_user_name: 'GenerousGifter',
                 chatter_user_login: 'generousgifter',
+                chatter_user_id: '4003',
                 community_sub_gift: { id: 'abc', total: 10, sub_tier: '1000' }
             };
 
-            await handleNotification(COMMUNITY_SUB_GIFT_TYPE, event, 'testchannel', { ignoredUsers: ['generousgifter'] });
+            await handleNotification(COMMUNITY_SUB_GIFT_TYPE, event, 'testchannel', { ignoredUserIds: { 'twitch:4003': 'GenerousGifter' } });
 
             expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         });
@@ -476,11 +479,12 @@ describe('notificationHandler', () => {
             const event = {
                 user_name: 'SpamBot',
                 user_login: 'spambot',
+                user_id: '99999',
                 tier: '1000',
                 cumulative_months: 6,
                 message: { text: 'spam message' }
             };
-            const ttsConfig = { ignoredUsers: ['spambot'], engineEnabled: true };
+            const ttsConfig = { ignoredUserIds: { 'twitch:99999': 'SpamBot' }, engineEnabled: true };
 
             await handleNotification('channel.subscription.message', event, 'testchannel', ttsConfig);
 
@@ -512,10 +516,11 @@ describe('notificationHandler', () => {
             const event = {
                 user_name: 'SpamBot',
                 user_login: 'spambot',
+                user_id: '99999',
                 tier: '1000',
                 is_gift: false
             };
-            const ttsConfig = { ignoredUsers: ['spambot'], engineEnabled: true };
+            const ttsConfig = { ignoredUserIds: { 'twitch:99999': 'SpamBot' }, engineEnabled: true };
 
             await handleNotification('channel.subscribe', event, 'testchannel', ttsConfig);
 
@@ -526,10 +531,11 @@ describe('notificationHandler', () => {
             const event = {
                 user_name: 'SpamBot',
                 user_login: 'spambot',
+                user_id: '99999',
                 bits: 100,
                 is_anonymous: false
             };
-            const ttsConfig = { ignoredUsers: ['spambot'], engineEnabled: true };
+            const ttsConfig = { ignoredUserIds: { 'twitch:99999': 'SpamBot' }, engineEnabled: true };
 
             await handleNotification('channel.cheer', event, 'testchannel', ttsConfig);
 
@@ -697,7 +703,7 @@ describe('notificationHandler', () => {
                 watch_streak: { streak_count: 3 },
                 message: { text: 'buy stuff at spam.example.com' }
             };
-            const ttsConfig = { ignoredUsers: ['spambot'], engineEnabled: true };
+            const ttsConfig = { ignoredUserIds: { 'twitch:99999': 'SpamBot' }, engineEnabled: true };
 
             await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel', ttsConfig);
 

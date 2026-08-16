@@ -13,6 +13,7 @@ import { isGeminiAvailable } from '../../../lib/emotes/index.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { storeFragments } from '../redemptionFragmentCache.js';
+import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
 
 /**
  * Handle channel.chat.message events
@@ -90,7 +91,8 @@ export async function handleChatMessage(event, channelName) {
     // --- TTS CONFIG & EMOTE MODE RESOLUTION ---
     // Resolved before command processing so eventData can flow into command handlers
     const ttsConfig = await getTtsState(channelName);
-    const isTtsIgnored = ttsConfig.ignoredUsers && ttsConfig.ignoredUsers.includes(username);
+    const userId = event.chatter_user_id || event.user_id; // Extract User ID
+    const isTtsIgnored = isTwitchUserIgnored(ttsConfig, userId);
     // Check against cleanMessage (not raw messageText) so the reply-target
     // @username that Twitch prepends doesn't trigger false banned-word hits.
     const containsBannedWord = ttsConfig.bannedWords?.length > 0 &&
@@ -103,8 +105,6 @@ export async function handleChatMessage(event, channelName) {
         }
         return;
     }
-
-    const userId = event.chatter_user_id || event.user_id; // Extract User ID
 
     // Resolve emote mode: user preference → channel default → 'describe'
     const userEmoteMode = await getUserEmoteModePreference(username, userId);

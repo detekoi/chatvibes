@@ -27,14 +27,16 @@ export const DEFAULT_TTS_SETTINGS = {
     botRespondsInChat: true, // Whether the bot sends chat responses (default: true = interactive mode)
     // Channel overrides for the built-in acronym dictionary, keyed by the
     // lowercased match. An empty value switches off the built-in of that name.
-    // Unlike ignoredUsers this has a default, so hydration always yields an
+    // Like ignoredUserIds this has a default, so hydration always yields an
     // object and callers never have to guard before reading it.
     pronunciations: {},
     pronunciationEnabled: true,
     profanityFilterEnabled: false, // Opt-in: off unless a channel turns it on
-    // It's good practice to initialize userPreferences and ignoredUsers in default settings
+    // TTS ignore list, keyed by immutable platform account ID. See src/lib/ignoreList.js
+    // for the key format and why login names are not used.
+    ignoredUserIds: {},
+    // It's good practice to initialize userPreferences in default settings
     // userPreferences: {}, // Will be handled by ttsState.js if it needs to be part of base default
-    // ignoredUsers: []      // Will be handled by ttsState.js
 };
 
 // All valid emotions (speech-2.8-turbo full set + "neutral" as user-facing auto-detect alias)
