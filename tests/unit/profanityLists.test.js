@@ -127,6 +127,16 @@ describe('getProfanityRules', () => {
             .toBe('this is shoot');
         expect(applyRewrites('we bought snacks and shit', getProfanityRules('English')))
             .toBe('we bought snacks and stuff');
+        expect(applyRewrites('dont talk shit about them', getProfanityRules('English')))
+            .toBe('dont talk smack about them');
+        expect(applyRewrites('holy shit that was crazy', getProfanityRules('English')))
+            .toBe('holy moly that was crazy');
+        expect(applyRewrites('no shit sherlock', getProfanityRules('English')))
+            .toBe('no kidding sherlock');
+        expect(applyRewrites('this piece of shit car', getProfanityRules('English')))
+            .toBe('this piece of junk car');
+        expect(applyRewrites('you are full of shit', getProfanityRules('English')))
+            .toBe('you are full of baloney');
     });
 
     test('leaves clean text alone', () => {
