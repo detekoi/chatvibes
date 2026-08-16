@@ -18,7 +18,7 @@ export const mockChannelConfig = {
   pitch: 0,
   languageBoost: 'Automatic',
   allowViewerPreferences: true,
-  ignoredUsers: [],
+  ignoredUserIds: {},
   userPreferences: {}
 };
 

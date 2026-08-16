@@ -1,6 +1,7 @@
 // src/components/commands/tts/listIgnored.js
 import { getTtsState } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
+import { listIgnoredAccounts, PLATFORM_YOUTUBE } from '../../../lib/ignoreList.js';
 import logger from '../../../lib/logger.js';
 
 export default {
@@ -14,28 +15,22 @@ export default {
 
         try {
             const ttsConfig = await getTtsState(channelNameNoHash);
-            const ignoredUsers = Array.isArray(ttsConfig.ignoredUsers) ? ttsConfig.ignoredUsers : [];
+            // Entries are keyed by account ID; the stored label is what viewers
+            // recognise, so that is what gets printed. A YouTube entry is marked
+            // because the same display name can exist on both platforms.
+            const labels = listIgnoredAccounts(ttsConfig).map(entry =>
+                entry.platform === PLATFORM_YOUTUBE ? `${entry.label} (YouTube)` : entry.label);
 
-            if (ignoredUsers.length === 0) {
+            if (labels.length === 0) {
                 enqueueMessage(channel, `No users are currently on the TTS ignore list.`, { replyToId });
-            } else {
-                // Paginate if the list is too long for one message
-                let response = `Ignored users: `;
-                const MAX_USERS_PER_MSG = 15;
-                let currentBatch = [];
+                return;
+            }
 
-                for (let i = 0; i < ignoredUsers.length; i++) {
-                    currentBatch.push(ignoredUsers[i]);
-                    if (currentBatch.length >= MAX_USERS_PER_MSG || i === ignoredUsers.length - 1) {
-                        if (i === ignoredUsers.length -1 && currentBatch.length < MAX_USERS_PER_MSG && response !== `Ignored users: `){
-                             enqueueMessage(channel, response + currentBatch.join(', '), { replyToId });
-                        } else {
-                             enqueueMessage(channel, response + currentBatch.join(', '), { replyToId });
-                        }
-                        currentBatch = [];
-                        if (i < ignoredUsers.length -1) response = "More ignored: "; // For subsequent messages
-                    }
-                }
+            // Paginate if the list is too long for one message
+            const MAX_USERS_PER_MSG = 15;
+            for (let i = 0; i < labels.length; i += MAX_USERS_PER_MSG) {
+                const prefix = i === 0 ? 'Ignored users: ' : 'More ignored: ';
+                enqueueMessage(channel, prefix + labels.slice(i, i + MAX_USERS_PER_MSG).join(', '), { replyToId });
             }
         } catch (error) {
             logger.error({ err: error, channelName: channelNameNoHash }, 'Error fetching ignored users for TTS.');

@@ -10,6 +10,7 @@ import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { consumeFragments } from '../redemptionFragmentCache.js';
+import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
 import { Firestore } from '@google-cloud/firestore';
 
 let _firestoreDb = null;
@@ -100,9 +101,8 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
     }
 
     // Check if user is ignored
-    const isIgnored = Array.isArray(ttsConfig.ignoredUsers) && ttsConfig.ignoredUsers.includes(userName);
-    if (isIgnored) {
-        logger.debug({ channelLogin, userName }, 'User is on ignore list - skipping TTS');
+    if (isTwitchUserIgnored(ttsConfig, userId)) {
+        logger.debug({ channelLogin, userName, userId }, 'User is on ignore list - skipping TTS');
         return;
     }
 
@@ -241,8 +241,8 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     }
 
     // Check if user is on the ignore list
-    if (ttsConfig.ignoredUsers?.includes(userLogin)) {
-        logger.debug({ channelLogin, user: userLogin }, 'Redemption from ignored user — skipping TTS announcement');
+    if (isTwitchUserIgnored(ttsConfig, userId)) {
+        logger.debug({ channelLogin, user: userLogin, userId }, 'Redemption from ignored user — skipping TTS announcement');
         return;
     }
 

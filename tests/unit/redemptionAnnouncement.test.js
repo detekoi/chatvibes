@@ -454,11 +454,12 @@ describe('handleRedemptionAnnouncement', () => {
         const event = {
             user_name: 'SpamBot',
             user_login: 'spambot',
+            user_id: '99999',
             reward: { id: 'reward-123', title: 'Hydrate' },
             user_input: 'spam message',
             status: 'fulfilled'
         };
-        const ttsConfig = { ...defaultTtsConfig, ignoredUsers: ['spambot'] };
+        const ttsConfig = { ...defaultTtsConfig, ignoredUserIds: { 'twitch:99999': 'SpamBot' } };
 
         await handleRedemptionAnnouncement(
             'channel.channel_points_custom_reward_redemption.add',

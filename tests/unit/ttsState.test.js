@@ -371,10 +371,12 @@ describe('ttsState module', () => {
     });
 
     test('hydrates a fresh channel with an empty map, never undefined', async () => {
-      // ignoredUsers has no default and its add path throws on a fresh channel
-      // as a result; pronunciations must not repeat that.
+      // Both map fields carry a default, so callers never have to guard before
+      // reading them. ignoredUsers used to lack one, and its add path threw on a
+      // fresh channel as a result.
       const state = await ttsState.getTtsState('a-channel-that-does-not-exist');
       expect(state.pronunciations).toEqual({});
+      expect(state.ignoredUserIds).toEqual({});
     });
 
     test('setPronunciation stores the entry', async () => {
@@ -448,6 +450,70 @@ describe('ttsState module', () => {
       const stored = (await doc().get()).data();
       expect(stored.pronunciations).toEqual({});
       expect(stored.voiceId).toBe(mockChannelConfig.voiceId);
+    });
+  });
+
+  describe('ignore list', () => {
+    const doc = () => mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL);
+
+    beforeEach(async () => {
+      await doc().set({ ...mockChannelConfig });
+      await ttsState.initializeTtsState();
+    });
+
+    test('addIgnoredUser stores the account ID keyed entry with its display label', async () => {
+      expect(await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:52343457', 'SpamBot')).toBe(true);
+
+      const stored = (await doc().get()).data();
+      expect(stored.ignoredUserIds).toEqual({ 'twitch:52343457': 'SpamBot' });
+    });
+
+    test('addIgnoredUser leaves sibling entries alone', async () => {
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One');
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'youtube:UCabc', 'Two');
+
+      const stored = (await doc().get()).data();
+      expect(stored.ignoredUserIds).toEqual({ 'twitch:111': 'One', 'youtube:UCabc': 'Two' });
+    });
+
+    test('re-adding an account refreshes the stale display label', async () => {
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'OldName');
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'NewName');
+
+      const stored = (await doc().get()).data();
+      expect(stored.ignoredUserIds).toEqual({ 'twitch:111': 'NewName' });
+    });
+
+    test('addIgnoredUser updates the cache immediately', async () => {
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One');
+
+      const state = await ttsState.getTtsState(TEST_CHANNEL);
+      expect(state.ignoredUserIds['twitch:111']).toBe('One');
+    });
+
+    test('removeIgnoredUser deletes just that key', async () => {
+      // The colon in the key would be read as nothing special by a dotted path,
+      // but FieldPath segments are literal — this is the case that proves it.
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One');
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'youtube:UCabc', 'Two');
+
+      expect(await ttsState.removeIgnoredUser(TEST_CHANNEL, 'twitch:111')).toBe(true);
+
+      const stored = (await doc().get()).data();
+      expect(stored.ignoredUserIds).toEqual({ 'youtube:UCabc': 'Two' });
+    });
+
+    test('removeIgnoredUser updates the cache immediately', async () => {
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One');
+      await ttsState.removeIgnoredUser(TEST_CHANNEL, 'twitch:111');
+
+      const state = await ttsState.getTtsState(TEST_CHANNEL);
+      expect(state.ignoredUserIds['twitch:111']).toBeUndefined();
+    });
+
+    test('removing an entry that is not there reports success', async () => {
+      // NOT_FOUND means the desired end state already holds.
+      expect(await ttsState.removeIgnoredUser(TEST_CHANNEL, 'twitch:nobody')).toBe(true);
     });
   });
 });

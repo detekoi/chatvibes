@@ -7,6 +7,7 @@ import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { pronounService } from '../../../lib/pronounService.js';
+import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
 
 /** Synthetic subscription type used to route watch streak events from channel.chat.notification */
 export const WATCH_STREAK_TYPE = 'channel.chat.notification.watch_streak';
@@ -62,12 +63,11 @@ function formatSubTier(subTier) {
 
 /**
  * Whether the gifter on a gift notice is on the channel's ignore list. An anonymous gifter
- * has no login to match, so it is never ignored — the same rule the cheer handler applies.
+ * has no account ID to match, so it is never ignored — the same rule the cheer handler applies.
  */
 function isIgnoredGifter(event, ttsConfig, isAnonymous) {
     if (isAnonymous) return false;
-    const gifterLogin = (event.chatter_user_login || event.chatter_user_name || '').toLowerCase();
-    return Boolean(gifterLogin) && Boolean(ttsConfig.ignoredUsers?.includes(gifterLogin));
+    return isTwitchUserIgnored(ttsConfig, event.chatter_user_id);
 }
 
 /**
@@ -89,9 +89,8 @@ export async function handleNotification(subscriptionType, event, channelName, t
             }
 
             const subUser = event.user_name || event.user_login || 'Someone';
-            const subLogin = (event.user_login || subUser).toLowerCase();
-            if (ttsConfig.ignoredUsers?.includes(subLogin)) {
-                logger.debug({ channelName, user: subLogin }, 'Subscription from ignored user — skipping TTS');
+            if (isTwitchUserIgnored(ttsConfig, event.user_id)) {
+                logger.debug({ channelName, user: subUser, userId: event.user_id }, 'Subscription from ignored user — skipping TTS');
                 return;
             }
 
@@ -106,9 +105,9 @@ export async function handleNotification(subscriptionType, event, channelName, t
         case 'channel.subscription.message': {
             // Resubscription with message
             const resubUser = event.user_name || event.user_login || 'Someone';
-            const resubLogin = (event.user_login || resubUser).toLowerCase();
-            if (ttsConfig.ignoredUsers?.includes(resubLogin)) {
-                logger.debug({ channelName, user: resubLogin }, 'Resub from ignored user — skipping TTS');
+            const resubLogin = (event.user_login || resubUser).toLowerCase(); // pronoun lookup keys on the login
+            if (isTwitchUserIgnored(ttsConfig, event.user_id)) {
+                logger.debug({ channelName, user: resubUser, userId: event.user_id }, 'Resub from ignored user — skipping TTS');
                 return;
             }
 
@@ -227,12 +226,9 @@ export async function handleNotification(subscriptionType, event, channelName, t
             const bits = event.bits || 0;
             const isAnonymous = event.is_anonymous;
 
-            if (!isAnonymous) {
-                const cheerLogin = (event.user_login || cheerUser).toLowerCase();
-                if (ttsConfig.ignoredUsers?.includes(cheerLogin)) {
-                    logger.debug({ channelName, user: cheerLogin }, 'Cheer from ignored user — skipping TTS');
-                    return;
-                }
+            if (!isAnonymous && isTwitchUserIgnored(ttsConfig, event.user_id)) {
+                logger.debug({ channelName, user: cheerUser, userId: event.user_id }, 'Cheer from ignored user — skipping TTS');
+                return;
             }
 
             const bitWord = bits === 1 ? 'bit' : 'bits';
@@ -278,7 +274,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
         case WATCH_STREAK_TYPE: {
             // Watch streak milestone (from channel.chat.notification with notice_type: watch_streak)
             const streakUser = event.chatter_user_name || event.chatter_user_login || 'Someone';
-            const streakLogin = (event.chatter_user_login || streakUser).toLowerCase();
+            const streakLogin = (event.chatter_user_login || streakUser).toLowerCase(); // pronoun lookup keys on the login
             const streakCount = event.watch_streak?.streak_count;
             if (!streakCount || streakCount <= 0) {
                 logger.warn({ channelName, user: streakUser, streakCount }, 'Watch streak event with invalid streak_count — skipping TTS');
@@ -286,8 +282,8 @@ export async function handleNotification(subscriptionType, event, channelName, t
             }
 
             // Check if the user is on the ignore list
-            if (ttsConfig.ignoredUsers?.includes(streakLogin)) {
-                logger.debug({ channelName, user: streakLogin }, 'Watch streak from ignored user — skipping TTS');
+            if (isTwitchUserIgnored(ttsConfig, event.chatter_user_id)) {
+                logger.debug({ channelName, user: streakUser, userId: event.chatter_user_id }, 'Watch streak from ignored user — skipping TTS');
                 return;
             }
 
