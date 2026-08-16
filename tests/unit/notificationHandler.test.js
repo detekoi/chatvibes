@@ -107,7 +107,7 @@ describe('notificationHandler', () => {
                     channelName: 'testchannel',
                     user: 'GiftRecipient'
                 }),
-                'Skipping gift subscription - will be announced by channel.subscription.gift event'
+                'Skipping gift subscription - will be announced by its sub_gift chat notification'
             );
 
             // Should NOT log the subscription event
@@ -224,6 +224,36 @@ describe('notificationHandler', () => {
             );
         });
 
+        it('should skip TTS when the gifter is on the ignore list', async () => {
+            const event = {
+                notice_type: 'sub_gift',
+                chatter_user_name: 'Gifter',
+                chatter_user_login: 'gifter',
+                sub_gift: { recipient_user_name: 'Recipient', sub_tier: '1000' }
+            };
+
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel', { ignoredUsers: ['gifter'] });
+
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('should still announce an anonymous gift when the ignore list is set', async () => {
+            const event = {
+                notice_type: 'sub_gift',
+                chatter_is_anonymous: true,
+                chatter_user_name: 'AnAnonymousGifter',
+                sub_gift: { recipient_user_name: 'Recipient', sub_tier: '1000' }
+            };
+
+            await handleNotification(SUB_GIFT_TYPE, event, 'testchannel', { ignoredUsers: ['ananonymousgifter'] });
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'An anonymous gifter just gifted a Tier 1 sub to Recipient!' }),
+                null
+            );
+        });
+
         it('should skip TTS when the notice carries no recipient', async () => {
             const event = {
                 notice_type: 'sub_gift',
@@ -274,6 +304,19 @@ describe('notificationHandler', () => {
                 },
                 null
             );
+        });
+
+        it('should skip TTS when the mass gifter is on the ignore list', async () => {
+            const event = {
+                notice_type: 'community_sub_gift',
+                chatter_user_name: 'GenerousGifter',
+                chatter_user_login: 'generousgifter',
+                community_sub_gift: { id: 'abc', total: 10, sub_tier: '1000' }
+            };
+
+            await handleNotification(COMMUNITY_SUB_GIFT_TYPE, event, 'testchannel', { ignoredUsers: ['generousgifter'] });
+
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         });
 
         it('should handle an anonymous mass gift', async () => {

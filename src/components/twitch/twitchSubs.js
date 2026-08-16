@@ -261,33 +261,11 @@ export async function subscribeChannelSubscriptionMessage(broadcasterUserId) {
     return result;
 }
 
-/**
- * Subscribe to channel.subscription.gift events (gift subs)
- */
-export async function subscribeChannelSubscriptionGift(broadcasterUserId) {
-    const { publicUrl, eventSubSecret } = config.twitch;
-    if (!publicUrl || !eventSubSecret) {
-        logger.error('Missing PUBLIC_URL or TWITCH_EVENTSUB_SECRET in config');
-        return { success: false, error: 'Missing configuration' };
-    }
-
-    const body = {
-        type: 'channel.subscription.gift',
-        version: '1',
-        condition: { broadcaster_user_id: broadcasterUserId },
-        transport: {
-            method: 'webhook',
-            callback: `${publicUrl}/twitch/event`,
-            secret: eventSubSecret
-        }
-    };
-
-    const result = await makeHelixRequest('post', '/eventsub/subscriptions', body);
-    if (result.success) {
-        logger.info({ broadcasterUserId, type: 'channel.subscription.gift' }, 'Successfully subscribed to channel.subscription.gift');
-    }
-    return result;
-}
+// channel.subscription.gift is deliberately not subscribed to. Its payload names only the
+// gifter, so a single gift could not be announced with a recipient. Gift subs are announced
+// from the sub_gift / community_sub_gift notices on channel.chat.notification instead, which
+// also means they no longer depend on the broadcaster granting channel:read:subscriptions.
+// Subscriptions created before this changed are left in place and ignored by the handler.
 
 /**
  * Subscribe to channel.cheer events (bits cheers)
@@ -521,7 +499,7 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
     if (!hasBroadcasterAuth) {
         // List the scope-gated types being skipped for visibility
         const skippedTypes = [
-            'channel.subscribe', 'channel.subscription.message', 'channel.subscription.gift',
+            'channel.subscribe', 'channel.subscription.message',
             'channel.cheer', 'channel.follow', 'channel.channel_points_custom_reward_redemption.add',
             'channel.channel_points_custom_reward_redemption.update'
         ];
@@ -536,7 +514,6 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
     const {
         subscribe = hasBroadcasterAuth,     // channel.subscribe (requires channel:read:subscriptions)
         resubscribe = hasBroadcasterAuth,   // channel.subscription.message (requires channel:read:subscriptions)
-        giftSub = hasBroadcasterAuth,       // channel.subscription.gift (requires channel:read:subscriptions)
         cheer = hasBroadcasterAuth,         // channel.cheer (requires bits:read)
         raid = true,                        // channel.raid (no scope needed)
         follow = hasBroadcasterAuth,        // channel.follow v2 (requires moderator:read:followers)
@@ -577,15 +554,6 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
             results.successful.push('channel.subscription.message');
         } else {
             results.failed.push({ type: 'channel.subscription.message', error: result.error, status: result.status });
-        }
-    }
-
-    if (giftSub) {
-        const result = await subscribeChannelSubscriptionGift(broadcasterUserId);
-        if (result.success) {
-            results.successful.push('channel.subscription.gift');
-        } else {
-            results.failed.push({ type: 'channel.subscription.gift', error: result.error, status: result.status });
         }
     }
 

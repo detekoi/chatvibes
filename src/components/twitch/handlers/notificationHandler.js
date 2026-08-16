@@ -61,6 +61,16 @@ function formatSubTier(subTier) {
 }
 
 /**
+ * Whether the gifter on a gift notice is on the channel's ignore list. An anonymous gifter
+ * has no login to match, so it is never ignored — the same rule the cheer handler applies.
+ */
+function isIgnoredGifter(event, ttsConfig, isAnonymous) {
+    if (isAnonymous) return false;
+    const gifterLogin = (event.chatter_user_login || event.chatter_user_name || '').toLowerCase();
+    return Boolean(gifterLogin) && Boolean(ttsConfig.ignoredUsers?.includes(gifterLogin));
+}
+
+/**
  * Handle event notifications (subs, raids, follows, cheers)
  * Generates appropriate TTS text and publishes to Pub/Sub
  */
@@ -72,9 +82,9 @@ export async function handleNotification(subscriptionType, event, channelName, t
     switch (subscriptionType) {
         case 'channel.subscribe': {
             // New subscription
-            // Skip if this is a gift subscription - the channel.subscription.gift event will handle it
+            // Skip if this is a gift subscription - the sub_gift chat notification will handle it
             if (event.is_gift) {
-                logger.debug({ channelName, user: event.user_name }, 'Skipping gift subscription - will be announced by channel.subscription.gift event');
+                logger.debug({ channelName, user: event.user_name }, 'Skipping gift subscription - will be announced by its sub_gift chat notification');
                 return;
             }
 
@@ -147,7 +157,9 @@ export async function handleNotification(subscriptionType, event, channelName, t
 
         case 'channel.subscription.gift': {
             // Superseded by the sub_gift / community_sub_gift notices, which name the recipient.
-            // The subscription is still created, so drop its events here to avoid announcing twice.
+            // No new subscriptions of this type are created, but ones made before that changed
+            // are never deleted per-type, so their events keep arriving and must be dropped here
+            // to avoid announcing every gift twice.
             logger.debug({ channelName, gifter: event.user_name, total: event.total },
                 'Ignoring channel.subscription.gift - announced from channel.chat.notification instead');
             return;
@@ -164,6 +176,11 @@ export async function handleNotification(subscriptionType, event, channelName, t
             }
 
             const isAnonymous = event.chatter_is_anonymous === true || !event.chatter_user_name;
+            if (isIgnoredGifter(event, ttsConfig, isAnonymous)) {
+                logger.debug({ channelName, user: event.chatter_user_login }, 'Gift sub from ignored user — skipping TTS');
+                return;
+            }
+
             const gifterUser = isAnonymous ? 'An anonymous gifter' : event.chatter_user_name;
             const tier = formatSubTier(event.sub_gift?.sub_tier);
 
@@ -184,6 +201,11 @@ export async function handleNotification(subscriptionType, event, channelName, t
             const total = event.community_sub_gift?.total || 1;
             const tier = formatSubTier(event.community_sub_gift?.sub_tier);
             const isAnonymous = event.chatter_is_anonymous === true || !event.chatter_user_name;
+            if (isIgnoredGifter(event, ttsConfig, isAnonymous)) {
+                logger.debug({ channelName, user: event.chatter_user_login }, 'Mass gift from ignored user — skipping TTS');
+                return;
+            }
+
             const gifterUser = isAnonymous ? 'An anonymous gifter' : event.chatter_user_name;
 
             if (isAnonymous) {

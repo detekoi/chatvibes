@@ -138,7 +138,6 @@ async function handleEventSubSetup(req, res) {
         const result = await subscribeChannelToTtsEvents(userId, {
             subscribe: true,
             resubscribe: true,
-            giftSub: true,
             cheer: true,
             raid: true,
             follow: true,
