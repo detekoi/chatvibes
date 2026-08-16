@@ -59,23 +59,23 @@ Approved streamers can add or remove WildcatTTS and configure streaming software
 
 1. **Visit the WildcatTTS Management Portal** *(invite-only)*:
    * Go to the [WildcatTTS Management Portal](https://tts.wildcat.chat/).
-   * Select **Login with Twitch**.
+   * Select **Manage my channel** to sign in with Twitch.
 
 2. **Authorize the Application**:
    * Twitch opens an authorization page for WildcatTTS.
    * Review and grant the required permissions. The application uses the official Twitch OAuth flow.
 
 3. **Manage the Bot and Read Setup Instructions**:
-   * Log in to show your dashboard.
-   * To add the bot, select **Add Bot to My Channel**.
-   * To remove the bot, select **Remove Bot from My Channel**.
+   * Sign in to show your dashboard.
+   * To activate the bot, select **Activate TTS service**.
+   * To deactivate the bot, select **Deactivate TTS service**.
    * Read the **OBS Setup Instructions** on the dashboard to get your unique TTS URL.
 
 4. **Bot Joining Time and Configuration**:
    * After you add the bot, the bot joins your Twitch channel within a few minutes.
    * To play TTS audio, add your unique TTS URL as a Browser Source in your streaming software (OBS or Streamlabs).
    * Configure audio monitoring according to the setup instructions.
-   * If the bot does not respond after setup, make sure that your OBS browser source and audio settings are correct. Then remove and re-add the bot through the dashboard.
+   * If the bot does not respond after setup, make sure that your OBS browser source and audio settings are correct. Then deactivate and reactivate the TTS service through the dashboard.
    * To avoid chat filters, grant moderator status to the bot with `/mod <bot-username>`.
 
 5. **How TTS Triggers Work**:
@@ -128,7 +128,7 @@ The Channel Points to TTS feature works with all TTS modes:
 ### Requirements
 
 - Grant the `channel:manage:redemptions` and `channel:read:redemptions` OAuth scopes during initial setup.
-- Add the bot to your channel before you enable Channel Point rewards.
+- Activate the TTS service for your channel before you enable Channel Point rewards.
 - Enable Channel Points on your Twitch channel.
 
 ## Advanced
