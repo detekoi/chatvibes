@@ -139,25 +139,118 @@ async function attemptGeneration(text, voiceId, input, options) {
   }
 }
 
-// Synthesis time at 302.ai scales with text length, so a flat timeout is wrong at
-// both ends. Measured medians/maxima (5 samples each): 3ch 1503/1753, 36ch
-// 1843/2148, 89ch 2209/2515, 267ch 3892/4105, 500ch 4478/6241. The old flat 5s
-// was loose enough to stall short messages for seconds and *tight enough that
-// max-length messages timed out*, dropping them onto Wavespeed — which measured
-// 4.5s against 302's ~2.2s, so failing over is a downgrade, not a safety net.
-// The budget therefore sits above the observed maximum rather than near the median.
-const T302_TIMEOUT_BASE_MS = 2500;
-const T302_TIMEOUT_PER_CHAR_MS = 9;
+// Interjections MiniMax renders as non-verbal sound rather than speech. Only
+// speech-2.8-hd and speech-2.8-turbo support them; we send speech-2.8-turbo.
+// NOTE: the Wavespeed fallback runs speech-02-turbo, which does not — a message that
+// falls back will not produce these sounds.
+const INTERJECTION_TAGS = [
+  'laughs', 'chuckle', 'coughs', 'clear-throat', 'groans', 'breath', 'pant',
+  'inhale', 'exhale', 'gasps', 'sniffs', 'sighs', 'snorts', 'burps',
+  'lip-smacking', 'humming', 'hissing', 'emm', 'sneezes',
+];
+const INTERJECTION_RE = new RegExp(`\\((?:${INTERJECTION_TAGS.join('|')})\\)`, 'gi');
+
+// Measured against the live API (3 samples per case, speech-2.8-turbo, 128kbps mono):
+//
+//   input            audio out   duration
+//   plain 10ch        1.31s      1991-2494ms
+//   plain 50ch        4.86s      2190-2344ms
+//   plain 150ch       9.06s      2346-2944ms
+//   plain 400ch      26.34s      3626-4082ms
+//   (groans) x1       1.04s      1694-2355ms
+//   (groans) x6       3.76s      1723-1960ms
+//   (groans) x12     12.00s      2625-3599ms
+//
+// Two things fall out. Audio length is predictable from the text — ~0.064s per plain
+// character, and ~1.0s per interjection, which is why tags broke a character-count
+// model: a tag is 8 characters that speak for a second, roughly double the audio
+// density of prose. But duration is only weakly driven by it: ~1900ms of fixed
+// overhead plus ~70ms per second of audio, so a 25x range in audio output produces
+// less than a 3x range in duration.
+//
+// So the budget is mostly floor. The floor is set above the slowest legitimate call
+// seen in production (3297ms, itself censored since slower ones were being killed),
+// because under-shooting it fails healthy requests — the bug this replaces. The
+// scaling only earns its keep at the long end, where it grants more than a flat
+// budget could afford to give everyone.
+const T302_AUDIO_SEC_BASE = 0.67;          // fixed audio overhead per utterance
+const T302_AUDIO_SEC_PER_CHAR = 0.064;     // seconds of speech per plain character
+const T302_AUDIO_SEC_PER_TAG = 1.0;        // seconds of sound per interjection
+// Fitted to the *slowest* sample at each size, then given a wide margin on top —
+// roughly 2.4s at the short end and 0.7s at the long end. The margin is not padding:
+// run-to-run variance dwarfs the content signal. The same 500-character message
+// measured 4478ms median and 6241ms worst across sessions, and identical payloads in
+// production came back 450ms apart. A budget fitted tightly to the mean would fail
+// healthy requests every time the provider had a bad minute, which is the failure this
+// whole model exists to stop happening again.
+const T302_TIMEOUT_FIXED_MS = 4200;        // network + queue + model start-up + margin
+const T302_TIMEOUT_PER_AUDIO_SEC_MS = 85;  // synthesis cost per second produced
+const T302_TIMEOUT_MIN_MS = 4500;
 const T302_TIMEOUT_MAX_MS = 8000;
 
 /**
- * Per-request timeout for a 302.ai call, scaled to the text length.
- * @param {string} text - The text being synthesised.
- * @returns {number} Timeout in milliseconds.
+ * Per-request timeout, predicted from how much audio the text will produce.
+ * @param {string} text
+ * @returns {number} milliseconds
  */
-function t302TimeoutFor(text) {
-  const len = typeof text === 'string' ? text.length : 0;
-  return Math.min(T302_TIMEOUT_MAX_MS, T302_TIMEOUT_BASE_MS + T302_TIMEOUT_PER_CHAR_MS * len);
+export function t302TimeoutFor(text) {
+  if (typeof text !== 'string') return T302_TIMEOUT_MIN_MS;
+
+  const tagCount = (text.match(INTERJECTION_RE) || []).length;
+  // Tags are counted as sounds, so their characters must not also be counted as speech.
+  const plainChars = text.replace(INTERJECTION_RE, '').length;
+
+  const audioSec = T302_AUDIO_SEC_BASE
+    + T302_AUDIO_SEC_PER_CHAR * plainChars
+    + T302_AUDIO_SEC_PER_TAG * tagCount;
+
+  const predicted = T302_TIMEOUT_FIXED_MS + T302_TIMEOUT_PER_AUDIO_SEC_MS * audioSec;
+  return Math.min(T302_TIMEOUT_MAX_MS, Math.max(T302_TIMEOUT_MIN_MS, Math.round(predicted)));
+}
+
+// A generous timeout is right for one slow request and wrong for a provider outage:
+// during one, every message would burn the full 8s before failing over to a Wavespeed
+// call that was always going to be needed. Observed live — 302.ai answering HTTP 500
+// after 10.7s on every request while Wavespeed stayed healthy — so the breaker is what
+// makes the timeout above safe to raise.
+//
+// After enough consecutive failures 302 is skipped outright for a cooldown, turning an
+// outage from "every message pays the timeout" into "one message does, then we route
+// around it". When the cooldown lapses the next request tries 302 again: if it works
+// the breaker resets, if not the cooldown restarts.
+const T302_CIRCUIT_FAILURE_THRESHOLD = 3;
+const T302_CIRCUIT_COOLDOWN_MS = 60 * 1000;
+
+let t302ConsecutiveFailures = 0;
+let t302CircuitOpenUntil = 0;
+
+function is302CircuitOpen() {
+  return Date.now() < t302CircuitOpenUntil;
+}
+
+function record302Success() {
+  if (t302ConsecutiveFailures > 0 || t302CircuitOpenUntil > 0) {
+    logger.info({ afterFailures: t302ConsecutiveFailures }, '302.ai recovered; resuming normal routing');
+  }
+  t302ConsecutiveFailures = 0;
+  t302CircuitOpenUntil = 0;
+}
+
+function record302Failure() {
+  t302ConsecutiveFailures++;
+  if (t302ConsecutiveFailures >= T302_CIRCUIT_FAILURE_THRESHOLD) {
+    t302CircuitOpenUntil = Date.now() + T302_CIRCUIT_COOLDOWN_MS;
+    logger.error({
+      consecutiveFailures: t302ConsecutiveFailures,
+      cooldownMs: T302_CIRCUIT_COOLDOWN_MS,
+    }, '302.ai circuit opened — routing straight to Wavespeed until the cooldown lapses');
+  }
+}
+
+/** Test seam: reset breaker state between cases. */
+export function _resetT302Circuit() {
+  t302ConsecutiveFailures = 0;
+  t302CircuitOpenUntil = 0;
 }
 
 /**
@@ -169,7 +262,6 @@ async function attemptGeneration302(text, voiceId, options = {}) {
     throw new Error('302.ai API key is missing');
   }
 
-  const timeoutMs = t302TimeoutFor(text);
   const startTime = Date.now();
 
   const input = {
@@ -226,7 +318,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       'Content-Type': 'application/json'
     },
     data: input,
-    timeout: timeoutMs
+    timeout: t302TimeoutFor(text)
   };
 
   if (options.signal) {
@@ -354,6 +446,9 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
   let lastError = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    // Whether this attempt actually reached 302, so the catch below only holds 302
+    // responsible for its own failures — with the breaker open, attempt 0 is Wavespeed.
+    let calledT302 = false;
     try {
       let audio;
       if (is302) {
@@ -362,8 +457,14 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
         if (attempt > 0) {
           logger.warn({ text: text.substring(0, 30) }, 'Falling back to Wavespeed API after 302.ai failure');
           audio = await attemptGeneration(text, voiceId, input, options);
+        } else if (is302CircuitOpen()) {
+          // 302 is known-bad right now; skip it rather than paying the timeout again.
+          logger.debug({ text: text.substring(0, 30) }, '302.ai circuit open — using Wavespeed directly');
+          audio = await attemptGeneration(text, voiceId, input, options);
         } else {
+          calledT302 = true;
           audio = await attemptGeneration302(text, voiceId, options);
+          record302Success();
         }
       } else {
         audio = await attemptGeneration(text, voiceId, input, options);
@@ -378,10 +479,17 @@ export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId 
     } catch (error) {
       lastError = error;
 
-      // Don't retry on abort
+      // Don't retry on abort. Nor count it against the breaker: a stop command or a
+      // cleared queue says nothing about whether the provider is healthy, and letting
+      // those trip it would route a channel to the slower provider for a minute every
+      // time a moderator used !tts stop a few times.
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
         logger.info({ text, endpoint }, `${provider} API call aborted in generateSpeech.`);
         throw error;
+      }
+
+      if (calledT302) {
+        record302Failure();
       }
 
       // Determine if we should retry/fallback

@@ -8,7 +8,7 @@ jest.unstable_mockModule('axios', () => ({
 // Dynamic imports to ensure mock is applied
 const { default: axios } = await import('axios');
 const { getProviderForVoice } = await import('../src/components/tts/voiceMigration.js');
-const { generateSpeech } = await import('../src/components/tts/ttsService.js');
+const { generateSpeech, _resetT302Circuit } = await import('../src/components/tts/ttsService.js');
 
 // A minimal but real MP3 head: ID3 tag followed by a frame sync, hex-encoded the way
 // MiniMax returns it under output_format 'hex'. The payload lives in data.audio for
@@ -42,6 +42,8 @@ describe('TTS Migration', () => {
     describe('generateSpeech', () => {
         beforeEach(() => {
             jest.clearAllMocks();
+            // Breaker state is module-level and would otherwise leak between cases.
+            _resetT302Circuit();
             // Mock config
             process.env.WAVESPEED_API_KEY = 'test-wavespeed-key';
             process.env['302_KEY'] = 'test-302-key';
@@ -89,22 +91,125 @@ describe('TTS Migration', () => {
             expect(axios.mock.calls[0][0].data.output_format).toBe('url');
         });
 
-        it('should scale the request timeout with the text length', async () => {
-            axios.mockResolvedValue(hex302Response());
+        describe('request timeout', () => {
+            const budgetFor = async text => {
+                jest.clearAllMocks();
+                axios.mockResolvedValue(hex302Response());
+                await generateSpeech(text, 'English_expressive_narrator');
+                return axios.mock.calls[0][0].timeout;
+            };
 
-            await generateSpeech('Hi', 'English_expressive_narrator');
-            const shortTimeout = axios.mock.calls[0][0].timeout;
+            it('gives an interjection the budget of the sound it produces, not its 8 characters', async () => {
+                // The regression that timed out 15% of live traffic. Measured against
+                // the API, one interjection is ~1.0s of audio while a plain character
+                // is ~0.064s — so counting "(groans)" as 8 characters under-budgets it
+                // by more than an order of magnitude.
+                const fiveTags = await budgetFor('(groans) (groans) (groans) (groans) (groans)');
+                const samePlainLength = await budgetFor('x'.repeat(44));
 
-            jest.clearAllMocks();
-            axios.mockResolvedValue(hex302Response());
-            await generateSpeech('x'.repeat(500), 'English_expressive_narrator');
-            const longTimeout = axios.mock.calls[0][0].timeout;
+                expect(fiveTags).toBeGreaterThan(samePlainLength);
+                // The old formula gave this exact message 2896ms; it needs far more.
+                expect(fiveTags).toBeGreaterThan(2896);
+            });
 
-            // A max-length Twitch message measured up to 6241ms, so it must be allowed
-            // more than the old flat 5000ms; a two-character one must be allowed less.
-            expect(shortTimeout).toBeLessThan(5000);
-            expect(longTimeout).toBeGreaterThan(6241);
-            expect(longTimeout).toBeLessThanOrEqual(8000);
+            it('only counts tags the model actually renders as sound', async () => {
+                // Arbitrary parenthetical text is spoken, not turned into a sound
+                // effect, so it must not earn the per-interjection budget.
+                const real = await budgetFor('(groans) (groans) (groans)');
+                const notATag = await budgetFor('(wobbles) (wobbles) (wobbles)');
+
+                expect(real).toBeGreaterThan(notATag);
+            });
+
+            it('scales with the audio a long message will produce', async () => {
+                expect(await budgetFor('x'.repeat(500)))
+                    .toBeGreaterThan(await budgetFor('x'.repeat(50)));
+            });
+
+            it('clears the slowest duration observed for each shape', async () => {
+                // Under-shooting these fails healthy requests, which is the whole bug.
+                expect(await budgetFor('(chuckle)')).toBeGreaterThan(2355);
+                expect(await budgetFor(Array(12).fill('(groans)').join(' '))).toBeGreaterThan(3599);
+                expect(await budgetFor('x'.repeat(400))).toBeGreaterThan(4082);
+                expect(await budgetFor('x'.repeat(500))).toBeGreaterThan(6241);
+            });
+
+            it('stays within fixed bounds for degenerate input', async () => {
+                expect(await budgetFor('')).toBeGreaterThanOrEqual(4500);
+                expect(await budgetFor(Array(60).fill('(groans)').join(' '))).toBeLessThanOrEqual(8000);
+            });
+        });
+
+        describe('302.ai circuit breaker', () => {
+            // Without this, a provider outage means every message pays the full 8s
+            // timeout before reaching the fallback it was always going to need.
+            const wavespeedOk = { data: { data: { status: 'completed', outputs: ['https://wavespeed.ai/fb.mp3'] } } };
+            const timeout = () => Object.assign(new Error('302.ai API request timed out'), { code: 'ECONNABORTED' });
+
+            /** Drive n failing messages through, each falling back to Wavespeed. */
+            async function failTimes(n) {
+                for (let i = 0; i < n; i++) {
+                    axios.mockReset();
+                    axios.mockRejectedValueOnce(timeout()).mockResolvedValueOnce(wavespeedOk);
+                    await generateSpeech(`msg ${i}`, 'English_expressive_narrator');
+                }
+            }
+
+            it('keeps trying 302 while failures are below the threshold', async () => {
+                await failTimes(2);
+
+                axios.mockReset();
+                axios.mockRejectedValueOnce(timeout()).mockResolvedValueOnce(wavespeedOk);
+                await generateSpeech('next', 'English_expressive_narrator');
+
+                expect(axios.mock.calls[0][0].url).toContain('302.ai');
+            });
+
+            it('skips 302 entirely once the failure threshold is reached', async () => {
+                await failTimes(3);
+
+                axios.mockReset();
+                axios.mockResolvedValueOnce(wavespeedOk);
+                const audio = await generateSpeech('after outage', 'English_expressive_narrator');
+
+                // One call, straight to Wavespeed — no 8s of dead time on the way.
+                expect(axios).toHaveBeenCalledTimes(1);
+                expect(axios.mock.calls[0][0].url).toContain('wavespeed');
+                expect(audio).toEqual({ kind: 'url', url: 'https://wavespeed.ai/fb.mp3' });
+            });
+
+            it('resets as soon as 302 answers again', async () => {
+                await failTimes(2); // below threshold, breaker still closed
+
+                axios.mockReset();
+                axios.mockResolvedValueOnce(hex302Response());
+                await generateSpeech('recovered', 'English_expressive_narrator');
+
+                // A success clears the streak, so the next two failures must not trip it.
+                await failTimes(2);
+                axios.mockReset();
+                axios.mockRejectedValueOnce(timeout()).mockResolvedValueOnce(wavespeedOk);
+                await generateSpeech('still trying', 'English_expressive_narrator');
+
+                expect(axios.mock.calls[0][0].url).toContain('302.ai');
+            });
+
+            it('does not count an aborted request against the breaker', async () => {
+                // !tts stop aborts in-flight generation. That says nothing about
+                // provider health, and letting it trip the breaker would push a
+                // channel onto the slower provider for a minute after a few stops.
+                for (let i = 0; i < 5; i++) {
+                    axios.mockReset();
+                    axios.mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+                    await expect(generateSpeech(`m${i}`, 'English_expressive_narrator')).rejects.toThrow();
+                }
+
+                axios.mockReset();
+                axios.mockResolvedValueOnce(hex302Response());
+                await generateSpeech('after aborts', 'English_expressive_narrator');
+
+                expect(axios.mock.calls[0][0].url).toContain('302.ai');
+            });
         });
 
         it('should treat a non-zero base_resp code as a failure and fall back', async () => {
