@@ -15,6 +15,10 @@ on:
       - '.idea/**'
       - 'scripts/**'
 
+# Default least-privilege token for every job; the deploy job widens it where needed.
+permissions:
+  contents: read
+
 env:
   GCP_PROJECT_ID: 'chatvibestts'
   GCP_PROJECT_NUMBER: '906125386407'
