@@ -103,7 +103,7 @@ async function claimTtsEventGlobal(channelName, eventData, ttlMs = PUBSUB_DEDUP_
     const keyRaw = messageId
         ? `${channelName}|${messageId}`
         : `${channelName}|${user}|${text}`;
-    const keyHash = crypto.createHash('sha1').update(keyRaw).digest('hex');
+    const keyHash = crypto.createHash('sha256').update(keyRaw).digest('hex');
     const docRef = processedEventsCollection.doc(keyHash);
     const now = Date.now();
     const expireAt = Timestamp.fromMillis(now + ttlMs);

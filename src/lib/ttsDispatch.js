@@ -99,7 +99,7 @@ export async function dispatchYouTubeTtsEvent(channelId, eventData) {
     // after N trips through Pub/Sub.
     const claimKey = messageId
         ? `${channelId}|${messageId}`
-        : `${channelId}|${crypto.createHash('sha1')
+        : `${channelId}|${crypto.createHash('sha256')
             .update(`${(eventData?.user || '').toLowerCase()}|${(eventData?.text || '').trim()}`)
             .digest('hex')}`;
 
