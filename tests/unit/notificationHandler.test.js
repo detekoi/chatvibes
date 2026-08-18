@@ -729,6 +729,37 @@ describe('notificationHandler', () => {
             }
         });
 
+        it('should not wait on the pronoun lookup when the message formats to empty', async () => {
+            // The announcement drops the message entirely on this path, so it must not be
+            // held up by a lookup whose result it would discard. Timers are never advanced:
+            // if the handler awaited the (never-resolving) lookup, this would hang.
+            jest.useFakeTimers();
+            try {
+                mockFormatTtsText.mockResolvedValueOnce('');
+                mockPronounService.getUserPronouns.mockImplementationOnce(() => new Promise(() => {}));
+                const event = {
+                    chatter_user_name: 'turboicehusky',
+                    chatter_user_login: 'turboicehusky',
+                    chatter_user_id: '69303911',
+                    notice_type: 'watch_streak',
+                    watch_streak: { streak_count: 25, channel_points_awarded: 450 },
+                    message: { text: 'parfai14Parfait' }
+                };
+
+                await handleNotification(WATCH_STREAK_TYPE, event, 'parfaitfair', { emoteMode: 'skip' });
+
+                expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                    'parfaitfair',
+                    expect.objectContaining({
+                        text: 'turboicehusky is on a 25 stream watch streak!'
+                    }),
+                    null
+                );
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('should fall back to "They" when the pronoun lookup never returns', async () => {
             jest.useFakeTimers();
             try {

@@ -41,8 +41,10 @@ const PRONOUN_LOOKUP_TIMEOUT_MS = 2500;
  * event. Falls back to "They" when the login is unknown, the API has no entry, or the
  * lookup exceeds PRONOUN_LOOKUP_TIMEOUT_MS.
  *
- * Callers should run this concurrently with formatTtsText so the fetch overlaps with
- * formatting work rather than adding to it.
+ * Callers should start this before awaiting formatTtsText so the fetch overlaps with
+ * formatting work rather than adding to it, then await it only once the formatted
+ * message is known to be non-empty. Never rejects, so the promise is safe to drop on
+ * the path where the message formats away.
  */
 async function resolvePronounSubject(login) {
     if (!login || login === 'someone') return 'They';
@@ -144,17 +146,18 @@ export async function handleNotification(subscriptionType, event, channelName, t
                 } else {
                     const emoteMode = ttsConfig.emoteMode || 'describe';
                     const fragments = event.message?.fragments || null;
-                    const [formattedMessage, pronounSubject] = await Promise.all([
-                        formatTtsText(rawResubMessage, fragments, {
-                            emoteMode,
-                            channelEmoteMode: emoteMode,
-                            readFullUrls: ttsConfig.readFullUrls || false,
-                            pronunciationRules: getPronunciationRules(ttsConfig),
-                        }),
-                        resolvePronounSubject(resubLogin),
-                    ]);
+                    // Started together so the pronoun fetch overlaps formatting, but awaited
+                    // separately: a message that formats to empty is never spoken, so it must
+                    // not wait on a lookup whose result it would discard.
+                    const pronounSubject = resolvePronounSubject(resubLogin);
+                    const formattedMessage = await formatTtsText(rawResubMessage, fragments, {
+                        emoteMode,
+                        channelEmoteMode: emoteMode,
+                        readFullUrls: ttsConfig.readFullUrls || false,
+                        pronunciationRules: getPronunciationRules(ttsConfig),
+                    });
                     if (formattedMessage) {
-                        ttsText += ` ${pronounSubject} said: ${formattedMessage}`;
+                        ttsText += ` ${await pronounSubject} said: ${formattedMessage}`;
                     } else {
                         logger.info({ channelName, user: resubLogin, emoteMode, viewerMessage: rawResubMessage },
                             'Resub message formatted to empty (likely all emotes under emoteMode=skip) — announcing resub only');
@@ -316,17 +319,18 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     // (URL shortening, emote mode, emoji processing)
                     const emoteMode = ttsConfig.emoteMode || 'describe';
                     const fragments = event.message?.fragments || null;
-                    const [formattedMessage, pronounSubject] = await Promise.all([
-                        formatTtsText(rawStreakMessage, fragments, {
-                            emoteMode,
-                            channelEmoteMode: emoteMode,
-                            readFullUrls: ttsConfig.readFullUrls || false,
-                            pronunciationRules: getPronunciationRules(ttsConfig),
-                        }),
-                        resolvePronounSubject(streakLogin),
-                    ]);
+                    // Started together so the pronoun fetch overlaps formatting, but awaited
+                    // separately: a message that formats to empty is never spoken, so it must
+                    // not wait on a lookup whose result it would discard.
+                    const pronounSubject = resolvePronounSubject(streakLogin);
+                    const formattedMessage = await formatTtsText(rawStreakMessage, fragments, {
+                        emoteMode,
+                        channelEmoteMode: emoteMode,
+                        readFullUrls: ttsConfig.readFullUrls || false,
+                        pronunciationRules: getPronunciationRules(ttsConfig),
+                    });
                     if (formattedMessage) {
-                        ttsText += ` ${pronounSubject} said: ${formattedMessage}`;
+                        ttsText += ` ${await pronounSubject} said: ${formattedMessage}`;
                     } else {
                         logger.info({ channelName, user: streakLogin, emoteMode, viewerMessage: rawStreakMessage },
                             'Watch streak message formatted to empty (likely all emotes under emoteMode=skip) — announcing streak only');
