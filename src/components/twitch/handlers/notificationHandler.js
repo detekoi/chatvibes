@@ -25,13 +25,24 @@ export const WATCH_STREAK_TYPE = 'channel.chat.notification.watch_streak';
 export const SUB_GIFT_TYPE = 'channel.chat.notification.sub_gift';
 export const COMMUNITY_SUB_GIFT_TYPE = 'channel.chat.notification.community_sub_gift';
 
-/** How long to wait on the pronoun API before falling back to "They" */
-const PRONOUN_LOOKUP_TIMEOUT_MS = 500;
+/**
+ * How long to wait on the pronoun API before falling back to "They".
+ *
+ * A backstop, not a latency budget. pronounService caps its own fetch at 3s and never
+ * rejects, so this only matters if that guarantee ever breaks. It was 500ms and that
+ * lost the race on every cold cache — a miss on pronouns.alejo.io costs ~700-760ms, so
+ * viewers with pronouns registered were still announced as "They". Nothing is gained by
+ * cutting it fine: the announcement then spends seconds in TTS generation regardless.
+ */
+const PRONOUN_LOOKUP_TIMEOUT_MS = 2500;
 
 /**
  * Subject pronoun for the "<Subject> said:" prefix on a viewer message attached to an
  * event. Falls back to "They" when the login is unknown, the API has no entry, or the
- * lookup is slow — an event announcement should never wait on it.
+ * lookup exceeds PRONOUN_LOOKUP_TIMEOUT_MS.
+ *
+ * Callers should run this concurrently with formatTtsText so the fetch overlaps with
+ * formatting work rather than adding to it.
  */
 async function resolvePronounSubject(login) {
     if (!login || login === 'someone') return 'They';
@@ -133,14 +144,17 @@ export async function handleNotification(subscriptionType, event, channelName, t
                 } else {
                     const emoteMode = ttsConfig.emoteMode || 'describe';
                     const fragments = event.message?.fragments || null;
-                    const formattedMessage = await formatTtsText(rawResubMessage, fragments, {
-                        emoteMode,
-                        channelEmoteMode: emoteMode,
-                        readFullUrls: ttsConfig.readFullUrls || false,
-                        pronunciationRules: getPronunciationRules(ttsConfig),
-                    });
+                    const [formattedMessage, pronounSubject] = await Promise.all([
+                        formatTtsText(rawResubMessage, fragments, {
+                            emoteMode,
+                            channelEmoteMode: emoteMode,
+                            readFullUrls: ttsConfig.readFullUrls || false,
+                            pronunciationRules: getPronunciationRules(ttsConfig),
+                        }),
+                        resolvePronounSubject(resubLogin),
+                    ]);
                     if (formattedMessage) {
-                        ttsText += ` ${await resolvePronounSubject(resubLogin)} said: ${formattedMessage}`;
+                        ttsText += ` ${pronounSubject} said: ${formattedMessage}`;
                     } else {
                         logger.info({ channelName, user: resubLogin, emoteMode, viewerMessage: rawResubMessage },
                             'Resub message formatted to empty (likely all emotes under emoteMode=skip) — announcing resub only');
@@ -302,14 +316,17 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     // (URL shortening, emote mode, emoji processing)
                     const emoteMode = ttsConfig.emoteMode || 'describe';
                     const fragments = event.message?.fragments || null;
-                    const formattedMessage = await formatTtsText(rawStreakMessage, fragments, {
-                        emoteMode,
-                        channelEmoteMode: emoteMode,
-                        readFullUrls: ttsConfig.readFullUrls || false,
-                        pronunciationRules: getPronunciationRules(ttsConfig),
-                    });
+                    const [formattedMessage, pronounSubject] = await Promise.all([
+                        formatTtsText(rawStreakMessage, fragments, {
+                            emoteMode,
+                            channelEmoteMode: emoteMode,
+                            readFullUrls: ttsConfig.readFullUrls || false,
+                            pronunciationRules: getPronunciationRules(ttsConfig),
+                        }),
+                        resolvePronounSubject(streakLogin),
+                    ]);
                     if (formattedMessage) {
-                        ttsText += ` ${await resolvePronounSubject(streakLogin)} said: ${formattedMessage}`;
+                        ttsText += ` ${pronounSubject} said: ${formattedMessage}`;
                     } else {
                         logger.info({ channelName, user: streakLogin, emoteMode, viewerMessage: rawStreakMessage },
                             'Watch streak message formatted to empty (likely all emotes under emoteMode=skip) — announcing streak only');

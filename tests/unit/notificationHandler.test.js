@@ -694,6 +694,71 @@ describe('notificationHandler', () => {
             );
         });
 
+        it('should still use the pronoun when the lookup takes longer than half a second', async () => {
+            // Regression: the fallback used to fire at 500ms, which lost the race on every
+            // cold cache (a pronouns.alejo.io miss costs ~700-760ms), so viewers with
+            // pronouns registered were announced as "They" anyway.
+            jest.useFakeTimers();
+            try {
+                mockFormatTtsText.mockResolvedValueOnce('25 Streak!');
+                mockPronounService.getUserPronouns.mockImplementationOnce(
+                    () => new Promise(resolve => setTimeout(() => resolve({ Subject: 'He', subject: 'he' }), 750))
+                );
+                const event = {
+                    chatter_user_name: 'turboicehusky',
+                    chatter_user_login: 'turboicehusky',
+                    chatter_user_id: '69303911',
+                    notice_type: 'watch_streak',
+                    watch_streak: { streak_count: 25, channel_points_awarded: 450 },
+                    message: { text: '25 Streak!' }
+                };
+
+                const pending = handleNotification(WATCH_STREAK_TYPE, event, 'parfaitfair');
+                await jest.advanceTimersByTimeAsync(750);
+                await pending;
+
+                expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                    'parfaitfair',
+                    expect.objectContaining({
+                        text: 'turboicehusky is on a 25 stream watch streak! He said: 25 Streak!'
+                    }),
+                    null
+                );
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
+        it('should fall back to "They" when the pronoun lookup never returns', async () => {
+            jest.useFakeTimers();
+            try {
+                mockFormatTtsText.mockResolvedValueOnce('25 Streak!');
+                mockPronounService.getUserPronouns.mockImplementationOnce(() => new Promise(() => {}));
+                const event = {
+                    chatter_user_name: 'turboicehusky',
+                    chatter_user_login: 'turboicehusky',
+                    chatter_user_id: '69303911',
+                    notice_type: 'watch_streak',
+                    watch_streak: { streak_count: 25, channel_points_awarded: 450 },
+                    message: { text: '25 Streak!' }
+                };
+
+                const pending = handleNotification(WATCH_STREAK_TYPE, event, 'parfaitfair');
+                await jest.advanceTimersByTimeAsync(2500);
+                await pending;
+
+                expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                    'parfaitfair',
+                    expect.objectContaining({
+                        text: 'turboicehusky is on a 25 stream watch streak! They said: 25 Streak!'
+                    }),
+                    null
+                );
+            } finally {
+                jest.useRealTimers();
+            }
+        });
+
         it('should skip TTS entirely when user is on the ignore list', async () => {
             const event = {
                 chatter_user_name: 'SpamBot',
