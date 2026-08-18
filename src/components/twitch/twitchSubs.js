@@ -109,10 +109,58 @@ async function hasBroadcasterOAuth(broadcasterUserId) {
 
 
 /**
- * Get all EventSub subscriptions
+ * Get all EventSub subscriptions, following pagination.
+ *
+ * Twitch caps this endpoint at 100 per page. A single un-paginated GET therefore
+ * truncates silently once the app passes 100 subscriptions — roughly a dozen fully
+ * authorized channels at 8-10 subscriptions each. Truncation is worse than a plain
+ * failure: `deleteChannelEventSubSubscriptions` would delete the subset it happened
+ * to see and report success while live subscriptions kept firing, and
+ * `verify-channel-subscriptions.js` would report healthy channels as missing
+ * everything.
+ *
+ * Returns the same `{ success, data: { data: [...] } }` shape as before, with `data`
+ * spanning every page.
  */
 export async function getEventSubSubscriptions() {
-    return await makeHelixRequest('get', '/eventsub/subscriptions');
+    const all = [];
+    let cursor = null;
+    let last = null;
+    const seenCursors = new Set();
+
+    do {
+        // makeHelixRequest passes its third argument as the request *body*, which axios
+        // drops on a GET, so the cursor has to travel in the URL.
+        const endpoint = cursor
+            ? `/eventsub/subscriptions?after=${encodeURIComponent(cursor)}`
+            : '/eventsub/subscriptions';
+
+        const result = await makeHelixRequest('get', endpoint);
+        if (!result.success) {
+            // Preserve the existing failure shape so callers' guards still work.
+            return result;
+        }
+
+        last = result.data;
+        all.push(...(last?.data || []));
+
+        cursor = last?.pagination?.cursor || null;
+        // Defend against a server returning the same cursor forever.
+        if (cursor && seenCursors.has(cursor)) {
+            logger.warn({ cursor, fetched: all.length }, 'EventSub pagination returned a repeated cursor — stopping');
+            break;
+        }
+        if (cursor) seenCursors.add(cursor);
+    } while (cursor);
+
+    return {
+        success: true,
+        data: {
+            ...last,
+            data: all,
+            pagination: {},
+        },
+    };
 }
 
 /**

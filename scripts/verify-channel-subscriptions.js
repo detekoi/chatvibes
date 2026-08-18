@@ -33,6 +33,28 @@ function subscriptionIdentity(sub) {
     return `${sub.type}(${stable})`;
 }
 
+/**
+ * Group subscriptions by identity and return only those registered more than once.
+ * Duplicates arise two ways: the same subscription under a second callback hostname,
+ * and a race where concurrent subscribe calls both land before either sees a 409.
+ * The second kind shares one callback, so a callback check alone will not find it.
+ */
+function findDuplicates(subs) {
+    const byIdentity = new Map();
+    subs.forEach(sub => {
+        const key = subscriptionIdentity(sub);
+        if (!byIdentity.has(key)) byIdentity.set(key, []);
+        byIdentity.get(key).push(sub);
+    });
+    return [...byIdentity.entries()]
+        .filter(([, group]) => group.length > 1)
+        .map(([identity, group]) => ({
+            identity,
+            count: group.length,
+            callbacks: [...new Set(group.map(s => s.transport?.callback))]
+        }));
+}
+
 async function verifyChannelSubscriptions() {
     try {
         // Initialize
@@ -81,6 +103,7 @@ async function verifyChannelSubscriptions() {
         // Verify each active channel
         const issues = [];
         const healthy = [];
+        const activeBroadcasterIds = new Set();
 
         for (const channelName of activeChannels) {
             // Get broadcaster ID
@@ -95,27 +118,16 @@ async function verifyChannelSubscriptions() {
             }
 
             const broadcasterId = userData[0].id;
+            activeBroadcasterIds.add(broadcasterId);
             const channelSubs = subsByBroadcaster.get(broadcasterId) || [];
             const presentTypes = new Set(channelSubs.map(s => s.type));
 
             // Check for missing subscriptions
             const missing = REQUIRED_SUBSCRIPTION_TYPES.filter(type => !presentTypes.has(type));
 
-            // Check for duplicates: same type + condition delivered over more than one
-            // transport. Each extra copy is one extra render of every event.
-            const byIdentity = new Map();
-            channelSubs.forEach(sub => {
-                const key = subscriptionIdentity(sub);
-                if (!byIdentity.has(key)) byIdentity.set(key, []);
-                byIdentity.get(key).push(sub);
-            });
-            const duplicates = [...byIdentity.entries()]
-                .filter(([, subs]) => subs.length > 1)
-                .map(([identity, subs]) => ({
-                    identity,
-                    count: subs.length,
-                    callbacks: [...new Set(subs.map(s => s.transport?.callback))]
-                }));
+            // Check for duplicates: same type + condition registered more than once.
+            // Each extra copy is one extra render of every event.
+            const duplicates = findDuplicates(channelSubs);
 
             // Check for callback drift — subs pointing somewhere other than PUBLIC_URL.
             const drifted = expectedCallback
@@ -139,24 +151,36 @@ async function verifyChannelSubscriptions() {
             }
         }
 
-        // Sweep every subscription, not just those of active channels. A stale callback on
-        // a deactivated channel still fires, and a channel reactivated later would start
-        // out already doubled.
-        const orphanedCallbacks = expectedCallback
-            ? allSubscriptions.filter(s => s.transport?.callback !== expectedCallback)
-            : [];
-        if (orphanedCallbacks.length > 0) {
-            const byCallback = new Map();
-            orphanedCallbacks.forEach(s => {
-                const cb = s.transport?.callback || '(none)';
-                if (!byCallback.has(cb)) byCallback.set(cb, []);
-                byCallback.get(cb).push(s);
-            });
-            console.log(`🚨 ${orphanedCallbacks.length} subscription(s) are NOT on PUBLIC_URL:`);
-            console.log(`   expected: ${expectedCallback}`);
-            byCallback.forEach((subs, cb) => {
-                console.log(`\n   ${cb}  (${subs.length})`);
-                subs.forEach(s => console.log(`      ${s.type} ${JSON.stringify(s.condition)} [${s.id}]`));
+        // Sweep the broadcasters no active channel covers. Their subscriptions still fire,
+        // and a channel reactivated later would start out already doubled. Active channels
+        // are excluded here because the per-channel block above already reports them —
+        // listing them twice buries the part that needs action.
+        const strays = [];
+        subsByBroadcaster.forEach((subs, broadcasterId) => {
+            if (activeBroadcasterIds.has(broadcasterId)) return;
+
+            const drifted = expectedCallback
+                ? subs.filter(s => s.transport?.callback !== expectedCallback)
+                : [];
+            const duplicates = findDuplicates(subs);
+            if (drifted.length > 0 || duplicates.length > 0) {
+                strays.push({ broadcasterId, drifted, duplicates });
+            }
+        });
+
+        if (strays.length > 0) {
+            const driftCount = strays.reduce((n, s) => n + s.drifted.length, 0);
+            const dupeCount = strays.reduce((n, s) => n + s.duplicates.length, 0);
+            console.log(`🚨 Inactive/unmanaged broadcasters with subscription problems: ${strays.length}`);
+            if (expectedCallback) console.log(`   expected callback: ${expectedCallback}`);
+            console.log(`   (${driftCount} on a wrong callback, ${dupeCount} duplicated)\n`);
+            strays.forEach(({ broadcasterId, drifted, duplicates }) => {
+                console.log(`   broadcaster ${broadcasterId}`);
+                duplicates.forEach(dup => {
+                    console.log(`      ⚠️  Duplicate x${dup.count}: ${dup.identity}`);
+                    dup.callbacks.forEach(cb => console.log(`           via ${cb}`));
+                });
+                drifted.forEach(s => console.log(`      ⚠️  ${s.type} -> ${s.transport?.callback} [${s.id}]`));
             });
             console.log('');
         }
@@ -224,9 +248,9 @@ async function verifyChannelSubscriptions() {
             console.log('');
 
             process.exit(1);
-        } else if (orphanedCallbacks.length > 0) {
+        } else if (strays.length > 0) {
             // No active channel is affected, but the strays are still live and still fire.
-            console.log('\n❌ Stray subscriptions on a non-PUBLIC_URL callback — delete them:');
+            console.log('\n❌ Stray subscriptions on inactive broadcasters — delete them:');
             console.log('   node scripts/manage-eventsub.js delete <subscription-id>\n');
             process.exit(1);
         } else {
