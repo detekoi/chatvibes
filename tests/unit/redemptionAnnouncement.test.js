@@ -425,6 +425,108 @@ describe('handleRedemptionAnnouncement', () => {
         expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
     });
 
+    describe('announceUnfulfilledRedemptions', () => {
+        // A reward that does not skip Twitch's request queue lands as .add + unfulfilled.
+        // With this opted in, it is announced then rather than when the streamer accepts it.
+        const eagerTtsConfig = {
+            engineEnabled: true,
+            speakRedemptionEvents: true,
+            announceUnfulfilledRedemptions: true
+        };
+
+        it('should announce an unfulfilled redemption as soon as it lands', async () => {
+            const event = {
+                id: 'redemption-eager-1',
+                user_name: 'TestUser',
+                user_login: 'testuser',
+                reward: { id: 'reward-789', title: 'Laundry Day' },
+                user_input: '',
+                status: 'unfulfilled'
+            };
+
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.add',
+                event,
+                'testchannel',
+                eagerTtsConfig
+            );
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'TestUser redeemed Laundry Day' }),
+                null
+            );
+            // Nothing is waiting on approval, so nothing needs stashing.
+            expect(mockAddRedemption).not.toHaveBeenCalled();
+        });
+
+        it('should not announce again when the streamer later approves it', async () => {
+            const event = {
+                id: 'redemption-eager-2',
+                user_name: 'TestUser',
+                user_login: 'testuser',
+                reward: { id: 'reward-789', title: 'Laundry Day' },
+                user_input: '',
+                status: 'fulfilled'
+            };
+
+            // The .add already spoke it. wasAnnounced would not catch this on a different
+            // instance, so the update must be suppressed by the mode itself.
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.update',
+                event,
+                'testchannel',
+                eagerTtsConfig
+            );
+
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('should stay silent on the approval of a redemption it announced on add', async () => {
+            const add = {
+                id: 'redemption-eager-3',
+                user_name: 'TestUser',
+                user_login: 'testuser',
+                reward: { id: 'reward-789', title: 'Laundry Day' },
+                user_input: 'fold them too',
+                status: 'unfulfilled'
+            };
+
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.add', add, 'testchannel', eagerTtsConfig
+            );
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.update',
+                { ...add, status: 'fulfilled' },
+                'testchannel',
+                eagerTtsConfig
+            );
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
+        });
+
+        it('should still defer when the channel has not opted in', async () => {
+            const event = {
+                id: 'redemption-deferred-1',
+                user_name: 'TestUser',
+                user_login: 'testuser',
+                reward: { id: 'reward-789', title: 'Laundry Day' },
+                user_input: '',
+                status: 'unfulfilled'
+            };
+
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.add',
+                event,
+                'testchannel',
+                { ...defaultTtsConfig, announceUnfulfilledRedemptions: false }
+            );
+
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+            expect(mockAddRedemption).toHaveBeenCalled();
+        });
+    });
+
     it('should use fallback name when user_name is missing', async () => {
         const event = {
             reward: { id: 'reward-123', title: 'Hydrate' },

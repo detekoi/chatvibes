@@ -134,7 +134,30 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
 - Language boost setting
 - URL handling (`readFullUrls` - defaults to false, reads only domain names when false)
 - Ignore list (`ignoredUserIds` — see below)
+- Redemption announcements (`announceUnfulfilledRedemptions` — see below)
 - User-specific preferences (including language)
+
+### Redemption announcements and the reward queue (`announceUnfulfilledRedemptions`)
+
+A channel points reward that has **Skip Reward Requests Queue** switched off is redeemed as
+`.add` + `unfulfilled` and sits in the streamer's queue. `handleRedemptionAnnouncement` stays
+silent on that, because announcing a redemption the streamer then rejects cannot be taken back,
+and waits for the `.update` + `fulfilled` that an acceptance produces.
+
+**A streamer who never works the queue therefore never hears those rewards at all**, which reads
+as the bot ignoring half the channel's rewards. Diagnosing it from logs is awkward: Cloud Run runs
+at `LOG_LEVEL=info` and every silent branch logs at `debug`, so the only visible signal is that
+the announced `rewardTitle` values are all skip-queue rewards. Confirm with:
+
+```
+gcloud logging read 'jsonPayload.channelLogin="<channel>" AND jsonPayload.rewardTitle:*' \
+  --project=chatvibestts --freshness=30d --format='value(jsonPayload.rewardTitle)' | sort | uniq -c
+```
+
+`announceUnfulfilledRedemptions: true` announces on `.add` whatever the status, trading the
+rejection safety net for hearing every reward. In that mode **every** `.update` is suppressed,
+rather than relying on the `wasAnnounced` guard: that map is per-instance with a 15 minute TTL, so
+an approval arriving an hour later on another Cloud Run instance would announce a second time.
 
 ### Ignore list (`ignoredUserIds`)
 

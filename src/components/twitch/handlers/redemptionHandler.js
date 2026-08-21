@@ -186,6 +186,11 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
  *   .update + canceled    -> stay silent, drop the stashed entry
  * Twitch does not send .update for auto-fulfilled redemptions, so a reward can
  * never be announced twice.
+ *
+ * A channel that never works its reward queue hears nothing from any reward that
+ * does not skip that queue, which reads as the bot ignoring half the rewards. Such
+ * a channel can set `announceUnfulfilledRedemptions` to announce on .add whatever
+ * the status, accepting that a redemption it later rejects was already spoken.
  */
 export async function handleRedemptionAnnouncement(subscriptionType, event, channelLogin, ttsConfig) {
     const isAdd = subscriptionType === 'channel.channel_points_custom_reward_redemption.add';
@@ -212,7 +217,19 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         return;
     }
 
-    if (isAdd && status === 'unfulfilled') {
+    const announceOnAdd = ttsConfig.announceUnfulfilledRedemptions === true;
+
+    if (announceOnAdd && isUpdate) {
+        // The .add already announced this one, so every .update is an echo of it —
+        // including the approval that would otherwise announce below. `wasAnnounced`
+        // cannot be leaned on here: it is per-instance with a 15 minute TTL, and an
+        // approval arriving an hour later on another Cloud Run instance would pass it.
+        if (redemptionId) redemptionCache.removeRedemption(redemptionId);
+        logger.debug({ channelLogin, redemptionId, status }, 'Redemption already announced on .add — skipping update echo');
+        return;
+    }
+
+    if (isAdd && status === 'unfulfilled' && !announceOnAdd) {
         // Pending approval — hold onto the chat fragments now, since the short-lived
         // fragment cache will have expired by the time the streamer approves.
         const pendingFragments = consumeFragments(rewardId, userId, channelLogin);
