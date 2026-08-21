@@ -71,7 +71,8 @@ describe('TTS ignore commands', () => {
             await ignore.execute(context(['spammer']));
 
             expect(getUsersByLogin).toHaveBeenCalledWith(['spammer']);
-            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:52343457', 'Spammer');
+            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith(
+                'testchannel', 'twitch:52343457', 'Spammer', { source: 'moderator', by: 'twitch:777' });
         });
 
         it('strips a leading @ before resolving', async () => {
@@ -87,7 +88,8 @@ describe('TTS ignore commands', () => {
 
             await ignore.execute(context(['add', 'spammer']));
 
-            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:1', 'Spammer');
+            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith(
+                'testchannel', 'twitch:1', 'Spammer', { source: 'moderator', by: 'twitch:777' });
         });
 
         it('joins a multi-word name, since YouTube display names contain spaces', async () => {
@@ -96,7 +98,8 @@ describe('TTS ignore commands', () => {
             await ignore.execute(context(['A', 'YouTube', 'Viewer']));
 
             expect(findRecentYouTubeChatter).toHaveBeenCalledWith('chan-1', 'A YouTube Viewer');
-            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith('testchannel', 'youtube:UCabc', 'A YouTube Viewer');
+            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith(
+                'testchannel', 'youtube:UCabc', 'A YouTube Viewer', { source: 'moderator', by: 'twitch:777' });
         });
 
         it('joins a multi-word name after an explicit verb too', async () => {
@@ -113,7 +116,8 @@ describe('TTS ignore commands', () => {
             await ignore.execute(context(['constructor']));
 
             expect(getUsersByLogin).toHaveBeenCalledWith(['constructor']);
-            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:8', 'constructor');
+            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith(
+                'testchannel', 'twitch:8', 'constructor', { source: 'moderator', by: 'twitch:777' });
         });
 
         it('falls back to a recently seen YouTube chatter', async () => {
@@ -126,7 +130,7 @@ describe('TTS ignore commands', () => {
             await ignore.execute(context(['a youtube viewer']));
 
             expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith(
-                'testchannel', 'youtube:UCX6OQ3DkcsbYNE6H8uQQuVA', 'A YouTube Viewer');
+                'testchannel', 'youtube:UCX6OQ3DkcsbYNE6H8uQQuVA', 'A YouTube Viewer', { source: 'moderator', by: 'twitch:777' });
         });
 
         it('prefers Twitch when a name exists on both platforms', async () => {
@@ -135,7 +139,8 @@ describe('TTS ignore commands', () => {
 
             await ignore.execute(context(['both']));
 
-            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:1', 'Both');
+            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith(
+                'testchannel', 'twitch:1', 'Both', { source: 'moderator', by: 'twitch:777' });
         });
 
         it('refuses a name that resolves to nothing, rather than storing it', async () => {
@@ -172,7 +177,8 @@ describe('TTS ignore commands', () => {
             await ignore.execute(context(['viewer'], self));
 
             expect(getUsersByLogin).not.toHaveBeenCalled();
-            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:4242', 'Viewer');
+            expect(ttsStateMock.addIgnoredUser).toHaveBeenCalledWith(
+                'testchannel', 'twitch:4242', 'Viewer', { source: 'self', by: 'twitch:4242' });
             expect(reply()).toMatch(/You will now be ignored/);
         });
 
@@ -225,6 +231,16 @@ describe('TTS ignore commands', () => {
             expect(reply()).toMatch(/was not on the ignore list/);
         });
 
+        it('lets a moderator remove any entry whatever its source', async () => {
+            ttsStateMock.getTtsState.mockResolvedValue({
+                ignoredUserIds: { 'twitch:52343457': { label: 'OptedOut', source: 'self', by: 'twitch:52343457' } },
+            });
+
+            await ignore.execute(context(['del', 'optedout']));
+
+            expect(ttsStateMock.removeIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:52343457');
+        });
+
         it('accepts the remove and rem aliases', async () => {
             ttsStateMock.getTtsState.mockResolvedValue({ ignoredUserIds: { 'twitch:5': 'Spammer' } });
 
@@ -234,6 +250,107 @@ describe('TTS ignore commands', () => {
             ttsStateMock.removeIgnoredUser.mockClear();
             await ignore.execute(context(['rem', 'spammer']));
             expect(ttsStateMock.removeIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:5');
+        });
+    });
+
+    describe('self-undo', () => {
+        // The opt-out used to be a one-way door: a viewer could put themselves on
+        // the list but only a moderator could take them off. These pin the way back
+        // out, and pin that it does not double as a way out of a moderator's mute.
+        const viewer = { username: 'viewer', 'user-id': '4242', 'display-name': 'Viewer' };
+        const selfEntry = { label: 'Viewer', source: 'self', by: 'twitch:4242' };
+
+        beforeEach(() => {
+            isPrivilegedUser.mockReturnValue(false);
+        });
+
+        it('a bare del removes the viewer own self-imposed entry', async () => {
+            ttsStateMock.getTtsState.mockResolvedValue({ ignoredUserIds: { 'twitch:4242': selfEntry } });
+
+            await ignore.execute(context(['del'], viewer));
+
+            expect(ttsStateMock.removeIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:4242');
+            expect(reply()).toMatch(/no longer be ignored/i);
+        });
+
+        it('naming yourself works the same as the bare form', async () => {
+            ttsStateMock.getTtsState.mockResolvedValue({ ignoredUserIds: { 'twitch:4242': selfEntry } });
+
+            await ignore.execute(context(['del', 'viewer'], viewer));
+
+            expect(ttsStateMock.removeIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:4242');
+        });
+
+        it('matches the viewer own entry by ID, so a rename cannot hide it', async () => {
+            // Removal for everyone else goes by the stored label, which goes stale.
+            // The invoker ID is on the message, so their own entry never can.
+            ttsStateMock.getTtsState.mockResolvedValue({
+                ignoredUserIds: { 'twitch:4242': { label: 'TheirOldName', source: 'self', by: 'twitch:4242' } },
+            });
+
+            await ignore.execute(context(['del'], viewer));
+
+            expect(ttsStateMock.removeIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:4242');
+            expect(getUsersByLogin).not.toHaveBeenCalled();
+        });
+
+        it('refuses to lift a moderator-imposed entry', async () => {
+            ttsStateMock.getTtsState.mockResolvedValue({
+                ignoredUserIds: { 'twitch:4242': { label: 'Viewer', source: 'moderator', by: 'twitch:99' } },
+            });
+
+            await ignore.execute(context(['del'], viewer));
+
+            expect(ttsStateMock.removeIgnoredUser).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/moderator/i);
+        });
+
+        it('refuses to lift a legacy entry, whose provenance is unknown', async () => {
+            // A bare string predates provenance. Reading it as self-imposed would
+            // unlock every mute placed before this change.
+            ttsStateMock.getTtsState.mockResolvedValue({ ignoredUserIds: { 'twitch:4242': 'Viewer' } });
+
+            await ignore.execute(context(['del'], viewer));
+
+            expect(ttsStateMock.removeIgnoredUser).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/moderator/i);
+        });
+
+        it('says so when the viewer is not on the list at all', async () => {
+            ttsStateMock.getTtsState.mockResolvedValue({ ignoredUserIds: {} });
+
+            await ignore.execute(context(['del'], viewer));
+
+            expect(ttsStateMock.removeIgnoredUser).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/not on the TTS ignore list/i);
+        });
+
+        it('still refuses to remove anyone else', async () => {
+            await ignore.execute(context(['del', 'someoneelse'], viewer));
+
+            expect(ttsStateMock.removeIgnoredUser).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/Only moderators/);
+        });
+
+        it('re-adding self over a moderator entry does not downgrade it', async () => {
+            // Otherwise the refusal above is one !tts ignore away from irrelevant.
+            ttsStateMock.getTtsState.mockResolvedValue({
+                ignoredUserIds: { 'twitch:4242': { label: 'Viewer', source: 'moderator', by: 'twitch:99' } },
+            });
+
+            await ignore.execute(context(['viewer'], viewer));
+
+            expect(ttsStateMock.addIgnoredUser).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/moderator/i);
+        });
+
+        it('a bare ignore with no verb still shows usage rather than muting', async () => {
+            // Guessing "me" here would mute someone who typed the command to read
+            // its help, in the one direction that is awkward to undo.
+            await ignore.execute(context([], viewer));
+
+            expect(ttsStateMock.addIgnoredUser).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/ignore del/);
         });
     });
 

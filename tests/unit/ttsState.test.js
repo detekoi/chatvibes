@@ -465,7 +465,42 @@ describe('ttsState module', () => {
       expect(await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:52343457', 'SpamBot')).toBe(true);
 
       const stored = (await doc().get()).data();
-      expect(stored.ignoredUserIds).toEqual({ 'twitch:52343457': 'SpamBot' });
+      expect(stored.ignoredUserIds['twitch:52343457']).toMatchObject({ label: 'SpamBot' });
+    });
+
+    test('addIgnoredUser defaults to moderator when no provenance is given', async () => {
+      // The permissive default would be the dangerous one: an entry nobody can
+      // attribute must not be one its subject can lift.
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One');
+
+      const stored = (await doc().get()).data();
+      expect(stored.ignoredUserIds['twitch:111'].source).toBe('moderator');
+    });
+
+    test('addIgnoredUser records the source and the acting account', async () => {
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One',
+        { source: 'self', by: 'twitch:111' });
+
+      const stored = (await doc().get()).data();
+      expect(stored.ignoredUserIds['twitch:111']).toMatchObject({
+        label: 'One', source: 'self', by: 'twitch:111',
+      });
+      expect(Date.parse(stored.ignoredUserIds['twitch:111'].at)).not.toBeNaN();
+    });
+
+    test('a moderator re-adding a self entry takes it out of the viewer hands', async () => {
+      // merge:true merges into the entry object as well as the map, so a write
+      // that omitted `source` would leave this entry marked self — and the muted
+      // viewer could clear it themselves a moment later.
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One',
+        { source: 'self', by: 'twitch:111' });
+      await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One',
+        { source: 'moderator', by: 'twitch:99' });
+
+      const stored = (await doc().get()).data();
+      expect(stored.ignoredUserIds['twitch:111']).toMatchObject({
+        source: 'moderator', by: 'twitch:99',
+      });
     });
 
     test('addIgnoredUser leaves sibling entries alone', async () => {
@@ -473,7 +508,9 @@ describe('ttsState module', () => {
       await ttsState.addIgnoredUser(TEST_CHANNEL, 'youtube:UCabc', 'Two');
 
       const stored = (await doc().get()).data();
-      expect(stored.ignoredUserIds).toEqual({ 'twitch:111': 'One', 'youtube:UCabc': 'Two' });
+      expect(Object.keys(stored.ignoredUserIds).sort()).toEqual(['twitch:111', 'youtube:UCabc']);
+      expect(stored.ignoredUserIds['twitch:111'].label).toBe('One');
+      expect(stored.ignoredUserIds['youtube:UCabc'].label).toBe('Two');
     });
 
     test('re-adding an account refreshes the stale display label', async () => {
@@ -481,14 +518,14 @@ describe('ttsState module', () => {
       await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'NewName');
 
       const stored = (await doc().get()).data();
-      expect(stored.ignoredUserIds).toEqual({ 'twitch:111': 'NewName' });
+      expect(stored.ignoredUserIds['twitch:111'].label).toBe('NewName');
     });
 
     test('addIgnoredUser updates the cache immediately', async () => {
       await ttsState.addIgnoredUser(TEST_CHANNEL, 'twitch:111', 'One');
 
       const state = await ttsState.getTtsState(TEST_CHANNEL);
-      expect(state.ignoredUserIds['twitch:111']).toBe('One');
+      expect(state.ignoredUserIds['twitch:111']).toMatchObject({ label: 'One' });
     });
 
     test('removeIgnoredUser deletes just that key', async () => {
@@ -500,7 +537,16 @@ describe('ttsState module', () => {
       expect(await ttsState.removeIgnoredUser(TEST_CHANNEL, 'twitch:111')).toBe(true);
 
       const stored = (await doc().get()).data();
-      expect(stored.ignoredUserIds).toEqual({ 'youtube:UCabc': 'Two' });
+      expect(Object.keys(stored.ignoredUserIds)).toEqual(['youtube:UCabc']);
+    });
+
+    test('removeIgnoredUser deletes a legacy string entry too', async () => {
+      // Deletion is by FieldPath and never looks at the value, so entries stored
+      // before provenance existed are removed by exactly the same path.
+      await doc().set({ ...mockChannelConfig, ignoredUserIds: { 'twitch:111': 'Legacy' } });
+
+      expect(await ttsState.removeIgnoredUser(TEST_CHANNEL, 'twitch:111')).toBe(true);
+      expect((await doc().get()).data().ignoredUserIds['twitch:111']).toBeUndefined();
     });
 
     test('removeIgnoredUser updates the cache immediately', async () => {

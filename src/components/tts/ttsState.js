@@ -14,6 +14,7 @@ import {
 } from './ttsConstants.js';
 import { getAvailableVoices } from './ttsService.js'; // For validating voice IDs
 import { getChannelIdFromName } from '../../lib/allowList.js';
+import { buildIgnoreEntry } from '../../lib/ignoreList.js';
 
 let db;
 const TTS_CONFIG_COLLECTION = 'ttsChannelConfigs';
@@ -409,28 +410,39 @@ export async function setObsSocketToken(channelName, token) {
 
 /**
  * Add one account to the channel's ignore list.
+ *
+ * Re-adding an account overwrites its provenance, which is how a moderator
+ * muting someone who had opted out themselves takes the entry out of that
+ * viewer's hands.
+ *
  * @param {string} channelName
  * @param {string} key Built by ignoreKey(platform, accountId).
  * @param {string} label Display name, shown by !tts ignored and the dashboard.
+ * @param {{ source?: string, by?: string|null }} [provenance] Who imposed it;
+ *   defaults to moderator, the shape that cannot be lifted by its subject.
  * @returns {Promise<boolean>}
  */
-export async function addIgnoredUser(channelName, key, label) {
+export async function addIgnoredUser(channelName, key, label, provenance = {}) {
     const channelId = resolveChannelId(channelName);
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
+    const entry = buildIgnoreEntry({ label, ...provenance });
     try {
         // merge:true deep-merges nested maps key by key, so this touches only
-        // the one entry and leaves the rest of the list alone.
+        // the one entry and leaves the rest of the list alone. It merges into
+        // the entry object too, which is exactly why buildIgnoreEntry writes
+        // every field: a partial write here would inherit the previous entry's
+        // source instead of replacing it.
         await docRef.set({
-            ignoredUserIds: { [key]: label },
+            ignoredUserIds: { [key]: entry },
             updatedAt: FieldValue.serverTimestamp()
         }, { merge: true });
 
         const config = await getTtsState(channelId);
         // A fresh object rather than a mutation, so a caller holding the
         // previous config does not observe the change behind its back.
-        config.ignoredUserIds = { ...(config.ignoredUserIds || {}), [key]: label };
+        config.ignoredUserIds = { ...(config.ignoredUserIds || {}), [key]: entry };
         channelConfigsCache.set(channelId, config);
-        logger.info(`[${channelName}] TTS ignore added: ${key} ("${label}")`);
+        logger.info(`[${channelName}] TTS ignore added: ${key} ("${label}") by ${entry.source}`);
         return true;
     } catch (error) {
         logger.error({ err: error, channel: channelName, key }, 'Failed to add user to TTS ignore list in Firestore.');

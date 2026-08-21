@@ -124,6 +124,9 @@ async function runBackfill() {
                 unresolved.push(login);
                 continue;
             }
+            // A bare label, which src/lib/ignoreList.js reads as moderator-imposed.
+            // That is the right provenance for these: the array this migrates from
+            // was mod-managed, so nothing in it was ever a viewer's own opt-out.
             ignoredUserIds[`twitch:${user.id}`] = user.displayName;
         }
 

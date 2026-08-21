@@ -10,6 +10,12 @@ import {
     isYouTubeUserIgnored,
     parseIgnoreKey,
     listIgnoredAccounts,
+    normalizeIgnoreEntry,
+    getIgnoreEntry,
+    canSelfUnignore,
+    buildIgnoreEntry,
+    IGNORE_SOURCE_SELF,
+    IGNORE_SOURCE_MODERATOR,
     PLATFORM_TWITCH,
     PLATFORM_YOUTUBE,
 } from '../../src/lib/ignoreList.js';
@@ -108,8 +114,14 @@ describe('parseIgnoreKey', () => {
 describe('listIgnoredAccounts', () => {
     test('returns each entry with its platform, ID and label, sorted by label', () => {
         expect(listIgnoredAccounts(config)).toEqual([
-            { key: 'youtube:UCX6OQ3DkcsbYNE6H8uQQuVA', platform: 'youtube', accountId: 'UCX6OQ3DkcsbYNE6H8uQQuVA', label: 'A YouTube Viewer' },
-            { key: 'twitch:52343457', platform: 'twitch', accountId: '52343457', label: 'SpamBot' },
+            {
+                key: 'youtube:UCX6OQ3DkcsbYNE6H8uQQuVA', platform: 'youtube', accountId: 'UCX6OQ3DkcsbYNE6H8uQQuVA',
+                label: 'A YouTube Viewer', source: IGNORE_SOURCE_MODERATOR, by: null, at: null,
+            },
+            {
+                key: 'twitch:52343457', platform: 'twitch', accountId: '52343457',
+                label: 'SpamBot', source: IGNORE_SOURCE_MODERATOR, by: null, at: null,
+            },
         ]);
     });
 
@@ -122,5 +134,124 @@ describe('listIgnoredAccounts', () => {
         expect(listIgnoredAccounts({ ignoredUserIds: {} })).toEqual([]);
         expect(listIgnoredAccounts({})).toEqual([]);
         expect(listIgnoredAccounts(undefined)).toEqual([]);
+    });
+});
+
+// --- Provenance -------------------------------------------------------------
+//
+// `source` is what separates a viewer's own opt-out from a moderator's mute.
+// Getting the default wrong in the permissive direction would hand an abuser the
+// ability to lift the mute aimed at them, so every ambiguous shape is pinned here.
+
+describe('normalizeIgnoreEntry', () => {
+    test('reads a bare string as a moderator-imposed entry', () => {
+        // The shape the map held before provenance existed. Nothing records who
+        // added these, and guessing "self" would unlock every historical mute.
+        expect(normalizeIgnoreEntry('SpamBot', 'twitch:1')).toEqual({
+            label: 'SpamBot', source: IGNORE_SOURCE_MODERATOR, by: null, at: null,
+        });
+    });
+
+    test('reads a full record back unchanged', () => {
+        expect(normalizeIgnoreEntry(
+            { label: 'Viewer', source: 'self', by: 'twitch:7', at: '2026-08-20T00:00:00.000Z' }, 'twitch:7',
+        )).toEqual({ label: 'Viewer', source: IGNORE_SOURCE_SELF, by: 'twitch:7', at: '2026-08-20T00:00:00.000Z' });
+    });
+
+    test('an unrecognized or missing source falls back to moderator', () => {
+        expect(normalizeIgnoreEntry({ label: 'X' }, 'twitch:1').source).toBe(IGNORE_SOURCE_MODERATOR);
+        expect(normalizeIgnoreEntry({ label: 'X', source: 'nonsense' }, 'twitch:1').source).toBe(IGNORE_SOURCE_MODERATOR);
+        expect(normalizeIgnoreEntry({ label: 'X', source: 'SELF' }, 'twitch:1').source).toBe(IGNORE_SOURCE_MODERATOR);
+    });
+
+    test('survives shapes only a hand-edited document would produce', () => {
+        for (const value of [null, undefined, [], 42, true]) {
+            const entry = normalizeIgnoreEntry(value, 'twitch:1');
+            expect(entry.source).toBe(IGNORE_SOURCE_MODERATOR);
+            expect(entry.label).toBe('twitch:1');
+        }
+    });
+
+    test('falls back to the key when a record carries no label', () => {
+        expect(normalizeIgnoreEntry({ source: 'self' }, 'twitch:1').label).toBe('twitch:1');
+    });
+});
+
+describe('getIgnoreEntry', () => {
+    const mixed = {
+        ignoredUserIds: {
+            'twitch:1': 'Legacy',
+            'twitch:2': { label: 'Opted Out', source: 'self', by: 'twitch:2', at: 'then' },
+            'twitch:3': { label: 'Muted', source: 'moderator', by: 'twitch:99', at: 'then' },
+        },
+    };
+
+    test('returns the normalized entry with its key and platform', () => {
+        expect(getIgnoreEntry(mixed, PLATFORM_TWITCH, '2')).toEqual({
+            key: 'twitch:2', platform: 'twitch', accountId: '2',
+            label: 'Opted Out', source: IGNORE_SOURCE_SELF, by: 'twitch:2', at: 'then',
+        });
+    });
+
+    test('returns null for an account that is not listed', () => {
+        expect(getIgnoreEntry(mixed, PLATFORM_TWITCH, '404')).toBeNull();
+        expect(getIgnoreEntry(mixed, PLATFORM_YOUTUBE, '2')).toBeNull();
+    });
+
+    test('returns null rather than an inherited Object property', () => {
+        expect(getIgnoreEntry({ ignoredUserIds: {} }, PLATFORM_TWITCH, 'constructor')).toBeNull();
+        expect(getIgnoreEntry({ ignoredUserIds: {} }, PLATFORM_TWITCH, 'toString')).toBeNull();
+    });
+
+    test('returns null for a missing ID, matching isIgnored', () => {
+        expect(getIgnoreEntry(mixed, PLATFORM_TWITCH, undefined)).toBeNull();
+    });
+
+    test('tolerates a config with no ignore list at all', () => {
+        expect(getIgnoreEntry({}, PLATFORM_TWITCH, '1')).toBeNull();
+        expect(getIgnoreEntry(undefined, PLATFORM_TWITCH, '1')).toBeNull();
+    });
+
+    describe('canSelfUnignore', () => {
+        test('only a self-sourced entry may be lifted by its subject', () => {
+            expect(canSelfUnignore(getIgnoreEntry(mixed, PLATFORM_TWITCH, '2'))).toBe(true);
+            expect(canSelfUnignore(getIgnoreEntry(mixed, PLATFORM_TWITCH, '3'))).toBe(false);
+        });
+
+        test('a legacy string entry is not self-clearable', () => {
+            // The regression this whole field exists to prevent.
+            expect(canSelfUnignore(getIgnoreEntry(mixed, PLATFORM_TWITCH, '1'))).toBe(false);
+        });
+
+        test('an absent entry is not self-clearable', () => {
+            expect(canSelfUnignore(null)).toBe(false);
+            expect(canSelfUnignore(undefined)).toBe(false);
+        });
+    });
+});
+
+describe('buildIgnoreEntry', () => {
+    test('writes every field, so a merge cannot inherit a stale source', () => {
+        // merge:true deep-merges into the entry object too. A partial write would
+        // leave a moderator's mute still marked self, and still self-clearable.
+        const entry = buildIgnoreEntry({ label: 'Viewer', source: IGNORE_SOURCE_SELF, by: 'twitch:7' });
+        expect(Object.keys(entry).sort()).toEqual(['at', 'by', 'label', 'source']);
+        expect(entry).toMatchObject({ label: 'Viewer', source: IGNORE_SOURCE_SELF, by: 'twitch:7' });
+        expect(Date.parse(entry.at)).not.toBeNaN();
+    });
+
+    test('defaults to moderator when the source is absent or unrecognized', () => {
+        expect(buildIgnoreEntry({ label: 'X' }).source).toBe(IGNORE_SOURCE_MODERATOR);
+        expect(buildIgnoreEntry({ label: 'X', source: 'nonsense' }).source).toBe(IGNORE_SOURCE_MODERATOR);
+        expect(buildIgnoreEntry().source).toBe(IGNORE_SOURCE_MODERATOR);
+    });
+
+    test('never writes undefined, which Firestore rejects', () => {
+        expect(buildIgnoreEntry()).toMatchObject({ label: '', by: null });
+    });
+
+    test('round-trips through normalizeIgnoreEntry', () => {
+        const built = buildIgnoreEntry({ label: 'Viewer', source: IGNORE_SOURCE_SELF, by: 'twitch:7' });
+        expect(normalizeIgnoreEntry(built, 'twitch:7')).toEqual(built);
     });
 });
