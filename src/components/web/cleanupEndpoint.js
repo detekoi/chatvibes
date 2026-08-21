@@ -20,7 +20,7 @@ const oidcClient = new OAuth2Client();
 // scripts/setup-auto-cleanup.sh gives the Cloud Scheduler job. The audience is
 // the deployed service URL, which is already in the environment as PUBLIC_URL;
 // CLEANUP_OIDC_AUDIENCE only needs setting if the two ever diverge.
-const CLEANUP_OIDC_AUDIENCE = process.env.CLEANUP_OIDC_AUDIENCE || '';
+const CLEANUP_OIDC_AUDIENCE = process.env.CLEANUP_OIDC_AUDIENCE || process.env.PUBLIC_URL || '';
 const CLEANUP_INVOKER_SA = process.env.CLEANUP_INVOKER_SA || 'chatvibestts@appspot.gserviceaccount.com';
 
 /**
