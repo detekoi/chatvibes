@@ -37,9 +37,11 @@ env:
   TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME_FULL_PATH: 'projects/906125386407/secrets/twitch-bot-refresh-token/versions/latest'
   WEB_UI_BASE_URL: 'https://tts.wildcat.chat' # Web UI base URL for viewer preferences
   # Cleanup endpoint caller auth. Must match the --oidc-token-audience and
-  # --oidc-service-account-email in scripts/setup-auto-cleanup.sh. These are also
-  # set by cloudbuild.yaml; both deploy paths use --set-env-vars, which REPLACES
-  # the whole set, so anything missing here is wiped from the service.
+  # --oidc-service-account-email in scripts/setup-auto-cleanup.sh.
+  # This workflow is the ONLY deploy path for this service, and --set-env-vars
+  # REPLACES the whole env set -- any var missing here is wiped from the running
+  # service. Dropping these two silently 403'd the weekly secret cleanup for a
+  # month; PUBLIC_URL going missing doubles every EventSub subscription.
   CLEANUP_OIDC_AUDIENCE: 'https://chatvibes-tts-service-906125386407.us-central1.run.app'
   CLEANUP_INVOKER_SA: 'chatvibestts@appspot.gserviceaccount.com'
   # Optional TTS defaults (can be omitted if app defaults are fine)
@@ -120,6 +122,7 @@ jobs:
             --project ${{ env.GCP_PROJECT_ID }} \
             --platform managed \
             --allow-unauthenticated \
+            --session-affinity \
             --timeout 3600 \
             --min-instances 0 \
             --cpu 1 \

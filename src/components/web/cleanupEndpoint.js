@@ -92,14 +92,27 @@ async function cleanupSecretVersions(secretName) {
 
         const versionsToDisable = sortedVersions.slice(VERSIONS_TO_KEEP);
 
+        // Disable failures are per-version: one bad version (already disabled by
+        // hand, destroyed mid-run, a transient API error) must not abort the rest,
+        // which is what a bare await in the loop did -- it threw straight past the
+        // remaining versions into the catch below and reported disabled: 0.
+        let disabled = 0;
         for (const version of versionsToDisable) {
-            await client.disableSecretVersion({ name: version.name });
+            try {
+                await client.disableSecretVersion({ name: version.name });
+                disabled++;
+            } catch (error) {
+                logger.error(
+                    { err: error, secret: secretName, version: version.name },
+                    'Failed to disable secret version'
+                );
+            }
         }
 
         return {
             secret: secretName,
-            disabled: versionsToDisable.length,
-            kept: VERSIONS_TO_KEEP,
+            disabled,
+            kept: versions.length - disabled,
         };
     } catch (error) {
         logger.error({ err: error, secret: secretName }, 'Error cleaning up secret versions');
@@ -108,40 +121,41 @@ async function cleanupSecretVersions(secretName) {
 }
 
 /**
- * Perform the actual cleanup work asynchronously
+ * Perform the cleanup work. Errors propagate to the caller so the scheduler
+ * sees a non-2xx and retries, rather than being told the run succeeded.
  */
 async function performCleanup() {
-    try {
-        const [secrets] = await client.listSecrets({
-            parent: `projects/${PROJECT_ID}`,
-        });
+    const [secrets] = await client.listSecrets({
+        parent: `projects/${PROJECT_ID}`,
+    });
 
-        const results = [];
-        for (const secret of secrets) {
-            const secretName = secret.name.split('/').pop();
-            const result = await cleanupSecretVersions(secretName);
-            results.push(result);
-        }
-
-        const totalDisabled = results.reduce((sum, r) => sum + r.disabled, 0);
-        const totalKept = results.reduce((sum, r) => sum + r.kept, 0);
-
-        logger.info({
-            secretsProcessed: results.length,
-            versionsDisabled: totalDisabled,
-            versionsKept: totalKept,
-        }, 'Secret cleanup completed');
-    } catch (error) {
-        logger.error({ err: error }, 'Failed to run secret cleanup');
+    const results = [];
+    for (const secret of secrets) {
+        const secretName = secret.name.split('/').pop();
+        const result = await cleanupSecretVersions(secretName);
+        results.push(result);
     }
+
+    const summary = {
+        secretsProcessed: results.length,
+        versionsDisabled: results.reduce((sum, r) => sum + r.disabled, 0),
+        versionsKept: results.reduce((sum, r) => sum + r.kept, 0),
+    };
+
+    logger.info(summary, 'Secret cleanup completed');
+    return summary;
 }
 
 /**
  * HTTP handler for cleanup endpoint (called by Cloud Scheduler)
  * Automatically cleans up old secret versions to reduce storage costs
  *
- * Returns 202 Accepted immediately and performs cleanup asynchronously
- * to avoid Cloud Scheduler timeouts
+ * Runs the cleanup and waits for it. Cloud Run throttles CPU to near zero once
+ * the response is written, so the previous fire-and-forget 202 left the Secret
+ * Manager calls to run on a starved container. The work is a handful of API
+ * calls against ~10 secrets; the scheduler allows 300s (--attempt-deadline in
+ * scripts/setup-auto-cleanup.sh), so awaiting it is well inside budget and lets
+ * a failure surface as a retryable non-2xx.
  */
 export async function handleSecretCleanup(req, res) {
     const auth = await verifyCloudSchedulerCaller(req);
@@ -162,16 +176,13 @@ export async function handleSecretCleanup(req, res) {
 
     logger.info('Starting automated secret cleanup...');
 
-    // Respond immediately with 202 Accepted to avoid Cloud Scheduler timeout
-    res.writeHead(202, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-        success: true,
-        message: 'Cleanup started',
-        status: 'processing'
-    }));
-
-    // Perform cleanup asynchronously (don't await)
-    performCleanup().catch(err => {
-        logger.error({ err }, 'Async cleanup failed');
-    });
+    try {
+        const summary = await performCleanup();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, ...summary }));
+    } catch (error) {
+        logger.error({ err: error }, 'Failed to run secret cleanup');
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+    }
 }
