@@ -188,9 +188,24 @@ export default {
                 return;
             }
 
-            const listed = isSelfTarget ?
-                (getIgnoreEntry(ttsConfig, PLATFORM_TWITCH, invokingUserId) || { key: invokerKey, label: user['display-name'] || user.username }) :
-                findListedByLabel(ttsConfig, targetUsername);
+            // A moderator undoing their own opt-out is matched by key, like any
+            // other viewer, whether they named themselves or used the bare form. Reporting success off a key that is not on the list
+            // would be a lie: removeIgnoredUser swallows NOT_FOUND and returns
+            // true, so nothing downstream can tell the difference.
+            if (isSelf) {
+                const own = getIgnoreEntry(ttsConfig, PLATFORM_TWITCH, invokingUserId);
+                if (!own) {
+                    enqueueMessage(channel, `You are not on the TTS ignore list.`, { replyToId });
+                    return;
+                }
+                const removed = await removeIgnoredUser(channelNameNoHash, own.key);
+                enqueueMessage(channel, removed ?
+                    `You will no longer be ignored by TTS.` :
+                    `Could not remove you from the ignore list.`, { replyToId });
+                return;
+            }
+
+            const listed = findListedByLabel(ttsConfig, targetUsername);
             const target = listed || await resolveIgnoreTarget(channelNameNoHash, targetUsername);
 
             if (target.error) {
@@ -199,12 +214,6 @@ export default {
             }
 
             const success = await removeIgnoredUser(channelNameNoHash, target.key);
-            if (isSelf) {
-                enqueueMessage(channel, success ?
-                    `You will no longer be ignored by TTS.` :
-                    `You were not on the ignore list or could not be removed.`, { replyToId });
-                return;
-            }
             enqueueMessage(channel, success ?
                 `${target.label} will no longer be ignored by TTS.` :
                 `${target.label} was not on the ignore list or could not be removed.`, { replyToId });

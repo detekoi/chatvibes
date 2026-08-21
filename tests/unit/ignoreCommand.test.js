@@ -241,6 +241,41 @@ describe('TTS ignore commands', () => {
             expect(ttsStateMock.removeIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:52343457');
         });
 
+        it('does not claim to have removed a moderator who was never listed', async () => {
+            // removeIgnoredUser swallows NOT_FOUND and returns true, so deleting a
+            // key that is not there looks identical to a real removal. Only the
+            // membership check upstream can tell the difference.
+            ttsStateMock.getTtsState.mockResolvedValue({ ignoredUserIds: {} });
+
+            await ignore.execute(context(['del']));
+
+            expect(ttsStateMock.removeIgnoredUser).not.toHaveBeenCalled();
+            expect(reply()).toMatch(/not on the TTS ignore list/i);
+        });
+
+        it('lets a moderator lift their own entry with the bare form', async () => {
+            ttsStateMock.getTtsState.mockResolvedValue({
+                ignoredUserIds: { 'twitch:777': { label: 'SomeMod', source: 'self', by: 'twitch:777' } },
+            });
+
+            await ignore.execute(context(['del']));
+
+            expect(ttsStateMock.removeIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:777');
+            expect(reply()).toMatch(/no longer be ignored/i);
+        });
+
+        it('matches a moderator naming themselves by key, not by label', async () => {
+            // Their own stale label must not be able to hide their entry from them.
+            ttsStateMock.getTtsState.mockResolvedValue({
+                ignoredUserIds: { 'twitch:777': { label: 'TheirOldName', source: 'moderator', by: 'twitch:1' } },
+            });
+
+            await ignore.execute(context(['del', 'somemod']));
+
+            expect(ttsStateMock.removeIgnoredUser).toHaveBeenCalledWith('testchannel', 'twitch:777');
+            expect(getUsersByLogin).not.toHaveBeenCalled();
+        });
+
         it('accepts the remove and rem aliases', async () => {
             ttsStateMock.getTtsState.mockResolvedValue({ ignoredUserIds: { 'twitch:5': 'Spammer' } });
 
