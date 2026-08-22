@@ -108,10 +108,15 @@ describe('handleRedemptionAnnouncement', () => {
         mockGetRedemption.mockReturnValue(null);
     });
 
+    // No announceUnfulfilledRedemptions field, which is what a config written
+    // before the setting existed looks like — it reads as on.
     const defaultTtsConfig = {
         engineEnabled: true,
         speakRedemptionEvents: true
     };
+
+    // The opted-out channel: announcement waits for the streamer to accept.
+    const deferredTtsConfig = { ...defaultTtsConfig, announceUnfulfilledRedemptions: false };
 
     it('should announce reward with user input text after formatting', async () => {
         mockFormatTtsText.mockResolvedValueOnce('drink some water!');
@@ -222,7 +227,7 @@ describe('handleRedemptionAnnouncement', () => {
         expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
     });
 
-    it('should announce a queued redemption once the streamer approves it', async () => {
+    it('should announce a queued redemption on approval when opted out', async () => {
         mockFormatTtsText.mockResolvedValueOnce('play despacito');
         const event = {
             id: 'redemption-1',
@@ -237,7 +242,7 @@ describe('handleRedemptionAnnouncement', () => {
             'channel.channel_points_custom_reward_redemption.update',
             event,
             'testchannel',
-            defaultTtsConfig
+            deferredTtsConfig
         );
 
         expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
@@ -259,9 +264,9 @@ describe('handleRedemptionAnnouncement', () => {
 
         // Guards against Twitch emitting .update alongside .add for skip-queue rewards
         await handleRedemptionAnnouncement(
-            'channel.channel_points_custom_reward_redemption.add', event, 'testchannel', defaultTtsConfig);
+            'channel.channel_points_custom_reward_redemption.add', event, 'testchannel', deferredTtsConfig);
         await handleRedemptionAnnouncement(
-            'channel.channel_points_custom_reward_redemption.update', event, 'testchannel', defaultTtsConfig);
+            'channel.channel_points_custom_reward_redemption.update', event, 'testchannel', deferredTtsConfig);
 
         expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
     });
@@ -280,14 +285,14 @@ describe('handleRedemptionAnnouncement', () => {
             'channel.channel_points_custom_reward_redemption.update',
             event,
             'testchannel',
-            defaultTtsConfig
+            deferredTtsConfig
         );
 
         expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
         expect(mockRemoveRedemption).toHaveBeenCalledWith('redemption-2');
     });
 
-    it('should stash a pending redemption instead of announcing it', async () => {
+    it('should stash a pending redemption instead of announcing it when opted out', async () => {
         mockConsumeFragments.mockReturnValue([{ type: 'text', text: 'play despacito' }]);
         const event = {
             id: 'redemption-3',
@@ -303,7 +308,7 @@ describe('handleRedemptionAnnouncement', () => {
             'channel.channel_points_custom_reward_redemption.add',
             event,
             'testchannel',
-            defaultTtsConfig
+            deferredTtsConfig
         );
 
         expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
@@ -315,7 +320,7 @@ describe('handleRedemptionAnnouncement', () => {
         expect(mockConsumeFragments).toHaveBeenCalledWith('reward-123', '4242', 'testchannel');
     });
 
-    it('should reuse stashed fragments when announcing on approval', async () => {
+    it('should reuse stashed fragments when announcing on approval when opted out', async () => {
         const stashed = [{ type: 'emote', text: 'Kappa' }];
         mockConsumeFragments.mockReturnValue(null);
         mockGetRedemption.mockReturnValue({ fragments: stashed });
@@ -332,7 +337,7 @@ describe('handleRedemptionAnnouncement', () => {
                 status: 'fulfilled'
             },
             'testchannel',
-            defaultTtsConfig
+            deferredTtsConfig
         );
 
         expect(mockFormatTtsText).toHaveBeenCalledWith('Kappa', stashed, expect.any(Object));
@@ -406,7 +411,7 @@ describe('handleRedemptionAnnouncement', () => {
         );
     });
 
-    it('should NOT announce unfulfilled redemptions (pending approval)', async () => {
+    it('should NOT announce unfulfilled redemptions when opted out (pending approval)', async () => {
         const event = {
             user_name: 'TestUser',
             user_login: 'testuser',
@@ -419,7 +424,7 @@ describe('handleRedemptionAnnouncement', () => {
             'channel.channel_points_custom_reward_redemption.add',
             event,
             'testchannel',
-            defaultTtsConfig
+            deferredTtsConfig
         );
 
         expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
@@ -427,7 +432,7 @@ describe('handleRedemptionAnnouncement', () => {
 
     describe('announceUnfulfilledRedemptions', () => {
         // A reward that does not skip Twitch's request queue lands as .add + unfulfilled.
-        // With this opted in, it is announced then rather than when the streamer accepts it.
+        // On — the default — it is announced then rather than when the streamer accepts it.
         const eagerTtsConfig = {
             engineEnabled: true,
             speakRedemptionEvents: true,
@@ -505,7 +510,33 @@ describe('handleRedemptionAnnouncement', () => {
             expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
         });
 
-        it('should still defer when the channel has not opted in', async () => {
+        it('should announce on add for a config that predates the setting', async () => {
+            // The reported symptom came from channels whose stored config has no such
+            // field, so the absent case has to land on announcing, not on deferring.
+            const event = {
+                id: 'redemption-legacy-1',
+                user_name: 'TestUser',
+                user_login: 'testuser',
+                reward: { id: 'reward-789', title: 'Laundry Day' },
+                user_input: '',
+                status: 'unfulfilled'
+            };
+
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.add',
+                event,
+                'testchannel',
+                defaultTtsConfig
+            );
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'TestUser redeemed Laundry Day' }),
+                null
+            );
+        });
+
+        it('should defer when the channel has opted out', async () => {
             const event = {
                 id: 'redemption-deferred-1',
                 user_name: 'TestUser',
@@ -519,7 +550,7 @@ describe('handleRedemptionAnnouncement', () => {
                 'channel.channel_points_custom_reward_redemption.add',
                 event,
                 'testchannel',
-                { ...defaultTtsConfig, announceUnfulfilledRedemptions: false }
+                deferredTtsConfig
             );
 
             expect(mockDispatchTtsEvent).not.toHaveBeenCalled();

@@ -25,11 +25,12 @@ export const DEFAULT_TTS_SETTINGS = {
     languageBoost: config.tts?.defaultLanguageBoost || 'auto',
     speakEvents: true,
     // A reward that does not skip Twitch's request queue is redeemed as
-    // .add + unfulfilled and is only announced once the streamer accepts it.
-    // A channel that never works its queue therefore never hears those rewards
-    // at all, so this trades the "reject before it is spoken" safety net for
-    // announcing the moment the reward lands. Off by default.
-    announceUnfulfilledRedemptions: false,
+    // .add + unfulfilled, and waiting for the streamer to accept it means a
+    // channel that never works its queue hears nothing from that reward at all.
+    // Announcing on .add is the default because that silence is indistinguishable
+    // from the bot being broken; a channel that would rather be able to reject a
+    // redemption before it is spoken switches this off.
+    announceUnfulfilledRedemptions: true,
     botRespondsInChat: true, // Whether the bot sends chat responses (default: true = interactive mode)
     // Channel overrides for the built-in acronym dictionary, keyed by the
     // lowercased match. An empty value switches off the built-in of that name.

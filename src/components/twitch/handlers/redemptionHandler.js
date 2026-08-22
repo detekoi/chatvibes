@@ -178,19 +178,21 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
  * Announces ALL reward redemptions (not just the configured TTS reward)
  * Generates announcement text like "<user> redeemed <reward title>: <user input>"
  *
- * Announcement is deferred until the redemption is actually fulfilled, because
- * announcing a pending redemption the streamer then cancels is irreversible:
- *   .add    + fulfilled   -> announce (reward skips the request queue)
- *   .add    + unfulfilled -> stay silent, stash fragments for the approval path
- *   .update + fulfilled   -> announce (streamer just approved it)
- *   .update + canceled    -> stay silent, drop the stashed entry
- * Twitch does not send .update for auto-fulfilled redemptions, so a reward can
- * never be announced twice.
+ * A redemption of a reward that skips Twitch's request queue arrives as
+ * .add + fulfilled and is announced outright. One that does not skip the queue
+ * arrives as .add + unfulfilled, and `announceUnfulfilledRedemptions` decides when
+ * it is spoken:
  *
- * A channel that never works its reward queue hears nothing from any reward that
- * does not skip that queue, which reads as the bot ignoring half the rewards. Such
- * a channel can set `announceUnfulfilledRedemptions` to announce on .add whatever
- * the status, accepting that a redemption it later rejects was already spoken.
+ *   on (default)          announce on .add whatever the status; every .update is
+ *                         an echo of an announcement already made, so it is dropped
+ *   off                   .add + unfulfilled stays silent and stashes its fragments
+ *                         until .update + fulfilled says the streamer accepted it;
+ *                         .update + canceled drops the stashed entry unannounced
+ *
+ * It defaults to on because a channel that never works its reward queue would
+ * otherwise hear nothing at all from those rewards, which is indistinguishable
+ * from the bot being broken. Switching it off buys back the ability to reject a
+ * redemption before it is spoken, at the cost of that silence.
  */
 export async function handleRedemptionAnnouncement(subscriptionType, event, channelLogin, ttsConfig) {
     const isAdd = subscriptionType === 'channel.channel_points_custom_reward_redemption.add';
@@ -217,7 +219,9 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         return;
     }
 
-    const announceOnAdd = ttsConfig.announceUnfulfilledRedemptions === true;
+    // Opt-out, not opt-in: a config written before this setting existed has no
+    // field at all, and those are exactly the channels the silence was reported on.
+    const announceOnAdd = ttsConfig.announceUnfulfilledRedemptions !== false;
 
     if (announceOnAdd && isUpdate) {
         // The .add already announced this one, so every .update is an echo of it —
