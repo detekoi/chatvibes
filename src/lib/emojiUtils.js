@@ -1,34 +1,98 @@
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const emojibaseData = require('emojibase-data/en/data.json');
-
-// Build a Map once at module load for O(1) emoji-to-label lookups.
-// emojibase-data covers Emoji 17 / Unicode 17 / CLDR 48 (updated Nov 2025).
-// Include skin-tone variants (nested under each base emoji's `skins` array) so
-// mixed-skin-tone ZWJ sequences like 👩🏻‍🤝‍👩🏿 are covered directly.
-const emojiToLabel = new Map();
-for (const e of emojibaseData) {
-    emojiToLabel.set(e.emoji, e.label);
-    if (e.skins) {
-        for (const skin of e.skins) {
-            emojiToLabel.set(skin.emoji, skin.label);
-        }
-    }
-}
 import emojiRegex from 'emoji-regex';
+import { getTranslator, DEFAULT_LOCALE } from '../i18n/index.js';
+import logger from './logger.js';
 
-// Reformat emojibase labels like "waving hand: medium skin tone" or
-// "women holding hands: light skin tone, dark skin tone" into natural spoken
-// form: "medium skin tone waving hand" / "light skin tone and dark skin tone
-// women holding hands".
-function formatLabel(label) {
+const require = createRequire(import.meta.url);
+
+// emojibase-data ships 26 locales, which covers 22 of the bot's 40 languages.
+// The rest fall back to English labels: honest degradation rather than a crash,
+// but it does mean a Turkish or Arabic channel hears English emoji names.
+const AVAILABLE_LOCALES = new Set([
+    'bn', 'da', 'de', 'en', 'en-gb', 'es', 'es-mx', 'et', 'fi', 'fr', 'hi', 'hu',
+    'it', 'ja', 'ko', 'lt', 'ms', 'nb', 'nl', 'pl', 'pt', 'ru', 'sv', 'th', 'uk',
+    'vi', 'zh', 'zh-hant',
+]);
+
+// Each locale's data.json is ~760 KB, so loading all of them up front would cost
+// ~16 MB for languages a given instance may never serve. Built on first use and
+// kept for the process lifetime; an instance touches a handful in practice.
+const labelMaps = new Map();
+
+function resolveDataLocale(locale) {
+    const tag = String(locale || DEFAULT_LOCALE);
+    if (AVAILABLE_LOCALES.has(tag)) return tag;
+    const base = tag.split('-')[0];
+    if (AVAILABLE_LOCALES.has(base)) return base;
+    return DEFAULT_LOCALE;
+}
+
+/**
+ * Emoji → label map for a locale, including skin-tone variants (nested under
+ * each base emoji's `skins` array) so mixed-tone ZWJ sequences like 👩🏻‍🤝‍👩🏿
+ * are covered directly.
+ */
+function getLabelMap(locale) {
+    const dataLocale = resolveDataLocale(locale);
+    let map = labelMaps.get(dataLocale);
+    if (map) return map;
+
+    map = new Map();
+    try {
+        // emojibase-data covers Emoji 17 / Unicode 17 / CLDR 48 (updated Nov 2025).
+        const data = require(`emojibase-data/${dataLocale}/data.json`);
+        for (const e of data) {
+            map.set(e.emoji, e.label);
+            if (e.skins) {
+                for (const skin of e.skins) map.set(skin.emoji, skin.label);
+            }
+        }
+    } catch (err) {
+        logger.error({ err, locale, dataLocale }, 'emojiUtils: emoji label data failed to load');
+    }
+    labelMaps.set(dataLocale, map);
+    return map;
+}
+
+const listFormatters = new Map();
+function joinTones(tones, locale) {
+    if (tones.length < 2) return tones[0] ?? '';
+    let formatter = listFormatters.get(locale);
+    if (!formatter) {
+        try {
+            formatter = new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' });
+        } catch {
+            formatter = new Intl.ListFormat(DEFAULT_LOCALE, { style: 'long', type: 'conjunction' });
+        }
+        listFormatters.set(locale, formatter);
+    }
+    return formatter.format(tones);
+}
+
+// Skin tone modifiers. Detecting a tone by codepoint rather than by the label
+// text is what makes this work in every locale: the label separator ": " is a
+// CLDR convention and holds everywhere, but the words after it are translated
+// ("tono de piel", "薄い肌色", "тон кожи"), so the previous
+// `modifier.includes('skin tone')` test silently failed outside English and the
+// raw colon form was spoken.
+const SKIN_TONE = /[\u{1F3FB}-\u{1F3FF}]/u;
+
+/**
+ * Reformat a label like "waving hand: medium skin tone" into natural spoken
+ * form: "medium skin tone waving hand".
+ *
+ * Only reordered when the emoji actually carries a tone modifier. Testing the
+ * colon alone would be wrong: "family: man, woman, boy" is a colon label that is
+ * not a tone, and reordering it mangles the description.
+ */
+function formatLabel(label, emoji, locale) {
     const colonIdx = label.indexOf(': ');
     if (colonIdx === -1) return label;
+    if (!SKIN_TONE.test(emoji)) return label;
+
     const base = label.slice(0, colonIdx);
     const modifier = label.slice(colonIdx + 2);
-    if (!modifier.includes('skin tone')) return label;
-    const tones = modifier.split(', ');
-    return `${tones.join(' and ')} ${base}`;
+    return `${joinTones(modifier.split(', '), locale)} ${base}`;
 }
 
 /**
@@ -36,9 +100,10 @@ function formatLabel(label) {
  * For example: "Hello 🔥" becomes "Hello (fire emoji)".
  *
  * @param {string} text - The input text containing emojis
+ * @param {string} [locale] - BCP-47 tag for the labels and the wrapper wording.
  * @returns {string} - The text with emojis replaced by descriptions
  */
-export function replaceEmojisWithText(text) {
+export function replaceEmojisWithText(text, locale = DEFAULT_LOCALE) {
     if (!text || typeof text !== 'string') return text;
 
     const regex = emojiRegex();
@@ -51,6 +116,9 @@ export function replaceEmojisWithText(text) {
     }
 
     if (matches.length === 0) return text;
+
+    const emojiToLabel = getLabelMap(locale);
+    const t = getTranslator(locale);
 
     // Build output by walking through the text, collapsing consecutive identical emojis
     let result = '';
@@ -88,13 +156,9 @@ export function replaceEmojisWithText(text) {
             || emojiToLabel.get(skinStripped)
             || emojiToLabel.get(skinStripped.replace(/\u{FE0F}/gu, ''));
         if (label) {
-            const description = formatLabel(label);
+            const description = formatLabel(label, match.emoji, locale);
             const pad = result.length > 0 && !result.endsWith(' ') ? ' ' : '';
-            if (count > 1) {
-                result += `${pad}(${count} ${description} emojis)`;
-            } else {
-                result += `${pad}(${description} emoji)`;
-            }
+            result += pad + t('emoji.wrap', { count, description });
         } else {
             // No mapping — keep original emoji(s)
             result += text.slice(match.index, endPos);
@@ -122,3 +186,5 @@ export function stripEmojis(text) {
     const regex = emojiRegex();
     return text.replace(regex, '').replace(/\s{2,}/g, ' ').trim();
 }
+
+export const _internals = { formatLabel, resolveDataLocale, labelMaps };

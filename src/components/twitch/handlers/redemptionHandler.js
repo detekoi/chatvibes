@@ -207,7 +207,8 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     const rewardTitle = event?.reward?.title;
     const rewardId = event?.reward?.id;
     const userInput = (event?.user_input || '').trim();
-    const t = getTranslator(resolveChannelLocale(ttsConfig));
+    const locale = resolveChannelLocale(ttsConfig);
+    const t = getTranslator(locale);
     const userName = event?.user_name || event?.user_login || t('announce.fallback.someone');
     const userLogin = (event?.user_login || userName).toLowerCase();
     const userId = event?.user_id;
@@ -290,6 +291,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
                 channelEmoteMode: emoteMode,
                 readFullUrls: ttsConfig.readFullUrls || false,
                 pronunciationRules: getPronunciationRules(ttsConfig),
+            locale,
             });
             if (formattedInput) {
                 ttsText = t('announce.redemption.input', { text: ttsText, input: formattedInput });
@@ -495,6 +497,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
     // Resolve emote mode: user preference → channel default → 'describe'
     const userEmoteMode = await getUserEmoteModePreference(userName, userId);
     const channelEmoteMode = ttsConfig.emoteMode || 'describe';
+    const locale = resolveChannelLocale(ttsConfig);
     const emoteMode = userEmoteMode || channelEmoteMode;
 
     // Run user_input through full formatting pipeline (emotes, URLs, emoji)
@@ -503,6 +506,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
         channelEmoteMode,
         readFullUrls: ttsConfig.readFullUrls || false,
         pronunciationRules: getPronunciationRules(ttsConfig),
+            locale,
     });
 
     // Guard against empty result (e.g. all-emote message with emoteMode='skip')

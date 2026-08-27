@@ -271,19 +271,35 @@ asap/ms (smoke)   wb/zh (Weibo)   pmo/id   fr/fr   ikdr/nl   mb/ko mb/ru mb/uk m
 np/sl   gm/ja gm/ko gm/zh   1v1/fr 1v1/ru 1v1/zh
 ```
 
-**Same meaning, wrong language.** The local abbreviation means the *same thing*, so the
-expansion is semantically right but speaks **English words in a non-English voice**:
+**Same meaning — not a collision, and deliberately left alone.** Here the local reading means
+the *same thing* as our expansion, so nothing is mangled:
 
 ```
 gm/de "Guten Morgen"    gn/de "Gute Nacht"    np/hr "nema problema"
 1v1/es "uno contra uno" mb/ca "molt bé"       otw/id  imho/ru  rofl/ru  mmr/ru
 ```
 
-`except` is a poor fix for these — it stops the expansion and leaves the bare acronym, which
-the synthesiser reads as letters. The real fix is a per-language `say`, which the entry
-schema does not have. **This is the wider unsolved problem** noted in `CLAUDE.md`: every
-expansion in this dictionary is English text, so `lfg` still becomes "let's fucking go" on a
-Spanish channel. Scoping bounds the damage; it does not remove it.
+The expansion is always English — a German viewer typing `gm` hears **"good morning"**;
+"Guten Morgen" is only what they may have meant and never appears anywhere. That is fine.
+In stream chat these acronyms are largely **English loanwords in the local language**, so the
+English expansion is the faithful reading. The audit itself demonstrates this: it reported
+`otw` in Indonesian as meaning "on the way" — the identical English phrase, because `otw` is a
+borrowed abbreviation there. `rofl` in Russian is `рофл`, the English acronym transliterated.
+
+Scoping these would make things worse, not better: it removes the expansion and leaves the
+bare acronym for the synthesiser to read out as letters.
+
+`np` contains both cases, which is why the two must be told apart:
+
+| Channel | Local reading | vs our "no problem" | Scoped |
+|---|---|---|---|
+| Polish | "na przykład" — *for example* | different meaning | yes |
+| Croatian | "nema problema" — *no problem* | same meaning, loanword | no |
+
+The separate, wider issue noted in `CLAUDE.md` is that a *long* expansion is English prose:
+`lfg` becomes "let's fucking go" on a Spanish channel. That is also usually faithful, since
+`lfg` is itself an English loan there — it would only be worth a per-language `say` if a
+streamer asked for everything to be spoken in their own language.
 
 ## Applied so far
 

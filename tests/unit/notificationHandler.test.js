@@ -853,6 +853,9 @@ describe('notificationHandler', () => {
                     // A compiled rule set built from the built-in dictionary.
                     // Its contents are covered by textRewrite.test.js.
                     pronunciationRules: expect.objectContaining({ re: expect.any(RegExp) }),
+                    // Channel-level, so emoji labels and emote descriptions come
+                    // out in the channel's language rather than the viewer's.
+                    locale: 'en',
                 }
             );
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(

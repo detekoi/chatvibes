@@ -102,7 +102,8 @@ function isIgnoredGifter(event, ttsConfig, isAnonymous) {
  */
 export async function handleNotification(subscriptionType, event, channelName, ttsConfig = {}) {
     // Channel-level, not per-viewer: an announcement is heard by everyone watching.
-    const t = getTranslator(resolveChannelLocale(ttsConfig));
+    const locale = resolveChannelLocale(ttsConfig);
+    const t = getTranslator(locale);
     let ttsText = null;
     let username = 'event_tts'; // Default for events without specific user
     let userId = undefined; // Twitch User ID for voice preference resolution
@@ -170,6 +171,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         channelEmoteMode: emoteMode,
                         readFullUrls: ttsConfig.readFullUrls || false,
                         pronunciationRules: getPronunciationRules(ttsConfig),
+            locale,
                     });
                     if (formattedMessage) {
                         const { subject, g } = await pronounSubject;
@@ -343,6 +345,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         channelEmoteMode: emoteMode,
                         readFullUrls: ttsConfig.readFullUrls || false,
                         pronunciationRules: getPronunciationRules(ttsConfig),
+            locale,
                     });
                     if (formattedMessage) {
                         const { subject, g } = await pronounSubject;

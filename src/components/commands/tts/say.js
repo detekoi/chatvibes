@@ -4,6 +4,7 @@ import { enqueueMessage } from '../../../lib/chatSender.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
+import { resolveChannelLocale } from '../../../i18n/index.js';
 import { hasPermissionLevel, mapPermissionLevel } from '../../../lib/permissions.js';
 import logger from '../../../lib/logger.js';
 
@@ -24,6 +25,7 @@ export default {
         const messageToSay = args.join(' ');
 
         const ttsConfig = await getTtsState(channelNameNoHash);
+        const locale = resolveChannelLocale(ttsConfig);
         if (!ttsConfig.engineEnabled) {
             enqueueMessage(channel, `TTS is currently disabled.`, { replyToId });
             return;
@@ -50,6 +52,7 @@ export default {
             channelEmoteMode: eventData.channelEmoteMode || 'read',
             readFullUrls: ttsConfig.readFullUrls,
             pronunciationRules: getPronunciationRules(ttsConfig),
+            locale,
         });
 
         // Use the processed result if available (null/undefined means processing wasn't possible),

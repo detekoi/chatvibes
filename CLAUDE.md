@@ -84,9 +84,12 @@ export TWITCH_CHANNELS=yourchannel
   word is exactly the problem. They use `except` rather than `only: ["en"]` deliberately:
   Twitch acronyms travel, and a German channel's chat is still full of `gg` and `brb`, so
   scope by demonstrated collision rather than by origin. `scripts/audit-pronunciation-collisions.js`
-  shortlists candidates for a human; see `docs/pronunciation-probe-results.md`, which also
-  records the *unsolved* half — every expansion is English text, so `gm` on a German channel
-  still speaks English words. Scoping bounds that, it does not remove it.
+  shortlists candidates for a human; see `docs/pronunciation-probe-results.md`.
+  **Scope only entries whose local meaning differs.** The audit also surfaces tokens whose
+  local reading means the *same* thing (`gm` as "Guten Morgen", `np` as "nema problema") —
+  those are English loanwords in the local chat, the expansion is faithful, and scoping them
+  would leave the bare acronym to be read out as letters. `np` is both at once: "na przykład"
+  in Polish is a real collision, "nema problema" in Croatian is not, and only `pl` is scoped.
 - **`getPronunciationRules` caches by locale as well as by source object**, and that is
   load-bearing. Channels with no overrides share one rule set, so a cache keyed on the
   `pronunciations` object alone would hand every such channel whichever language compiled
@@ -140,6 +143,8 @@ export TWITCH_CHANNELS=yourchannel
 - `src/components/tts/ttsConstants.js` - Default settings and constants
 - `src/i18n/` - Message catalogs and the ICU-subset formatter (see below)
 - `scripts/translate-catalogs.js` - Build-time catalog translation (run by hand, never in CI)
+- `scripts/audit-pronunciation-collisions.js` - Shortlists acronyms that are real words elsewhere
+- `scripts/probe-pronunciation-language.js` - Proposes dictionary entries for a non-English language
 - `src/components/commands/handlers/` - Command handlers for TTS
 - `src/components/web/server.js` - WebSocket server for the TTS player
 - `src/components/web/public/tts-player.js` - Browser-based audio player

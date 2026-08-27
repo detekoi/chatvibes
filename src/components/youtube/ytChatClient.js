@@ -295,7 +295,8 @@ async function _handleMessage(channelId, msg) {
         }
     }
 
-    const t = getTranslator(resolveChannelLocale(ttsConfig));
+    const locale = resolveChannelLocale(ttsConfig);
+    const t = getTranslator(locale);
 
     // Resolve emote mode from channel config.
     // YouTube does not currently support per-user emote mode overrides (unlike Twitch).
@@ -311,6 +312,7 @@ async function _handleMessage(channelId, msg) {
         channelEmoteMode: emoteMode,
         readFullUrls: ttsConfig.readFullUrls,
         pronunciationRules: getPronunciationRules(ttsConfig),
+            locale,
         emoteProcessor: processYouTubeEmotes,
     });
 
