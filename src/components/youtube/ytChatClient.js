@@ -7,6 +7,7 @@ import logger from '../../lib/logger.js';
 import { getTtsState, getAllChannelConfigs, onYouTubeConfigChange } from '../tts/ttsState.js';
 import { dispatchYouTubeTtsEvent } from '../../lib/ttsDispatch.js';
 import { formatTtsText } from '../../lib/formatTtsText.js';
+import { getTranslator, resolveChannelLocale } from '../../i18n/index.js';
 import { getPronunciationRules } from '../../lib/textRewrite/pronunciation.js';
 import { processYouTubeEmotes } from './ytEmoteProcessor.js';
 import { isYouTubeUserIgnored } from '../../lib/ignoreList.js';
@@ -294,6 +295,8 @@ async function _handleMessage(channelId, msg) {
         }
     }
 
+    const t = getTranslator(resolveChannelLocale(ttsConfig));
+
     // Resolve emote mode from channel config.
     // YouTube does not currently support per-user emote mode overrides (unlike Twitch).
     const emoteMode = ttsConfig.emoteMode || 'describe';
@@ -322,9 +325,9 @@ async function _handleMessage(channelId, msg) {
             // Super Chats always read if YouTube is enabled (per user request)
             ttsType = 'cheer_tts';
             if (msg.amount) {
-                announcementPrefix = `Super Chat from ${username} for ${msg.amount}: `;
+                announcementPrefix = t('announce.yt.superchat.amount', { user: username, amount: msg.amount });
             } else {
-                announcementPrefix = `Super Chat from ${username}: `;
+                announcementPrefix = t('announce.yt.superchat', { user: username });
             }
             break;
 
@@ -332,8 +335,8 @@ async function _handleMessage(channelId, msg) {
             // Super Stickers — announce the sticker purchase
             ttsType = 'cheer_tts';
             announcementPrefix = msg.amount
-                ? `${username} sent a Super Sticker for ${msg.amount}`
-                : `${username} sent a Super Sticker`;
+                ? t('announce.yt.supersticker.amount', { user: username, amount: msg.amount })
+                : t('announce.yt.supersticker', { user: username });
             processedText = announcementPrefix;
             announcementPrefix = '';
             break;
@@ -342,9 +345,9 @@ async function _handleMessage(channelId, msg) {
             // Membership messages — treat like Twitch subs
             ttsType = 'event';
             if (msg.subtext) {
-                announcementPrefix = `New YouTube member ${username}: ${msg.subtext}. `;
+                announcementPrefix = t('announce.yt.member.message', { user: username, subtext: msg.subtext });
             } else {
-                announcementPrefix = `${username} just became a YouTube member! `;
+                announcementPrefix = t('announce.yt.member', { user: username });
             }
             break;
 

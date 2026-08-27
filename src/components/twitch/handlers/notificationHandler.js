@@ -8,6 +8,7 @@ import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { pronounService } from '../../../lib/pronounService.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { getTranslator, resolveChannelLocale } from '../../../i18n/index.js';
 
 /** Synthetic subscription type used to route watch streak events from channel.chat.notification */
 export const WATCH_STREAK_TYPE = 'channel.chat.notification.watch_streak';
@@ -38,16 +39,22 @@ const PRONOUN_LOOKUP_TIMEOUT_MS = 2500;
 
 /**
  * Subject pronoun for the "<Subject> said:" prefix on a viewer message attached to an
- * event. Falls back to "They" when the login is unknown, the API has no entry, or the
- * lookup exceeds PRONOUN_LOOKUP_TIMEOUT_MS.
+ * event. Falls back to the catalog's own subject pronoun when the login is unknown, the
+ * API has no entry, or the lookup exceeds PRONOUN_LOOKUP_TIMEOUT_MS.
+ *
+ * Returns both the literal pronoun and a coarse gender key. English uses the literal, so
+ * neopronouns survive; languages whose verb agrees with the subject use the key in a
+ * `{g, select, ...}` instead, because substituting a pronoun into a fixed sentence only
+ * works when the rest of the sentence does not inflect.
  *
  * Callers should start this before awaiting formatTtsText so the fetch overlaps with
  * formatting work rather than adding to it, then await it only once the formatted
  * message is known to be non-empty. Never rejects, so the promise is safe to drop on
  * the path where the message formats away.
  */
-async function resolvePronounSubject(login) {
-    if (!login || login === 'someone') return 'They';
+async function resolvePronounSubject(t, login) {
+    const fallback = { subject: t('announce.pronoun.subject'), g: 'other' };
+    if (!login || login === 'someone') return fallback;
 
     const pronouns = await new Promise(resolve => {
         let done = false;
@@ -62,16 +69,22 @@ async function resolvePronounSubject(login) {
         });
     });
 
-    return pronouns?.Subject || 'They';
+    const subject = pronouns?.Subject;
+    if (!subject) return fallback;
+    const lowered = subject.toLowerCase();
+    return { subject, g: lowered === 'he' ? 'he' : lowered === 'she' ? 'she' : 'other' };
 }
 
 /**
- * " Tier 1" / " Tier 2" / " Tier 3" from a chat notification's sub_tier ("1000"/"2000"/"3000"),
- * or "" when the field is missing or not one of those values.
+ * The " Tier 1" fragment from a chat notification's sub_tier ("1000"/"2000"/"3000"), or
+ * "" when the field is missing or not one of those values.
+ *
+ * The fragment carries its own leading space and is interpolated whole, so a catalog
+ * message treats it as opaque the way it treats a username or a reward title.
  */
-function formatSubTier(subTier) {
+function formatSubTier(t, subTier) {
     const tier = Number(subTier) / 1000;
-    return Number.isInteger(tier) && tier >= 1 && tier <= 3 ? ` Tier ${tier}` : '';
+    return Number.isInteger(tier) && tier >= 1 && tier <= 3 ? t('announce.tier', { n: tier }) : '';
 }
 
 /**
@@ -88,6 +101,8 @@ function isIgnoredGifter(event, ttsConfig, isAnonymous) {
  * Generates appropriate TTS text and publishes to Pub/Sub
  */
 export async function handleNotification(subscriptionType, event, channelName, ttsConfig = {}) {
+    // Channel-level, not per-viewer: an announcement is heard by everyone watching.
+    const t = getTranslator(resolveChannelLocale(ttsConfig));
     let ttsText = null;
     let username = 'event_tts'; // Default for events without specific user
     let userId = undefined; // Twitch User ID for voice preference resolution
@@ -101,14 +116,14 @@ export async function handleNotification(subscriptionType, event, channelName, t
                 return;
             }
 
-            const subUser = event.user_name || event.user_login || 'Someone';
+            const subUser = event.user_name || event.user_login || t('announce.fallback.someone');
             if (isTwitchUserIgnored(ttsConfig, event.user_id)) {
                 logger.debug({ channelName, user: subUser, userId: event.user_id }, 'Subscription from ignored user — skipping TTS');
                 return;
             }
 
-            const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
-            ttsText = `${subUser} just subscribed${tier}!`;
+            const tier = event.tier ? t('announce.tierParen', { n: event.tier / 1000 }) : '';
+            ttsText = t('announce.sub.new', { user: subUser, tier });
             username = subUser;
             userId = event.user_id;
             logger.info({ channelName, user: subUser, tier: event.tier }, 'New subscription event');
@@ -117,7 +132,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
 
         case 'channel.subscription.message': {
             // Resubscription with message
-            const resubUser = event.user_name || event.user_login || 'Someone';
+            const resubUser = event.user_name || event.user_login || t('announce.fallback.someone');
             const resubLogin = (event.user_login || resubUser).toLowerCase(); // pronoun lookup keys on the login
             if (isTwitchUserIgnored(ttsConfig, event.user_id)) {
                 logger.debug({ channelName, user: resubUser, userId: event.user_id }, 'Resub from ignored user — skipping TTS');
@@ -125,16 +140,16 @@ export async function handleNotification(subscriptionType, event, channelName, t
             }
 
             const months = event.cumulative_months || event.duration_months || 0;
-            const tier = event.tier ? ` (Tier ${event.tier / 1000})` : '';
+            const tier = event.tier ? t('announce.tierParen', { n: event.tier / 1000 }) : '';
 
             // Sub streak (consecutive months). Twitch sends null when the viewer opts
             // not to share it, and a 1-month "streak" isn't worth announcing.
             const streakMonths = Number(event.streak_months);
             const streak = Number.isFinite(streakMonths) && streakMonths >= 2
-                ? `, on a ${streakMonths} month streak`
+                ? t('announce.sub.streak', { months: streakMonths })
                 : '';
 
-            ttsText = `${resubUser} resubscribed for ${months} months${streak}${tier}!`;
+            ttsText = t('announce.sub.resub', { user: resubUser, months, streak, tier });
 
             // Append the viewer's resub message if present, after moderation + formatting
             const rawResubMessage = event.message?.text?.trim();
@@ -149,7 +164,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     // Started together so the pronoun fetch overlaps formatting, but awaited
                     // separately: a message that formats to empty is never spoken, so it must
                     // not wait on a lookup whose result it would discard.
-                    const pronounSubject = resolvePronounSubject(resubLogin);
+                    const pronounSubject = resolvePronounSubject(t, resubLogin);
                     const formattedMessage = await formatTtsText(rawResubMessage, fragments, {
                         emoteMode,
                         channelEmoteMode: emoteMode,
@@ -157,7 +172,8 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         pronunciationRules: getPronunciationRules(ttsConfig),
                     });
                     if (formattedMessage) {
-                        ttsText += ` ${await pronounSubject} said: ${formattedMessage}`;
+                        const { subject, g } = await pronounSubject;
+                        ttsText += t('announce.saidMessage', { subject, g, message: formattedMessage });
                     } else {
                         logger.info({ channelName, user: resubLogin, emoteMode, viewerMessage: rawResubMessage },
                             'Resub message formatted to empty (likely all emotes under emoteMode=skip) — announcing resub only');
@@ -197,10 +213,10 @@ export async function handleNotification(subscriptionType, event, channelName, t
                 return;
             }
 
-            const gifterUser = isAnonymous ? 'An anonymous gifter' : event.chatter_user_name;
-            const tier = formatSubTier(event.sub_gift?.sub_tier);
+            const gifterUser = isAnonymous ? t('announce.fallback.anonGifter') : event.chatter_user_name;
+            const tier = formatSubTier(t, event.sub_gift?.sub_tier);
 
-            ttsText = `${gifterUser} just gifted a${tier} sub to ${recipient}!`;
+            ttsText = t('announce.sub.gift.single', { user: gifterUser, tier, recipient });
             if (isAnonymous) {
                 username = 'anonymous_gifter';
             } else {
@@ -215,20 +231,20 @@ export async function handleNotification(subscriptionType, event, channelName, t
             // A mass gift. Recipients arrive as separate sub_gift notices, so they are not
             // named here — reading out a 50-name list is worse than reading the count.
             const total = event.community_sub_gift?.total || 1;
-            const tier = formatSubTier(event.community_sub_gift?.sub_tier);
+            const tier = formatSubTier(t, event.community_sub_gift?.sub_tier);
             const isAnonymous = event.chatter_is_anonymous === true || !event.chatter_user_name;
             if (isIgnoredGifter(event, ttsConfig, isAnonymous)) {
                 logger.debug({ channelName, user: event.chatter_user_login }, 'Mass gift from ignored user — skipping TTS');
                 return;
             }
 
-            const gifterUser = isAnonymous ? 'An anonymous gifter' : event.chatter_user_name;
+            const gifterUser = isAnonymous ? t('announce.fallback.anonGifter') : event.chatter_user_name;
 
             if (isAnonymous) {
-                ttsText = `${total}${tier} gift ${total === 1 ? 'sub' : 'subs'} from an anonymous gifter!`;
+                ttsText = t('announce.sub.gift.communityAnon', { count: total, tier });
                 username = 'anonymous_gifter';
             } else {
-                ttsText = `${gifterUser} just gifted ${total}${tier} ${total === 1 ? 'sub' : 'subs'}!`;
+                ttsText = t('announce.sub.gift.community', { user: gifterUser, count: total, tier });
                 username = gifterUser;
                 userId = event.chatter_user_id;
             }
@@ -239,7 +255,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
         case 'channel.cheer': {
             // Bits cheer announcement only — event.message (plain string) is NOT appended here
             // because the cheer message text is already read via channel.chat.message in chatHandler.js
-            const cheerUser = event.user_name || event.user_login || 'Someone';
+            const cheerUser = event.user_name || event.user_login || t('announce.fallback.someone');
             const bits = event.bits || 0;
             const isAnonymous = event.is_anonymous;
 
@@ -248,12 +264,11 @@ export async function handleNotification(subscriptionType, event, channelName, t
                 return;
             }
 
-            const bitWord = bits === 1 ? 'bit' : 'bits';
             if (isAnonymous) {
-                ttsText = `${bits} ${bitWord} from an anonymous cheerer!`;
+                ttsText = t('announce.cheer.anon', { count: bits });
                 username = 'anonymous_cheerer';
             } else {
-                ttsText = `${cheerUser} cheered ${bits} ${bitWord}!`;
+                ttsText = t('announce.cheer', { user: cheerUser, count: bits });
                 username = cheerUser;
                 userId = event.user_id;
             }
@@ -263,9 +278,9 @@ export async function handleNotification(subscriptionType, event, channelName, t
 
         case 'channel.raid': {
             // Incoming raid
-            const raiderUser = event.from_broadcaster_user_name || event.from_broadcaster_user_login || 'A streamer';
+            const raiderUser = event.from_broadcaster_user_name || event.from_broadcaster_user_login || t('announce.fallback.streamer');
             const viewers = event.viewers || 0;
-            ttsText = `${raiderUser} is raiding with ${viewers} ${viewers === 1 ? 'viewer' : 'viewers'}!`;
+            ttsText = t('announce.raid', { user: raiderUser, count: viewers });
             username = raiderUser;
             userId = event.from_broadcaster_user_id;
             logger.info({ channelName, raider: raiderUser, viewers }, 'Raid event');
@@ -275,12 +290,12 @@ export async function handleNotification(subscriptionType, event, channelName, t
         case 'channel.follow': {
             // New follower (v2)
             const anonymize = ttsConfig.anonymizeFollowers !== false;
-            const followerUser = event.user_name || event.user_login || 'Someone';
+            const followerUser = event.user_name || event.user_login || t('announce.fallback.someone');
             if (anonymize) {
-                ttsText = 'Someone new just followed!';
+                ttsText = t('announce.follow.anon');
                 username = 'anonymous_follower';
             } else {
-                ttsText = `${followerUser} just followed!`;
+                ttsText = t('announce.follow', { user: followerUser });
                 username = followerUser;
                 userId = event.user_id;
             }
@@ -290,7 +305,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
 
         case WATCH_STREAK_TYPE: {
             // Watch streak milestone (from channel.chat.notification with notice_type: watch_streak)
-            const streakUser = event.chatter_user_name || event.chatter_user_login || 'Someone';
+            const streakUser = event.chatter_user_name || event.chatter_user_login || t('announce.fallback.someone');
             const streakLogin = (event.chatter_user_login || streakUser).toLowerCase(); // pronoun lookup keys on the login
             const streakCount = event.watch_streak?.streak_count;
             if (!streakCount || streakCount <= 0) {
@@ -304,7 +319,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                 return;
             }
 
-            ttsText = `${streakUser} is on a ${streakCount} stream watch streak!`;
+            ttsText = t('announce.watchStreak', { user: streakUser, count: streakCount });
 
             // Append the viewer's attached chat message if present, after moderation + formatting
             const rawStreakMessage = event.message?.text?.trim();
@@ -322,7 +337,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     // Started together so the pronoun fetch overlaps formatting, but awaited
                     // separately: a message that formats to empty is never spoken, so it must
                     // not wait on a lookup whose result it would discard.
-                    const pronounSubject = resolvePronounSubject(streakLogin);
+                    const pronounSubject = resolvePronounSubject(t, streakLogin);
                     const formattedMessage = await formatTtsText(rawStreakMessage, fragments, {
                         emoteMode,
                         channelEmoteMode: emoteMode,
@@ -330,7 +345,8 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         pronunciationRules: getPronunciationRules(ttsConfig),
                     });
                     if (formattedMessage) {
-                        ttsText += ` ${await pronounSubject} said: ${formattedMessage}`;
+                        const { subject, g } = await pronounSubject;
+                        ttsText += t('announce.saidMessage', { subject, g, message: formattedMessage });
                     } else {
                         logger.info({ channelName, user: streakLogin, emoteMode, viewerMessage: rawStreakMessage },
                             'Watch streak message formatted to empty (likely all emotes under emoteMode=skip) — announcing streak only');

@@ -1,0 +1,207 @@
+{
+  "_README": "languageBoost <-> BCP-47 <-> Twitch broadcaster_language. Source of truth for every locale decision in the bot and, via `npm run sync-constants`, the web UI. Keep in step with VALID_LANGUAGE_BOOSTS in tts-config.json; a test asserts they match.",
+  "DEFAULT_LOCALE": "en",
+  "AUTO_VALUES": [
+    "auto",
+    "Automatic",
+    "None"
+  ],
+  "LANGUAGE_BOOSTS": {
+    "Chinese": {
+      "bcp47": "zh",
+      "endonym": "中文"
+    },
+    "Chinese,Yue": {
+      "bcp47": "yue",
+      "endonym": "粵語"
+    },
+    "English": {
+      "bcp47": "en",
+      "endonym": "English"
+    },
+    "Arabic": {
+      "bcp47": "ar",
+      "endonym": "العربية"
+    },
+    "Russian": {
+      "bcp47": "ru",
+      "endonym": "Русский"
+    },
+    "Spanish": {
+      "bcp47": "es",
+      "endonym": "Español"
+    },
+    "French": {
+      "bcp47": "fr",
+      "endonym": "Français"
+    },
+    "Portuguese": {
+      "bcp47": "pt",
+      "endonym": "Português"
+    },
+    "German": {
+      "bcp47": "de",
+      "endonym": "Deutsch"
+    },
+    "Turkish": {
+      "bcp47": "tr",
+      "endonym": "Türkçe"
+    },
+    "Dutch": {
+      "bcp47": "nl",
+      "endonym": "Nederlands"
+    },
+    "Ukrainian": {
+      "bcp47": "uk",
+      "endonym": "Українська"
+    },
+    "Vietnamese": {
+      "bcp47": "vi",
+      "endonym": "Tiếng Việt"
+    },
+    "Indonesian": {
+      "bcp47": "id",
+      "endonym": "Bahasa Indonesia"
+    },
+    "Japanese": {
+      "bcp47": "ja",
+      "endonym": "日本語"
+    },
+    "Italian": {
+      "bcp47": "it",
+      "endonym": "Italiano"
+    },
+    "Korean": {
+      "bcp47": "ko",
+      "endonym": "한국어"
+    },
+    "Thai": {
+      "bcp47": "th",
+      "endonym": "ไทย"
+    },
+    "Polish": {
+      "bcp47": "pl",
+      "endonym": "Polski"
+    },
+    "Romanian": {
+      "bcp47": "ro",
+      "endonym": "Română"
+    },
+    "Greek": {
+      "bcp47": "el",
+      "endonym": "Ελληνικά"
+    },
+    "Czech": {
+      "bcp47": "cs",
+      "endonym": "Čeština"
+    },
+    "Finnish": {
+      "bcp47": "fi",
+      "endonym": "Suomi"
+    },
+    "Hindi": {
+      "bcp47": "hi",
+      "endonym": "हिन्दी"
+    },
+    "Bulgarian": {
+      "bcp47": "bg",
+      "endonym": "Български"
+    },
+    "Danish": {
+      "bcp47": "da",
+      "endonym": "Dansk"
+    },
+    "Hebrew": {
+      "bcp47": "he",
+      "endonym": "עברית"
+    },
+    "Malay": {
+      "bcp47": "ms",
+      "endonym": "Bahasa Melayu"
+    },
+    "Persian": {
+      "bcp47": "fa",
+      "endonym": "فارسی"
+    },
+    "Slovak": {
+      "bcp47": "sk",
+      "endonym": "Slovenčina"
+    },
+    "Swedish": {
+      "bcp47": "sv",
+      "endonym": "Svenska"
+    },
+    "Croatian": {
+      "bcp47": "hr",
+      "endonym": "Hrvatski"
+    },
+    "Filipino": {
+      "bcp47": "fil",
+      "endonym": "Filipino"
+    },
+    "Hungarian": {
+      "bcp47": "hu",
+      "endonym": "Magyar"
+    },
+    "Norwegian": {
+      "bcp47": "nb",
+      "endonym": "Norsk bokmål"
+    },
+    "Slovenian": {
+      "bcp47": "sl",
+      "endonym": "Slovenščina"
+    },
+    "Catalan": {
+      "bcp47": "ca",
+      "endonym": "Català"
+    },
+    "Nynorsk": {
+      "bcp47": "nn",
+      "endonym": "Nynorsk"
+    },
+    "Tamil": {
+      "bcp47": "ta",
+      "endonym": "தமிழ்"
+    },
+    "Afrikaans": {
+      "bcp47": "af",
+      "endonym": "Afrikaans"
+    }
+  },
+  "TWITCH_BROADCASTER_LANGUAGE": {
+    "ar": "Arabic",
+    "bg": "Bulgarian",
+    "ca": "Catalan",
+    "cs": "Czech",
+    "da": "Danish",
+    "de": "German",
+    "el": "Greek",
+    "en": "English",
+    "es": "Spanish",
+    "fi": "Finnish",
+    "fr": "French",
+    "he": "Hebrew",
+    "hi": "Hindi",
+    "hu": "Hungarian",
+    "id": "Indonesian",
+    "it": "Italian",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "ms": "Malay",
+    "nl": "Dutch",
+    "no": "Norwegian",
+    "pl": "Polish",
+    "pt": "Portuguese",
+    "ro": "Romanian",
+    "ru": "Russian",
+    "sk": "Slovak",
+    "sl": "Slovenian",
+    "sv": "Swedish",
+    "th": "Thai",
+    "tr": "Turkish",
+    "uk": "Ukrainian",
+    "vi": "Vietnamese",
+    "zh": "Chinese",
+    "zh-hk": "Chinese,Yue"
+  }
+}

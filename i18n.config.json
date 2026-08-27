@@ -1,0 +1,34 @@
+{
+  "_README": "Drives scripts/translate-catalogs.js. The sibling web UI has its own copy of this file with its own paths; the script is run from here against either.",
+  "sourceLocale": "en",
+  "source": "src/i18n/messages/en.json",
+  "outDir": "src/i18n/messages",
+  "sidecar": "src/i18n/.translation-hashes.json",
+  "maxChatLength": 500,
+  "context": "Short strings spoken aloud by a text-to-speech bot on Twitch and YouTube live streams, or written into stream chat. Register is casual and enthusiastic, matching live-stream culture. Keep messages short: they are read out loud over audio, and chat replies are cut off past 500 characters.",
+  "doNotTranslate": [
+    "WildcatTTS",
+    "WildcatSage",
+    "Wildcat.chat",
+    "ChatVibes",
+    "Twitch",
+    "YouTube",
+    "OBS",
+    "Gemini",
+    "MiniMax",
+    "Super Chat",
+    "Super Sticker",
+    "Channel Points",
+    "Tier"
+  ],
+  "glossary": {
+    "sub": "a paid channel subscription on Twitch, not a submarine or a substitute",
+    "gift sub": "a subscription one viewer buys for another",
+    "raid": "a streamer sending their audience to another channel at the end of a stream",
+    "cheer": "spending Twitch 'bits' to support a streamer",
+    "bits": "Twitch virtual currency. Keep the English word rather than translating it, but it MAY inflect: use \"bit\" for exactly one and \"bits\" for any other number. In a language that does not inflect loanwords, use whatever single form reads naturally for any count.",
+    "watch streak": "consecutive streams a viewer has watched",
+    "redeemed": "spent channel points on a reward",
+    "Tier": "Twitch subscription level (Tier 1/2/3); keep the English word and the number"
+  }
+}

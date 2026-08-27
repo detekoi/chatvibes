@@ -11,6 +11,7 @@ import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { consumeFragments } from '../redemptionFragmentCache.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { getTranslator, resolveChannelLocale } from '../../../i18n/index.js';
 import { Firestore } from '@google-cloud/firestore';
 
 let _firestoreDb = null;
@@ -206,7 +207,8 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     const rewardTitle = event?.reward?.title;
     const rewardId = event?.reward?.id;
     const userInput = (event?.user_input || '').trim();
-    const userName = event?.user_name || event?.user_login || 'Someone';
+    const t = getTranslator(resolveChannelLocale(ttsConfig));
+    const userName = event?.user_name || event?.user_login || t('announce.fallback.someone');
     const userLogin = (event?.user_login || userName).toLowerCase();
     const userId = event?.user_id;
 
@@ -268,7 +270,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     }
 
     // Build announcement text
-    let ttsText = `${userName} redeemed ${rewardTitle}`;
+    let ttsText = t('announce.redemption', { user: userName, reward: rewardTitle });
     if (userInput) {
         // Check banned words against user input
         const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
@@ -290,7 +292,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
                 pronunciationRules: getPronunciationRules(ttsConfig),
             });
             if (formattedInput) {
-                ttsText += `: ${formattedInput}`;
+                ttsText = t('announce.redemption.input', { text: ttsText, input: formattedInput });
             } else {
                 logger.info({ channelLogin, user: userLogin, emoteMode, viewerMessage: userInput },
                     'Redemption user_input formatted to empty (likely all emotes under emoteMode=skip) — announcing redemption only');
