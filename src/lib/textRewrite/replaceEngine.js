@@ -9,7 +9,8 @@
 //      breaks that or turns "lollipop" into "el oh el-lipop". The anchors use
 //      \p{L}\p{N} lookarounds rather than \b, because \b is ASCII-only and
 //      would mis-fire on n-tilde, Cyrillic, and Greek, which matters the moment
-//      the non-English profanity lists are in play.
+//      the non-English profanity lists are in play. A change of script counts as
+//      a boundary too, so a Latin term matches inside spaceless Japanese text.
 //
 //   2. Replacement happens in a single pass. Substituted text is never
 //      re-scanned, so a rule that expands to a word another rule matches does
@@ -33,8 +34,24 @@ const MASK_CHARS = /[\uE000\uE001]/g;
 // Scripts written without spaces between words. A \p{L} lookaround is the
 // wrong boundary test for these, because neighbouring characters are letters
 // even at a real word edge.
-const CONTINUOUS_SCRIPT =
-    /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
+const CONTINUOUS_SCRIPT_CLASS =
+    '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Thai}\\p{Script=Lao}\\p{Script=Khmer}\\p{Script=Myanmar}';
+
+const CONTINUOUS_SCRIPT = new RegExp(`[${CONTINUOUS_SCRIPT_CLASS}]`, 'u');
+
+// Boundary assertions for a term written in a spaced script.
+//
+// The naive form, (?<![\p{L}\p{N}_]), treats every letter as word-internal —
+// but Kana and Kanji are letters, so a Latin term sitting directly against
+// Japanese text looked word-internal and never matched. Japanese has no spaces,
+// so "それkwskで" is how that language actually writes it, and the term would
+// have fired only when a viewer happened to add spaces.
+//
+// These instead reject only a neighbouring letter or digit that is NOT itself
+// continuous-script. A change of script is a word boundary in its own right,
+// which is what makes "それkwskで" match while "xkwsk" and "kwskx" still do not.
+const BOUNDARY_BEFORE = `(?<!(?![${CONTINUOUS_SCRIPT_CLASS}])[\\p{L}\\p{N}_])`;
+const BOUNDARY_AFTER = `(?!(?![${CONTINUOUS_SCRIPT_CLASS}])[\\p{L}\\p{N}_])`;
 
 // Word segmentation stands in for the missing boundaries. It is what separates
 // "你在操什么" (操 is its own word, filter it) from "操作系统" (操 is the first
@@ -107,7 +124,7 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
         .map(key => {
             const literal = escapeLiteral(key);
             if (!CONTINUOUS_SCRIPT.test(key)) {
-                return `(?<![\\p{L}\\p{N}_])${literal}(?![\\p{L}\\p{N}_])`;
+                return `${BOUNDARY_BEFORE}${literal}${BOUNDARY_AFTER}`;
             }
             needsSegmentation = true;
             return literal;

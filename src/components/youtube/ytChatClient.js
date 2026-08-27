@@ -312,11 +312,9 @@ async function _handleMessage(channelId, msg) {
         channelEmoteMode: emoteMode,
         readFullUrls: ttsConfig.readFullUrls,
         pronunciationRules: getPronunciationRules(ttsConfig),
-            locale,
+        locale,
         emoteProcessor: processYouTubeEmotes,
     });
-
-    if (!processedText.trim()) return;
 
     // Determine TTS event type
     let ttsType;
@@ -373,7 +371,15 @@ async function _handleMessage(channelId, msg) {
             break;
     }
 
+    // Checked here rather than straight after formatTtsText, because a Super
+    // Sticker and a membership with no attached note both arrive with an empty
+    // message body and get their entire announcement from the switch above. The
+    // earlier check dropped every one of them before that ran.
     const finalText = announcementPrefix + processedText;
+    if (!finalText.trim()) {
+        logger.debug({ channelId, username, eventType }, 'YouTube Chat: nothing left to speak after formatting');
+        return;
+    }
 
     logger.debug({
         channelId,

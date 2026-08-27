@@ -82,9 +82,26 @@ async function resolvePronounSubject(t, login) {
  * The fragment carries its own leading space and is interpolated whole, so a catalog
  * message treats it as opaque the way it treats a username or a reward title.
  */
-function formatSubTier(t, subTier) {
+function subTierNumber(subTier) {
     const tier = Number(subTier) / 1000;
-    return Number.isInteger(tier) && tier >= 1 && tier <= 3 ? t('announce.tier', { n: tier }) : '';
+    return Number.isInteger(tier) && tier >= 1 && tier <= 3 ? tier : null;
+}
+
+function formatSubTier(t, subTier) {
+    const tier = subTierNumber(subTier);
+    return tier === null ? '' : t('announce.tier', { n: tier });
+}
+
+/**
+ * The parenthesised " (Tier 1)" form used on subscribe and resub.
+ *
+ * Guarded the same way as formatSubTier, which it was not before: a tier the
+ * subscription payload reports as anything other than 1000/2000/3000 divided to
+ * NaN and was announced out loud as "just subscribed (Tier NaN)".
+ */
+function formatSubTierParen(t, subTier) {
+    const tier = subTierNumber(subTier);
+    return tier === null ? '' : t('announce.tierParen', { n: tier });
 }
 
 /**
@@ -123,7 +140,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                 return;
             }
 
-            const tier = event.tier ? t('announce.tierParen', { n: event.tier / 1000 }) : '';
+            const tier = formatSubTierParen(t, event.tier);
             ttsText = t('announce.sub.new', { user: subUser, tier });
             username = subUser;
             userId = event.user_id;
@@ -141,7 +158,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
             }
 
             const months = event.cumulative_months || event.duration_months || 0;
-            const tier = event.tier ? t('announce.tierParen', { n: event.tier / 1000 }) : '';
+            const tier = formatSubTierParen(t, event.tier);
 
             // Sub streak (consecutive months). Twitch sends null when the viewer opts
             // not to share it, and a 1-month "streak" isn't worth announcing.
@@ -171,7 +188,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         channelEmoteMode: emoteMode,
                         readFullUrls: ttsConfig.readFullUrls || false,
                         pronunciationRules: getPronunciationRules(ttsConfig),
-            locale,
+                        locale,
                     });
                     if (formattedMessage) {
                         const { subject, g } = await pronounSubject;
@@ -345,7 +362,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                         channelEmoteMode: emoteMode,
                         readFullUrls: ttsConfig.readFullUrls || false,
                         pronunciationRules: getPronunciationRules(ttsConfig),
-            locale,
+                        locale,
                     });
                     if (formattedMessage) {
                         const { subject, g } = await pronounSubject;

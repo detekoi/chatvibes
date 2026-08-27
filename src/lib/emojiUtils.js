@@ -20,7 +20,11 @@ const AVAILABLE_LOCALES = new Set([
 const labelMaps = new Map();
 
 function resolveDataLocale(locale) {
-    const tag = String(locale || DEFAULT_LOCALE);
+    // Lowercased before lookup: BCP-47 conventionally capitalises script and
+    // region ("zh-Hant", "es-MX"), and matching those case-sensitively against a
+    // lowercase set would drop zh-Hant to the Simplified dataset and any
+    // uppercase tag to English.
+    const tag = String(locale || DEFAULT_LOCALE).toLowerCase();
     if (AVAILABLE_LOCALES.has(tag)) return tag;
     const base = tag.split('-')[0];
     if (AVAILABLE_LOCALES.has(base)) return base;
@@ -49,6 +53,10 @@ function getLabelMap(locale) {
         }
     } catch (err) {
         logger.error({ err, locale, dataLocale }, 'emojiUtils: emoji label data failed to load');
+        // Caching the empty map would leave this locale describing nothing at
+        // all, so emoji would be spoken as raw symbols. English labels are a
+        // worse answer than the right ones but a much better one than none.
+        if (dataLocale !== DEFAULT_LOCALE) return getLabelMap(DEFAULT_LOCALE);
     }
     labelMaps.set(dataLocale, map);
     return map;

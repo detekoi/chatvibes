@@ -372,3 +372,49 @@ describe('pronunciation', () => {
         });
     });
 });
+
+describe('script changes as word boundaries', () => {
+    // Japanese, Chinese and Thai are written without spaces, so a Latin term
+    // sitting against them has a letter on either side. The naive
+    // (?<![\p{L}\p{N}_]) anchor therefore treated it as word-internal and never
+    // fired — which is how those languages actually write it, so a term scoped
+    // to Japanese would have looked effective while doing nothing.
+    const rules = compileRules({ kwsk: '詳しく', ns: 'ナイスショット', gg: 'good game' });
+
+    test.each([
+        ['それkwskで', 'それ詳しくで', 'Kana on both sides'],
+        ['これはnsです', 'これはナイスショットです', 'Kana on both sides'],
+        ['kwsk お願い', '詳しく お願い', 'space before, Kana after'],
+        ['ns！', 'ナイスショット！', 'punctuation after'],
+        ['配信gg', '配信good game', 'Kanji before'],
+    ])('%s -> %s (%s)', (input, expected) => {
+        expect(applyRewrites(input, rules)).toBe(expected);
+    });
+
+    test.each([
+        ['xkwsk', 'Latin letter before'],
+        ['kwskx', 'Latin letter after'],
+        ['ID:ns123', 'digit after'],
+        ['1ns', 'digit before'],
+    ])('%s is still left alone (%s)', (input) => {
+        expect(applyRewrites(input, rules)).toBe(input);
+    });
+
+    test('English behaviour is unchanged by the relaxation', () => {
+        const en = compileRules({ fr: 'for real', lol: 'el oh el' });
+        expect(applyRewrites('fr real', en)).toBe('for real real');
+        expect(applyRewrites('frfr', en)).toBe('frfr');
+        expect(applyRewrites('before', en)).toBe('before');
+        expect(applyRewrites('lollipop', en)).toBe('lollipop');
+    });
+
+    test('a digit-bearing term now matches against CJK, which cuts both ways', () => {
+        // The upside: "おつo7です" is expanded. The cost: a term made only of
+        // digits would fire inside a number written next to Kanji, which is why
+        // 888 (proposed as applause) is left out of the dictionary — see
+        // docs/pronunciation-language-proposals.md.
+        const digits = compileRules({ o7: 'salute', 888: 'applause' });
+        expect(applyRewrites('おつo7です', digits)).toBe('おつsaluteです');
+        expect(applyRewrites('価格は888円', digits)).toBe('価格はapplause円');
+    });
+});

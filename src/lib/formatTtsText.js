@@ -39,10 +39,11 @@ import { applyRewrites } from './textRewrite/replaceEngine.js';
  * @param {boolean} [options.readFullUrls=false] - Whether to read full URLs aloud.
  * @param {object|null} [options.pronunciationRules=null] - Compiled rule set from
  *     getPronunciationRules, or null to skip the pass.
- * @param {string} [options.locale='en'] - BCP-47 tag for the channel, used for emoji
- *     labels and emote descriptions. Channel-level, not per-viewer: these are heard by
- *     everyone watching, and a viewer's own languageBoost override is only resolved
- *     later in ttsQueue.enqueue anyway.
+ * @param {string} [options.locale='en'] - BCP-47 tag for the channel, used for the
+ *     Unicode emoji labels and their wrapper wording. It does NOT yet reach the emote
+ *     describer, whose Gemini prompts and "(x emote)" wrapper are still English.
+ *     Channel-level, not per-viewer: these are heard by everyone watching, and a
+ *     viewer's own languageBoost override is only resolved later in ttsQueue.enqueue.
  * @param {Function} [options.emoteProcessor] - Emote step override, same
  *     signature as processEmoteFragments. YouTube passes its own processor so
  *     both platforms share the rest of the pipeline rather than duplicating it.

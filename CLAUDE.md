@@ -110,6 +110,10 @@ export TWITCH_CHANNELS=yourchannel
     heard phonetically, `omg` as "oh em gee"), so it is not relied on for anything.
   - Matching is case-insensitive and single-pass, so an expansion is never re-scanned by another
     rule. Word boundaries use `\p{L}\p{N}` lookarounds rather than `\b`, which is ASCII-only.
+    **A change of script is a boundary too**: Kana and Kanji are `\p{L}`, so without that a
+    Latin term never matched inside Japanese text — and since Japanese has no spaces, that is
+    how the language is written, meaning a Japanese-scoped entry would have fired only when a
+    viewer happened to add spaces around it. `それkwskで` now expands; `xkwsk` still does not.
   - MiniMax's own `pronunciation_dict` API parameter is deliberately **not** used: the probe showed
     it matches case-sensitively, so `LFG` would not match a `lfg` entry.
 - **Profanity filter** (`src/lib/profanity/`): off by default, per channel. Word lists for all 40

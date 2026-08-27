@@ -291,7 +291,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
                 channelEmoteMode: emoteMode,
                 readFullUrls: ttsConfig.readFullUrls || false,
                 pronunciationRules: getPronunciationRules(ttsConfig),
-            locale,
+                locale,
             });
             if (formattedInput) {
                 ttsText = t('announce.redemption.input', { text: ttsText, input: formattedInput });
@@ -506,7 +506,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
         channelEmoteMode,
         readFullUrls: ttsConfig.readFullUrls || false,
         pronunciationRules: getPronunciationRules(ttsConfig),
-            locale,
+        locale,
     });
 
     // Guard against empty result (e.g. all-emote message with emoteMode='skip')
