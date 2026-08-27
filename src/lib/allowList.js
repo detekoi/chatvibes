@@ -128,6 +128,23 @@ export function resolveToChannelName(identifier) {
 }
 
 /**
+ * Every channel whose bot is switched on and whose broadcaster ID is known, as
+ * `{ broadcasterId, channelName }`.
+ *
+ * Legacy documents predate `twitchUserId` and carry only a name, so they are
+ * skipped rather than reported with a null ID: the only caller is the Helix
+ * language sync, which has nothing to query without an ID.
+ */
+export function getActiveChannels() {
+  const out = [];
+  for (const id of activeBroadcasterIds) {
+    const channelName = channelIdToNameMap.get(id);
+    if (channelName) out.push({ broadcasterId: id, channelName });
+  }
+  return out;
+}
+
+/**
  * Drop a login name this broadcaster ID no longer goes by. A rename arrives as
  * a modified document carrying the same ID and a new channelName; without this
  * the old name would stay allowed and active for the life of the process, and

@@ -183,6 +183,16 @@ viewer can ignore — it is read out in a Spanish accent. Catalogs live in
   rejects the translated form as an invented placeholder.
 - The English catalog is the contract every other locale is checked against, so
   `translate-catalogs.js` refuses to translate it even when named explicitly.
+- **`src/lib/channelLanguageSync.js` fills the language in from Twitch** so a streamer who
+  never opens the dashboard still gets announcements in their own language. It reads
+  `broadcaster_language` from Helix `/channels` (via `getChannelInformation`, batching 100
+  broadcaster IDs per request) and **writes only when the channel has made no choice** —
+  `languageBoost` unset or one of the auto values. An explicit setting is never overwritten,
+  which is why this needs no opt-out in the dashboard. Twitch languages with no MiniMax
+  equivalent (`other`, `asl`, and the ones the provider does not synthesise) leave the
+  channel on auto rather than being guessed at. It runs from the leader-election hook
+  alongside EventSub, so N Cloud Run instances do not all poll Helix and race on the write,
+  and every write logs at `info` because the silent branches log at `debug`.
 
 ### Redemption announcements and the reward queue (`announceUnfulfilledRedemptions`)
 

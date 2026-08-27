@@ -31,6 +31,7 @@ import { createHash } from 'crypto';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import { validateCatalog } from '../src/i18n/validate.js';
+import { withTimeout } from '../src/lib/timeUtils.js';
 
 const MODEL = process.env.TRANSLATE_GEMINI_MODEL || 'gemini-3.7-flash';
 const TIMEOUT_MS = 120_000;
@@ -160,32 +161,17 @@ ${JSON.stringify(payload, null, 2)}`;
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 async function callModel(prompt, extra = '') {
-    const request = genAI.models.generateContent({
-        model: MODEL,
-        systemInstruction: SYSTEM_INSTRUCTION,
-        contents: [{ text: extra ? `${prompt}\n\n${extra}` : prompt }],
-        config: { responseMimeType: 'application/json' },
-    });
-
-    // Losing the race does not cancel the request. Without this, a call that
-    // times out and *then* fails rejects with nobody listening, which Node
-    // treats as an unhandled rejection and exits on.
-    request.catch(() => {});
-
-    let timer;
-    try {
-        const response = await Promise.race([
-            request,
-            new Promise((_, reject) => {
-                timer = setTimeout(() => reject(new Error('Gemini timeout')), TIMEOUT_MS);
-            }),
-        ]);
-        return JSON.parse(response.text);
-    } finally {
-        // An unfired timer keeps the event loop alive for its full duration, so
-        // the script would idle for TIMEOUT_MS after finishing its real work.
-        clearTimeout(timer);
-    }
+    const response = await withTimeout(
+        genAI.models.generateContent({
+            model: MODEL,
+            systemInstruction: SYSTEM_INSTRUCTION,
+            contents: [{ text: extra ? `${prompt}\n\n${extra}` : prompt }],
+            config: { responseMimeType: 'application/json' },
+        }),
+        TIMEOUT_MS,
+        'Gemini timeout',
+    );
+    return JSON.parse(response.text);
 }
 
 async function translateLocale(locale) {

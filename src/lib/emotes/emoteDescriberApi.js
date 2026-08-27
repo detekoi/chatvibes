@@ -2,6 +2,7 @@
 // Gemini Vision API integration for emote descriptions.
 // Responsibilities: client init, single-emote describe, batch-emote describe.
 import { GoogleGenAI } from '@google/genai';
+import { withTimeout } from '../timeUtils.js';
 import config from '../../config/index.js';
 import logger from '../logger.js';
 import { getCachedDescription, cacheDescription } from './emoteCache.js';
@@ -115,7 +116,7 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
         const contents = [...imageParts, { text: prompt }];
         const effectiveTimeout = animatedSuccess ? animatedTimeoutMs : timeoutMs;
 
-        const response = await Promise.race([
+        const response = await withTimeout(
             genAI.models.generateContent({
                 model: geminiModel,
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -131,10 +132,9 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
                     },
                 },
             }),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Gemini timeout')), effectiveTimeout)
-            ),
-        ]);
+            effectiveTimeout,
+            'Gemini timeout',
+        );
 
         const parsed = JSON.parse(response.text);
         const description = parsed?.description?.trim().replace(/[.!?,;:]+$/g, '');
@@ -235,7 +235,7 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch') {
 
         try {
             const batchTimeout = Math.max(baseTimeoutMs, group.length * 2000 + 5000);
-            const response = await Promise.race([
+            const response = await withTimeout(
                 genAI.models.generateContent({
                     model: geminiModel,
                     systemInstruction: SYSTEM_INSTRUCTION,
@@ -262,10 +262,9 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch') {
                         },
                     },
                 }),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Gemini batch timeout')), batchTimeout)
-                ),
-            ]);
+                batchTimeout,
+                'Gemini batch timeout',
+            );
 
             const parsed = JSON.parse(response.text);
             if (Array.isArray(parsed?.emotes)) {
@@ -330,7 +329,7 @@ export async function describeEmoteFromUrl(imageUrl, cacheKey, emoteName, platfo
         const emoteContext = buildEmoteContext(emoteName, null, platform);
         const prompt = `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name as a clue to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".`;
 
-        const result = await Promise.race([
+        const result = await withTimeout(
             genAI.models.generateContent({
                 model: geminiModel,
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -346,10 +345,9 @@ export async function describeEmoteFromUrl(imageUrl, cacheKey, emoteName, platfo
                     },
                 },
             }),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Gemini timeout')), timeoutMs)
-            ),
-        ]);
+            timeoutMs,
+            'Gemini timeout',
+        );
 
         const parsed = JSON.parse(result.text);
         const description = parsed?.description?.trim().replace(/[.!?,;:]+$/g, '');
