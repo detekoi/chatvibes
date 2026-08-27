@@ -19,17 +19,9 @@
 
 import { URL_REGEX } from '../urlProcessor.js';
 
-// Private Use Area sentinels. A URL is swapped for MASK_OPEN + index +
-// MASK_CLOSE while the rules run. Digits alone would be ambiguous: a message
-// like "I have 3 cats https://x.com" would see the restore pass match the
-// literal "3" and splice a URL into the wrong place. These code points cannot
-// appear in Twitch chat, and they are neither \p{L} nor \p{N}, so they read as
-// word boundaries to the matcher.
-const MASK_OPEN = '\uE000';
-const MASK_CLOSE = '\uE001';
-
-// Both sentinels, for stripping them out of incoming text.
-const MASK_CHARS = /[\uE000\uE001]/g;
+// Private Use Area code points have no legitimate use in chat and reach the TTS
+// API as junk, so they are dropped from incoming text.
+const PRIVATE_USE = /[\uE000-\uF8FF]/g;
 
 // Scripts written without spaces between words. A \p{L} lookaround is the
 // wrong boundary test for these, because neighbouring characters are letters
@@ -152,23 +144,41 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
 export function applyRewrites(text, rules) {
     if (!rules || typeof text !== 'string' || !text) return text;
 
-    // Strip any sentinel characters the message already contained. Without
-    // this, a message carrying both a URL and a forged MASK_OPEN + digits +
-    // MASK_CLOSE sequence would have that forgery rewritten into a copy of the
-    // URL by the restore pass below. These are Private Use Area code points
-    // with no legitimate use in chat, so dropping them costs nothing.
-    const safe = text.replace(MASK_CHARS, '');
+    const safe = text.replace(PRIVATE_USE, '');
 
-    const urls = [];
     // A fresh regex each call: URL_REGEX carries the g flag, and a shared
     // instance would leak lastIndex between messages.
     const urlRe = new RegExp(URL_REGEX.source, URL_REGEX.flags);
-    const masked = safe.replace(urlRe, match => {
-        urls.push(match);
-        return `${MASK_OPEN}${urls.length - 1}${MASK_CLOSE}`;
-    });
 
-    // Computed lazily and at most once per message: segmentation is only
+    // Rules run on the gaps between URLs, and the URLs themselves are copied
+    // through untouched.
+    //
+    // This used to swap each URL for a sentinel-wrapped index and rewrite the
+    // whole string in one pass, which put the index in band with the text the
+    // rules were matching. A rule whose key was a digit — `!tts pronounce 1 =
+    // one` is accepted, since a match key may start with \p{N} — then rewrote
+    // the index inside its own placeholder, the restore pass no longer
+    // recognised it, and the URL was lost with the sentinels left in the audio.
+    // Splitting has no in-band encoding to corrupt.
+    let out = '';
+    let cursor = 0;
+    for (const match of safe.matchAll(urlRe)) {
+        out += rewriteSegment(safe.slice(cursor, match.index), rules) + match[0];
+        cursor = match.index + match[0].length;
+    }
+    return out + rewriteSegment(safe.slice(cursor), rules);
+}
+
+/**
+ * Apply a rule set to one span of non-URL text.
+ * @param {string} segment
+ * @param {{re: RegExp, map: Map<string, string>, caseSensitive: boolean, needsSegmentation: boolean}} rules
+ * @returns {string}
+ */
+function rewriteSegment(segment, rules) {
+    if (!segment) return segment;
+
+    // Computed lazily and at most once per segment: segmentation is only
     // needed if a continuous-script term actually matches, which never happens
     // for an English channel.
     let bounds = null;
@@ -176,11 +186,11 @@ export function applyRewrites(text, rules) {
     // lastIndex is reset explicitly: the rule set is memoized and reused across
     // messages, and a stale lastIndex would skip the start of a string.
     rules.re.lastIndex = 0;
-    const rewritten = masked.replace(rules.re, (match, offset) => {
-        // Latin-script terms carry their own lookarounds in the pattern and are
-        // already correctly bounded, so they skip this entirely.
+    return segment.replace(rules.re, (match, offset) => {
+        // Terms in a spaced script carry their own lookarounds in the pattern
+        // and are already correctly bounded, so they skip this entirely.
         if (rules.needsSegmentation && CONTINUOUS_SCRIPT.test(match)) {
-            bounds ??= segmentBoundaries(masked);
+            bounds ??= segmentBoundaries(segment);
             if (!bounds.has(offset) || !bounds.has(offset + match.length)) {
                 return match;
             }
@@ -188,11 +198,6 @@ export function applyRewrites(text, rules) {
         const key = rules.caseSensitive ? match : match.toLowerCase();
         return rules.map.get(key) ?? match;
     });
-
-    if (!urls.length) return rewritten;
-
-    const restoreRe = new RegExp(`${MASK_OPEN}(\\d+)${MASK_CLOSE}`, 'g');
-    return rewritten.replace(restoreRe, (whole, i) => urls[Number(i)] ?? whole);
 }
 
 /**

@@ -418,3 +418,54 @@ describe('script changes as word boundaries', () => {
         expect(applyRewrites('価格は888円', digits)).toBe('価格はapplause円');
     });
 });
+
+describe('URLs are never rewritten', () => {
+    // This path had no coverage at all, which is how the corruption below
+    // survived: rules ran over a sentinel-encoded index that lived in band with
+    // the text being matched.
+    const rules = compileRules({ fr: 'for real', gg: 'good game' });
+
+    test('a dictionary key inside a URL is left alone', () => {
+        const text = 'see https://example.com/fr/gg-page for details';
+        expect(applyRewrites(text, rules)).toBe(text);
+    });
+
+    test('text around a URL is still rewritten', () => {
+        expect(applyRewrites('gg see https://example.com fr', rules))
+            .toBe('good game see https://example.com for real');
+    });
+
+    test('multiple URLs all survive', () => {
+        const text = 'https://a.example.com and https://b.example.com';
+        expect(applyRewrites(text, rules)).toBe(text);
+    });
+
+    test('a digit rule does not destroy URLs', () => {
+        // The original bug. A match key may begin with \p{N}, so
+        // "!tts pronounce 1 = one" is a supported thing for a moderator to do.
+        // The URL placeholder was an index between two non-word sentinels, so a
+        // digit rule rewrote the index inside the placeholder, the restore pass
+        // stopped recognising it, and both URLs vanished — leaving private-use
+        // characters in the text sent to the synthesiser.
+        const digits = compileRules({ 1: 'one', 0: 'zero' });
+        const text = 'check https://example.com/page1 and https://google.com';
+        const out = applyRewrites(text, digits);
+        expect(out).toBe(text);
+        expect(out).not.toMatch(/[\uE000-\uF8FF]/);
+    });
+
+    test('digits outside a URL are still rewritten', () => {
+        const digits = compileRules({ 1: 'one' });
+        expect(applyRewrites('take 1 https://example.com/1', digits))
+            .toBe('take one https://example.com/1');
+    });
+
+    test('private use characters in the message are dropped', () => {
+        expect(applyRewrites('hi \uE000\uE001 there', rules)).toBe('hi  there');
+    });
+
+    test('a term adjacent to a URL still matches, as the mask boundary allowed', () => {
+        expect(applyRewrites('https://example.com gg', rules))
+            .toBe('https://example.com good game');
+    });
+});

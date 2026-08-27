@@ -114,6 +114,12 @@ export TWITCH_CHANNELS=yourchannel
     Latin term never matched inside Japanese text — and since Japanese has no spaces, that is
     how the language is written, meaning a Japanese-scoped entry would have fired only when a
     viewer happened to add spaces around it. `それkwskで` now expands; `xkwsk` still does not.
+  - **Rules run on the gaps between URLs; the URLs are copied through untouched.** They used
+    to be swapped for a sentinel-wrapped index and the whole string rewritten in one pass,
+    which put that index in band with the text being matched — a rule whose key was a digit
+    (`!tts pronounce 1 = one` is accepted, since a match key may start with `\p{N}`) rewrote
+    the index inside its own placeholder, and both the URL and the restore were lost, leaving
+    private-use characters in the audio. Splitting has no in-band encoding to corrupt.
   - MiniMax's own `pronunciation_dict` API parameter is deliberately **not** used: the probe showed
     it matches case-sensitively, so `LFG` would not match a `lfg` entry.
 - **Profanity filter** (`src/lib/profanity/`): off by default, per channel. Word lists for all 40

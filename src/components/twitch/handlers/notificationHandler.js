@@ -76,17 +76,21 @@ async function resolvePronounSubject(t, login) {
 }
 
 /**
- * The " Tier 1" fragment from a chat notification's sub_tier ("1000"/"2000"/"3000"), or
- * "" when the field is missing or not one of those values.
- *
- * The fragment carries its own leading space and is interpolated whole, so a catalog
- * message treats it as opaque the way it treats a username or a reward title.
+ * 1, 2 or 3 from a sub_tier of "1000"/"2000"/"3000", or null for anything else —
+ * including the "Prime" some payloads carry, which divided to NaN and was
+ * announced out loud as "Tier NaN".
  */
 function subTierNumber(subTier) {
     const tier = Number(subTier) / 1000;
     return Number.isInteger(tier) && tier >= 1 && tier <= 3 ? tier : null;
 }
 
+/**
+ * The " Tier 1" fragment, or "" when there is no usable tier.
+ *
+ * It carries its own leading space and is interpolated whole, so a catalog
+ * message treats it as opaque the way it treats a username or a reward title.
+ */
 function formatSubTier(t, subTier) {
     const tier = subTierNumber(subTier);
     return tier === null ? '' : t('announce.tier', { n: tier });
