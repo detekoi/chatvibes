@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} надіслав Super Sticker",
   "announce.yt.member.message": "Новий спонсор каналу YouTube {user}: {subtext}. ",
   "announce.yt.member": "{user} щойно оформив спонсорство на YouTube! ",
-  "emoji.wrap": "{count, plural, one {(емодзі {description})} few {(# емодзі {description})} many {(# емодзі {description})} other {(# емодзі {description})}}",
-  "emote.wrap": "{count, plural, one {(емоут {description})} few {(# емоути {description})} many {(# емоутів {description})} other {(# емоута {description})}}",
+  "emoji.wrap": "({description} емодзі)",
+  "emote.wrap": "({description} емоут)",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} few {(# {name})} many {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} few {(# {name})} many {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# {description} емодзі)} few {(# {description} емодзі)} many {(# {description} емодзі)} other {(# {description} емодзі)}}",
+  "emote.wrap.repeated": "{count, plural, one {(# {description} емоут)} few {(# {description} емоути)} many {(# {description} емоутів)} other {(# {description} емоута)}}"
 }

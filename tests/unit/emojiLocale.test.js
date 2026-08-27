@@ -3,6 +3,7 @@
 // not just seen. These cover the locale plumbing and the skin-tone reordering
 // bug that was invisible in English.
 
+import { readFileSync } from 'fs';
 import { replaceEmojisWithText, _internals } from '../../src/lib/emojiUtils.js';
 
 describe('localized labels', () => {
@@ -20,16 +21,25 @@ describe('localized labels', () => {
         expect(replaceEmojisWithText('hey 🔥')).toBe('hey (fire emoji)');
     });
 
-    test('a locale with no emoji data keeps its own wrapper and falls back only on the label', () => {
+    test.each(['ar', 'tr'])('%s keeps its own wrapper and falls back only on the label', (locale) => {
         // The wrapper and the label come from different places: the wrapper is
         // our catalog (all 40 locales), the label is emojibase (26 locales, of
-        // which 22 overlap). Arabic, Turkish and Afrikaans have a wrapper but no
-        // labels, so they degrade partially rather than all the way to English.
-        for (const locale of ['ar', 'tr', 'af']) {
-            const out = replaceEmojisWithText('hey 🔥', locale);
-            expect(out).toContain('fire');       // label fell back
-            expect(out).not.toBe('hey (fire emoji)'); // wrapper did not
-        }
+        // which 22 overlap). These two have a wrapper but no labels, so they
+        // degrade partially rather than all the way to English.
+        const out = replaceEmojisWithText('hey 🔥', locale);
+        expect(out).toContain('fire');            // label fell back
+        expect(out).not.toBe('hey (fire emoji)'); // wrapper did not
+    });
+
+    test('a wrapper that legitimately matches English is not a fallback', () => {
+        // Afrikaans borrows "emoji" and shares the word order, so its catalog
+        // entry is identical to the English one. The output therefore looks like
+        // a total fallback while being a correct translation — which is why the
+        // case above names locales whose wrapper actually differs rather than
+        // asserting "not English" across the board.
+        const af = JSON.parse(readFileSync('src/i18n/messages/af.json', 'utf8'));
+        expect(af['emoji.wrap']).toBe('({description} emoji)');
+        expect(replaceEmojisWithText('hey 🔥', 'af')).toBe('hey (fire emoji)');
     });
 
     test('an unknown locale falls back on both, rather than loading nothing', () => {

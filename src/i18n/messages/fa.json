@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} یک Super Sticker فرستاد",
   "announce.yt.member.message": "عضو جدید YouTube {user}: {subtext}. ",
   "announce.yt.member": "{user} همین الان عضو YouTube شد! ",
-  "emoji.wrap": "{count, plural, one {(ایموجی {description})} other {(# ایموجی {description})}}",
-  "emote.wrap": "{count, plural, one {(ایموت {description})} other {(# ایموت {description})}}",
+  "emoji.wrap": "(ایموجی {description})",
+  "emote.wrap": "(ایموت {description})",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# ایموجی {description})} other {(# ایموجی {description})}}",
+  "emote.wrap.repeated": "{count, plural, one {(# ایموت {description})} other {(# ایموت {description})}}"
 }

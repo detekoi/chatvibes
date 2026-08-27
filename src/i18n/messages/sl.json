@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} je poslal Super Sticker",
   "announce.yt.member.message": "Nov YouTube član {user}: {subtext}. ",
   "announce.yt.member": "{user} je pravkar postal YouTube član! ",
-  "emoji.wrap": "{count, plural, one {({description} emoji)} two {(# {description} emojija)} few {(# {description} emojiji)} other {(# {description} emojijev)}}",
-  "emote.wrap": "{count, plural, one {({description} emote)} two {(# {description} emota)} few {(# {description} emoti)} other {(# {description} emotov)}}",
+  "emoji.wrap": "({description} emodži)",
+  "emote.wrap": "({description} emot)",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} two {(# {name})} few {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} two {(# {name})} few {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# {description} emodži)} two {(# {description} emodžija)} few {(# {description} emodžiji)} other {(# {description} emodžijev)}}",
+  "emote.wrap.repeated": "{count, plural, one {(# {description} emot)} two {(# {description} emota)} few {(# {description} emoti)} other {(# {description} emotov)}}"
 }

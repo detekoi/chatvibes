@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} ஒரு Super Sticker அனுப்பியுள்ளார்",
   "announce.yt.member.message": "புதிய YouTube மெம்பர் {user}: {subtext}. ",
   "announce.yt.member": "{user} இப்போது ஒரு YouTube மெம்பர் ஆகியுள்ளார்! ",
-  "emoji.wrap": "{count, plural, one {({description} ஈமோஜி)} other {(# {description} ஈமோஜிகள்)}}",
-  "emote.wrap": "{count, plural, one {({description} எமோட்)} other {(# {description} எமோட்டுகள்)}}",
+  "emoji.wrap": "({description} ஈமோஜி)",
+  "emote.wrap": "({description} எமோட்)",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# {description} ஈமோஜி)} other {(# {description} ஈமோஜிகள்)}}",
+  "emote.wrap.repeated": "{count, plural, one {(# {description} எமோட்)} other {(# {description} எமோட்கள்)}}"
 }

@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} a trimis un Super Sticker",
   "announce.yt.member.message": "Membru nou YouTube {user}: {subtext}. ",
   "announce.yt.member": "{user} tocmai a devenit membru YouTube! ",
-  "emoji.wrap": "{count, plural, one {(emoji {description})} few {(# emoji-uri {description})} other {(# de emoji-uri {description})}}",
-  "emote.wrap": "{count, plural, one {(emote {description})} few {(# emote-uri {description})} other {(# de emote-uri {description})}}",
+  "emoji.wrap": "(emoji {description})",
+  "emote.wrap": "(emote {description})",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} few {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} few {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# emoji {description})} few {(# emoji-uri {description})} other {(# de emoji-uri {description})}}",
+  "emote.wrap.repeated": "{count, plural, one {(# emote {description})} few {(# emote-uri {description})} other {(# de emote-uri {description})}}"
 }

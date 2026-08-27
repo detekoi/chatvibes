@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} het 'n Super Sticker gestuur",
   "announce.yt.member.message": "Nuwe YouTube-lid {user}: {subtext}. ",
   "announce.yt.member": "{user} het pas 'n YouTube-lid geword! ",
-  "emoji.wrap": "{count, plural, one {({description}-emoji)} other {(# {description}-emojis)}}",
-  "emote.wrap": "{count, plural, one {({description}-emote)} other {(# {description}-emotes)}}",
+  "emoji.wrap": "({description} emoji)",
+  "emote.wrap": "({description} emote)",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# {description} emoji)} other {(# {description} emojis)}}",
+  "emote.wrap.repeated": "{count, plural, one {(# {description} emote)} other {(# {description} emotes)}}"
 }

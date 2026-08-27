@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} lähetti Super Stickerin",
   "announce.yt.member.message": "Uusi YouTube-jäsen {user}: {subtext}. ",
   "announce.yt.member": "{user} liittyi juuri YouTube-jäseneksi! ",
-  "emoji.wrap": "{count, plural, one {({description}-emoji)} other {(# {description}-emojia)}}",
-  "emote.wrap": "{count, plural, one {({description}-emote)} other {(# {description}-emotea)}}",
+  "emoji.wrap": "({description}-emoji)",
+  "emote.wrap": "({description}-emote)",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# {description}-emoji)} other {(# {description}-emojia)}}",
+  "emote.wrap.repeated": "{count, plural, one {(# {description}-emote)} other {(# {description}-emotea)}}"
 }

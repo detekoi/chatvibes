@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} poslal Super Sticker",
   "announce.yt.member.message": "Nový člen YouTube {user}: {subtext}. ",
   "announce.yt.member": "{user} se právě stal členem na YouTube! ",
-  "emoji.wrap": "{count, plural, one {(emoji {description})} few {(# emoji {description})} many {(# emoji {description})} other {(# emoji {description})}}",
-  "emote.wrap": "{count, plural, one {(emote {description})} few {(# emoty {description})} many {(# emotů {description})} other {(# emotů {description})}}",
+  "emoji.wrap": "({description} emoji)",
+  "emote.wrap": "({description} emote)",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} few {(# {name})} many {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} few {(# {name})} many {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# {description} emoji)} few {(# {description} emoji)} many {(# {description} emoji)} other {(# {description} emoji)}}",
+  "emote.wrap.repeated": "{count, plural, one {(# {description} emote)} few {(# {description} emoty)} many {(# {description} emotů)} other {(# {description} emotů)}}"
 }

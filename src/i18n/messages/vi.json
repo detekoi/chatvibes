@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} đã gửi Super Sticker",
   "announce.yt.member.message": "Hội viên YouTube mới {user}: {subtext}. ",
   "announce.yt.member": "{user} vừa trở thành hội viên YouTube! ",
-  "emoji.wrap": "{count, plural, other {(# emoji {description})}}",
-  "emote.wrap": "{count, plural, other {(# emote {description})}}",
+  "emoji.wrap": "(emoji {description})",
+  "emote.wrap": "(emote {description})",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, other {(# emoji {description})}}",
+  "emote.wrap.repeated": "{count, plural, other {(# emote {description})}}"
 }

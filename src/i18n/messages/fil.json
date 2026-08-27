@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "Nagpadala si {user} ng Super Sticker",
   "announce.yt.member.message": "Bagong YouTube member si {user}: {subtext}. ",
   "announce.yt.member": "Kaka-member lang ni {user} sa YouTube! ",
-  "emoji.wrap": "{count, plural, one {({description} emoji)} other {(# na {description} emoji)}}",
-  "emote.wrap": "{count, plural, one {({description} emote)} other {(# na {description} emote)}}",
+  "emoji.wrap": "({description} emoji)",
+  "emote.wrap": "({description} emote)",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}"
+  "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# {description} emoji)} other {(# {description} emoji)}}",
+  "emote.wrap.repeated": "{count, plural, one {(# {description} emote)} other {(# {description} emote)}}"
 }
