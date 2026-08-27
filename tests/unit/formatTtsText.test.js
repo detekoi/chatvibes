@@ -174,7 +174,9 @@ describe('formatTtsText', () => {
             });
 
             expect(result).toBe('hello (laughing face emote)');
-            expect(mockProcessMessageWithEmoteDescriptions).toHaveBeenCalledWith(fragments);
+            // The locale reaches the describer so its Gemini prompt asks for the
+            // channel's language, and the cache key separates the results.
+            expect(mockProcessMessageWithEmoteDescriptions).toHaveBeenCalledWith(fragments, 'en');
         });
 
         test('should fall back to read when Gemini unavailable and channel default is describe', async () => {

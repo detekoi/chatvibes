@@ -4,6 +4,7 @@
 // broadcaster's emoteMode setting (read / skip / describe).
 
 import { createHash } from 'crypto';
+import { getTranslator, DEFAULT_LOCALE } from '../../i18n/index.js';
 import logger from '../../lib/logger.js';
 import { isGeminiAvailable, describeEmoteFromUrl } from '../../lib/emotes/index.js';
 
@@ -17,7 +18,7 @@ import { isGeminiAvailable, describeEmoteFromUrl } from '../../lib/emotes/index.
  * @param {string} channelEmoteMode - Channel-level default (used as describe fallback).
  * @returns {Promise<string>} Processed text with emotes handled per mode.
  */
-export async function processYouTubeEmotes(text, emoteFragments, emoteMode, channelEmoteMode) {
+export async function processYouTubeEmotes(text, emoteFragments, emoteMode, channelEmoteMode, locale = DEFAULT_LOCALE) {
     // No custom emote fragments — return text as-is (unicode emoji handled separately)
     if (!emoteFragments || emoteFragments.length === 0) {
         return text;
@@ -34,7 +35,7 @@ export async function processYouTubeEmotes(text, emoteFragments, emoteMode, chan
     // emoteMode === 'describe'
     if (isGeminiAvailable()) {
         try {
-            const described = await describeEmoteFragments(emoteFragments);
+            const described = await describeEmoteFragments(emoteFragments, locale);
             if (described) return described;
         } catch (error) {
             logger.debug({ err: error }, 'YouTube emote description failed, falling back');
@@ -88,7 +89,9 @@ function skipEmoteFragments(fragments) {
  * @param {Array} fragments
  * @returns {Promise<string | null>}
  */
-async function describeEmoteFragments(fragments) {
+async function describeEmoteFragments(fragments, locale = DEFAULT_LOCALE) {
+    const t = getTranslator(locale);
+
     // Collect unique emotes
     const uniqueEmotes = new Map(); // imageUrl -> { label, count }
     const orderedFrags = [];
@@ -120,7 +123,7 @@ async function describeEmoteFragments(fragments) {
     for (const [imageUrl, { label }] of uniqueEmotes) {
         const cacheKey = urlToCacheKey(imageUrl);
         describePromises.push(
-            describeEmoteFromUrl(imageUrl, cacheKey, label, 'youtube')
+            describeEmoteFromUrl(imageUrl, cacheKey, label, 'youtube', locale)
                 .then(desc => {
                     if (desc) descriptionMap.set(imageUrl, desc);
                 })
@@ -141,12 +144,14 @@ async function describeEmoteFragments(fragments) {
             const desc = descriptionMap.get(frag.imageUrl);
             const count = frag.count || 1;
             if (desc) {
-                outputParts.push(count > 1 ? `(${count} ${desc} emotes)` : `(${desc} emote)`);
+                outputParts.push(t('emote.wrap', { count, description: desc }));
             } else {
                 // Fallback to label/name
                 const label = frag.label || frag.text?.replace(/:/g, '') || '';
                 if (label) {
-                    outputParts.push(count > 1 ? `(${count} ${label})` : label);
+                    outputParts.push(count > 1
+                        ? t('emote.fallback.repeated', { count, name: label })
+                        : t('emote.fallback', { name: label }));
                 }
             }
         } else if (frag.type === 'text') {

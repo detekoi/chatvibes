@@ -192,11 +192,31 @@ viewer can ignore — it is read out in a Spanish accent. Catalogs live in
   announcement is heard by the whole channel. This is why announcements render in the handler
   before dispatch and `ttsQueue.enqueue`'s per-message resolution is untouched — in
   particular the profanity filter that deliberately lives there did not have to move.
+- **Emote descriptions are generated natively in the channel's language**, not translated
+  after the fact: they are two to six words with no surrounding context, which is far too
+  little for a translation pass to work from. `emoteDescriberApi.js` appends a "reply in X"
+  clause to its Gemini prompt, and `emoteCache.js` keys on **`emoteId` + locale** — except
+  for English, which keeps the bare emote id so every document written before this stays
+  correct and no backfill is needed. `findEmoteDescriptionsByName` filters locale in memory
+  rather than in the query, because those legacy documents have no `locale` field at all and
+  a `where` clause would skip every one of them; it also returns the *base* emote id, since
+  handing back the `"<emoteId>:<locale>"` document id would make the next write suffix it
+  twice. `!tts emote` passes the channel's locale, so a moderator edits their own language.
 - **Translations are generated at build time and committed**, by `npm run translate`
   (`gemini-3.7-flash`). Runtime translation was rejected for these strings: they are a closed
   set of templates, so translating per-message would put a Gemini round-trip in the TTS hot
   path and produce output that varies between renders. Emote descriptions are the one
   genuinely unbounded surface and stay a runtime call.
+- **Re-translation is incremental at two levels.** A per-key hash covers that key's English
+  text and its own translator note; a global hash covers the system instruction, glossary and
+  do-not-translate list. Editing one note therefore re-translates one key, while changing the
+  glossary correctly invalidates everything. Folding the notes into the global hash, as the
+  first version did, made a single note edit re-translate every key in all 39 locales.
+- **A message whose singular and plural differ in *shape* needs two keys, not one plural.**
+  The emote fallback reads as the bare name for one and `(3 Kappa)` for several. Expressed as
+  one plural message, a language whose only category is `other` has to pick a single shape,
+  and Japanese came back as `(1Kappa)` where English says `Kappa`. Splitting it keeps the
+  validator's category check strict, which an `=1` branch would have forced us to relax.
 - **Nothing from the model is trusted.** `src/i18n/validate.js` runs in CI over every
   catalog: keys complete, no orphans, placeholders preserved, ICU well-formed, and plural
   branches matching *exactly* the categories `Intl.PluralRules` reports for that locale. That

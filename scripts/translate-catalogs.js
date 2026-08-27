@@ -37,6 +37,8 @@ const MODEL = process.env.TRANSLATE_GEMINI_MODEL || 'gemini-3.7-flash';
 const TIMEOUT_MS = 120_000;
 const CONCURRENCY = 4;
 const BATCH_SIZE = 40;
+const MAX_RETRIES = 4;
+const RETRY_BASE_MS = 2000;
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -73,14 +75,20 @@ if (requested.length !== targets.length) {
 
 const hash = (s) => createHash('sha256').update(String(s)).digest('hex').slice(0, 16);
 
-const PROMPT_VERSION = 4;
+const PROMPT_VERSION = 5;
+// Split deliberately. The global hash covers what changes every message — the
+// system instruction, the glossary, the do-not-translate list — and invalidates
+// everything when it moves. A key's own hash covers its English text and its own
+// translator note, so adding a note for one key re-translates that key rather
+// than all thirty across all thirty-nine locales.
 const promptHash = hash(JSON.stringify({
     v: PROMPT_VERSION,
     context: config.context,
     doNotTranslate: config.doNotTranslate,
     glossary: config.glossary,
-    notes: source._notes,
 }));
+
+const keyHash = (key) => hash(JSON.stringify([source[key], source._notes?.[key] ?? null]));
 
 const displayName = (locale) => {
     const entry = Object.entries(localesMeta.LANGUAGE_BOOSTS).find(([, v]) => v.bcp47 === locale);
@@ -108,7 +116,7 @@ function staleKeys(locale, existing) {
         if (key.startsWith('_')) return false;
         if (FORCE) return true;
         if (!(key in existing)) return true;
-        return seen[key] !== hash(source[key]);
+        return seen[key] !== keyHash(key);
     });
 }
 
@@ -161,17 +169,31 @@ ${JSON.stringify(payload, null, 2)}`;
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 async function callModel(prompt, extra = '') {
-    const response = await withTimeout(
-        genAI.models.generateContent({
-            model: MODEL,
-            systemInstruction: SYSTEM_INSTRUCTION,
-            contents: [{ text: extra ? `${prompt}\n\n${extra}` : prompt }],
-            config: { responseMimeType: 'application/json' },
-        }),
-        TIMEOUT_MS,
-        'Gemini timeout',
-    );
-    return JSON.parse(response.text);
+    // Flash models return 503 UNAVAILABLE under load often enough that a single
+    // attempt leaves whole locales unwritten — eight of thirty-nine on one run.
+    // The failure is transient and the work is idempotent, so back off and retry
+    // rather than making the operator notice and re-run by hand.
+    for (let attempt = 0; ; attempt++) {
+        try {
+            const response = await withTimeout(
+                genAI.models.generateContent({
+                    model: MODEL,
+                    systemInstruction: SYSTEM_INSTRUCTION,
+                    contents: [{ text: extra ? `${prompt}\n\n${extra}` : prompt }],
+                    config: { responseMimeType: 'application/json' },
+                }),
+                TIMEOUT_MS,
+                'Gemini timeout',
+            );
+            return JSON.parse(response.text);
+        } catch (err) {
+            const transient = /50[23]|UNAVAILABLE|high demand|timeout|429|RESOURCE_EXHAUSTED/i.test(err.message);
+            if (!transient || attempt >= MAX_RETRIES) throw err;
+            const waitMs = RETRY_BASE_MS * 2 ** attempt;
+            console.error(`  retrying in ${waitMs}ms after: ${err.message.slice(0, 80)}`);
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+        }
+    }
 }
 
 async function translateLocale(locale) {
@@ -219,7 +241,7 @@ async function translateLocale(locale) {
 
     sidecar[locale] = {
         _prompt: promptHash,
-        ...Object.fromEntries(Object.keys(source).filter(k => !k.startsWith('_')).map(k => [k, hash(source[k])])),
+        ...Object.fromEntries(Object.keys(source).filter(k => !k.startsWith('_')).map(k => [k, keyHash(k)])),
     };
     return { locale, translated: keys.length };
 }

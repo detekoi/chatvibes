@@ -5,13 +5,13 @@
   "announce.sub.resub": "¡{user} se volvió a suscribir por {months, plural, one {# mes} many {# meses} other {# meses}}{streak}{tier}!",
   "announce.sub.streak": ", con una racha de {months} meses",
   "announce.sub.gift.single": "¡{user} le regaló una sub{tier} a {recipient}!",
-  "announce.sub.gift.communityAnon": "¡{count, plural, one {#{tier} sub regalada} many {#{tier} subs regaladas} other {#{tier} subs regaladas}} de alguien anónimo!",
+  "announce.sub.gift.communityAnon": "¡{count, plural, one {#{tier} sub de regalo} many {#{tier} subs de regalo} other {#{tier} subs de regalo}} de alguien anónimo!",
   "announce.sub.gift.community": "¡{user} acaba de regalar {count, plural, one {#{tier} sub} many {#{tier} subs} other {#{tier} subs}}!",
   "announce.cheer": "¡{user} envió {count, plural, one {# bit} many {# bits} other {# bits}}!",
   "announce.cheer.anon": "¡{count, plural, one {# bit} many {# bits} other {# bits}} de alguien anónimo!",
-  "announce.raid": "¡{user} está haciendo raid con {count, plural, one {# espectador} many {# espectadores} other {# espectadores}}!",
+  "announce.raid": "¡{user} está haciendo una raid con {count, plural, one {# espectador} many {# espectadores} other {# espectadores}}!",
   "announce.follow": "¡{user} acaba de seguir el canal!",
-  "announce.follow.anon": "¡Alguien acaba de seguir el canal!",
+  "announce.follow.anon": "¡Alguien nuevo acaba de seguir el canal!",
   "announce.watchStreak": "¡{user} lleva una racha de {count} streams seguidos!",
   "announce.saidMessage": " {subject} {g, select, other {dijo}}: {message}",
   "announce.redemption": "{user} canjeó {reward}",
@@ -26,5 +26,7 @@
   "announce.yt.supersticker": "{user} envió un Super Sticker",
   "announce.yt.member.message": "Nuevo miembro de YouTube {user}: {subtext}. ",
   "announce.yt.member": "¡{user} acaba de hacerse miembro de YouTube! ",
-  "emoji.wrap": "{count, plural, one {(emoji de {description})} many {(# emojis de {description})} other {(# emojis de {description})}}"
+  "emoji.wrap": "{count, plural, one {(emoji de {description})} many {(# emojis de {description})} other {(# emojis de {description})}}",
+  "emote.wrap": "{count, plural, one {(emote de {description})} many {(# emotes de {description})} other {(# emotes de {description})}}",
+  "emote.fallback": "{count, plural, one {{name}} many {(# {name})} other {(# {name})}}"
 }

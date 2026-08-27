@@ -194,8 +194,10 @@ describe('Emote Description Firestore Cache', () => {
             const results = await findEmoteDescriptionsByName('LUL');
 
             expect(results).toHaveLength(2);
-            expect(results[0]).toEqual({ emoteId: 'emote100', description: 'laughing person', emoteName: 'LUL', ownerId: null });
-            expect(results[1]).toEqual({ emoteId: 'emote200', description: 'laughing loudly', emoteName: 'LUL', ownerId: null });
+            // Rows carry the locale they were stored under; a legacy document with no
+            // locale field reads as English rather than being skipped.
+            expect(results[0]).toEqual({ emoteId: 'emote100', locale: 'en', description: 'laughing person', emoteName: 'LUL', ownerId: null });
+            expect(results[1]).toEqual({ emoteId: 'emote200', locale: 'en', description: 'laughing loudly', emoteName: 'LUL', ownerId: null });
             expect(mockFirestoreCollection.where).toHaveBeenCalledWith('emoteName', '==', 'LUL');
         });
 
@@ -295,6 +297,7 @@ describe('Emote TTS Subcommand', () => {
     let mockChatSender;
     let mockLogger;
     let mockEmoteDescriber;
+    let mockTtsState;
 
     beforeEach(() => {
         jest.resetModules();
@@ -331,6 +334,11 @@ describe('Emote TTS Subcommand', () => {
             getBroadcasterIdByLogin: jest.fn().mockResolvedValue('12345'),
             getChannelEmotes: jest.fn().mockResolvedValue([]),
         }));
+
+        // ...and from ttsState, to find the channel's language: descriptions are
+        // stored per locale, so a moderator must edit the one their channel speaks.
+        mockTtsState = { getTtsState: jest.fn().mockResolvedValue({}) };
+        jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => mockTtsState);
     });
 
     test('should show usage when no args', async () => {
@@ -402,7 +410,7 @@ describe('Emote TTS Subcommand', () => {
             replyToId: '123',
         });
 
-        expect(mockEmoteDescriber.invalidateEmoteDescription).toHaveBeenCalledWith('e1');
+        expect(mockEmoteDescriber.invalidateEmoteDescription).toHaveBeenCalledWith('e1', 'en');
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
             '#testchannel',
             expect.stringContaining('Cleared 1'),
@@ -459,7 +467,7 @@ describe('Emote TTS Subcommand', () => {
             replyToId: '123',
         });
 
-        expect(mockEmoteDescriber.setEmoteDescription).toHaveBeenCalledWith('e1', 'LUL', 'laughing face', '12345');
+        expect(mockEmoteDescriber.setEmoteDescription).toHaveBeenCalledWith('e1', 'LUL', 'laughing face', '12345', 'en');
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
             '#testchannel',
             expect.stringContaining('Updated 1'),
@@ -505,5 +513,20 @@ describe('Emote TTS Subcommand', () => {
     test('should have moderator permission', async () => {
         const emoteCmd = await import('../../src/components/commands/tts/emote.js');
         expect(emoteCmd.default.permission).toBe('moderator');
+    });
+
+    test('looks up descriptions in the channel language, not English', async () => {
+        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: 'Spanish' });
+        const emoteCmd = await import('../../src/components/commands/tts/emote.js');
+
+        await emoteCmd.default.execute({
+            channel: '#testchannel',
+            user: { username: 'mod', mod: true },
+            args: ['LUL'],
+            reply: jest.fn(),
+            say: jest.fn(),
+        });
+
+        expect(mockEmoteDescriber.findEmoteDescriptionsByName).toHaveBeenCalledWith('LUL', 'es');
     });
 });

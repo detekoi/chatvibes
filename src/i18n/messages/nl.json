@@ -4,7 +4,7 @@
   "announce.sub.new": "{user} is net geabonneerd{tier}!",
   "announce.sub.resub": "{user} is opnieuw geabonneerd voor {months, plural, one {# maand} other {# maanden}}{streak}{tier}!",
   "announce.sub.streak": ", met een streak van {months} maanden",
-  "announce.sub.gift.single": "{user} heeft net een{tier} sub gegeven aan {recipient}!",
+  "announce.sub.gift.single": "{user} heeft net een{tier} sub aan {recipient} gegeven!",
   "announce.sub.gift.communityAnon": "{count, plural, one {#{tier} gift sub} other {#{tier} gift subs}} van een anonieme gever!",
   "announce.sub.gift.community": "{user} heeft net {count, plural, one {#{tier} sub} other {#{tier} subs}} gegeven!",
   "announce.cheer": "{user} heeft {count, plural, one {# bit} other {# bits}} gecheerd!",
@@ -12,7 +12,7 @@
   "announce.raid": "{user} raidt met {count, plural, one {# kijker} other {# kijkers}}!",
   "announce.follow": "{user} volgt nu!",
   "announce.follow.anon": "Iemand is net gaan volgen!",
-  "announce.watchStreak": "{user} heeft een kijkstreak van {count} streams!",
+  "announce.watchStreak": "{user} heeft een watch streak van {count} streams!",
   "announce.saidMessage": " {subject} {g, select, other {zei}}: {message}",
   "announce.redemption": "{user} heeft {reward} ingewisseld",
   "announce.redemption.input": "{text}: {input}",
@@ -25,6 +25,8 @@
   "announce.yt.supersticker.amount": "{user} heeft een Super Sticker gestuurd voor {amount}",
   "announce.yt.supersticker": "{user} heeft een Super Sticker gestuurd",
   "announce.yt.member.message": "Nieuw YouTube-lid {user}: {subtext}. ",
-  "announce.yt.member": "{user} is net YouTube-lid geworden! ",
-  "emoji.wrap": "{count, plural, one {({description}-emoji)} other {(# {description}-emoji's)}}"
+  "announce.yt.member": "{user} is net een YouTube-lid geworden! ",
+  "emoji.wrap": "{count, plural, one {({description} emoji)} other {(# {description} emoji's)}}",
+  "emote.wrap": "{count, plural, one {({description} emote)} other {(# {description} emotes)}}",
+  "emote.fallback": "{count, plural, one {{name}} other {(# {name})}}"
 }

@@ -4,7 +4,7 @@
   "announce.sub.new": "{user} prenumererade precis{tier}!",
   "announce.sub.resub": "{user} förnyade sin prenumeration i {months, plural, one {# månad} other {# månader}}{streak}{tier}!",
   "announce.sub.streak": ", med en streak på {months} månader",
-  "announce.sub.gift.single": "{user} gav precis en{tier} prenumeration till {recipient}!",
+  "announce.sub.gift.single": "{user} gav precis bort en{tier} prenumeration till {recipient}!",
   "announce.sub.gift.communityAnon": "{count, plural, one {#{tier} gåvoprenumeration} other {#{tier} gåvoprenumerationer}} från en anonym givare!",
   "announce.sub.gift.community": "{user} gav precis bort {count, plural, one {#{tier} prenumeration} other {#{tier} prenumerationer}}!",
   "announce.cheer": "{user} cheerade {count, plural, one {# bit} other {# bits}}!",
@@ -22,9 +22,11 @@
   "announce.pronoun.subject": "Hen",
   "announce.yt.superchat.amount": "Super Chat från {user} på {amount}: ",
   "announce.yt.superchat": "Super Chat från {user}: ",
-  "announce.yt.supersticker.amount": "{user} skickade en Super Sticker för {amount}",
+  "announce.yt.supersticker.amount": "{user} skickade en Super Sticker på {amount}",
   "announce.yt.supersticker": "{user} skickade en Super Sticker",
   "announce.yt.member.message": "Ny YouTube-medlem {user}: {subtext}. ",
   "announce.yt.member": "{user} blev precis YouTube-medlem! ",
-  "emoji.wrap": "{count, plural, one {({description}-emoji)} other {(# {description}-emojier)}}"
+  "emoji.wrap": "{count, plural, one {({description}-emoji)} other {(# {description}-emojier)}}",
+  "emote.wrap": "{count, plural, one {({description}-emote)} other {(# {description}-emotes)}}",
+  "emote.fallback": "{count, plural, one {{name}} other {(# {name})}}"
 }

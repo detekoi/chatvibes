@@ -1,6 +1,8 @@
 // src/components/commands/tts/emote.js
 // View, regenerate, and manually set cached emote descriptions
 import { enqueueMessage } from '../../../lib/chatSender.js';
+import { getTtsState } from '../../tts/ttsState.js';
+import { resolveChannelLocale } from '../../../i18n/index.js';
 import { findEmoteDescriptionsByName, invalidateEmoteDescription, setEmoteDescription } from '../../../lib/emotes/index.js';
 import { getBroadcasterIdByLogin, getChannelEmotes } from '../../twitch/helixClient.js';
 import logger from '../../../lib/logger.js';
@@ -21,6 +23,7 @@ export default {
 
         const subAction = args[0].toLowerCase();
         const channelNameNoHash = channel.replace('#', '').toLowerCase();
+        const locale = resolveChannelLocale(await getTtsState(channelNameNoHash));
 
         try {
             if (subAction === 'set') {
@@ -49,14 +52,14 @@ export default {
                 }
 
                 // Try Firestore first for existing cached entries
-                const matches = await findEmoteDescriptionsByName(emoteName);
+                const matches = await findEmoteDescriptionsByName(emoteName, locale);
                 const channelMatches = matches.filter(m => m.ownerId === broadcasterId);
 
                 if (channelMatches.length > 0) {
                     // Existing channel entries — update them
                     let updated = 0;
                     for (const match of channelMatches) {
-                        const success = await setEmoteDescription(match.emoteId, emoteName, description, broadcasterId);
+                        const success = await setEmoteDescription(match.emoteId, emoteName, description, broadcasterId, locale);
                         if (success) updated++;
                     }
                     logger.info({ emoteName, description, updated, user: user.username, channel: channelNameNoHash }, 'Emote description(s) manually set via command');
@@ -79,7 +82,7 @@ export default {
                         return;
                     }
 
-                    const success = await setEmoteDescription(match.id, emoteName, description, broadcasterId);
+                    const success = await setEmoteDescription(match.id, emoteName, description, broadcasterId, locale);
                     if (success) {
                         logger.info({ emoteName, emoteId: match.id, description, user: user.username, channel: channelNameNoHash }, 'Emote description manually set via command (new entry)');
                         enqueueMessage(channel, `Set "${emoteName}" description to: "${description}"`, { replyToId });
@@ -95,7 +98,7 @@ export default {
                     return;
                 }
 
-                const matches = await findEmoteDescriptionsByName(emoteName);
+                const matches = await findEmoteDescriptionsByName(emoteName, locale);
 
                 if (matches.length === 0) {
                     enqueueMessage(channel, `No cached description found for "${emoteName}".`, { replyToId });
@@ -120,7 +123,7 @@ export default {
 
                 let cleared = 0;
                 for (const match of channelMatches) {
-                    const success = await invalidateEmoteDescription(match.emoteId);
+                    const success = await invalidateEmoteDescription(match.emoteId, locale);
                     if (success) cleared++;
                 }
 
@@ -129,7 +132,7 @@ export default {
             } else {
                 // View mode: treat all args as emote name (no ownership check needed)
                 const emoteName = args.join(' ');
-                const matches = await findEmoteDescriptionsByName(emoteName);
+                const matches = await findEmoteDescriptionsByName(emoteName, locale);
 
                 if (matches.length === 0) {
                     enqueueMessage(channel, `No cached description found for "${emoteName}". It will be described when it next appears in chat.`, { replyToId });

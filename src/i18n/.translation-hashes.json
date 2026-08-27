@@ -1,6 +1,6 @@
 {
   "ru": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -28,10 +28,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "he": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -59,10 +61,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "pl": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -90,10 +94,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "es": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -121,10 +127,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "ar": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -152,10 +160,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "zh": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -183,10 +193,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "fr": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -214,10 +226,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "yue": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -245,10 +259,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "pt": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -276,10 +292,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "tr": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -307,10 +325,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "de": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -338,10 +358,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "nl": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -369,10 +391,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "id": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -400,10 +424,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "vi": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -431,10 +457,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "uk": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -462,10 +490,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "ja": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -493,10 +523,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "it": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -524,10 +556,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "th": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -555,10 +589,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "ko": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -586,10 +622,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "el": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -617,10 +655,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "fi": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -648,10 +688,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "ro": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -679,10 +721,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "cs": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -710,10 +754,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "bg": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -741,10 +787,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "da": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -772,10 +820,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "ms": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -803,10 +853,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "hi": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -834,10 +886,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "fa": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -865,10 +919,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "fil": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -896,10 +952,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "sk": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -927,10 +985,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "hr": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -958,10 +1018,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "sv": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -989,10 +1051,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "hu": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -1020,10 +1084,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "sl": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -1051,10 +1117,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "ca": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -1082,10 +1150,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "nb": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -1113,10 +1183,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "ta": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -1144,10 +1216,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "af": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -1175,10 +1249,12 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "nn": {
-    "_prompt": "f6fe2e9abe7c85bd",
+    "_prompt": "526cc44bf4f32443",
     "announce.tier": "24cb96c3809ad88a",
     "announce.tierParen": "75bb4d2bc17b2670",
     "announce.sub.new": "45a25fdd6e0e85cb",
@@ -1206,7 +1282,9 @@
     "announce.yt.supersticker": "bd3cdd90a498cbbb",
     "announce.yt.member.message": "59f2d311611713de",
     "announce.yt.member": "854375000c34aafc",
-    "emoji.wrap": "c46ebc6fb41a9ff7"
+    "emoji.wrap": "c46ebc6fb41a9ff7",
+    "emote.wrap": "f92b0b5e223e67ea",
+    "emote.fallback": "4009874daede33f7"
   },
   "en": {
     "announce.tier": "24cb96c3809ad88a",
