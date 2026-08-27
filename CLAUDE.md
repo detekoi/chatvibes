@@ -211,12 +211,23 @@ viewer can ignore — it is read out in a Spanish accent. Catalogs live in
   text and its own translator note; a global hash covers the system instruction, glossary and
   do-not-translate list. Editing one note therefore re-translates one key, while changing the
   glossary correctly invalidates everything. Folding the notes into the global hash, as the
-  first version did, made a single note edit re-translate every key in all 39 locales.
+  first version did, made a single note edit re-translate every key in all 39 locales. The
+  hash file is flushed after **each locale**, not once at the end: the run talks to a flaky
+  API for many minutes, and a version killed partway through would otherwise leave the
+  catalogs it had already written unrecorded, so the next run redid work sitting correct on
+  disk. Expect to re-run it — Gemini returns sustained 503s under load, and the script
+  refuses to write a catalog that would fail CI, so a bad round leaves the previous good file
+  in place and the next run picks up exactly what is missing.
 - **A message whose singular and plural differ in *shape* needs two keys, not one plural.**
-  The emote fallback reads as the bare name for one and `(3 Kappa)` for several. Expressed as
-  one plural message, a language whose only category is `other` has to pick a single shape,
-  and Japanese came back as `(1Kappa)` where English says `Kappa`. Splitting it keeps the
-  validator's category check strict, which an `=1` branch would have forced us to relax.
+  A plural message may vary the wording between categories; it must not vary the structure.
+  A language whose only category is `other` uses that branch for every number including one,
+  so if the singular omits the count and the plural includes it, that language has to pick:
+  Japanese rendered the emote fallback as `(1Kappa)` where English says bare `Kappa`, and
+  Chinese rendered a single emote as `(1 个X表情)` where English says `(X emote)`. The four
+  affected keys are split into `x` and `x.repeated`, with the caller choosing. Splitting also
+  keeps the validator's category check strict, which an `=1` branch would have forced us to
+  relax. A test in `i18nCatalogs.test.js` asserts the two branches stay structurally
+  identical, so this is enforced rather than remembered.
 - **Nothing from the model is trusted.** `src/i18n/validate.js` runs in CI over every
   catalog: keys complete, no orphans, placeholders preserved, ICU well-formed, and plural
   branches matching *exactly* the categories `Intl.PluralRules` reports for that locale. That

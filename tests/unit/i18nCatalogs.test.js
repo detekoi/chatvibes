@@ -2,7 +2,7 @@
 // The catalogs are machine-translated and committed, so these checks are what
 // stand between a bad model response and a channel hearing it out loud.
 
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, statSync } from 'fs';
 import path from 'path';
 import { validateCatalog } from '../../src/i18n/validate.js';
 import { supportedLocales, DEFAULT_LOCALE } from '../../src/i18n/index.js';
@@ -98,4 +98,58 @@ describe('translated catalogs', () => {
     } else {
         test.todo('no translated catalogs generated yet');
     }
+});
+
+describe('plural branches must not differ in shape', () => {
+    // A plural message can vary the WORDING between categories; it cannot vary
+    // the STRUCTURE. A language whose only category is `other` uses that one
+    // branch for every number including one, so if the singular omits the count
+    // and the plural includes it, that language has to pick — Chinese rendered a
+    // single emote as "(1 个X表情)" where English says "(X emote)", and the emote
+    // fallback came out as "(1Kappa)" where English says bare "Kappa".
+    //
+    // Where the shapes genuinely differ, use two keys and let the caller choose.
+    const shape = (branch) => [branch.includes('#'), /^\s*\(/.test(branch)].join();
+
+    test.each(Object.entries(source).filter(([k, v]) => !k.startsWith('_') && typeof v === 'string' && v.includes('plural')))(
+        '%s keeps one and other structurally identical',
+        (_key, pattern) => {
+            const one = pattern.match(/\bone \{((?:[^{}]|\{[^{}]*\})*)\}/)?.[1];
+            const other = pattern.match(/\bother \{((?:[^{}]|\{[^{}]*\})*)\}/)?.[1];
+            if (one === undefined || other === undefined) return;
+            expect(shape(one)).toBe(shape(other));
+        },
+    );
+});
+
+describe('the code and the catalog agree on which keys exist', () => {
+    // A key the code calls but the catalog lacks renders as the key name itself,
+    // spoken aloud; a key the catalog has but nothing calls is dead weight that
+    // every locale keeps paying to translate. Neither shows up in a normal test
+    // run, because both only surface on the specific message that uses them.
+    const walk = (dir, out = []) => {
+        for (const entry of readdirSync(dir)) {
+            const full = path.join(dir, entry);
+            if (statSync(full).isDirectory()) walk(full, out);
+            else if (full.endsWith('.js')) out.push(full);
+        }
+        return out;
+    };
+
+    const referenced = new Map();
+    for (const file of walk('src')) {
+        for (const match of readFileSync(file, 'utf8').matchAll(/\bt\(\s*'([a-zA-Z0-9._]+)'/g)) {
+            if (!referenced.has(match[1])) referenced.set(match[1], file);
+        }
+    }
+    const declared = new Set(Object.keys(source).filter(k => !k.startsWith('_')));
+
+    test('every key the code calls exists in the catalog', () => {
+        const missing = [...referenced].filter(([key]) => !declared.has(key)).map(([key, file]) => `${key} (${file})`);
+        expect(missing).toEqual([]);
+    });
+
+    test('every key in the catalog is called somewhere', () => {
+        expect([...declared].filter(key => !referenced.has(key))).toEqual([]);
+    });
 });

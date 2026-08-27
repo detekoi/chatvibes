@@ -17,6 +17,7 @@ import { isGeminiAvailable, describeEmoteFromUrl } from '../../lib/emotes/index.
  * @param {string} emoteMode - Resolved emote mode: 'read' | 'skip' | 'describe'.
  * @param {string} channelEmoteMode - Channel-level default (used as describe fallback).
  * @returns {Promise<string>} Processed text with emotes handled per mode.
+ * @param {string} [locale] - BCP-47 tag for the descriptions and their wrapper wording.
  */
 export async function processYouTubeEmotes(text, emoteFragments, emoteMode, channelEmoteMode, locale = DEFAULT_LOCALE) {
     // No custom emote fragments — return text as-is (unicode emoji handled separately)
@@ -88,6 +89,7 @@ function skipEmoteFragments(fragments) {
  * Groups consecutive identical emotes and generates parenthetical descriptions.
  * @param {Array} fragments
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag for the descriptions and their wrapper wording.
  */
 async function describeEmoteFragments(fragments, locale = DEFAULT_LOCALE) {
     const t = getTranslator(locale);
@@ -144,7 +146,9 @@ async function describeEmoteFragments(fragments, locale = DEFAULT_LOCALE) {
             const desc = descriptionMap.get(frag.imageUrl);
             const count = frag.count || 1;
             if (desc) {
-                outputParts.push(t('emote.wrap', { count, description: desc }));
+                outputParts.push(count > 1
+                    ? t('emote.wrap.repeated', { count, description: desc })
+                    : t('emote.wrap', { description: desc }));
             } else {
                 // Fallback to label/name
                 const label = frag.label || frag.text?.replace(/:/g, '') || '';

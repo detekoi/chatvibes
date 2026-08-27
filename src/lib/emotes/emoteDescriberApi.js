@@ -100,6 +100,7 @@ function buildEmoteContext(emoteName, ownerName, platform = 'twitch') {
  * @param {string} [ownerId]
  * @param {string} [platform='twitch'] - 'twitch' or 'youtube'
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag; the prompt asks for a reply in this language.
  */
 export async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnimated = false, ownerId = null, platform = 'twitch', locale = DEFAULT_LOCALE) {
     const cached = await getCachedDescription(emoteId, locale);
@@ -180,6 +181,7 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
  * @param {Array<[string, string, string|null, boolean, string|null]>} emoteEntries - [emoteId, emoteName, ownerName, isAnimated, ownerId]
  * @param {string} [platform='twitch'] - 'twitch' or 'youtube'
  * @returns {Promise<Map<string, string>>} Map of emoteId -> description
+ * @param {string} [locale] - BCP-47 tag; the prompt asks for a reply in this language.
  */
 export async function describeBatchEmotes(emoteEntries, platform = 'twitch', locale = DEFAULT_LOCALE) {
     const results = new Map();
@@ -330,6 +332,7 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch', loc
  * @param {string} emoteName - Display name / label for the emote
  * @param {string} [platform='youtube'] - Platform label for the prompt
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag; the prompt asks for a reply in this language.
  */
 export async function describeEmoteFromUrl(imageUrl, cacheKey, emoteName, platform = 'youtube', locale = DEFAULT_LOCALE) {
     const cached = await getCachedDescription(cacheKey, locale);

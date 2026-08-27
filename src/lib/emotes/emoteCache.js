@@ -127,6 +127,7 @@ export function cacheDescription(emoteId, description, emoteName, ownerId, local
  * Used by the `!tts emote regenerate` command.
  * @param {string} emoteId
  * @returns {Promise<boolean>}
+ * @param {string} [locale] - BCP-47 tag. Descriptions are stored and generated per language.
  */
 export async function invalidateEmoteDescription(emoteId, locale = DEFAULT_LOCALE) {
     const key = descriptionKey(emoteId, locale);
@@ -157,6 +158,7 @@ export async function invalidateEmoteDescription(emoteId, locale = DEFAULT_LOCAL
  * @param {string} description
  * @param {string} [ownerId]
  * @returns {Promise<boolean>}
+ * @param {string} [locale] - BCP-47 tag. Descriptions are stored and generated per language.
  */
 export async function setEmoteDescription(emoteId, emoteName, description, ownerId, locale = DEFAULT_LOCALE) {
     const key = descriptionKey(emoteId, locale);
@@ -184,6 +186,7 @@ export async function setEmoteDescription(emoteId, emoteName, description, owner
  * Get a stored emote description from Firestore by emote ID.
  * @param {string} emoteId
  * @returns {Promise<{description: string, emoteName: string, updatedAt: Date} | null>}
+ * @param {string} [locale] - BCP-47 tag. Descriptions are stored and generated per language.
  */
 export async function getStoredEmoteDescription(emoteId, locale = DEFAULT_LOCALE) {
     if (!emoteDescriptionsDb) return null;
@@ -211,6 +214,7 @@ export async function getStoredEmoteDescription(emoteId, locale = DEFAULT_LOCALE
  * Find emote descriptions by emote name (exact match).
  * @param {string} emoteName
  * @returns {Promise<Array<{emoteId: string, description: string, emoteName: string, ownerId: string|null}>>}
+ * @param {string} [locale] - BCP-47 tag. Descriptions are stored and generated per language.
  */
 export async function findEmoteDescriptionsByName(emoteName, locale = DEFAULT_LOCALE) {
     if (!emoteDescriptionsDb) return [];

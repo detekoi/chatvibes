@@ -101,6 +101,7 @@ export function groupFragments(fragments) {
  *
  * @param {Array<{type: string, text: string, emote?: {id: string}}>} fragments
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag for the descriptions and their wrapper wording.
  */
 export async function describeEmoteFragments(fragments, locale = DEFAULT_LOCALE) {
     if (!isGeminiAvailable() || !fragments?.length) return null;
@@ -136,7 +137,9 @@ export async function describeEmoteFragments(fragments, locale = DEFAULT_LOCALE)
         const [, { count }] = uniqueEmotes[i];
         const desc = descriptions[i];
         if (!desc) continue;
-        parts.push(t('emote.wrap', { count, description: desc }));
+        parts.push(count > 1
+            ? t('emote.wrap.repeated', { count, description: desc })
+            : t('emote.wrap', { description: desc }));
     }
 
     if (parts.length === 0) {
@@ -154,6 +157,7 @@ export async function describeEmoteFragments(fragments, locale = DEFAULT_LOCALE)
  *
  * @param {Array<{type: string, text: string, emote?: {id: string}}>} fragments
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag for the descriptions and their wrapper wording.
  */
 export async function processMessageWithEmoteDescriptions(fragments, locale = DEFAULT_LOCALE) {
     if (!fragments?.length) return null;
@@ -204,7 +208,9 @@ export async function processMessageWithEmoteDescriptions(fragments, locale = DE
         if (frag.type === 'emote' && frag.emote?.id) {
             const desc = descriptionMap.get(frag.emote.id);
             if (desc) {
-                outputParts.push(t('emote.wrap', { count: frag.count, description: desc }));
+                outputParts.push(frag.count > 1
+                    ? t('emote.wrap.repeated', { count: frag.count, description: desc })
+                    : t('emote.wrap', { description: desc }));
             } else {
                 // Description failed — fall back to raw emote name
                 outputParts.push(frag.count > 1

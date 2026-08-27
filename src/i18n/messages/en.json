@@ -26,10 +26,12 @@
   "announce.yt.supersticker": "{user} sent a Super Sticker",
   "announce.yt.member.message": "New YouTube member {user}: {subtext}. ",
   "announce.yt.member": "{user} just became a YouTube member! ",
-  "emoji.wrap": "{count, plural, one {({description} emoji)} other {(# {description} emojis)}}",
-  "emote.wrap": "{count, plural, one {({description} emote)} other {(# {description} emotes)}}",
+  "emoji.wrap": "({description} emoji)",
+  "emote.wrap": "({description} emote)",
   "emote.fallback": "{name}",
   "emote.fallback.repeated": "{count, plural, one {(# {name})} other {(# {name})}}",
+  "emoji.wrap.repeated": "{count, plural, one {(# {description} emojis)} other {(# {description} emojis)}}",
+  "emote.wrap.repeated": "{count, plural, one {(# {description} emotes)} other {(# {description} emotes)}}",
   "_notes": {
     "announce.tier": "A fragment with a LEADING SPACE, spliced mid-sentence into the sub messages. Keep the leading space and keep the word Tier in English.",
     "announce.tierParen": "A fragment with a LEADING SPACE, appended after the verb. Keep the leading space.",
@@ -41,9 +43,11 @@
     "announce.yt.member": "Ends with a TRAILING SPACE.",
     "announce.yt.member.message": "Ends with a TRAILING SPACE.",
     "announce.pronoun.subject": "The subject pronoun used when a viewer's pronouns are unknown. English uses the singular they.",
-    "emoji.wrap": "Wraps an emoji description read aloud, e.g. '(fire emoji)'. {description} is a noun phrase.",
-    "emote.wrap": "Wraps an AI description of a chat emote read aloud, e.g. '(dancing cat emote)'. {description} is a short noun phrase.",
+    "emoji.wrap": "Wraps one emoji read aloud, e.g. '(fire emoji)'. {description} is a noun phrase. No count: it is always exactly one.",
+    "emote.wrap": "Wraps one chat emote read aloud, e.g. '(dancing cat emote)'. No count: it is always exactly one.",
     "emote.fallback": "Read instead of a description when describing the emote failed. Just the emote's own name, with nothing around it.",
-    "emote.fallback.repeated": "The same, for an emote repeated more than once: the count and the name, bracketed."
+    "emote.fallback.repeated": "The same, for an emote repeated more than once: the count and the name, bracketed.",
+    "emoji.wrap.repeated": "The same for an emoji repeated, e.g. '(3 fire emojis)'.",
+    "emote.wrap.repeated": "The same for an emote repeated, e.g. '(3 dancing cat emotes)'."
   }
 }

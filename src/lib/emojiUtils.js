@@ -166,7 +166,9 @@ export function replaceEmojisWithText(text, locale = DEFAULT_LOCALE) {
         if (label) {
             const description = formatLabel(label, match.emoji, locale);
             const pad = result.length > 0 && !result.endsWith(' ') ? ' ' : '';
-            result += pad + t('emoji.wrap', { count, description });
+            result += pad + (count > 1
+                ? t('emoji.wrap.repeated', { count, description })
+                : t('emoji.wrap', { description }));
         } else {
             // No mapping — keep original emoji(s)
             result += text.slice(match.index, endPos);

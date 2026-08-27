@@ -35,10 +35,13 @@ import { withTimeout } from '../src/lib/timeUtils.js';
 
 const MODEL = process.env.TRANSLATE_GEMINI_MODEL || 'gemini-3.7-flash';
 const TIMEOUT_MS = 120_000;
-const CONCURRENCY = 4;
+// Concurrency is the main lever when the API is busy: a 503 here means capacity,
+// not a bad request, so backing off in parallelism helps more than retrying
+// harder. Overridable for a quiet period.
+const CONCURRENCY = Number(process.env.TRANSLATE_CONCURRENCY || 2);
 const BATCH_SIZE = 40;
-const MAX_RETRIES = 4;
-const RETRY_BASE_MS = 2000;
+const MAX_RETRIES = 8;
+const RETRY_BASE_MS = 3000;
 
 const argv = process.argv.slice(2);
 const flag = (name) => argv.includes(`--${name}`);
@@ -189,7 +192,7 @@ async function callModel(prompt, extra = '') {
         } catch (err) {
             const transient = /50[23]|UNAVAILABLE|high demand|timeout|429|RESOURCE_EXHAUSTED/i.test(err.message);
             if (!transient || attempt >= MAX_RETRIES) throw err;
-            const waitMs = RETRY_BASE_MS * 2 ** attempt;
+            const waitMs = Math.min(RETRY_BASE_MS * 2 ** attempt, 60_000);
             console.error(`  retrying in ${waitMs}ms after: ${err.message.slice(0, 80)}`);
             await new Promise(resolve => setTimeout(resolve, waitMs));
         }
@@ -243,7 +246,17 @@ async function translateLocale(locale) {
         _prompt: promptHash,
         ...Object.fromEntries(Object.keys(source).filter(k => !k.startsWith('_')).map(k => [k, keyHash(k)])),
     };
+    // Flushed per locale rather than once at the end. This talks to a flaky API
+    // for many minutes, and a run killed partway through would otherwise leave
+    // every catalog it had already written unrecorded — so the next run redoes
+    // work that is sitting correct on disk.
+    flushSidecar();
     return { locale, translated: keys.length };
+}
+
+function flushSidecar() {
+    if (DRY_RUN) return;
+    writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2) + '\n');
 }
 
 /** Bounded worker pool — a 40-locale fan-out would otherwise hit rate limits. */
@@ -271,10 +284,6 @@ async function main() {
     console.log(`${DRY_RUN ? '[dry run] ' : ''}${MODEL} -> ${targets.length} locale(s) from ${config.source}\n`);
 
     const results = await runPool(targets, translateLocale, CONCURRENCY);
-
-    if (!DRY_RUN) {
-        writeFileSync(sidecarPath, JSON.stringify(sidecar, null, 2) + '\n');
-    }
 
     const done = results.filter(r => r.translated);
     const skipped = results.filter(r => r.skipped);

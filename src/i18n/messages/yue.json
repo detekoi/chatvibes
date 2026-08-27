@@ -26,8 +26,10 @@
   "announce.yt.supersticker": "{user} 送出咗 Super Sticker",
   "announce.yt.member.message": "YouTube 新會員 {user}：{subtext}。 ",
   "announce.yt.member": "{user} 啱啱加入咗做 YouTube 會員！ ",
-  "emoji.wrap": "{count, plural, other {(# 個{description}表情符號)}}",
-  "emote.wrap": "{count, plural, other {(# 個{description}表情)}}",
+  "emoji.wrap": "({description} emoji)",
+  "emote.wrap": "({description} emote)",
   "emote.fallback": "{name}",
-  "emote.fallback.repeated": "{count, plural, other {(# 個 {name})}}"
+  "emote.fallback.repeated": "{count, plural, other {(# 個 {name})}}",
+  "emoji.wrap.repeated": "{count, plural, other {(# 個{description} emoji)}}",
+  "emote.wrap.repeated": "{count, plural, other {(# 個{description} emote)}}"
 }
