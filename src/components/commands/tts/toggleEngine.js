@@ -21,7 +21,7 @@ export default {
         } else {
             // This case should ideally not be reached if routing in tts.js is correct
             logger.error(`toggleEngine called with unexpected action: ${actionTriggered}`);
-            enqueueMessage(channel, `Internal error processing command '${actionTriggered}'.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.engine.error', { action: actionTriggered }), { replyToId });
             return;
         }
 
@@ -32,7 +32,7 @@ export default {
             enqueueMessage(channel, statusMessage, { replyToId });
             logger.info(`WildcatTTS [${channelNameNoHash}]: ${statusMessage} by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `Could not change TTS engine state at this time.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.engine.failed'), { replyToId });
         }
     },
 };

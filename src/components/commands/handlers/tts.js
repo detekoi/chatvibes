@@ -118,7 +118,7 @@ export default {
         // actualSubCommandHandler.permission is the required permission string
         const requiredSubCommandPermission = actualSubCommandHandler.permission || 'moderator'; // Default to moderator if not specified
         if (!hasPermission(requiredSubCommandPermission, user, channelNameNoHash)) {
-            enqueueMessage(channel, `You don't have permission for '!tts ${effectiveSubCommandName}'.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.noPermission', { subcommand: effectiveSubCommandName }), { replyToId });
             logger.warn(`Permission denied for user ${user.username} on command !tts ${effectiveSubCommandName} in ${channel}. Required: ${requiredSubCommandPermission}`);
             return;
         }

@@ -15,7 +15,14 @@ export default {
         const cq = queueModule.getOrCreateChannelQueue(channelNameNoHash);
 
 
-        const statusMsg = `TTS Status for #${channelNameNoHash}: Engine ${ttsState.engineEnabled ? 'Enabled' : 'Disabled'}. Mode: ${ttsState.mode}. Queue: ${cq.queue.length} pending, Paused: ${cq.isPaused}. Voice: ${ttsState.voiceId}.`;
+        const statusMsg = context.t('cmd.status', {
+            channel: channelNameNoHash,
+            engine: context.t(ttsState.engineEnabled ? 'cmd.status.enabled' : 'cmd.status.disabled'),
+            mode: ttsState.mode,
+            pending: cq.queue.length,
+            paused: cq.isPaused,
+            voice: ttsState.voiceId,
+        });
         // Use native Twitch reply instead of @mention
         enqueueMessage(channel, statusMsg, { replyToId });
     },

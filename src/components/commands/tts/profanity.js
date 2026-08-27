@@ -20,9 +20,8 @@ const ENABLE_WORDS = new Set(['block', 'filter', 'censor', 'clean', 'on', 'enabl
 const DISABLE_WORDS = new Set(['allow', 'unfilter', 'raw', 'off', 'disable']);
 
 // Every reply states the effect rather than the setting. If someone did read the
-// command backwards, the confirmation is where they find out.
-const ON_EFFECT = 'swear words are softened before they are spoken';
-const OFF_EFFECT = 'messages are read as written';
+// command backwards, the confirmation is where they find out. Held as catalog
+// keys rather than sentences because they are spliced into several replies.
 
 export default {
     name: 'profanity',
@@ -32,6 +31,9 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const channelName = channel.replace('#', '').toLowerCase();
+        const { t } = context;
+        const onEffect = t('cmd.profanity.effect.on');
+        const offEffect = t('cmd.profanity.effect.off');
         const reply = msg => enqueueMessage(channel, msg, { replyToId });
 
         const subAction = (args[0] || 'status').toLowerCase();
@@ -43,20 +45,18 @@ export default {
             if (subAction === 'status') {
                 const enabled = Boolean(ttsConfig.profanityFilterEnabled);
                 const state = enabled
-                    ? `ON — ${ON_EFFECT}`
-                    : `OFF — ${OFF_EFFECT}`;
+                    ? t('cmd.profanity.state.on', { effect: onEffect })
+                    : t('cmd.profanity.state.off', { effect: offEffect });
                 if (info.entries === 0) {
-                    reply(`Profanity filter: ${state}. No word list exists for "${info.language}", so nothing would be filtered.`);
+                    reply(t('cmd.profanity.status.noList', { state, language: info.language }));
                     return;
                 }
                 // "auto" is the default languageBoost and cannot be detected per
                 // message, so it quietly uses English. Say so, or this reads as
                 // the feature being broken on a non-English channel.
-                const note = info.isFallback
-                    ? ` Channel language is "auto", so the English list is in use — set a language to filter another one.`
-                    : '';
-                const coverage = info.confidence === 'low' ? ' (limited coverage)' : '';
-                reply(`Profanity filter: ${state}. Language: ${info.language}${coverage}, ${info.entries} words.${note}`);
+                const note = info.isFallback ? t('cmd.profanity.note.auto') : '';
+                const coverage = info.confidence === 'low' ? t('cmd.profanity.coverage.low') : '';
+                reply(t('cmd.profanity.status', { state, language: info.language, coverage, entries: info.entries, note }));
                 return;
             }
 
@@ -64,37 +64,37 @@ export default {
                 : DISABLE_WORDS.has(subAction) ? false
                 : null;
             if (enable === null) {
-                reply(`Usage: ${USAGE} — "on" and "off" also work.`);
+                reply(t('cmd.profanity.usage', { usage: USAGE }));
                 return;
             }
 
             if (Boolean(ttsConfig.profanityFilterEnabled) === enable) {
-                reply(`Profanity filter is already ${enable ? 'on' : 'off'} — ${enable ? ON_EFFECT : OFF_EFFECT}.`);
+                reply(t('cmd.profanity.already', { setting: enable ? 'on' : 'off', effect: enable ? onEffect : offEffect }));
                 return;
             }
 
             const ok = await setTtsState(channelName, 'profanityFilterEnabled', enable);
             if (!ok) {
-                reply('Could not change that setting. Try again shortly.');
+                reply(t('cmd.profanity.failed'));
                 return;
             }
 
             logger.info({ channel: channelName, enabled: enable, user: user.username }, 'Profanity filter toggled');
 
             if (!enable) {
-                reply(`Profanity filter off — ${OFF_EFFECT}.`);
+                reply(t('cmd.profanity.turnedOff', { effect: offEffect }));
                 return;
             }
 
             if (info.entries === 0) {
-                reply(`Profanity filter on, but there is no word list for "${info.language}" yet, so nothing will be filtered.`);
+                reply(t('cmd.profanity.onNoList', { language: info.language }));
                 return;
             }
             const note = info.isFallback ? ' Channel language is "auto", so the English list is in use.' : '';
-            reply(`Profanity filter on — ${info.entries} ${info.language} words will be softened before they are spoken.${note}`);
+            reply(t('cmd.profanity.turnedOn', { entries: info.entries, language: info.language, note }));
         } catch (error) {
             logger.error({ err: error, channel: channelName, args }, 'Error in !tts profanity');
-            reply('Something went wrong handling that command.');
+            reply(t('cmd.profanity.error'));
         }
     },
 };

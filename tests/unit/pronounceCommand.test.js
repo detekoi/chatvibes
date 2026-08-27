@@ -2,6 +2,7 @@
 // Unit tests for !tts pronounce and !tts profanity.
 
 import { jest } from '@jest/globals';
+import { getTranslator } from '../../src/i18n/index.js';
 
 describe('TTS pronunciation commands', () => {
     let enqueueMessage;
@@ -17,6 +18,10 @@ describe('TTS pronunciation commands', () => {
         user: { username },
         args,
         replyToId: 'msg-1',
+        // commandProcessor binds this to the channel's language. The real
+        // translator is used so these assertions still check the message a
+        // viewer sees, rather than whatever a stub echoed back.
+        t: getTranslator('en'),
     });
 
     beforeEach(async () => {

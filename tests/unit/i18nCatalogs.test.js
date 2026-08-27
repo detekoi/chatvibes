@@ -136,13 +136,17 @@ describe('the code and the catalog agree on which keys exist', () => {
         return out;
     };
 
+    // Any quoted string equal to a key counts as a reference, not only a direct
+    // t('...') call: keys also travel as options (propertyKey, hintKey), inside
+    // ternaries, and through lookup tables. Matching only the call form reported
+    // a third of the catalog as dead.
+    const declared = new Set(Object.keys(source).filter(k => !k.startsWith('_')));
     const referenced = new Map();
     for (const file of walk('src')) {
-        for (const match of readFileSync(file, 'utf8').matchAll(/\bt\(\s*'([a-zA-Z0-9._]+)'/g)) {
-            if (!referenced.has(match[1])) referenced.set(match[1], file);
+        for (const match of readFileSync(file, 'utf8').matchAll(/'([a-zA-Z0-9._]+)'/g)) {
+            if (declared.has(match[1]) && !referenced.has(match[1])) referenced.set(match[1], file);
         }
     }
-    const declared = new Set(Object.keys(source).filter(k => !k.startsWith('_')));
 
     test('every key the code calls exists in the catalog', () => {
         const missing = [...referenced].filter(([key]) => !declared.has(key)).map(([key, file]) => `${key} (${file})`);

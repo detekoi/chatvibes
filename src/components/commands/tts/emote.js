@@ -14,10 +14,10 @@ export default {
     usage: '!tts emote <emoteName> | !tts emote regenerate <emoteName> | !tts emote set <emoteName> = <description>',
     permission: 'moderator',
     execute: async (context) => {
-        const { channel, user, args, replyToId } = context;
+        const { channel, user, args, replyToId, t } = context;
 
         if (args.length === 0) {
-            enqueueMessage(channel, `Usage: !tts emote <name> — view. !tts emote regenerate <name> — clear. !tts emote set <name> = <description> — set manually.`, { replyToId });
+            enqueueMessage(channel, t('cmd.emote.usage'), { replyToId });
             return;
         }
 
@@ -32,7 +32,7 @@ export default {
                 const eqIndex = rest.indexOf('=');
 
                 if (eqIndex === -1 || eqIndex === 0) {
-                    enqueueMessage(channel, `Usage: !tts emote set <emoteName> = <description>`, { replyToId });
+                    enqueueMessage(channel, t('cmd.emote.setUsage'), { replyToId });
                     return;
                 }
 
@@ -40,14 +40,14 @@ export default {
                 const description = rest.substring(eqIndex + 1).trim();
 
                 if (!emoteName || !description) {
-                    enqueueMessage(channel, `Usage: !tts emote set <emoteName> = <description>`, { replyToId });
+                    enqueueMessage(channel, t('cmd.emote.setUsage'), { replyToId });
                     return;
                 }
 
                 // Resolve broadcaster ID once for ownership checks
                 const broadcasterId = await getBroadcasterIdByLogin(channelNameNoHash);
                 if (!broadcasterId) {
-                    enqueueMessage(channel, 'Could not look up channel info.', { replyToId });
+                    enqueueMessage(channel, t('cmd.emote.lookupFailed'), { replyToId });
                     return;
                 }
 
@@ -63,7 +63,7 @@ export default {
                         if (success) updated++;
                     }
                     logger.info({ emoteName, description, updated, user: user.username, channel: channelNameNoHash }, 'Emote description(s) manually set via command');
-                    enqueueMessage(channel, `Updated ${updated} "${emoteName}" description${updated !== 1 ? 's' : ''} to: "${description}"`, { replyToId });
+                    enqueueMessage(channel, t('cmd.emote.updated', { count: updated, name: emoteName, description }), { replyToId });
                 } else {
                     // No cached entry for this channel — look up via Twitch API
                     const emotes = await getChannelEmotes(broadcasterId);
@@ -74,10 +74,10 @@ export default {
                         if (matches.length > 0) {
                             const isGlobal = matches.some(m => !m.ownerId || m.ownerId === '0');
                             enqueueMessage(channel, isGlobal
-                                ? 'Global emotes cannot be manually modified — they are described automatically.'
-                                : 'That emote does not belong to this channel.', { replyToId });
+                                ? t('cmd.emote.globalLocked')
+                                : t('cmd.emote.notOurs'), { replyToId });
                         } else {
-                            enqueueMessage(channel, `"${emoteName}" is not a channel emote in #${channelNameNoHash}.`, { replyToId });
+                            enqueueMessage(channel, t('cmd.emote.notChannel', { name: emoteName, channel: channelNameNoHash }), { replyToId });
                         }
                         return;
                     }
@@ -85,30 +85,30 @@ export default {
                     const success = await setEmoteDescription(match.id, emoteName, description, broadcasterId, locale);
                     if (success) {
                         logger.info({ emoteName, emoteId: match.id, description, user: user.username, channel: channelNameNoHash }, 'Emote description manually set via command (new entry)');
-                        enqueueMessage(channel, `Set "${emoteName}" description to: "${description}"`, { replyToId });
+                        enqueueMessage(channel, t('cmd.emote.set', { name: emoteName, description }), { replyToId });
                     } else {
-                        enqueueMessage(channel, `Failed to save description for "${emoteName}".`, { replyToId });
+                        enqueueMessage(channel, t('cmd.emote.saveFailed', { name: emoteName }), { replyToId });
                     }
                 }
             } else if (subAction === 'regenerate') {
                 const emoteName = args.slice(1).join(' ');
 
                 if (!emoteName) {
-                    enqueueMessage(channel, `Please specify an emote name. Usage: !tts emote regenerate <emoteName>`, { replyToId });
+                    enqueueMessage(channel, t('cmd.emote.needName'), { replyToId });
                     return;
                 }
 
                 const matches = await findEmoteDescriptionsByName(emoteName, locale);
 
                 if (matches.length === 0) {
-                    enqueueMessage(channel, `No cached description found for "${emoteName}".`, { replyToId });
+                    enqueueMessage(channel, t('cmd.emote.noCache', { name: emoteName }), { replyToId });
                     return;
                 }
 
                 // Scope regenerate to this channel's emotes
                 const broadcasterId = await getBroadcasterIdByLogin(channelNameNoHash);
                 if (!broadcasterId) {
-                    enqueueMessage(channel, 'Could not look up channel info.', { replyToId });
+                    enqueueMessage(channel, t('cmd.emote.lookupFailed'), { replyToId });
                     return;
                 }
 
@@ -116,8 +116,8 @@ export default {
                 if (channelMatches.length === 0) {
                     const isGlobal = matches.some(m => !m.ownerId || m.ownerId === '0');
                     enqueueMessage(channel, isGlobal
-                        ? 'Global emotes cannot be manually modified — they are described automatically.'
-                        : 'That emote does not belong to this channel.', { replyToId });
+                        ? t('cmd.emote.globalLocked')
+                        : t('cmd.emote.notOurs'), { replyToId });
                     return;
                 }
 
@@ -128,23 +128,23 @@ export default {
                 }
 
                 logger.info({ emoteName, cleared, total: channelMatches.length, user: user.username, channel: channelNameNoHash }, 'Emote description(s) regenerated via command');
-                enqueueMessage(channel, `Cleared ${cleared} cached description${cleared !== 1 ? 's' : ''} for "${emoteName}". It will be re-described next time it appears.`, { replyToId });
+                enqueueMessage(channel, t('cmd.emote.cleared', { count: cleared, name: emoteName }), { replyToId });
             } else {
                 // View mode: treat all args as emote name (no ownership check needed)
                 const emoteName = args.join(' ');
                 const matches = await findEmoteDescriptionsByName(emoteName, locale);
 
                 if (matches.length === 0) {
-                    enqueueMessage(channel, `No cached description found for "${emoteName}". It will be described when it next appears in chat.`, { replyToId });
+                    enqueueMessage(channel, t('cmd.emote.noCacheYet', { name: emoteName }), { replyToId });
                     return;
                 }
 
                 const descriptions = matches.map(m => `"${m.description}"`).join(', ');
-                enqueueMessage(channel, `${emoteName}: ${descriptions}`, { replyToId });
+                enqueueMessage(channel, t('cmd.emote.view', { name: emoteName, descriptions }), { replyToId });
             }
         } catch (error) {
             logger.error({ err: error, args }, 'Error in emote description command');
-            enqueueMessage(channel, `Error looking up emote description.`, { replyToId });
+            enqueueMessage(channel, t('cmd.emote.error'), { replyToId });
         }
     },
 };

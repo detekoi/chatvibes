@@ -5,6 +5,7 @@ import commandHandlers from './handlers/index.js';
 import { getTtsState } from '../tts/ttsState.js';
 import { enqueueMessage } from '../../lib/chatSender.js';
 import { hasPermissionLevel } from '../../lib/permissions.js';
+import { getTranslator, resolveChannelLocale, DEFAULT_LOCALE } from '../../i18n/index.js';
 
 
 const COMMAND_PREFIX = '!'; // Define the prefix for commands
@@ -97,9 +98,15 @@ async function processMessage(channelNameNoHash, tags, message, eventData = {}) 
 
     // --- Check if bot should respond in chat (Channel-level setting) ---
     let canReply = false; // Default: bot does not respond in chat
+    // The channel's language comes from the same read, so every command gets a
+    // translator without repeating the lookup in twenty-odd files. English on a
+    // failed read, matching the no-chat-responses default beside it: a wrong
+    // language is better than a command that throws.
+    let locale = DEFAULT_LOCALE;
     try {
         const ttsState = await getTtsState(channelNameNoHash);
         canReply = ttsState.botRespondsInChat === true;
+        locale = resolveChannelLocale(ttsState);
     } catch (error) {
         logger.error({ err: error, channel: channelNameNoHash }, 'Error fetching channel settings, defaulting to no chat responses');
     }
@@ -118,6 +125,11 @@ async function processMessage(channelNameNoHash, tags, message, eventData = {}) 
             canReply: canReply,
             eventData: eventData,
             logger: logger,
+            // Bound to the channel's language. Chat replies are read by everyone
+            // watching, so they follow the channel rather than the viewer who
+            // typed the command.
+            t: getTranslator(locale),
+            locale,
             // Helper to send a message (conditionally based on mode)
             say: async (text) => {
                 if (canReply) {
@@ -153,7 +165,7 @@ async function processMessage(channelNameNoHash, tags, message, eventData = {}) 
         // Only send error message to chat if not in effective anonymous mode
         if (canReply) {
             try {
-                await enqueueMessage(`#${channelNameNoHash}`, `Oops! Something went wrong trying to run !${commandName}.`);
+                await enqueueMessage(`#${channelNameNoHash}`, getTranslator(locale)('cmd.failed', { command: commandName }));
             } catch (sayError) {
                 logger.error({ err: sayError }, 'Failed to send command execution error message to chat.');
             }

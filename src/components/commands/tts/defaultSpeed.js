@@ -12,7 +12,8 @@ import {
 
 export default createTtsSettingCommand({
     name: 'defaultspeed',
-    property: 'speed',
+    scope: 'channel',
+    propertyKey: 'cmd.property.speed',
     description: `Sets the channel's default TTS speed (${TTS_SPEED_MIN} to ${TTS_SPEED_MAX}, 1.0 is normal). Use 'reset' for default (${TTS_SPEED_DEFAULT}).`,
     usage: '!tts defaultspeed <value|reset>',
     permission: 'moderator',
@@ -24,10 +25,9 @@ export default createTtsSettingCommand({
     setSetting: async (context, val) => setChannelDefaultSpeed(context.channel.substring(1), val),
     parseFn: (str) => parseFloat(str),
     validateFn: (val) => !isNaN(val) && val >= TTS_SPEED_MIN && val <= TTS_SPEED_MAX,
-    validationHint: `Must be a number between ${TTS_SPEED_MIN} and ${TTS_SPEED_MAX}.`,
-    formatCurrent: (val, usage) => `Current default speed: ${val}. Usage: ${usage}`,
-    formatSet: (val) => `Channel default TTS speed set to ${val}.`,
-    formatReset: () => `Channel default TTS speed reset to ${TTS_SPEED_DEFAULT}.`,
+    hintKey: 'cmd.hint.numberRange',
+    hintParams: { min: TTS_SPEED_MIN, max: TTS_SPEED_MAX },
+    resetValue: TTS_SPEED_DEFAULT,
     logSet: (context, val) => `[${context.channel.substring(1)}] Channel default speed set to ${val}.`,
     logReset: (context) => `[${context.channel.substring(1)}] Channel default speed reset to ${TTS_SPEED_DEFAULT}.`
 });

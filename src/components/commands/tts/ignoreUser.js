@@ -100,7 +100,7 @@ export default {
 
         if (!targetUsername && !isSelfTarget) {
             enqueueMessage(channel,
-                `Opt yourself out with '!tts ignore ${invokingUsernameLower}', and back in with '!tts ignore del'. Mods can use '!tts ignore add <user>' or '!tts ignore del <user>'.`,
+                context.t('cmd.ignore.usage', { user: invokingUsernameLower }),
                 { replyToId });
             return;
         }
@@ -113,7 +113,7 @@ export default {
             if (action === 'add') {
                 // Non-mods may only add themselves
                 if (!isSelf && !isModOrBroadcaster) {
-                    enqueueMessage(channel, `You can only add yourself or another user (if you are a mod) to the ignore list. Try '!tts ignore ${invokingUsernameLower}'.`, { replyToId });
+                    enqueueMessage(channel, context.t('cmd.ignore.addDenied', { user: invokingUsernameLower }), { replyToId });
                     return;
                 }
 
@@ -134,7 +134,7 @@ export default {
                 if (isSelf && !isModOrBroadcaster) {
                     const existing = getIgnoreEntry(ttsConfig, PLATFORM_TWITCH, invokingUserId);
                     if (existing && !canSelfUnignore(existing)) {
-                        enqueueMessage(channel, `You are already ignored by TTS here — a moderator set that, so only a moderator can undo it.`, { replyToId });
+                        enqueueMessage(channel, context.t('cmd.ignore.alreadyByMod'), { replyToId });
                         return;
                     }
                 }
@@ -151,10 +151,10 @@ export default {
                 const success = await addIgnoredUser(channelNameNoHash, target.key, target.label, provenance);
                 if (isSelf) {
                     enqueueMessage(channel, success ?
-                        `You will now be ignored by TTS. Undo this with '!tts ignore del'.` :
-                        `Could not add you to the ignore list.`, { replyToId });
+                        context.t('cmd.ignore.addedSelf') :
+                        context.t('cmd.ignore.addSelfFailed'), { replyToId });
                 } else {
-                    enqueueMessage(channel, success ? `${target.label} will now be ignored by TTS.` : `Could not add ${target.label} to ignore list.`, { replyToId });
+                    enqueueMessage(channel, success ? context.t('cmd.ignore.added', { user: target.label }) : context.t('cmd.ignore.addFailed', { user: target.label }), { replyToId });
                 }
                 return;
             }
@@ -167,24 +167,24 @@ export default {
             // is on the message, so a rename cannot hide their own entry from them.
             if (!isModOrBroadcaster) {
                 if (!isSelf) {
-                    enqueueMessage(channel, `Only moderators can remove other users from the TTS ignore list. You can remove yourself with '!tts ignore del'.`, { replyToId });
+                    enqueueMessage(channel, context.t('cmd.ignore.removeDenied'), { replyToId });
                     return;
                 }
 
                 const own = getIgnoreEntry(ttsConfig, PLATFORM_TWITCH, invokingUserId);
                 if (!own) {
-                    enqueueMessage(channel, `You are not on the TTS ignore list.`, { replyToId });
+                    enqueueMessage(channel, context.t('cmd.ignore.notListed'), { replyToId });
                     return;
                 }
                 if (!canSelfUnignore(own)) {
-                    enqueueMessage(channel, `A moderator opted you out of TTS here, so only a moderator can undo it.`, { replyToId });
+                    enqueueMessage(channel, context.t('cmd.ignore.removeByMod'), { replyToId });
                     return;
                 }
 
                 const removed = await removeIgnoredUser(channelNameNoHash, own.key);
                 enqueueMessage(channel, removed ?
-                    `You will no longer be ignored by TTS.` :
-                    `Could not remove you from the ignore list.`, { replyToId });
+                    context.t('cmd.ignore.removedSelf') :
+                    context.t('cmd.ignore.removeSelfFailed'), { replyToId });
                 return;
             }
 
@@ -195,13 +195,13 @@ export default {
             if (isSelf) {
                 const own = getIgnoreEntry(ttsConfig, PLATFORM_TWITCH, invokingUserId);
                 if (!own) {
-                    enqueueMessage(channel, `You are not on the TTS ignore list.`, { replyToId });
+                    enqueueMessage(channel, context.t('cmd.ignore.notListed'), { replyToId });
                     return;
                 }
                 const removed = await removeIgnoredUser(channelNameNoHash, own.key);
                 enqueueMessage(channel, removed ?
-                    `You will no longer be ignored by TTS.` :
-                    `Could not remove you from the ignore list.`, { replyToId });
+                    context.t('cmd.ignore.removedSelf') :
+                    context.t('cmd.ignore.removeSelfFailed'), { replyToId });
                 return;
             }
 
@@ -209,18 +209,18 @@ export default {
             const target = listed || await resolveIgnoreTarget(channelNameNoHash, targetUsername);
 
             if (target.error) {
-                enqueueMessage(channel, `${targetUsername} was not on the ignore list.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.ignore.targetNotListed', { user: targetUsername }), { replyToId });
                 return;
             }
 
             const success = await removeIgnoredUser(channelNameNoHash, target.key);
             enqueueMessage(channel, success ?
-                `${target.label} will no longer be ignored by TTS.` :
-                `${target.label} was not on the ignore list or could not be removed.`, { replyToId });
+                context.t('cmd.ignore.removed', { user: target.label }) :
+                context.t('cmd.ignore.removeFailed', { user: target.label }), { replyToId });
         } catch (error) {
             logger.error({ err: error, channel: channelNameNoHash, target: targetUsername, action },
                 'Failed to update the TTS ignore list.');
-            enqueueMessage(channel, `Could not update the ignore list right now.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.ignore.updateFailed'), { replyToId });
         }
     },
 };

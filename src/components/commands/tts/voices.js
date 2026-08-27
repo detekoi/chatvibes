@@ -9,6 +9,6 @@ export default {
     execute: async (context) => {
         const { channel, replyToId } = context;
         const docLink = 'https://docs.wildcat.chat/wildcatttsdocs.html#voices';
-        enqueueMessage(channel, `You can find the list of available voices here: ${docLink}`, { replyToId });
+        enqueueMessage(channel, context.t('cmd.voices.link', { docLink }), { replyToId });
     },
 };

@@ -18,7 +18,7 @@ export default {
         const channelNameNoHash = channel.substring(1);
 
         if (args.length === 0) {
-            enqueueMessage(channel, `Please provide a message for me to say.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.say.needMessage'), { replyToId });
             return;
         }
 
@@ -27,7 +27,7 @@ export default {
         const ttsConfig = await getTtsState(channelNameNoHash);
         const locale = resolveChannelLocale(ttsConfig);
         if (!ttsConfig.engineEnabled) {
-            enqueueMessage(channel, `TTS is currently disabled.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.say.disabled'), { replyToId });
             return;
         }
 

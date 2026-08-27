@@ -36,10 +36,11 @@ export default {
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
         const channelName = channel.replace('#', '').toLowerCase();
+        const { t } = context;
         const reply = msg => enqueueMessage(channel, msg, { replyToId });
 
         if (args.length === 0) {
-            reply(`Usage: ${USAGE}`);
+            reply(t('cmd.pronounce.usage', { usage: USAGE }));
             return;
         }
 
@@ -53,87 +54,87 @@ export default {
             if (subAction === 'list') {
                 const keys = Object.keys(channelEntries).sort();
                 if (keys.length === 0) {
-                    reply(`No custom pronunciations. ${PRONUNCIATION_DEFAULTS.length} built-in entries are active. Add one with: !tts pronounce <word> = <how to say it>`);
+                    reply(t('cmd.pronounce.noneCustom', { count: PRONUNCIATION_DEFAULTS.length }));
                     return;
                 }
                 const shown = keys.slice(0, LIST_LIMIT).map(k => {
                     const v = channelEntries[k];
-                    return v === '' ? `${k} (off)` : `${k} -> ${v}`;
+                    return v === '' ? t('cmd.pronounce.entryOff', { word: k }) : t('cmd.pronounce.entry', { word: k, say: v });
                 }).join(', ');
-                const more = keys.length > LIST_LIMIT ? ` ...and ${keys.length - LIST_LIMIT} more (see the dashboard)` : '';
-                reply(`Custom pronunciations: ${shown}${more}`);
+                const more = keys.length > LIST_LIMIT ? t('cmd.pronounce.listMore', { count: keys.length - LIST_LIMIT }) : '';
+                reply(t('cmd.pronounce.list', { entries: shown, more }));
                 return;
             }
 
             if (subAction === 'defaults') {
                 if (PRONUNCIATION_DEFAULTS.length === 0) {
-                    reply('No built-in pronunciations are configured.');
+                    reply(t('cmd.pronounce.noDefaults'));
                     return;
                 }
                 const names = PRONUNCIATION_DEFAULTS.map(e => e.match).join(', ');
-                reply(`Built-in (${PRONUNCIATION_DEFAULTS.length}): ${names.slice(0, 400)}`);
+                reply(t('cmd.pronounce.defaults', { count: PRONUNCIATION_DEFAULTS.length, names: names.slice(0, 400) }));
                 return;
             }
 
             if (subAction === 'test') {
                 if (!rest) {
-                    reply('Usage: !tts pronounce test <text>');
+                    reply(t('cmd.pronounce.testUsage'));
                     return;
                 }
                 // Shows the expansion without spending a TTS call on it.
                 const rules = getPronunciationRules(ttsConfig);
                 const result = rules ? applyRewrites(rest, rules) : rest;
-                reply(result === rest ? `No change: "${rest}"` : `Would say: "${result}"`);
+                reply(result === rest ? t('cmd.pronounce.testNoChange', { text: rest }) : t('cmd.pronounce.testResult', { text: result }));
                 return;
             }
 
             if (subAction === 'remove' || subAction === 'rm' || subAction === 'del') {
                 const match = normalizeMatchKey(rest);
                 if (!match) {
-                    reply('Usage: !tts pronounce remove <word>');
+                    reply(t('cmd.pronounce.removeUsage'));
                     return;
                 }
                 if (!Object.hasOwn(channelEntries, match)) {
-                    reply(`"${match}" is not a custom pronunciation for this channel.`);
+                    reply(t('cmd.pronounce.notCustom', { word: match }));
                     return;
                 }
                 const ok = await removePronunciation(channelName, match);
                 if (!ok) {
-                    reply('Could not remove that pronunciation. Try again shortly.');
+                    reply(t('cmd.pronounce.removeFailed'));
                     return;
                 }
                 const builtIn = PRONUNCIATION_DEFAULTS.find(e => e.match === match);
                 logger.info({ channel: channelName, match, user: user.username }, 'Pronunciation removed via command');
                 reply(builtIn
-                    ? `Removed "${match}". The built-in is back: "${builtIn.say}".`
-                    : `Removed "${match}".`);
+                    ? t('cmd.pronounce.removedRestored', { word: match, say: builtIn.say })
+                    : t('cmd.pronounce.removed', { word: match }));
                 return;
             }
 
             if (subAction === 'off') {
                 const match = normalizeMatchKey(rest);
                 if (!match) {
-                    reply('Usage: !tts pronounce off <word>');
+                    reply(t('cmd.pronounce.offUsage'));
                     return;
                 }
                 if (!PRONUNCIATION_DEFAULTS.some(e => e.match === match)) {
-                    reply(`"${match}" is not a built-in. Use "!tts pronounce remove ${match}" for a custom entry.`);
+                    reply(t('cmd.pronounce.notBuiltIn', { word: match }));
                     return;
                 }
                 const ok = await setPronunciation(channelName, match, '');
                 reply(ok
-                    ? `Built-in "${match}" switched off. Restore it with: !tts pronounce remove ${match}`
-                    : 'Could not update that pronunciation. Try again shortly.');
+                    ? t('cmd.pronounce.switchedOff', { word: match })
+                    : t('cmd.pronounce.updateFailed'));
                 return;
             }
 
             if (subAction === 'clear') {
                 if (user.username?.toLowerCase() !== channelName) {
-                    reply('Only the broadcaster can clear the whole dictionary.');
+                    reply(t('cmd.pronounce.clearDenied'));
                     return;
                 }
                 const ok = await clearPronunciations(channelName);
-                reply(ok ? 'All custom pronunciations cleared. Built-ins are still active.' : 'Could not clear the dictionary.');
+                reply(ok ? t('cmd.pronounce.cleared') : t('cmd.pronounce.clearFailed'));
                 return;
             }
 
@@ -141,20 +142,19 @@ export default {
             const whole = args.join(' ');
             const eqIndex = whole.indexOf('=');
             if (eqIndex === -1) {
-                reply(`Usage: ${USAGE}`);
+                reply(t('cmd.pronounce.usage', { usage: USAGE }));
                 return;
             }
 
             const match = normalizeMatchKey(whole.slice(0, eqIndex));
             if (!match) {
-                reply('That word cannot be used. Use letters, digits, apostrophes or hyphens, up to ' +
-                    `${PRONUNCIATION_LIMITS.MAX_MATCH_LENGTH} characters, and no dots.`);
+                reply(t('cmd.pronounce.badWord', { max: PRONUNCIATION_LIMITS.MAX_MATCH_LENGTH }));
                 return;
             }
 
             const say = validateSay(whole.slice(eqIndex + 1));
             if (!say.ok) {
-                reply(`The spoken form ${say.reason}.`);
+                reply(t('cmd.pronounce.badSay', { reason: say.reason }));
                 return;
             }
 
@@ -164,13 +164,13 @@ export default {
             // look like an existing entry and skip the cap check.
             const isNew = !Object.hasOwn(channelEntries, match);
             if (isNew && Object.keys(channelEntries).length >= PRONUNCIATION_LIMITS.MAX_CUSTOM_ENTRIES) {
-                reply(`This channel already has ${PRONUNCIATION_LIMITS.MAX_CUSTOM_ENTRIES} custom pronunciations. Remove one first.`);
+                reply(t('cmd.pronounce.limitReached', { max: PRONUNCIATION_LIMITS.MAX_CUSTOM_ENTRIES }));
                 return;
             }
 
             const ok = await setPronunciation(channelName, match, say.value);
             if (!ok) {
-                reply('Could not save that pronunciation. Try again shortly.');
+                reply(t('cmd.pronounce.saveFailed'));
                 return;
             }
 
@@ -179,11 +179,11 @@ export default {
             // Object.prototype and would falsely report a built-in override.
             const overrides = Object.hasOwn(buildEffectiveMap({}), match) && isNew;
             reply(overrides
-                ? `"${match}" will now be said as "${say.value}" (overriding the built-in).`
-                : `"${match}" will now be said as "${say.value}".`);
+                ? t('cmd.pronounce.savedOverride', { word: match, say: say.value })
+                : t('cmd.pronounce.saved', { word: match, say: say.value }));
         } catch (error) {
             logger.error({ err: error, channel: channelName, args }, 'Error in !tts pronounce');
-            reply('Something went wrong handling that pronunciation command.');
+            reply(t('cmd.pronounce.error'));
         }
     },
 };

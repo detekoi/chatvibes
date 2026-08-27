@@ -17,7 +17,7 @@ export default {
         try {
             const ttsState = await getTtsState(channelNameNoHash);
             if (ttsState && ttsState.allowViewerPreferences === false) {
-                enqueueMessage(channel, `The streamer has disabled personal voice settings for this channel.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.preferences.disabled'), { replyToId });
                 return;
             }
         } catch (e) {
@@ -26,6 +26,6 @@ export default {
         }
 
         const settingsUrl = `${WEB_UI_BASE_URL}/viewer-settings.html?channel=${encodeURIComponent(channelNameNoHash)}`;
-        enqueueMessage(channel, `Configure your TTS settings here → ${settingsUrl}`, { replyToId });
+        enqueueMessage(channel, context.t('cmd.preferences.link', { url: settingsUrl }), { replyToId });
     },
 };

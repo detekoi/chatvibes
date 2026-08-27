@@ -2,6 +2,7 @@
 // Unit tests for emote description cache and emote subcommand
 
 import { jest } from '@jest/globals';
+import { getTranslator } from '../../src/i18n/index.js';
 
 describe('Emote Description Firestore Cache', () => {
     let mockLogger;
@@ -349,6 +350,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: [],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
@@ -370,6 +372,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: ['LUL'],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
@@ -387,6 +390,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: ['UnknownEmote'],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
@@ -408,6 +412,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: ['regenerate', 'LUL'],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockEmoteDescriber.invalidateEmoteDescription).toHaveBeenCalledWith('e1', 'en');
@@ -426,6 +431,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: ['regenerate', 'UnknownEmote'],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockEmoteDescriber.invalidateEmoteDescription).not.toHaveBeenCalled();
@@ -444,6 +450,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: ['regenerate'],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
@@ -465,6 +472,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: ['set', 'LUL', '=', 'laughing face'],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockEmoteDescriber.setEmoteDescription).toHaveBeenCalledWith('e1', 'LUL', 'laughing face', '12345', 'en');
@@ -483,6 +491,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: ['set', 'UnknownEmote', '=', 'some description'],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockEmoteDescriber.setEmoteDescription).not.toHaveBeenCalled();
@@ -501,6 +510,7 @@ describe('Emote TTS Subcommand', () => {
             user: { username: 'mod' },
             args: ['set', 'LUL', 'laughing', 'face'],
             replyToId: '123',
+            t: getTranslator('en')
         });
 
         expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
@@ -525,6 +535,7 @@ describe('Emote TTS Subcommand', () => {
             args: ['LUL'],
             reply: jest.fn(),
             say: jest.fn(),
+            t: getTranslator('en')
         });
 
         expect(mockEmoteDescriber.findEmoteDescriptionsByName).toHaveBeenCalledWith('LUL', 'es');

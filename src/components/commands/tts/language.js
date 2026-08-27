@@ -10,7 +10,8 @@ const docLink = DOC_LINKS.languageBoost;
 
 export default createTtsSettingCommand({
     name: 'language',
-    property: 'language preference',
+    scope: 'user',
+    propertyKey: 'cmd.property.languagePreference',
     description: `Sets your preferred TTS language boost. Use 'auto', 'none', or 'reset' for channel default. See !tts languageslist or ${docLink} for options.`,
     usage: `!tts language <language_name|auto|none|reset> (Full list: ${docLink})`,
     readCurrent: async (context) => {
@@ -21,10 +22,10 @@ export default createTtsSettingCommand({
     setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'languageBoost', val, context.user['user-id']),
     validateFn: (val) => VALID_LANGUAGE_BOOSTS.some(l => l.toLowerCase() === val.toLowerCase()),
     transformFn: (val) => VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === val.toLowerCase()),
-    validationHint: `See available languages: ${docLink}`,
-    formatCurrent: (val, usage) => `Your current language preference: ${val ?? 'Channel Default'}. Usage: ${usage}`,
-    formatSet: (val) => `Your TTS language preference set to ${val}.`,
-    formatReset: () => `Your TTS language preference has been reset to the channel default (Automatic/None).`,
+    hintKey: 'cmd.hint.languages',
+    hintParams: { docLink },
+    showChannelDefaultWhenUnset: true,
+    resetKey: 'cmd.language.reset',
     logSet: (context, val) => `[${context.channel.substring(1)}] User ${context.user.username} set language preference to ${val}.`,
     logReset: (context) => `[${context.channel.substring(1)}] User ${context.user.username} reset language preference.`,
     resetAliases: ['reset', 'automatic', 'auto', 'none']

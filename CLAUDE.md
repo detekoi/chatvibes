@@ -248,6 +248,20 @@ viewer can ignore — it is read out in a Spanish accent. Catalogs live in
   rejects the translated form as an invented placeholder.
 - The English catalog is the contract every other locale is checked against, so
   `translate-catalogs.js` refuses to translate it even when named explicitly.
+- **Chat replies are localized through `context.t`.** `commandProcessor` already reads the
+  channel config to decide `botRespondsInChat`, so it resolves the locale from that same read
+  and binds a translator onto the command context. Commands call `context.t('cmd.…')` rather
+  than each doing its own lookup, and subcommand dispatch spreads the context so it
+  propagates. A command invoked without one throws rather than silently falling back to
+  English — the tests supply the real translator so their assertions still check the message
+  a viewer sees.
+- **`createTtsSettingCommand` takes message keys, not callbacks.** Its eight callers each used
+  to hand back finished English from `formatCurrent`/`formatSet`/`formatReset`. They now name a
+  `scope` (`user` or `channel`) and a `propertyKey`, and the two shared shapes take the
+  property name as a parameter — so eight commands share two messages instead of carrying
+  eight near-duplicate pairs. Commands whose English genuinely differs override a single key.
+  **`usage` deliberately stays an untranslated string**: it is the command's syntax line, and a
+  translator rewriting `!tts language` would break the thing it documents.
 - **`src/lib/channelLanguageSync.js` fills the language in from Twitch** so a streamer who
   never opens the dashboard still gets announcements in their own language. It reads
   `broadcaster_language` from Helix `/channels` (via `getChannelInformation`, batching 100

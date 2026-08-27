@@ -18,7 +18,7 @@ export default {
         if (args.length === 0) {
             const currentChannelConfig = await getTtsState(channelNameNoHash);
             const currentDefaultVoice = currentChannelConfig.voiceId || config.tts.defaultVoiceId;
-            enqueueMessage(channel, `The current default TTS voice for this channel is: ${currentDefaultVoice}. Use '!tts defaultvoice <voice_id>' to change it or '!tts defaultvoice reset' to use the system default.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.defaultvoice.current', { value: currentDefaultVoice }), { replyToId });
             return;
         }
 
@@ -28,10 +28,10 @@ export default {
             const systemDefaultVoice = config.tts.defaultVoiceId || 'Friendly_Person'; // Fallback if not in config
             const success = await setTtsState(channelNameNoHash, 'voiceId', systemDefaultVoice);
             if (success) {
-                enqueueMessage(channel, `The channel's default TTS voice has been reset to the system default: ${systemDefaultVoice}.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.defaultvoice.reset', { value: systemDefaultVoice }), { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default TTS voice reset to system default '${systemDefaultVoice}'.`);
             } else {
-                enqueueMessage(channel, `Could not reset the channel's default TTS voice at this time.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.defaultvoice.resetFailed'), { replyToId });
             }
             return;
         }
@@ -42,7 +42,7 @@ export default {
 
         const availableVoices = await getAvailableVoices();
         if (!availableVoices || availableVoices.length === 0) {
-            enqueueMessage(channel, `Could not retrieve the list of available voices at this time. Please try again later.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.defaultvoice.listFailed'), { replyToId });
             logger.warn(`[${channelNameNoHash}] Could not get available voices for !tts defaultvoice command.`);
             return;
         }
@@ -50,7 +50,7 @@ export default {
         const matchedVoice = availableVoices.find(v => v.id.toLowerCase() === requestedVoiceIdInput.toLowerCase());
 
         if (!matchedVoice) {
-            enqueueMessage(channel, `Invalid voice ID '${requestedVoiceIdInput}'. See the list of available voices here: ${DOC_LINKS.voices} (or use !tts voices for link)`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.defaultvoice.invalid', { value: requestedVoiceIdInput, docLink: DOC_LINKS.voices }), { replyToId });
             logger.warn(`[${channelNameNoHash}] Attempted to set invalid channel default voice: ${requestedVoiceIdInput}`);
             return;
         }
@@ -59,10 +59,10 @@ export default {
 
         const success = await setTtsState(channelNameNoHash, 'voiceId', validVoiceIdToStore);
         if (success) {
-            enqueueMessage(channel, `The channel's default TTS voice has been set to: ${validVoiceIdToStore}.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.defaultvoice.set', { value: validVoiceIdToStore }), { replyToId });
             logger.info(`[${channelNameNoHash}] Channel default TTS voice set to '${validVoiceIdToStore}'.`);
         } else {
-            enqueueMessage(channel, `Could not set the channel's default TTS voice to ${validVoiceIdToStore} at this time.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.defaultvoice.setFailed', { value: validVoiceIdToStore }), { replyToId });
         }
     },
 };
