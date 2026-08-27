@@ -72,7 +72,7 @@ if (requested.length !== targets.length) {
 
 const hash = (s) => createHash('sha256').update(String(s)).digest('hex').slice(0, 16);
 
-const PROMPT_VERSION = 2;
+const PROMPT_VERSION = 4;
 const promptHash = hash(JSON.stringify({
     v: PROMPT_VERSION,
     context: config.context,
@@ -124,7 +124,8 @@ Absolute rules:
 6. GRAMMATICAL GENDER. The subject of these messages is a viewer of unknown gender, and the same string is reused for every viewer.
    - If the string contains a {g, select, ...} placeholder, inflect using it. Its values are exactly: he, she, other.
    - If it does NOT contain one, you have no gender information at all. Do not default to the masculine. Rewrite so the sentence does not inflect for gender at all — use the present tense instead of a past participle, a noun phrase instead of a verb, or an impersonal construction. This matters most in Slavic, Semitic and Indic languages, where a masculine past tense is simply wrong for half of all viewers.
-7. If the target language has only the "other" plural category, that single branch is used for EVERY number including 1. Word it so it reads correctly for one as well as many — do not carry over an English plural marker that would produce "1 bits".`;
+7. These strings are READ ALOUD by a speech synthesiser. Never abbreviate. Write every word out in full — no "мес.", no "min.", no "no." — because an abbreviation is spoken as its letters, not as the word it stands for. Do not use digits in place of words that would normally be spelled out, and avoid symbols a synthesiser cannot pronounce.
+8. If the target language has only the "other" plural category, that single branch is used for EVERY number including 1. Word it so it reads correctly for one as well as many — do not carry over an English plural marker that would produce "1 bits".`;
 
 function buildPrompt(locale, keys) {
     const categories = new Intl.PluralRules(locale).resolvedOptions().pluralCategories;
@@ -159,16 +160,32 @@ ${JSON.stringify(payload, null, 2)}`;
 const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 async function callModel(prompt, extra = '') {
-    const response = await Promise.race([
-        genAI.models.generateContent({
-            model: MODEL,
-            systemInstruction: SYSTEM_INSTRUCTION,
-            contents: [{ text: extra ? `${prompt}\n\n${extra}` : prompt }],
-            config: { responseMimeType: 'application/json' },
-        }),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini timeout')), TIMEOUT_MS)),
-    ]);
-    return JSON.parse(response.text);
+    const request = genAI.models.generateContent({
+        model: MODEL,
+        systemInstruction: SYSTEM_INSTRUCTION,
+        contents: [{ text: extra ? `${prompt}\n\n${extra}` : prompt }],
+        config: { responseMimeType: 'application/json' },
+    });
+
+    // Losing the race does not cancel the request. Without this, a call that
+    // times out and *then* fails rejects with nobody listening, which Node
+    // treats as an unhandled rejection and exits on.
+    request.catch(() => {});
+
+    let timer;
+    try {
+        const response = await Promise.race([
+            request,
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error('Gemini timeout')), TIMEOUT_MS);
+            }),
+        ]);
+        return JSON.parse(response.text);
+    } finally {
+        // An unfired timer keeps the event loop alive for its full duration, so
+        // the script would idle for TIMEOUT_MS after finishing its real work.
+        clearTimeout(timer);
+    }
 }
 
 async function translateLocale(locale) {
@@ -268,6 +285,4 @@ async function main() {
     if (bad.length) process.exit(1);
 }
 
-// The API client keeps a handle open, so the process would otherwise sit idle
-// after the work is done.
-main().then(() => process.exit(0)).catch(err => { console.error(err); process.exit(1); });
+main().catch(err => { console.error(err); process.exit(1); });

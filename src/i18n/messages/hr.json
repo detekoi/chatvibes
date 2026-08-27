@@ -2,9 +2,9 @@
   "announce.tier": " Tier {n}",
   "announce.tierParen": " (Tier {n})",
   "announce.sub.new": "{user} se upravo pretplatio{tier}!",
-  "announce.sub.resub": "{user} se ponovno pretplatio na {months} mjeseci{streak}{tier}!",
+  "announce.sub.resub": "{user} se ponovno pretplatio na {months, plural, one {# mjesec} few {# mjeseca} other {# mjeseci}}{streak}{tier}!",
   "announce.sub.streak": ", u nizu od {months} mjeseci",
-  "announce.sub.gift.single": "{user} je upravo poklonio{tier} sub za {recipient}!",
+  "announce.sub.gift.single": "{user} je upravo poklonio{tier} sub korisniku {recipient}!",
   "announce.sub.gift.communityAnon": "{count, plural, one {#{tier} poklonjeni sub} few {#{tier} poklonjena suba} other {#{tier} poklonjenih subova}} od anonimnog darovatelja!",
   "announce.sub.gift.community": "{user} je upravo poklonio {count, plural, one {#{tier} sub} few {#{tier} suba} other {#{tier} subova}}!",
   "announce.cheer": "{user} je poslao {count, plural, one {# bit} few {# bita} other {# bitova}}!",
@@ -12,7 +12,7 @@
   "announce.raid": "{user} radi raid s {count, plural, one {# gledateljem} few {# gledatelja} other {# gledatelja}}!",
   "announce.follow": "{user} je upravo zapratio!",
   "announce.follow.anon": "Netko novi je upravo zapratio!",
-  "announce.watchStreak": "{user} je u nizu gledanja od {count} streamova!",
+  "announce.watchStreak": "{user} ima niz od {count} odgledanih streamova!",
   "announce.saidMessage": " {subject} {g, select, he {je rekao} she {je rekla} other {kaže}}: {message}",
   "announce.redemption": "{user} je iskoristio {reward}",
   "announce.redemption.input": "{text}: {input}",
@@ -25,6 +25,6 @@
   "announce.yt.supersticker.amount": "{user} je poslao Super Sticker za {amount}",
   "announce.yt.supersticker": "{user} je poslao Super Sticker",
   "announce.yt.member.message": "Novi YouTube član {user}: {subtext}. ",
-  "announce.yt.member": "{user} je upravo postao YouTube član! ",
+  "announce.yt.member": "{user} je postao YouTube član! ",
   "emoji.wrap": "{count, plural, one {({description} emoji)} few {(# {description} emojija)} other {(# {description} emojija)}}"
 }

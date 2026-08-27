@@ -2,7 +2,7 @@
   "announce.tier": " Tier {n}",
   "announce.tierParen": " (Tier {n})",
   "announce.sub.new": "{user} just subscribed{tier}!",
-  "announce.sub.resub": "{user} resubscribed for {months} months{streak}{tier}!",
+  "announce.sub.resub": "{user} resubscribed for {months, plural, one {# month} other {# months}}{streak}{tier}!",
   "announce.sub.streak": ", on a {months} month streak",
   "announce.sub.gift.single": "{user} just gifted a{tier} sub to {recipient}!",
   "announce.sub.gift.communityAnon": "{count, plural, one {#{tier} gift sub} other {#{tier} gift subs}} from an anonymous gifter!",
@@ -30,7 +30,7 @@
   "_notes": {
     "announce.tier": "A fragment with a LEADING SPACE, spliced mid-sentence into the sub messages. Keep the leading space and keep the word Tier in English.",
     "announce.tierParen": "A fragment with a LEADING SPACE, appended after the verb. Keep the leading space.",
-    "announce.sub.streak": "A fragment with a LEADING COMMA AND SPACE, appended mid-sentence before the tier fragment.",
+    "announce.sub.streak": "A fragment with a LEADING COMMA AND SPACE, appended mid-sentence before the tier fragment. {months} is always 2 or more. Write the word for 'month' out IN FULL and inflect it for the number if the language requires it; English uses the attributive singular ('a 12 month streak'), which most languages do not.",
     "announce.saidMessage": "Has a LEADING SPACE and is appended to a preceding sentence. {subject} is a pronoun fetched per viewer (he/she/they/neopronoun). Use {g} to inflect the verb: it is he, she, or other.",
     "announce.redemption.input": "{text} is the already-built announcement; this only joins it to the viewer's message.",
     "announce.yt.superchat": "Ends with a colon and a TRAILING SPACE; the viewer's message is appended after it.",

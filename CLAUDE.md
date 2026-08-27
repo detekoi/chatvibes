@@ -119,6 +119,8 @@ export TWITCH_CHANNELS=yourchannel
 - `src/components/tts/ttsQueue.js` - Manages TTS message queue
 - `src/components/tts/ttsState.js` - Manages TTS configuration state
 - `src/components/tts/ttsConstants.js` - Default settings and constants
+- `src/i18n/` - Message catalogs and the ICU-subset formatter (see below)
+- `scripts/translate-catalogs.js` - Build-time catalog translation (run by hand, never in CI)
 - `src/components/commands/handlers/` - Command handlers for TTS
 - `src/components/web/server.js` - WebSocket server for the TTS player
 - `src/components/web/public/tts-player.js` - Browser-based audio player
@@ -136,6 +138,51 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
 - Ignore list (`ignoredUserIds` — see below)
 - Redemption announcements (`announceUnfulfilledRedemptions` — defaults to on, see below)
 - User-specific preferences (including language)
+- Announcement locale (`announcementLocale` — optional, see i18n below)
+
+### Internationalization (`src/i18n/`)
+
+Announcements are spoken aloud, so an English string on a Spanish channel is not a label a
+viewer can ignore — it is read out in a Spanish accent. Catalogs live in
+`src/i18n/messages/<bcp47>.json`, one per supported language.
+
+- **`languageBoost` is not a locale.** It is a MiniMax *synthesis hint*, it defaults to
+  `auto`, and `ttsService.mapLanguageBoost()` also accepts `'None'`/`'Automatic'`, none of
+  which name a language. `src/i18n/locales.json` is the single source of truth mapping
+  `languageBoost` ↔ BCP-47 ↔ Twitch `broadcaster_language`; a test asserts it stays in step
+  with `VALID_LANGUAGE_BOOSTS`. `npm run sync-constants` copies it to the web UI.
+- **`announcementLocale` overrides the derived value**, so a channel can run an English voice
+  with Spanish announcements. Unset (the normal case) derives from `languageBoost`, and
+  `auto` falls back to English — so no migration was needed.
+- **Everything the bot emits resolves at the *channel* level**, never per-viewer: an
+  announcement is heard by the whole channel. This is why announcements render in the handler
+  before dispatch and `ttsQueue.enqueue`'s per-message resolution is untouched — in
+  particular the profanity filter that deliberately lives there did not have to move.
+- **Translations are generated at build time and committed**, by `npm run translate`
+  (`gemini-3.7-flash`). Runtime translation was rejected for these strings: they are a closed
+  set of templates, so translating per-message would put a Gemini round-trip in the TTS hot
+  path and produce output that varies between renders. Emote descriptions are the one
+  genuinely unbounded surface and stay a runtime call.
+- **Nothing from the model is trusted.** `src/i18n/validate.js` runs in CI over every
+  catalog: keys complete, no orphans, placeholders preserved, ICU well-formed, and plural
+  branches matching *exactly* the categories `Intl.PluralRules` reports for that locale. That
+  last rule is the one that matters — asked to translate an English `one`/`other` message,
+  a model will happily return `one`/`other` for Arabic, which needs six categories, and the
+  result reads as the wrong grammatical form for most numbers.
+- **`src/i18n/format.js` is a deliberate ICU subset** (`{arg}`, `plural`, `select`, `#`) with
+  no dependency, because the web dashboard builds with `esbuild bundle: false` and has no
+  bundler entry point. It does not support ICU apostrophe escaping, so a literal `{` or `}`
+  cannot appear in a message.
+- **Grammatical gender is only partly solvable.** Slavic, Semitic and Indic languages inflect
+  verbs by subject gender and the bot rarely knows it, so the translation prompt requires
+  genderless phrasings (present tense, noun phrases) instead of defaulting to masculine.
+  Hebrew and Arabic cannot comply — their verbs inflect for gender in *every* tense — so
+  those catalogs carry a masculine default. Where a gender *is* known (`resolvePronounSubject`
+  on resub and watch-streak messages), `announce.saidMessage` takes a `{g, select, ...}`.
+  Any message given a gender key must expose it in `messages/en.json`, or the validator
+  rejects the translated form as an invented placeholder.
+- The English catalog is the contract every other locale is checked against, so
+  `translate-catalogs.js` refuses to translate it even when named explicitly.
 
 ### Redemption announcements and the reward queue (`announceUnfulfilledRedemptions`)
 

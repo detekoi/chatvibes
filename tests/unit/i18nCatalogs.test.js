@@ -63,6 +63,26 @@ describe('the English source catalog', () => {
     });
 });
 
+// Every catalog string is fed to a speech synthesiser, which reads an
+// abbreviation as its letters. Translation models reach for them constantly
+// when a string is short, and it is invisible in review unless you speak the
+// language, so it is asserted rather than eyeballed.
+describe('no catalog abbreviates a word', () => {
+    // One to four letters followed by a period, where the period ends the token
+    // rather than the sentence. Anchored on a letter so the legitimate "{subtext}. "
+    // sentence ending does not match.
+    const ABBREVIATION = /(?:^|[\s(])(\p{L}{1,4})\.(?=\s|$)/u;
+    const all = [...present];
+
+    test.each(all)('%s', (locale) => {
+        const catalog = read(`${locale}.json`);
+        const hits = Object.entries(catalog)
+            .filter(([k, v]) => !k.startsWith('_') && typeof v === 'string' && ABBREVIATION.test(v))
+            .map(([k, v]) => `${k}: ${v}`);
+        expect(hits).toEqual([]);
+    });
+});
+
 describe('translated catalogs', () => {
     test('every catalog file is a locale the bot supports', () => {
         const supported = new Set([...supportedLocales(), DEFAULT_LOCALE]);
