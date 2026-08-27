@@ -13,7 +13,7 @@ jest.unstable_mockModule('../../src/lib/allowList.js', () => mockAllowList);
 const mockHelix = { getChannelInformation: jest.fn() };
 jest.unstable_mockModule('../../src/components/twitch/helixClient.js', () => mockHelix);
 
-const mockTtsState = { getTtsState: jest.fn(), setChannelDefaultLanguage: jest.fn() };
+const mockTtsState = { getStoredLanguageBoost: jest.fn(), setChannelDefaultLanguage: jest.fn() };
 jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => mockTtsState);
 
 const { syncChannelLanguages, startChannelLanguageSync, stopChannelLanguageSync } =
@@ -33,7 +33,7 @@ describe('writing a detected language', () => {
     test('sets the language when the channel is still on auto', async () => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', 'es')]);
-        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: 'auto' });
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue('auto');
 
         await expect(syncChannelLanguages()).resolves.toEqual({ checked: 1, updated: 1, skipped: 0 });
         expect(mockTtsState.setChannelDefaultLanguage).toHaveBeenCalledWith('streamer', 'Spanish');
@@ -42,7 +42,7 @@ describe('writing a detected language', () => {
     test('sets the language when the channel has none at all', async () => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', 'de')]);
-        mockTtsState.getTtsState.mockResolvedValue({});
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue(null);
 
         await syncChannelLanguages();
         expect(mockTtsState.setChannelDefaultLanguage).toHaveBeenCalledWith('streamer', 'German');
@@ -51,7 +51,7 @@ describe('writing a detected language', () => {
     test('maps Cantonese, whose Twitch code and TTS value share no spelling', async () => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', 'zh-hk')]);
-        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: 'auto' });
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue('auto');
 
         await syncChannelLanguages();
         expect(mockTtsState.setChannelDefaultLanguage).toHaveBeenCalledWith('streamer', 'Chinese,Yue');
@@ -60,7 +60,7 @@ describe('writing a detected language', () => {
     test('logs every write at info, because a silent one is untraceable in production', async () => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', 'ja')]);
-        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: 'auto' });
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue('auto');
 
         await syncChannelLanguages();
         expect(mockLogger.info).toHaveBeenCalledWith(
@@ -74,7 +74,7 @@ describe('never overwriting a deliberate choice', () => {
     test.each(['Spanish', 'English', 'Chinese,Yue'])('leaves an explicit %s alone', async (existing) => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', 'fr')]);
-        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: existing });
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue(existing);
 
         await expect(syncChannelLanguages()).resolves.toEqual({ checked: 1, updated: 0, skipped: 1 });
         expect(mockTtsState.setChannelDefaultLanguage).not.toHaveBeenCalled();
@@ -83,7 +83,7 @@ describe('never overwriting a deliberate choice', () => {
     test.each(['auto', 'Automatic', 'None'])('treats the legacy value %s as no choice', async (value) => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', 'it')]);
-        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: value });
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue(value);
 
         await syncChannelLanguages();
         expect(mockTtsState.setChannelDefaultLanguage).toHaveBeenCalledWith('streamer', 'Italian');
@@ -94,7 +94,7 @@ describe('Twitch languages with no TTS equivalent', () => {
     test.each(['other', 'asl', '', null, 'xx'])('leaves the channel on auto for %s', async (lang) => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', lang)]);
-        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: 'auto' });
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue('auto');
 
         await syncChannelLanguages();
         expect(mockTtsState.setChannelDefaultLanguage).not.toHaveBeenCalled();
@@ -119,7 +119,7 @@ describe('robustness', () => {
         mockHelix.getChannelInformation
             .mockRejectedValueOnce(new Error('helix down'))
             .mockResolvedValueOnce([helixRow('100', 'pt')]);
-        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: 'auto' });
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue('auto');
 
         await expect(syncChannelLanguages()).resolves.toEqual({ checked: 1, updated: 1, skipped: 0 });
         expect(mockTtsState.setChannelDefaultLanguage).toHaveBeenCalledWith('c100', 'Portuguese');
@@ -128,7 +128,7 @@ describe('robustness', () => {
     test('ignores a Helix row for a channel it did not ask about', async () => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('999', 'es')]);
-        mockTtsState.getTtsState.mockResolvedValue({ languageBoost: 'auto' });
+        mockTtsState.getStoredLanguageBoost.mockResolvedValue('auto');
 
         await expect(syncChannelLanguages()).resolves.toEqual({ checked: 0, updated: 0, skipped: 0 });
         expect(mockTtsState.setChannelDefaultLanguage).not.toHaveBeenCalled();
@@ -137,13 +137,26 @@ describe('robustness', () => {
     test('a config read failure skips that channel without failing the pass', async () => {
         mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'a'), channel('2', 'b')]);
         mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', 'es'), helixRow('2', 'es')]);
-        mockTtsState.getTtsState
+        mockTtsState.getStoredLanguageBoost
             .mockRejectedValueOnce(new Error('firestore down'))
-            .mockResolvedValueOnce({ languageBoost: 'auto' });
+            .mockResolvedValueOnce('auto');
 
         await syncChannelLanguages();
         expect(mockTtsState.setChannelDefaultLanguage).toHaveBeenCalledTimes(1);
         expect(mockTtsState.setChannelDefaultLanguage).toHaveBeenCalledWith('b', 'Spanish');
+    });
+
+    test('a read that cannot confirm the stored value never triggers a write', async () => {
+        // The original bug: this went through getTtsState, which swallows a
+        // Firestore error and returns defaults with languageBoost 'auto'. A
+        // channel that had explicitly chosen Spanish then looked unset, and a
+        // transient outage would overwrite it permanently.
+        mockAllowList.getActiveChannels.mockReturnValue([channel('1', 'streamer')]);
+        mockHelix.getChannelInformation.mockResolvedValue([helixRow('1', 'fr')]);
+        mockTtsState.getStoredLanguageBoost.mockRejectedValue(new Error('firestore down'));
+
+        await syncChannelLanguages();
+        expect(mockTtsState.setChannelDefaultLanguage).not.toHaveBeenCalled();
     });
 
     test('calls Helix at all only when there is something to ask about', async () => {

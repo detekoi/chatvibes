@@ -23,7 +23,7 @@
 import logger from './logger.js';
 import { getActiveChannels } from './allowList.js';
 import { getChannelInformation } from '../components/twitch/helixClient.js';
-import { getTtsState, setChannelDefaultLanguage } from '../components/tts/ttsState.js';
+import { getStoredLanguageBoost, setChannelDefaultLanguage } from '../components/tts/ttsState.js';
 import { languageBoostFromTwitch, isAutoLanguageBoost } from '../i18n/index.js';
 
 // Helix caps /channels at 100 broadcaster IDs per request.
@@ -77,16 +77,21 @@ export async function syncChannelLanguages() {
                 continue;
             }
 
-            let current;
+            // Must be the stored value, not getTtsState's: that one returns
+            // defaults (languageBoost 'auto') when a Firestore read fails, which
+            // is indistinguishable from a channel that never chose one — so an
+            // outage would make this overwrite real preferences.
+            let stored;
             try {
-                current = await getTtsState(channelName);
+                stored = await getStoredLanguageBoost(channelName);
             } catch (err) {
-                logger.warn({ err, channel: channelName }, 'Channel language sync: could not read config');
+                logger.warn({ err, channel: channelName },
+                    'Channel language sync: could not read stored language — skipping rather than risk overwriting a choice');
                 continue;
             }
 
-            if (!isAutoLanguageBoost(current?.languageBoost)) {
-                logger.debug({ channel: channelName, languageBoost: current.languageBoost },
+            if (!isAutoLanguageBoost(stored)) {
+                logger.debug({ channel: channelName, languageBoost: stored },
                     'Channel language sync: channel has chosen a language — leaving it alone');
                 skipped++;
                 continue;

@@ -193,6 +193,14 @@ viewer can ignore — it is read out in a Spanish accent. Catalogs live in
   channel on auto rather than being guessed at. It runs from the leader-election hook
   alongside EventSub, so N Cloud Run instances do not all poll Helix and race on the write,
   and every write logs at `info` because the silent branches log at `debug`.
+- **It reads through `getStoredLanguageBoost`, never `getTtsState`, and that distinction is
+  load-bearing.** `getTtsState` swallows a Firestore read error and returns
+  `DEFAULT_TTS_SETTINGS`, whose `languageBoost` is `'auto'` — indistinguishable from a channel
+  that genuinely never chose one. Any caller that *writes* on the absence of a setting would
+  therefore destroy a real preference during a transient outage. `getStoredLanguageBoost` lets
+  the error propagate so the sync can skip the channel instead. The same trap is noted inline
+  at `getTtsState`'s catch block ("a failed read is not evidence the channel is new"); apply
+  the same reasoning to any future setting that gets auto-populated.
 
 ### Redemption announcements and the reward queue (`announceUnfulfilledRedemptions`)
 

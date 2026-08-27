@@ -210,6 +210,33 @@ export async function getTtsState(channelName) {
     return defaultConfigCopy;
 }
 
+/**
+ * The channel's *stored* languageBoost, or null when it has none.
+ *
+ * Deliberately not `getTtsState().languageBoost`. That function swallows a
+ * Firestore read error and returns DEFAULT_TTS_SETTINGS, whose languageBoost is
+ * 'auto' — indistinguishable from a channel that genuinely has not chosen one.
+ * Any caller that *writes* based on the absence of a setting would therefore
+ * overwrite a real preference during a transient outage, so this one lets the
+ * error propagate and makes the caller decide.
+ *
+ * @throws whatever Firestore throws on a failed read.
+ * @returns {Promise<string|null>}
+ */
+export async function getStoredLanguageBoost(channelName) {
+    if (!db) db = new Firestore();
+    const channelId = resolveChannelId(channelName);
+
+    // The collection listener keeps this current, so a hit is authoritative.
+    if (channelConfigsCache.has(channelId)) {
+        return channelConfigsCache.get(channelId).languageBoost ?? null;
+    }
+
+    const docSnap = await db.collection(TTS_CONFIG_COLLECTION).doc(channelId).get();
+    if (!docSnap.exists) return null;
+    return docSnap.data()?.languageBoost ?? null;
+}
+
 export async function getChannelTtsConfig(channelName) {
     const fullState = await getTtsState(channelName);
     // Extract only TTS parameters

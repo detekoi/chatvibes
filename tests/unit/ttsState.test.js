@@ -39,6 +39,43 @@ describe('ttsState module', () => {
     ttsState = await import('../../src/components/tts/ttsState.js');
   });
 
+  describe('getStoredLanguageBoost', () => {
+    // This exists only because getTtsState cannot answer the question its
+    // callers actually have: "has this channel chosen a language?" On a failed
+    // read it returns DEFAULT_TTS_SETTINGS, whose languageBoost is 'auto', so a
+    // caller that writes when nothing is set would overwrite a real preference
+    // during an outage. channelLanguageSync is exactly such a caller.
+    test('returns the stored value when the channel has one', async () => {
+      await mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL).set({ languageBoost: 'Spanish' });
+      await expect(ttsState.getStoredLanguageBoost(TEST_CHANNEL)).resolves.toBe('Spanish');
+    });
+
+    test('returns null when the channel document has no language', async () => {
+      await mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL).set({ engineEnabled: true });
+      await expect(ttsState.getStoredLanguageBoost(TEST_CHANNEL)).resolves.toBeNull();
+    });
+
+    test('returns null when the channel document does not exist', async () => {
+      await expect(ttsState.getStoredLanguageBoost('nobody-here')).resolves.toBeNull();
+    });
+
+    test('propagates a read failure instead of reporting "no language set"', async () => {
+      const boom = new Error('firestore unavailable');
+      jest.spyOn(mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL), 'get')
+        .mockRejectedValueOnce(boom);
+
+      await expect(ttsState.getStoredLanguageBoost(TEST_CHANNEL)).rejects.toThrow('firestore unavailable');
+    });
+
+    test('getTtsState, by contrast, reports auto on a failed read — which is why this function exists', async () => {
+      jest.spyOn(mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL), 'get')
+        .mockRejectedValueOnce(new Error('firestore unavailable'));
+
+      const state = await ttsState.getTtsState(TEST_CHANNEL);
+      expect(state.languageBoost).toBe('auto');
+    });
+  });
+
   describe('getTtsState', () => {
     test('should return config with allowViewerPreferences when set to true', async () => {
       const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL);
