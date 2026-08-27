@@ -237,3 +237,63 @@ Heard: **LFG**
 Input: `LFG`  
 Heard: **LFG**
 
+
+---
+
+# Collision audit: acronyms that are words in other languages
+
+Run with `node scripts/audit-pronunciation-collisions.js` (paid API, non-deterministic,
+never in CI). It produces a **shortlist for a human to check**, not a verdict — its
+per-language judgements move between runs, so nothing here is applied automatically.
+
+## Why this exists
+
+`PRONUNCIATION_DEFAULTS` is a list of English Twitch acronyms and it fires on every channel
+whatever its language. Matching is whole-word, which does not help: it is precisely why the
+collisions happen. Two were found by reading the list, and both are live:
+
+| Entry | Expands to | Collides with |
+|---|---|---|
+| `ty` | "thank you" | **"you"** in Polish, Czech, Slovak |
+| `af` | "as fuck" | **"off/down"** in Afrikaans and Dutch |
+
+`af` is the sharp one: it fires on an ordinary Afrikaans word *and* injects profanity, so on
+an Afrikaans channel with filtering on it produces a bleep out of normal speech.
+
+## The audit found two different problems, and only one is fixed by `except`
+
+**True collisions — the token means something else.** `except` is the right fix: the
+expansion would be actively wrong.
+
+```
+af/af af/nl af/ko af/pt   qol/ar   imo/ja (potato)   jk/ja jk/zh (女子高生)
+asap/ms (smoke)   wb/zh (Weibo)   pmo/id   fr/fr   ikdr/nl   mb/ko mb/ru mb/uk mb/zh
+np/sl   gm/ja gm/ko gm/zh   1v1/fr 1v1/ru 1v1/zh
+```
+
+**Same meaning, wrong language.** The local abbreviation means the *same thing*, so the
+expansion is semantically right but speaks **English words in a non-English voice**:
+
+```
+gm/de "Guten Morgen"    gn/de "Gute Nacht"    np/hr "nema problema"
+1v1/es "uno contra uno" mb/ca "molt bé"       otw/id  imho/ru  rofl/ru  mmr/ru
+```
+
+`except` is a poor fix for these — it stops the expansion and leaves the bare acronym, which
+the synthesiser reads as letters. The real fix is a per-language `say`, which the entry
+schema does not have. **This is the wider unsolved problem** noted in `CLAUDE.md`: every
+expansion in this dictionary is English text, so `lfg` still becomes "let's fucking go" on a
+Spanish channel. Scoping bounds the damage; it does not remove it.
+
+## Applied so far
+
+Only entries that were verified directly or came back identically on every audit run:
+
+| Entry | `except` | Basis |
+|---|---|---|
+| `ty` | `pl, cs, sk` | Verified: the pronoun "you" |
+| `af` | `af, nl` | Verified: "off/finished"; also injects profanity |
+| `np` | `pl` | "na przykład" ("for example"), consistent across runs |
+| `nvm` | `cs` | "nevím" ("I don't know"), consistent across runs |
+
+Everything else in the true-collision list above needs someone who speaks the language.

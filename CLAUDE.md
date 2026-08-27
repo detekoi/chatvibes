@@ -74,6 +74,25 @@ export TWITCH_CHANNELS=yourchannel
 
 ## Pronunciation and Profanity
 
+- **Pronunciation entries can be scoped by language.** An entry may carry `only` or `except`
+  (BCP-47 lists); with neither it applies everywhere, which is true of all but four built-ins,
+  so there was no migration. Channel overrides accept the same shape — a bare string is the
+  legacy form and means "everywhere", as with the ignore list. Scoping exists because these
+  are English acronyms matched as **whole words**, and a few are ordinary words elsewhere:
+  `ty` is "you" in Polish, Czech and Slovak, and `af` is "off" in Afrikaans and Dutch, where it
+  also injects profanity into a normal sentence. Word boundaries cannot help — being a whole
+  word is exactly the problem. They use `except` rather than `only: ["en"]` deliberately:
+  Twitch acronyms travel, and a German channel's chat is still full of `gg` and `brb`, so
+  scope by demonstrated collision rather than by origin. `scripts/audit-pronunciation-collisions.js`
+  shortlists candidates for a human; see `docs/pronunciation-probe-results.md`, which also
+  records the *unsolved* half — every expansion is English text, so `gm` on a German channel
+  still speaks English words. Scoping bounds that, it does not remove it.
+- **`getPronunciationRules` caches by locale as well as by source object**, and that is
+  load-bearing. Channels with no overrides share one rule set, so a cache keyed on the
+  `pronunciations` object alone would hand every such channel whichever language compiled
+  first. `src/lib/profanity/index.js` keys its cache on the language combination for the same
+  reason. The locale is derived inside the function from the config, so no call site can
+  forget to pass it.
 - **Pronunciation dictionary** (`src/lib/textRewrite/`): a built-in list of Twitch acronyms
   (`PRONUNCIATION_DEFAULTS` in `tts-config.json`) merged with per-channel overrides stored in the
   `pronunciations` map on the channel config. A channel entry with an empty value switches off the

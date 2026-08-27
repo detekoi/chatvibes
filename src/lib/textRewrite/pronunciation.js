@@ -11,6 +11,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { compileRules } from './replaceEngine.js';
 import { URL_REGEX } from '../urlProcessor.js';
+import { resolveChannelLocale, DEFAULT_LOCALE } from '../../i18n/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ttsConfig = JSON.parse(
@@ -27,9 +28,54 @@ export const PRONUNCIATION_DEFAULTS = ttsConfig.PRONUNCIATION_DEFAULTS || [];
  */
 export const DISABLED = '';
 
-const DEFAULTS_MAP = Object.freeze(
-    Object.fromEntries(PRONUNCIATION_DEFAULTS.map(e => [e.match, e.say]))
+/**
+ * Entries keyed by match, each `{say, only?, except?}`.
+ *
+ * `only` and `except` are lists of BCP-47 codes scoping where an entry applies;
+ * an entry with neither applies everywhere, which is the case for almost all of
+ * them. The scoping exists because these are English acronyms matched as whole
+ * words, and a few of them *are* whole words in another supported language —
+ * "ty" is "you" in Polish, Czech and Slovak, and "af" is "off" in Afrikaans and
+ * Dutch. Word-boundary matching cannot help there; that is precisely why they
+ * collide.
+ *
+ * They are scoped with `except` rather than `only: ['en']` on purpose. Twitch
+ * acronyms travel across languages — a German channel's chat is still full of
+ * "gg" and "brb" — so restricting the defaults to English channels would break
+ * the common case. Scope by demonstrated collision, not by origin.
+ */
+const DEFAULT_ENTRIES = Object.freeze(
+    Object.fromEntries(PRONUNCIATION_DEFAULTS.map(e => [
+        e.match,
+        Object.freeze({ say: e.say, only: e.only, except: e.except }),
+    ]))
 );
+
+/**
+ * A stored value into `{say, only, except}`, or null if unusable.
+ *
+ * A bare string is the pre-scoping shape and means "applies everywhere". There
+ * is no migration: legacy entries stay readable, exactly as with the ignore list.
+ */
+function normalizeEntry(value) {
+    if (typeof value === 'string') return { say: value };
+    if (value && typeof value === 'object' && typeof value.say === 'string') {
+        return { say: value.say, only: value.only, except: value.except };
+    }
+    return null;
+}
+
+/** Whether a scoped entry fires for this locale. `only` wins over `except`. */
+function entryAppliesTo(entry, locale) {
+    const tags = [locale, String(locale).split('-')[0]];
+    if (Array.isArray(entry.only) && entry.only.length) {
+        return entry.only.some(l => tags.includes(l));
+    }
+    if (Array.isArray(entry.except) && entry.except.length) {
+        return !entry.except.some(l => tags.includes(l));
+    }
+    return true;
+}
 
 // Letters and digits to start, then letters, digits, apostrophes, hyphens and
 // single spaces. Deliberately excludes "." because Firestore splits field paths
@@ -97,19 +143,36 @@ export function validateSay(raw) {
 }
 
 /**
- * Overlay a channel's entries on the built-ins.
- * @param {Record<string, string>} [channelEntries]
- * @returns {Record<string, string>}
+ * Overlay a channel's entries on the built-ins and drop the ones that do not
+ * apply to this locale.
+ *
+ * @param {Record<string, string | {say: string, only?: string[], except?: string[]}>} [channelEntries]
+ * @param {string} [locale] BCP-47. Defaults to English, which is what the
+ *     pre-scoping behaviour was for every channel.
+ * @returns {Record<string, string>} match -> spoken form
  */
-export function buildEffectiveMap(channelEntries = {}) {
+export function buildEffectiveMap(channelEntries = {}, locale = DEFAULT_LOCALE) {
     // Null prototype so that a legal match key which happens to name an
     // Object.prototype member ("constructor") cannot resolve through the chain.
     // Callers are then free to use `in` or a bare lookup on the result.
-    const merged = Object.assign(Object.create(null), DEFAULTS_MAP, channelEntries || {});
-    for (const key of Object.keys(merged)) {
-        if (merged[key] === DISABLED) delete merged[key];
+    const merged = Object.assign(Object.create(null), DEFAULT_ENTRIES);
+
+    for (const [key, value] of Object.entries(channelEntries || {})) {
+        const entry = normalizeEntry(value);
+        // An unusable value must not leave the built-in in place: a channel that
+        // wrote a malformed entry meant to change this key, not to keep the
+        // default, and silently falling back reads as the write being ignored.
+        if (!entry) { delete merged[key]; continue; }
+        merged[key] = entry;
     }
-    return merged;
+
+    const out = Object.create(null);
+    for (const [key, entry] of Object.entries(merged)) {
+        if (entry.say === DISABLED) continue;
+        if (!entryAppliesTo(entry, locale)) continue;
+        out[key] = entry.say;
+    }
+    return out;
 }
 
 // Compiled rules are memoized on the identity of the channel's pronunciations
@@ -121,43 +184,54 @@ export function buildEffectiveMap(channelEntries = {}) {
 // once and their messages interleave. A one-entry cache would be invalidated by
 // every message from a different channel, recompiling the whole dictionary
 // (object merge, longest-first sort, regex build) each time.
+//
+// Channels with no overrides of their own share a rule set per locale, rather
+// than compiling one per config object. This is the common case by a wide
+// margin.
+//
+// Both caches are keyed by locale as well as by source, and that is load-bearing
+// rather than tidiness: the entries a channel gets now depend on its language,
+// so a cache keyed on the pronunciations object alone would hand every channel
+// sharing it whichever language happened to compile first. The profanity module
+// already keys its cache on the language combination for the same reason.
 let overrideRules = new WeakMap();
-
-// Channels with no overrides of their own all compile to the same rule set, so
-// they share one entry instead of one per config object. This is the common
-// case by a wide margin.
-let defaultRules;
-let defaultRulesComputed = false;
+let defaultRules = new Map();
 
 /**
  * Compiled rule set for a channel, or null when there is nothing to apply.
+ *
+ * The locale is derived from the config rather than passed in, so no call site
+ * can forget it and silently get English scoping.
+ *
  * @param {object} channelConfig A full config from getTtsState.
  * @returns {{re: RegExp, map: Map<string, string>, size: number} | null}
  */
 export function getPronunciationRules(channelConfig) {
     if (!channelConfig || channelConfig.pronunciationEnabled === false) return null;
 
+    const locale = resolveChannelLocale(channelConfig);
     const source = channelConfig.pronunciations;
 
     if (!source || Object.keys(source).length === 0) {
-        if (!defaultRulesComputed) {
-            defaultRules = compileRules(buildEffectiveMap());
-            defaultRulesComputed = true;
+        if (!defaultRules.has(locale)) {
+            defaultRules.set(locale, compileRules(buildEffectiveMap({}, locale)));
         }
-        return defaultRules;
+        return defaultRules.get(locale);
     }
 
-    const cached = overrideRules.get(source);
-    if (cached !== undefined) return cached;
-
-    const rules = compileRules(buildEffectiveMap(source));
-    overrideRules.set(source, rules);
-    return rules;
+    let byLocale = overrideRules.get(source);
+    if (!byLocale) {
+        byLocale = new Map();
+        overrideRules.set(source, byLocale);
+    }
+    if (!byLocale.has(locale)) {
+        byLocale.set(locale, compileRules(buildEffectiveMap(source, locale)));
+    }
+    return byLocale.get(locale);
 }
 
 /** Exported for tests, which need to defeat the memo between cases. */
 export function _resetPronunciationMemo() {
     overrideRules = new WeakMap();
-    defaultRules = undefined;
-    defaultRulesComputed = false;
+    defaultRules = new Map();
 }
