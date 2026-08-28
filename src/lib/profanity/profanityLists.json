@@ -20,802 +20,2617 @@
   "English": {
     "confidence": "high",
     "entries": [
-      { "term": "fuck", "replacement": "freak" },
-      { "term": "fucks", "replacement": "freaks" },
-      { "term": "fucked", "replacement": "freaked" },
-      { "term": "fucking", "replacement": "freaking" },
-      { "term": "fucker", "replacement": "freaker" },
-      { "term": "fuckers", "replacement": "freakers" },
-      { "term": "motherfucker", "replacement": "mother freaker" },
-      { "term": "motherfucking", "replacement": "mother freaking" },
-      { "term": "fuckin", "replacement": "freakin" },
-      { "term": "fck", "replacement": "freak" },
-      { "term": "fuk", "replacement": "freak" },
-      { "term": "fuq", "replacement": "freak" },
-      { "term": "phuck", "replacement": "freak" },
-      { "term": "shit", "replacement": "shoot" },
-      { "term": "and shit", "replacement": "and stuff" },
-      { "term": "shits", "replacement": "shoots" },
-      { "term": "shitty", "replacement": "lousy" },
-      { "term": "shitting", "replacement": "shooting" },
-      { "term": "bullshit", "replacement": "nonsense" },
-      { "term": "shite", "replacement": "shoot" },
-      { "term": "sh1t", "replacement": "shoot" },
-      { "term": "and sh1t", "replacement": "and stuff" },
-      { "term": "talk shit", "replacement": "talk smack" },
-      { "term": "talks shit", "replacement": "talks smack" },
-      { "term": "talking shit", "replacement": "talking smack" },
-      { "term": "talked shit", "replacement": "talked smack" },
-      { "term": "talk sh1t", "replacement": "talk smack" },
-      { "term": "talking sh1t", "replacement": "talking smack" },
-      { "term": "shit talk", "replacement": "smack talk" },
-      { "term": "shit talks", "replacement": "smack talks" },
-      { "term": "shit talking", "replacement": "smack talking" },
-      { "term": "shit talked", "replacement": "smack talked" },
-      { "term": "shit talker", "replacement": "smack talker" },
-      { "term": "shit talkers", "replacement": "smack talkers" },
-      { "term": "sh1t talk", "replacement": "smack talk" },
-      { "term": "sh1t talking", "replacement": "smack talking" },
-      { "term": "holy shit", "replacement": "holy moly" },
-      { "term": "holy sh1t", "replacement": "holy moly" },
-      { "term": "holy shite", "replacement": "holy moly" },
-      { "term": "no shit", "replacement": "no kidding" },
-      { "term": "no sh1t", "replacement": "no kidding" },
-      { "term": "piece of shit", "replacement": "piece of junk" },
-      { "term": "pieces of shit", "replacement": "pieces of junk" },
-      { "term": "piece of sh1t", "replacement": "piece of junk" },
-      { "term": "full of shit", "replacement": "full of baloney" },
-      { "term": "full of sh1t", "replacement": "full of baloney" },
-      { "term": "give a shit", "replacement": "give a hoot" },
-      { "term": "gives a shit", "replacement": "gives a hoot" },
-      { "term": "giving a shit", "replacement": "giving a hoot" },
-      { "term": "gave a shit", "replacement": "gave a hoot" },
-      { "term": "good shit", "replacement": "good stuff" },
-      { "term": "hot shit", "replacement": "hot stuff" },
-      { "term": "same shit", "replacement": "same stuff" },
-      { "term": "real shit", "replacement": "real deal" },
-      { "term": "deep shit", "replacement": "deep trouble" },
-      { "term": "tough shit", "replacement": "tough luck" },
-      { "term": "shit happens", "replacement": "stuff happens" },
-      { "term": "shit out of luck", "replacement": "out of luck" },
-      { "term": "eat shit", "replacement": "eat dirt" },
-      { "term": "scared shitless", "replacement": "scared silly" },
-      { "term": "shitless", "replacement": "silly" },
-      { "term": "shithead", "replacement": "knucklehead" },
-      { "term": "shitheads", "replacement": "knuckleheads" },
-      { "term": "sh1thead", "replacement": "knucklehead" },
-      { "term": "sh1theads", "replacement": "knuckleheads" },
-      { "term": "shitshow", "replacement": "mess" },
-      { "term": "shitshows", "replacement": "messes" },
-      { "term": "shit show", "replacement": "mess" },
-      { "term": "shit shows", "replacement": "messes" },
-      { "term": "sh1tshow", "replacement": "mess" },
-      { "term": "take a shit", "replacement": "take a dump" },
-      { "term": "takes a shit", "replacement": "takes a dump" },
-      { "term": "taking a shit", "replacement": "taking a dump" },
-      { "term": "took a shit", "replacement": "took a dump" },
-      { "term": "bitch", "replacement": "biscuit" },
-      { "term": "bitches", "replacement": "biscuits" },
-      { "term": "bitching", "replacement": "whining" },
-      { "term": "biatch", "replacement": "biscuit" },
-      { "term": "b1tch", "replacement": "biscuit" },
-      { "term": "ass", "replacement": "butt" },
-      { "term": "asses", "replacement": "butts" },
-      { "term": "asshole", "replacement": "jerk" },
-      { "term": "assholes", "replacement": "jerks" },
-      { "term": "dumbass", "replacement": "dummy" },
-      { "term": "jackass", "replacement": "jerk" },
-      { "term": "badass", "replacement": "awesome" },
-      { "term": "dipshit", "replacement": "dummy" },
-      { "term": "cunt", "replacement": "creep" },
-      { "term": "cunts", "replacement": "creeps" },
-      { "term": "dick", "replacement": "jerk" },
-      { "term": "dickhead", "replacement": "jerk" },
-      { "term": "cock", "replacement": "rooster" },
-      { "term": "prick", "replacement": "jerk" },
-      { "term": "twat", "replacement": "twit" },
-      { "term": "wanker", "replacement": "wally" },
-      { "term": "bastard", "replacement": "scoundrel" },
-      { "term": "bastards", "replacement": "scoundrels" },
-      { "term": "slut", "replacement": "flirt" },
-      { "term": "whore", "replacement": "scoundrel" },
-      { "term": "pussy", "replacement": "wimp" },
-      { "term": "damn", "replacement": "darn" },
-      { "term": "damned", "replacement": "darned" },
-      { "term": "goddamn", "replacement": "gosh darn" },
-      { "term": "crap", "replacement": "junk" },
-      { "term": "piss", "replacement": "tick" },
-      { "term": "pissed", "replacement": "annoyed" },
-      { "term": "retard", "replacement": "goofball" },
-      { "term": "retarded", "replacement": "silly" },
-      { "term": "bollocks", "replacement": "nonsense" },
-      { "term": "arse", "replacement": "backside" },
-      { "term": "arsehole", "replacement": "jerk" },
-      { "term": "bloody", "replacement": "blooming" },
-      { "term": "nigger", "replacement": "slur" },
-      { "term": "niggers", "replacement": "slur" },
-      { "term": "nigga", "replacement": "slur" },
-      { "term": "niggas", "replacement": "slur" },
-      { "term": "niggr", "replacement": "slur" },
-      { "term": "n1gger", "replacement": "slur" },
-      { "term": "n1gga", "replacement": "slur" },
-      { "term": "negro", "replacement": "slur" },
-      { "term": "coon", "replacement": "slur" },
-      { "term": "coons", "replacement": "slur" },
-      { "term": "jigaboo", "replacement": "slur" },
-      { "term": "porchmonkey", "replacement": "slur" },
-      { "term": "chink", "replacement": "slur" },
-      { "term": "chinks", "replacement": "slur" },
-      { "term": "gook", "replacement": "slur" },
-      { "term": "gooks", "replacement": "slur" },
-      { "term": "jap", "replacement": "slur" },
-      { "term": "japs", "replacement": "slur" },
-      { "term": "slant eye", "replacement": "slur" },
-      { "term": "zipperhead", "replacement": "slur" },
-      { "term": "spic", "replacement": "slur" },
-      { "term": "spics", "replacement": "slur" },
-      { "term": "wetback", "replacement": "slur" },
-      { "term": "wetbacks", "replacement": "slur" },
-      { "term": "beaner", "replacement": "slur" },
-      { "term": "beaners", "replacement": "slur" },
-      { "term": "redskin", "replacement": "slur" },
-      { "term": "redskins", "replacement": "slur" },
-      { "term": "injun", "replacement": "slur" },
-      { "term": "kike", "replacement": "slur" },
-      { "term": "kikes", "replacement": "slur" },
-      { "term": "heeb", "replacement": "slur" },
-      { "term": "towelhead", "replacement": "slur" },
-      { "term": "raghead", "replacement": "slur" },
-      { "term": "sandnigger", "replacement": "slur" },
-      { "term": "paki", "replacement": "slur" },
-      { "term": "pakis", "replacement": "slur" },
-      { "term": "gypsy", "replacement": "slur" },
-      { "term": "gypsies", "replacement": "slur" },
-      { "term": "gyppo", "replacement": "slur" },
-      { "term": "wop", "replacement": "slur" },
-      { "term": "wops", "replacement": "slur" },
-      { "term": "dago", "replacement": "slur" },
-      { "term": "mick", "replacement": "slur" },
-      { "term": "faggot", "replacement": "slur" },
-      { "term": "faggots", "replacement": "slur" },
-      { "term": "fagot", "replacement": "slur" },
-      { "term": "f4ggot", "replacement": "slur" },
-      { "term": "fag", "replacement": "slur" },
-      { "term": "fags", "replacement": "slur" },
-      { "term": "dyke", "replacement": "slur" },
-      { "term": "dykes", "replacement": "slur" },
-      { "term": "homo", "replacement": "slur" },
-      { "term": "homos", "replacement": "slur" },
-      { "term": "queer bait", "replacement": "slur" },
-      { "term": "batty boy", "replacement": "slur" },
-      { "term": "tranny", "replacement": "slur" },
-      { "term": "trannies", "replacement": "slur" },
-      { "term": "shemale", "replacement": "slur" },
-      { "term": "shemales", "replacement": "slur" },
-      { "term": "ladyboy", "replacement": "slur" },
-      { "term": "heshe", "replacement": "slur" },
-      { "term": "spastic", "replacement": "slur" },
-      { "term": "mongoloid", "replacement": "slur" },
-      { "term": "cripple", "replacement": "slur" },
-      { "term": "midget", "replacement": "slur" },
-      { "term": "midgets", "replacement": "slur" }
+      {
+        "term": "fuck",
+        "replacement": "freak"
+      },
+      {
+        "term": "fucks",
+        "replacement": "freaks"
+      },
+      {
+        "term": "fucked",
+        "replacement": "freaked"
+      },
+      {
+        "term": "fucking",
+        "replacement": "freaking"
+      },
+      {
+        "term": "fucker",
+        "replacement": "freaker"
+      },
+      {
+        "term": "fuckers",
+        "replacement": "freakers"
+      },
+      {
+        "term": "motherfucker",
+        "replacement": "mother freaker"
+      },
+      {
+        "term": "motherfucking",
+        "replacement": "mother freaking"
+      },
+      {
+        "term": "fuckin",
+        "replacement": "freakin"
+      },
+      {
+        "term": "fck",
+        "replacement": "freak"
+      },
+      {
+        "term": "fuk",
+        "replacement": "freak"
+      },
+      {
+        "term": "fuq",
+        "replacement": "freak"
+      },
+      {
+        "term": "phuck",
+        "replacement": "freak"
+      },
+      {
+        "term": "shit",
+        "replacement": "shoot"
+      },
+      {
+        "term": "and shit",
+        "replacement": "and stuff"
+      },
+      {
+        "term": "shits",
+        "replacement": "shoots"
+      },
+      {
+        "term": "shitty",
+        "replacement": "lousy"
+      },
+      {
+        "term": "shitting",
+        "replacement": "shooting"
+      },
+      {
+        "term": "bullshit",
+        "replacement": "nonsense"
+      },
+      {
+        "term": "shite",
+        "replacement": "shoot"
+      },
+      {
+        "term": "sh1t",
+        "replacement": "shoot"
+      },
+      {
+        "term": "and sh1t",
+        "replacement": "and stuff"
+      },
+      {
+        "term": "talk shit",
+        "replacement": "talk smack"
+      },
+      {
+        "term": "talks shit",
+        "replacement": "talks smack"
+      },
+      {
+        "term": "talking shit",
+        "replacement": "talking smack"
+      },
+      {
+        "term": "talked shit",
+        "replacement": "talked smack"
+      },
+      {
+        "term": "talk sh1t",
+        "replacement": "talk smack"
+      },
+      {
+        "term": "talking sh1t",
+        "replacement": "talking smack"
+      },
+      {
+        "term": "shit talk",
+        "replacement": "smack talk"
+      },
+      {
+        "term": "shit talks",
+        "replacement": "smack talks"
+      },
+      {
+        "term": "shit talking",
+        "replacement": "smack talking"
+      },
+      {
+        "term": "shit talked",
+        "replacement": "smack talked"
+      },
+      {
+        "term": "shit talker",
+        "replacement": "smack talker"
+      },
+      {
+        "term": "shit talkers",
+        "replacement": "smack talkers"
+      },
+      {
+        "term": "sh1t talk",
+        "replacement": "smack talk"
+      },
+      {
+        "term": "sh1t talking",
+        "replacement": "smack talking"
+      },
+      {
+        "term": "holy shit",
+        "replacement": "holy moly"
+      },
+      {
+        "term": "holy sh1t",
+        "replacement": "holy moly"
+      },
+      {
+        "term": "holy shite",
+        "replacement": "holy moly"
+      },
+      {
+        "term": "no shit",
+        "replacement": "no kidding"
+      },
+      {
+        "term": "no sh1t",
+        "replacement": "no kidding"
+      },
+      {
+        "term": "piece of shit",
+        "replacement": "piece of junk"
+      },
+      {
+        "term": "pieces of shit",
+        "replacement": "pieces of junk"
+      },
+      {
+        "term": "piece of sh1t",
+        "replacement": "piece of junk"
+      },
+      {
+        "term": "full of shit",
+        "replacement": "full of baloney"
+      },
+      {
+        "term": "full of sh1t",
+        "replacement": "full of baloney"
+      },
+      {
+        "term": "give a shit",
+        "replacement": "give a hoot"
+      },
+      {
+        "term": "gives a shit",
+        "replacement": "gives a hoot"
+      },
+      {
+        "term": "giving a shit",
+        "replacement": "giving a hoot"
+      },
+      {
+        "term": "gave a shit",
+        "replacement": "gave a hoot"
+      },
+      {
+        "term": "good shit",
+        "replacement": "good stuff"
+      },
+      {
+        "term": "hot shit",
+        "replacement": "hot stuff"
+      },
+      {
+        "term": "same shit",
+        "replacement": "same stuff"
+      },
+      {
+        "term": "real shit",
+        "replacement": "real deal"
+      },
+      {
+        "term": "deep shit",
+        "replacement": "deep trouble"
+      },
+      {
+        "term": "tough shit",
+        "replacement": "tough luck"
+      },
+      {
+        "term": "shit happens",
+        "replacement": "stuff happens"
+      },
+      {
+        "term": "shit out of luck",
+        "replacement": "out of luck"
+      },
+      {
+        "term": "eat shit",
+        "replacement": "eat dirt"
+      },
+      {
+        "term": "scared shitless",
+        "replacement": "scared silly"
+      },
+      {
+        "term": "shitless",
+        "replacement": "silly"
+      },
+      {
+        "term": "shithead",
+        "replacement": "knucklehead"
+      },
+      {
+        "term": "shitheads",
+        "replacement": "knuckleheads"
+      },
+      {
+        "term": "sh1thead",
+        "replacement": "knucklehead"
+      },
+      {
+        "term": "sh1theads",
+        "replacement": "knuckleheads"
+      },
+      {
+        "term": "shitshow",
+        "replacement": "mess"
+      },
+      {
+        "term": "shitshows",
+        "replacement": "messes"
+      },
+      {
+        "term": "shit show",
+        "replacement": "mess"
+      },
+      {
+        "term": "shit shows",
+        "replacement": "messes"
+      },
+      {
+        "term": "sh1tshow",
+        "replacement": "mess"
+      },
+      {
+        "term": "take a shit",
+        "replacement": "take a dump"
+      },
+      {
+        "term": "takes a shit",
+        "replacement": "takes a dump"
+      },
+      {
+        "term": "taking a shit",
+        "replacement": "taking a dump"
+      },
+      {
+        "term": "took a shit",
+        "replacement": "took a dump"
+      },
+      {
+        "term": "bitch",
+        "replacement": "biscuit"
+      },
+      {
+        "term": "bitches",
+        "replacement": "biscuits"
+      },
+      {
+        "term": "bitching",
+        "replacement": "whining"
+      },
+      {
+        "term": "biatch",
+        "replacement": "biscuit"
+      },
+      {
+        "term": "b1tch",
+        "replacement": "biscuit"
+      },
+      {
+        "term": "ass",
+        "replacement": "butt"
+      },
+      {
+        "term": "asses",
+        "replacement": "butts"
+      },
+      {
+        "term": "asshole",
+        "replacement": "jerk"
+      },
+      {
+        "term": "assholes",
+        "replacement": "jerks"
+      },
+      {
+        "term": "dumbass",
+        "replacement": "dummy"
+      },
+      {
+        "term": "jackass",
+        "replacement": "jerk"
+      },
+      {
+        "term": "badass",
+        "replacement": "awesome"
+      },
+      {
+        "term": "dipshit",
+        "replacement": "dummy"
+      },
+      {
+        "term": "cunt",
+        "replacement": "creep"
+      },
+      {
+        "term": "cunts",
+        "replacement": "creeps"
+      },
+      {
+        "term": "dick",
+        "replacement": "jerk"
+      },
+      {
+        "term": "dickhead",
+        "replacement": "jerk"
+      },
+      {
+        "term": "cock",
+        "replacement": "rooster"
+      },
+      {
+        "term": "prick",
+        "replacement": "jerk"
+      },
+      {
+        "term": "twat",
+        "replacement": "twit"
+      },
+      {
+        "term": "wanker",
+        "replacement": "wally"
+      },
+      {
+        "term": "bastard",
+        "replacement": "scoundrel"
+      },
+      {
+        "term": "bastards",
+        "replacement": "scoundrels"
+      },
+      {
+        "term": "slut",
+        "replacement": "flirt"
+      },
+      {
+        "term": "whore",
+        "replacement": "scoundrel"
+      },
+      {
+        "term": "pussy",
+        "replacement": "wimp"
+      },
+      {
+        "term": "damn",
+        "replacement": "darn"
+      },
+      {
+        "term": "damned",
+        "replacement": "darned"
+      },
+      {
+        "term": "goddamn",
+        "replacement": "gosh darn"
+      },
+      {
+        "term": "crap",
+        "replacement": "junk"
+      },
+      {
+        "term": "piss",
+        "replacement": "tick"
+      },
+      {
+        "term": "pissed",
+        "replacement": "annoyed"
+      },
+      {
+        "term": "retard",
+        "replacement": "goofball"
+      },
+      {
+        "term": "retarded",
+        "replacement": "silly"
+      },
+      {
+        "term": "bollocks",
+        "replacement": "nonsense"
+      },
+      {
+        "term": "arse",
+        "replacement": "backside"
+      },
+      {
+        "term": "arsehole",
+        "replacement": "jerk"
+      },
+      {
+        "term": "bloody",
+        "replacement": "blooming"
+      },
+      {
+        "term": "nigger",
+        "replacement": "slur"
+      },
+      {
+        "term": "niggers",
+        "replacement": "slur"
+      },
+      {
+        "term": "nigga",
+        "replacement": "slur"
+      },
+      {
+        "term": "niggas",
+        "replacement": "slur"
+      },
+      {
+        "term": "niggr",
+        "replacement": "slur"
+      },
+      {
+        "term": "n1gger",
+        "replacement": "slur"
+      },
+      {
+        "term": "n1gga",
+        "replacement": "slur"
+      },
+      {
+        "term": "negro",
+        "replacement": "slur"
+      },
+      {
+        "term": "coon",
+        "replacement": "slur"
+      },
+      {
+        "term": "coons",
+        "replacement": "slur"
+      },
+      {
+        "term": "jigaboo",
+        "replacement": "slur"
+      },
+      {
+        "term": "porchmonkey",
+        "replacement": "slur"
+      },
+      {
+        "term": "chink",
+        "replacement": "slur"
+      },
+      {
+        "term": "chinks",
+        "replacement": "slur"
+      },
+      {
+        "term": "gook",
+        "replacement": "slur"
+      },
+      {
+        "term": "gooks",
+        "replacement": "slur"
+      },
+      {
+        "term": "jap",
+        "replacement": "slur"
+      },
+      {
+        "term": "japs",
+        "replacement": "slur"
+      },
+      {
+        "term": "slant eye",
+        "replacement": "slur"
+      },
+      {
+        "term": "zipperhead",
+        "replacement": "slur"
+      },
+      {
+        "term": "spic",
+        "replacement": "slur"
+      },
+      {
+        "term": "spics",
+        "replacement": "slur"
+      },
+      {
+        "term": "wetback",
+        "replacement": "slur"
+      },
+      {
+        "term": "wetbacks",
+        "replacement": "slur"
+      },
+      {
+        "term": "beaner",
+        "replacement": "slur"
+      },
+      {
+        "term": "beaners",
+        "replacement": "slur"
+      },
+      {
+        "term": "redskin",
+        "replacement": "slur"
+      },
+      {
+        "term": "redskins",
+        "replacement": "slur"
+      },
+      {
+        "term": "injun",
+        "replacement": "slur"
+      },
+      {
+        "term": "kike",
+        "replacement": "slur"
+      },
+      {
+        "term": "kikes",
+        "replacement": "slur"
+      },
+      {
+        "term": "heeb",
+        "replacement": "slur"
+      },
+      {
+        "term": "towelhead",
+        "replacement": "slur"
+      },
+      {
+        "term": "raghead",
+        "replacement": "slur"
+      },
+      {
+        "term": "sandnigger",
+        "replacement": "slur"
+      },
+      {
+        "term": "paki",
+        "replacement": "slur"
+      },
+      {
+        "term": "pakis",
+        "replacement": "slur"
+      },
+      {
+        "term": "gypsy",
+        "replacement": "slur"
+      },
+      {
+        "term": "gypsies",
+        "replacement": "slur"
+      },
+      {
+        "term": "gyppo",
+        "replacement": "slur"
+      },
+      {
+        "term": "wop",
+        "replacement": "slur"
+      },
+      {
+        "term": "wops",
+        "replacement": "slur"
+      },
+      {
+        "term": "dago",
+        "replacement": "slur"
+      },
+      {
+        "term": "mick",
+        "replacement": "slur"
+      },
+      {
+        "term": "faggot",
+        "replacement": "slur"
+      },
+      {
+        "term": "faggots",
+        "replacement": "slur"
+      },
+      {
+        "term": "fagot",
+        "replacement": "slur"
+      },
+      {
+        "term": "f4ggot",
+        "replacement": "slur"
+      },
+      {
+        "term": "fag",
+        "replacement": "slur"
+      },
+      {
+        "term": "fags",
+        "replacement": "slur"
+      },
+      {
+        "term": "dyke",
+        "replacement": "slur"
+      },
+      {
+        "term": "dykes",
+        "replacement": "slur"
+      },
+      {
+        "term": "homo",
+        "replacement": "slur"
+      },
+      {
+        "term": "homos",
+        "replacement": "slur"
+      },
+      {
+        "term": "queer bait",
+        "replacement": "slur"
+      },
+      {
+        "term": "batty boy",
+        "replacement": "slur"
+      },
+      {
+        "term": "tranny",
+        "replacement": "slur"
+      },
+      {
+        "term": "trannies",
+        "replacement": "slur"
+      },
+      {
+        "term": "shemale",
+        "replacement": "slur"
+      },
+      {
+        "term": "shemales",
+        "replacement": "slur"
+      },
+      {
+        "term": "ladyboy",
+        "replacement": "slur"
+      },
+      {
+        "term": "heshe",
+        "replacement": "slur"
+      },
+      {
+        "term": "spastic",
+        "replacement": "slur"
+      },
+      {
+        "term": "mongoloid",
+        "replacement": "slur"
+      },
+      {
+        "term": "cripple",
+        "replacement": "slur"
+      },
+      {
+        "term": "midget",
+        "replacement": "slur"
+      },
+      {
+        "term": "midgets",
+        "replacement": "slur"
+      }
     ]
   },
   "Spanish": {
     "confidence": "high",
     "entries": [
-      { "term": "mierda", "replacement": "miércoles" },
-      { "term": "joder", "replacement": "jolines" },
-      { "term": "jodido", "replacement": "fastidiado" },
-      { "term": "puta", "replacement": "pilla" },
-      { "term": "puto", "replacement": "pillo" },
-      { "term": "putas", "replacement": "pillas" },
-      { "term": "cabrón", "replacement": "cabezón" },
-      { "term": "cabron", "replacement": "cabezón" },
-      { "term": "cabrones", "replacement": "cabezones" },
-      { "term": "gilipollas", "replacement": "bobo" },
-      { "term": "coño", "replacement": "caramba" },
-      { "term": "cono", "replacement": "caramba" },
-      { "term": "pendejo", "replacement": "tontín" },
-      { "term": "pendeja", "replacement": "tontina" },
-      { "term": "chingar", "replacement": "fastidiar" },
-      { "term": "chingada", "replacement": "fregada" },
-      { "term": "verga", "replacement": "vaya" },
-      { "term": "pinche", "replacement": "dichoso" },
-      { "term": "culero", "replacement": "grosero" },
-      { "term": "hostia", "replacement": "ostras" },
-      { "term": "carajo", "replacement": "caray" },
-      { "term": "boludo", "replacement": "tontito" },
-      { "term": "pelotudo", "replacement": "tontito" },
-      { "term": "maricón", "replacement": "pesado" },
-      { "term": "zorra", "replacement": "pilla" }
+      {
+        "term": "mierda",
+        "replacement": "miércoles"
+      },
+      {
+        "term": "joder",
+        "replacement": "jolines"
+      },
+      {
+        "term": "jodido",
+        "replacement": "fastidiado"
+      },
+      {
+        "term": "puta",
+        "replacement": "pilla"
+      },
+      {
+        "term": "puto",
+        "replacement": "pillo"
+      },
+      {
+        "term": "putas",
+        "replacement": "pillas"
+      },
+      {
+        "term": "cabrón",
+        "replacement": "cabezón"
+      },
+      {
+        "term": "cabron",
+        "replacement": "cabezón"
+      },
+      {
+        "term": "cabrones",
+        "replacement": "cabezones"
+      },
+      {
+        "term": "gilipollas",
+        "replacement": "bobo"
+      },
+      {
+        "term": "coño",
+        "replacement": "caramba"
+      },
+      {
+        "term": "cono",
+        "replacement": "caramba"
+      },
+      {
+        "term": "pendejo",
+        "replacement": "tontín"
+      },
+      {
+        "term": "pendeja",
+        "replacement": "tontina"
+      },
+      {
+        "term": "chingar",
+        "replacement": "fastidiar"
+      },
+      {
+        "term": "chingada",
+        "replacement": "fregada"
+      },
+      {
+        "term": "verga",
+        "replacement": "vaya"
+      },
+      {
+        "term": "pinche",
+        "replacement": "dichoso"
+      },
+      {
+        "term": "culero",
+        "replacement": "grosero"
+      },
+      {
+        "term": "hostia",
+        "replacement": "ostras"
+      },
+      {
+        "term": "carajo",
+        "replacement": "caray"
+      },
+      {
+        "term": "boludo",
+        "replacement": "tontito"
+      },
+      {
+        "term": "pelotudo",
+        "replacement": "tontito"
+      },
+      {
+        "term": "maricón",
+        "replacement": "pesado"
+      },
+      {
+        "term": "zorra",
+        "replacement": "pilla"
+      },
+      {
+        "term": "concha tu madre",
+        "replacement": "córcholis"
+      },
+      {
+        "term": "concha su madre",
+        "replacement": "córcholis"
+      },
+      {
+        "term": "conchatumadre",
+        "replacement": "córcholis"
+      }
     ]
   },
   "Portuguese": {
     "confidence": "high",
     "entries": [
-      { "term": "merda", "replacement": "nossa" },
-      { "term": "porra", "replacement": "poxa" },
-      { "term": "caralho", "replacement": "caramba" },
-      { "term": "foder", "replacement": "estragar" },
-      { "term": "fodido", "replacement": "estragado" },
-      { "term": "foda", "replacement": "droga" },
-      { "term": "puta", "replacement": "danada" },
-      { "term": "puto", "replacement": "danado" },
-      { "term": "cu", "replacement": "traseiro" },
-      { "term": "buceta", "replacement": "bolacha" },
-      { "term": "viado", "replacement": "chato" },
-      { "term": "corno", "replacement": "trouxa" },
-      { "term": "otário", "replacement": "bobo" },
-      { "term": "otario", "replacement": "bobo" },
-      { "term": "babaca", "replacement": "bobalhão" },
-      { "term": "desgraçado", "replacement": "danado" },
-      { "term": "filho da puta", "replacement": "sem vergonha" },
-      { "term": "bosta", "replacement": "porcaria" },
-      { "term": "cacete", "replacement": "caramba" },
-      { "term": "vadia", "replacement": "danada" }
+      {
+        "term": "merda",
+        "replacement": "nossa"
+      },
+      {
+        "term": "porra",
+        "replacement": "poxa"
+      },
+      {
+        "term": "caralho",
+        "replacement": "caramba"
+      },
+      {
+        "term": "foder",
+        "replacement": "estragar"
+      },
+      {
+        "term": "fodido",
+        "replacement": "estragado"
+      },
+      {
+        "term": "foda",
+        "replacement": "droga"
+      },
+      {
+        "term": "puta",
+        "replacement": "danada"
+      },
+      {
+        "term": "puto",
+        "replacement": "danado"
+      },
+      {
+        "term": "cu",
+        "replacement": "traseiro"
+      },
+      {
+        "term": "buceta",
+        "replacement": "bolacha"
+      },
+      {
+        "term": "viado",
+        "replacement": "chato"
+      },
+      {
+        "term": "corno",
+        "replacement": "trouxa"
+      },
+      {
+        "term": "otário",
+        "replacement": "bobo"
+      },
+      {
+        "term": "otario",
+        "replacement": "bobo"
+      },
+      {
+        "term": "babaca",
+        "replacement": "bobalhão"
+      },
+      {
+        "term": "desgraçado",
+        "replacement": "danado"
+      },
+      {
+        "term": "filho da puta",
+        "replacement": "sem vergonha"
+      },
+      {
+        "term": "bosta",
+        "replacement": "porcaria"
+      },
+      {
+        "term": "cacete",
+        "replacement": "caramba"
+      },
+      {
+        "term": "vadia",
+        "replacement": "danada"
+      }
     ]
   },
   "French": {
     "confidence": "high",
     "entries": [
-      { "term": "merde", "replacement": "mince" },
-      { "term": "putain", "replacement": "purée" },
-      { "term": "putain de", "replacement": "sacré" },
-      { "term": "connard", "replacement": "imbécile" },
-      { "term": "connasse", "replacement": "imbécile" },
-      { "term": "con", "replacement": "sot" },
-      { "term": "cons", "replacement": "sots" },
-      { "term": "salope", "replacement": "peste" },
-      { "term": "salaud", "replacement": "vaurien" },
-      { "term": "enculé", "replacement": "vaurien" },
-      { "term": "encule", "replacement": "vaurien" },
-      { "term": "bordel", "replacement": "pagaille" },
-      { "term": "foutre", "replacement": "ficher" },
-      { "term": "bite", "replacement": "truc" },
-      { "term": "couille", "replacement": "bêtise" },
-      { "term": "couilles", "replacement": "bêtises" },
-      { "term": "chier", "replacement": "embêter" },
-      { "term": "pute", "replacement": "peste" },
-      { "term": "nique", "replacement": "zut" },
-      { "term": "ta gueule", "replacement": "silence" }
+      {
+        "term": "merde",
+        "replacement": "mince"
+      },
+      {
+        "term": "putain",
+        "replacement": "purée"
+      },
+      {
+        "term": "putain de",
+        "replacement": "sacré"
+      },
+      {
+        "term": "connard",
+        "replacement": "imbécile"
+      },
+      {
+        "term": "connasse",
+        "replacement": "imbécile"
+      },
+      {
+        "term": "con",
+        "replacement": "sot"
+      },
+      {
+        "term": "cons",
+        "replacement": "sots"
+      },
+      {
+        "term": "salope",
+        "replacement": "peste"
+      },
+      {
+        "term": "salaud",
+        "replacement": "vaurien"
+      },
+      {
+        "term": "enculé",
+        "replacement": "vaurien"
+      },
+      {
+        "term": "encule",
+        "replacement": "vaurien"
+      },
+      {
+        "term": "bordel",
+        "replacement": "pagaille"
+      },
+      {
+        "term": "foutre",
+        "replacement": "ficher"
+      },
+      {
+        "term": "bite",
+        "replacement": "truc"
+      },
+      {
+        "term": "couille",
+        "replacement": "bêtise"
+      },
+      {
+        "term": "couilles",
+        "replacement": "bêtises"
+      },
+      {
+        "term": "chier",
+        "replacement": "embêter"
+      },
+      {
+        "term": "pute",
+        "replacement": "peste"
+      },
+      {
+        "term": "nique",
+        "replacement": "zut"
+      },
+      {
+        "term": "ta gueule",
+        "replacement": "silence"
+      }
     ]
   },
   "German": {
     "confidence": "high",
     "entries": [
-      { "term": "scheiße", "replacement": "Mist" },
-      { "term": "scheisse", "replacement": "Mist" },
-      { "term": "scheiss", "replacement": "Mist" },
-      { "term": "scheiß", "replacement": "Mist" },
-      { "term": "fick", "replacement": "Mist" },
-      { "term": "ficken", "replacement": "ärgern" },
-      { "term": "verfickt", "replacement": "verflixt" },
-      { "term": "arschloch", "replacement": "Dummkopf" },
-      { "term": "arsch", "replacement": "Hintern" },
-      { "term": "hurensohn", "replacement": "Schlingel" },
-      { "term": "hure", "replacement": "Schelmin" },
-      { "term": "wichser", "replacement": "Dummkopf" },
-      { "term": "schwanz", "replacement": "Schwanzfeder" },
-      { "term": "fotze", "replacement": "Nervensäge" },
-      { "term": "verdammt", "replacement": "verflixt" },
-      { "term": "kacke", "replacement": "Mist" },
-      { "term": "bastard", "replacement": "Schlingel" },
-      { "term": "spast", "replacement": "Trottel" }
+      {
+        "term": "scheiße",
+        "replacement": "Mist"
+      },
+      {
+        "term": "scheisse",
+        "replacement": "Mist"
+      },
+      {
+        "term": "scheiss",
+        "replacement": "Mist"
+      },
+      {
+        "term": "scheiß",
+        "replacement": "Mist"
+      },
+      {
+        "term": "fick",
+        "replacement": "Mist"
+      },
+      {
+        "term": "ficken",
+        "replacement": "ärgern"
+      },
+      {
+        "term": "verfickt",
+        "replacement": "verflixt"
+      },
+      {
+        "term": "arschloch",
+        "replacement": "Dummkopf"
+      },
+      {
+        "term": "arsch",
+        "replacement": "Hintern"
+      },
+      {
+        "term": "hurensohn",
+        "replacement": "Schlingel"
+      },
+      {
+        "term": "hure",
+        "replacement": "Schelmin"
+      },
+      {
+        "term": "wichser",
+        "replacement": "Dummkopf"
+      },
+      {
+        "term": "schwanz",
+        "replacement": "Schwanzfeder"
+      },
+      {
+        "term": "fotze",
+        "replacement": "Nervensäge"
+      },
+      {
+        "term": "verdammt",
+        "replacement": "verflixt"
+      },
+      {
+        "term": "kacke",
+        "replacement": "Mist"
+      },
+      {
+        "term": "bastard",
+        "replacement": "Schlingel"
+      },
+      {
+        "term": "spast",
+        "replacement": "Trottel"
+      }
     ]
   },
   "Italian": {
     "confidence": "high",
     "entries": [
-      { "term": "cazzo", "replacement": "cavolo" },
-      { "term": "cazzi", "replacement": "cavoli" },
-      { "term": "merda", "replacement": "acciderba" },
-      { "term": "stronzo", "replacement": "villano" },
-      { "term": "stronza", "replacement": "villana" },
-      { "term": "stronzi", "replacement": "villani" },
-      { "term": "puttana", "replacement": "birbante" },
-      { "term": "porca puttana", "replacement": "perbacco" },
-      { "term": "figa", "replacement": "cavolo" },
-      { "term": "coglione", "replacement": "sciocco" },
-      { "term": "coglioni", "replacement": "sciocchi" },
-      { "term": "vaffanculo", "replacement": "ma va la" },
-      { "term": "culo", "replacement": "sedere" },
-      { "term": "troia", "replacement": "birbante" },
-      { "term": "bastardo", "replacement": "briccone" },
-      { "term": "porco dio", "replacement": "perbacco" },
-      { "term": "minchia", "replacement": "caspita" }
+      {
+        "term": "cazzo",
+        "replacement": "cavolo"
+      },
+      {
+        "term": "cazzi",
+        "replacement": "cavoli"
+      },
+      {
+        "term": "merda",
+        "replacement": "acciderba"
+      },
+      {
+        "term": "stronzo",
+        "replacement": "villano"
+      },
+      {
+        "term": "stronza",
+        "replacement": "villana"
+      },
+      {
+        "term": "stronzi",
+        "replacement": "villani"
+      },
+      {
+        "term": "puttana",
+        "replacement": "birbante"
+      },
+      {
+        "term": "porca puttana",
+        "replacement": "perbacco"
+      },
+      {
+        "term": "figa",
+        "replacement": "cavolo"
+      },
+      {
+        "term": "coglione",
+        "replacement": "sciocco"
+      },
+      {
+        "term": "coglioni",
+        "replacement": "sciocchi"
+      },
+      {
+        "term": "vaffanculo",
+        "replacement": "ma va la"
+      },
+      {
+        "term": "culo",
+        "replacement": "sedere"
+      },
+      {
+        "term": "troia",
+        "replacement": "birbante"
+      },
+      {
+        "term": "bastardo",
+        "replacement": "briccone"
+      },
+      {
+        "term": "porco dio",
+        "replacement": "perbacco"
+      },
+      {
+        "term": "minchia",
+        "replacement": "caspita"
+      }
     ]
   },
   "Russian": {
     "confidence": "high",
     "entries": [
-      { "term": "блядь", "replacement": "блин" },
-      { "term": "бля", "replacement": "блин" },
-      { "term": "сука", "replacement": "сушка" },
-      { "term": "суки", "replacement": "сушки" },
-      { "term": "хуй", "replacement": "хрен" },
-      { "term": "хуя", "replacement": "хрена" },
-      { "term": "хуёво", "replacement": "хреново" },
-      { "term": "пизда", "replacement": "ерунда" },
-      { "term": "пиздец", "replacement": "капец" },
-      { "term": "ебать", "replacement": "ёлки" },
-      { "term": "ебал", "replacement": "видал" },
-      { "term": "заебал", "replacement": "надоел" },
-      { "term": "ебанутый", "replacement": "чокнутый" },
-      { "term": "нахуй", "replacement": "подальше" },
-      { "term": "мудак", "replacement": "негодник" },
-      { "term": "гандон", "replacement": "негодник" },
-      { "term": "долбоеб", "replacement": "растяпа" },
-      { "term": "говно", "replacement": "ерунда" },
-      { "term": "хер", "replacement": "хрен" }
+      {
+        "term": "блядь",
+        "replacement": "блин"
+      },
+      {
+        "term": "бля",
+        "replacement": "блин"
+      },
+      {
+        "term": "сука",
+        "replacement": "сушка"
+      },
+      {
+        "term": "суки",
+        "replacement": "сушки"
+      },
+      {
+        "term": "хуй",
+        "replacement": "хрен"
+      },
+      {
+        "term": "хуя",
+        "replacement": "хрена"
+      },
+      {
+        "term": "хуёво",
+        "replacement": "хреново"
+      },
+      {
+        "term": "пизда",
+        "replacement": "ерунда"
+      },
+      {
+        "term": "пиздец",
+        "replacement": "капец"
+      },
+      {
+        "term": "ебать",
+        "replacement": "ёлки"
+      },
+      {
+        "term": "ебал",
+        "replacement": "видал"
+      },
+      {
+        "term": "заебал",
+        "replacement": "надоел"
+      },
+      {
+        "term": "ебанутый",
+        "replacement": "чокнутый"
+      },
+      {
+        "term": "нахуй",
+        "replacement": "подальше"
+      },
+      {
+        "term": "мудак",
+        "replacement": "негодник"
+      },
+      {
+        "term": "гандон",
+        "replacement": "негодник"
+      },
+      {
+        "term": "долбоеб",
+        "replacement": "растяпа"
+      },
+      {
+        "term": "говно",
+        "replacement": "ерунда"
+      },
+      {
+        "term": "хер",
+        "replacement": "хрен"
+      }
     ]
   },
   "Ukrainian": {
     "confidence": "medium",
     "entries": [
-      { "term": "блядь", "replacement": "блін" },
-      { "term": "бля", "replacement": "блін" },
-      { "term": "сука", "replacement": "сушка" },
-      { "term": "хуй", "replacement": "хрін" },
-      { "term": "піздець", "replacement": "капець" },
-      { "term": "їбати", "replacement": "ялинки" },
-      { "term": "довбойоб", "replacement": "роззява" },
-      { "term": "мудак", "replacement": "негідник" },
-      { "term": "гівно", "replacement": "дурниця" },
-      { "term": "курва", "replacement": "халепа" }
+      {
+        "term": "блядь",
+        "replacement": "блін"
+      },
+      {
+        "term": "бля",
+        "replacement": "блін"
+      },
+      {
+        "term": "сука",
+        "replacement": "сушка"
+      },
+      {
+        "term": "хуй",
+        "replacement": "хрін"
+      },
+      {
+        "term": "піздець",
+        "replacement": "капець"
+      },
+      {
+        "term": "їбати",
+        "replacement": "ялинки"
+      },
+      {
+        "term": "довбойоб",
+        "replacement": "роззява"
+      },
+      {
+        "term": "мудак",
+        "replacement": "негідник"
+      },
+      {
+        "term": "гівно",
+        "replacement": "дурниця"
+      },
+      {
+        "term": "курва",
+        "replacement": "халепа"
+      }
     ]
   },
   "Polish": {
     "confidence": "high",
     "entries": [
-      { "term": "kurwa", "replacement": "kurczę" },
-      { "term": "kurwy", "replacement": "kurczaki" },
-      { "term": "chuj", "replacement": "chrzan" },
-      { "term": "chuja", "replacement": "chrzanu" },
-      { "term": "pierdolić", "replacement": "pieprzyć" },
-      { "term": "pierdole", "replacement": "pieprzę" },
-      { "term": "pierdolony", "replacement": "nieszczęsny" },
-      { "term": "jebać", "replacement": "pieprzyć" },
-      { "term": "jebany", "replacement": "nieszczęsny" },
-      { "term": "zajebiste", "replacement": "świetne" },
-      { "term": "pizda", "replacement": "bzdura" },
-      { "term": "skurwysyn", "replacement": "łobuz" },
-      { "term": "gówno", "replacement": "bzdura" },
-      { "term": "dupa", "replacement": "pupa" },
-      { "term": "cholera", "replacement": "kurczę" },
-      { "term": "spierdalaj", "replacement": "odejdź" }
+      {
+        "term": "kurwa",
+        "replacement": "kurczę"
+      },
+      {
+        "term": "kurwy",
+        "replacement": "kurczaki"
+      },
+      {
+        "term": "chuj",
+        "replacement": "chrzan"
+      },
+      {
+        "term": "chuja",
+        "replacement": "chrzanu"
+      },
+      {
+        "term": "pierdolić",
+        "replacement": "pieprzyć"
+      },
+      {
+        "term": "pierdole",
+        "replacement": "pieprzę"
+      },
+      {
+        "term": "pierdolony",
+        "replacement": "nieszczęsny"
+      },
+      {
+        "term": "jebać",
+        "replacement": "pieprzyć"
+      },
+      {
+        "term": "jebany",
+        "replacement": "nieszczęsny"
+      },
+      {
+        "term": "zajebiste",
+        "replacement": "świetne"
+      },
+      {
+        "term": "pizda",
+        "replacement": "bzdura"
+      },
+      {
+        "term": "skurwysyn",
+        "replacement": "łobuz"
+      },
+      {
+        "term": "gówno",
+        "replacement": "bzdura"
+      },
+      {
+        "term": "dupa",
+        "replacement": "pupa"
+      },
+      {
+        "term": "cholera",
+        "replacement": "kurczę"
+      },
+      {
+        "term": "spierdalaj",
+        "replacement": "odejdź"
+      }
     ]
   },
   "Dutch": {
     "confidence": "high",
     "entries": [
-      { "term": "kut", "replacement": "kort" },
-      { "term": "klote", "replacement": "beroerd" },
-      { "term": "kanker", "replacement": "kolere" },
-      { "term": "tering", "replacement": "tjonge" },
-      { "term": "godverdomme", "replacement": "verdorie" },
-      { "term": "verdomme", "replacement": "verdorie" },
-      { "term": "shit", "replacement": "jammer" },
-      { "term": "lul", "replacement": "sukkel" },
-      { "term": "eikel", "replacement": "sukkel" },
-      { "term": "klootzak", "replacement": "sukkel" },
-      { "term": "hoer", "replacement": "deugniet" },
-      { "term": "neuken", "replacement": "vozen" },
-      { "term": "reet", "replacement": "achterste" }
+      {
+        "term": "kut",
+        "replacement": "kort"
+      },
+      {
+        "term": "klote",
+        "replacement": "beroerd"
+      },
+      {
+        "term": "kanker",
+        "replacement": "kolere"
+      },
+      {
+        "term": "tering",
+        "replacement": "tjonge"
+      },
+      {
+        "term": "godverdomme",
+        "replacement": "verdorie"
+      },
+      {
+        "term": "verdomme",
+        "replacement": "verdorie"
+      },
+      {
+        "term": "shit",
+        "replacement": "jammer"
+      },
+      {
+        "term": "lul",
+        "replacement": "sukkel"
+      },
+      {
+        "term": "eikel",
+        "replacement": "sukkel"
+      },
+      {
+        "term": "klootzak",
+        "replacement": "sukkel"
+      },
+      {
+        "term": "hoer",
+        "replacement": "deugniet"
+      },
+      {
+        "term": "neuken",
+        "replacement": "vozen"
+      },
+      {
+        "term": "reet",
+        "replacement": "achterste"
+      }
     ]
   },
   "Turkish": {
     "confidence": "high",
     "entries": [
-      { "term": "amk", "replacement": "yahu" },
-      { "term": "amına", "replacement": "aman" },
-      { "term": "sikeyim", "replacement": "boşver" },
-      { "term": "siktir", "replacement": "hadi be" },
-      { "term": "sikik", "replacement": "berbat" },
-      { "term": "orospu", "replacement": "yaramaz" },
-      { "term": "piç", "replacement": "yaramaz" },
-      { "term": "göt", "replacement": "arka" },
-      { "term": "yarrak", "replacement": "saçma" },
-      { "term": "bok", "replacement": "kötü" },
-      { "term": "salak", "replacement": "şaşkın" },
-      { "term": "aptal", "replacement": "şaşkın" }
+      {
+        "term": "amk",
+        "replacement": "yahu"
+      },
+      {
+        "term": "amına",
+        "replacement": "aman"
+      },
+      {
+        "term": "sikeyim",
+        "replacement": "boşver"
+      },
+      {
+        "term": "siktir",
+        "replacement": "hadi be"
+      },
+      {
+        "term": "sikik",
+        "replacement": "berbat"
+      },
+      {
+        "term": "orospu",
+        "replacement": "yaramaz"
+      },
+      {
+        "term": "piç",
+        "replacement": "yaramaz"
+      },
+      {
+        "term": "göt",
+        "replacement": "arka"
+      },
+      {
+        "term": "yarrak",
+        "replacement": "saçma"
+      },
+      {
+        "term": "bok",
+        "replacement": "kötü"
+      },
+      {
+        "term": "salak",
+        "replacement": "şaşkın"
+      },
+      {
+        "term": "aptal",
+        "replacement": "şaşkın"
+      }
     ]
   },
   "Japanese": {
     "confidence": "high",
     "entries": [
-      { "term": "くそ", "replacement": "しまった" },
-      { "term": "クソ", "replacement": "しまった" },
-      { "term": "ちくしょう", "replacement": "しまった" },
-      { "term": "死ね", "replacement": "やめて" },
-      { "term": "殺す", "replacement": "やっつける" },
-      { "term": "ばか", "replacement": "おバカ" },
-      { "term": "馬鹿", "replacement": "おバカ" },
-      { "term": "aho", "replacement": "おバカ" },
-      { "term": "あほ", "replacement": "おバカ" },
-      { "term": "きちがい", "replacement": "無茶" },
-      { "term": "うざい", "replacement": "うるさい" },
-      { "term": "きもい", "replacement": "苦手" },
-      { "term": "ちんこ", "replacement": "あれ" },
-      { "term": "まんこ", "replacement": "あれ" }
+      {
+        "term": "くそ",
+        "replacement": "しまった"
+      },
+      {
+        "term": "クソ",
+        "replacement": "しまった"
+      },
+      {
+        "term": "ちくしょう",
+        "replacement": "しまった"
+      },
+      {
+        "term": "死ね",
+        "replacement": "やめて"
+      },
+      {
+        "term": "殺す",
+        "replacement": "やっつける"
+      },
+      {
+        "term": "ばか",
+        "replacement": "おバカ"
+      },
+      {
+        "term": "馬鹿",
+        "replacement": "おバカ"
+      },
+      {
+        "term": "aho",
+        "replacement": "おバカ"
+      },
+      {
+        "term": "あほ",
+        "replacement": "おバカ"
+      },
+      {
+        "term": "きちがい",
+        "replacement": "無茶"
+      },
+      {
+        "term": "うざい",
+        "replacement": "うるさい"
+      },
+      {
+        "term": "きもい",
+        "replacement": "苦手"
+      },
+      {
+        "term": "ちんこ",
+        "replacement": "あれ"
+      },
+      {
+        "term": "まんこ",
+        "replacement": "あれ"
+      }
     ]
   },
   "Korean": {
     "confidence": "high",
     "entries": [
-      { "term": "씨발", "replacement": "아이참" },
-      { "term": "시발", "replacement": "아이참" },
-      { "term": "씨발놈", "replacement": "이런사람" },
-      { "term": "개새끼", "replacement": "이런사람" },
-      { "term": "새끼", "replacement": "녀석" },
-      { "term": "좆", "replacement": "참나" },
-      { "term": "병신", "replacement": "바보" },
-      { "term": "지랄", "replacement": "야단" },
-      { "term": "닥쳐", "replacement": "조용히" },
-      { "term": "미친", "replacement": "엉뚱한" },
-      { "term": "존나", "replacement": "엄청" }
+      {
+        "term": "씨발",
+        "replacement": "아이참"
+      },
+      {
+        "term": "시발",
+        "replacement": "아이참"
+      },
+      {
+        "term": "씨발놈",
+        "replacement": "이런사람"
+      },
+      {
+        "term": "개새끼",
+        "replacement": "이런사람"
+      },
+      {
+        "term": "새끼",
+        "replacement": "녀석"
+      },
+      {
+        "term": "좆",
+        "replacement": "참나"
+      },
+      {
+        "term": "병신",
+        "replacement": "바보"
+      },
+      {
+        "term": "지랄",
+        "replacement": "야단"
+      },
+      {
+        "term": "닥쳐",
+        "replacement": "조용히"
+      },
+      {
+        "term": "미친",
+        "replacement": "엉뚱한"
+      },
+      {
+        "term": "존나",
+        "replacement": "엄청"
+      }
     ]
   },
   "Chinese": {
     "confidence": "high",
     "entries": [
-      { "term": "操", "replacement": "哎呀" },
-      { "term": "肏", "replacement": "哎呀" },
-      { "term": "他妈的", "replacement": "真是的" },
-      { "term": "妈的", "replacement": "真是的" },
-      { "term": "草泥马", "replacement": "哎呀" },
-      { "term": "傻逼", "replacement": "傻瓜" },
-      { "term": "煞笔", "replacement": "傻瓜" },
-      { "term": "傻屌", "replacement": "傻瓜" },
-      { "term": "屌", "replacement": "厉害" },
-      { "term": "婊子", "replacement": "坏蛋" },
-      { "term": "贱人", "replacement": "坏蛋" },
-      { "term": "王八蛋", "replacement": "坏蛋" },
-      { "term": "滚蛋", "replacement": "走开" },
-      { "term": "去死", "replacement": "算了" },
-      { "term": "屁眼", "replacement": "后面" }
+      {
+        "term": "操",
+        "replacement": "哎呀"
+      },
+      {
+        "term": "肏",
+        "replacement": "哎呀"
+      },
+      {
+        "term": "他妈的",
+        "replacement": "真是的"
+      },
+      {
+        "term": "妈的",
+        "replacement": "真是的"
+      },
+      {
+        "term": "草泥马",
+        "replacement": "哎呀"
+      },
+      {
+        "term": "傻逼",
+        "replacement": "傻瓜"
+      },
+      {
+        "term": "煞笔",
+        "replacement": "傻瓜"
+      },
+      {
+        "term": "傻屌",
+        "replacement": "傻瓜"
+      },
+      {
+        "term": "屌",
+        "replacement": "厉害"
+      },
+      {
+        "term": "婊子",
+        "replacement": "坏蛋"
+      },
+      {
+        "term": "贱人",
+        "replacement": "坏蛋"
+      },
+      {
+        "term": "王八蛋",
+        "replacement": "坏蛋"
+      },
+      {
+        "term": "滚蛋",
+        "replacement": "走开"
+      },
+      {
+        "term": "去死",
+        "replacement": "算了"
+      },
+      {
+        "term": "屁眼",
+        "replacement": "后面"
+      }
     ]
   },
   "Chinese,Yue": {
     "confidence": "medium",
     "entries": [
-      { "term": "屌", "replacement": "厲害" },
-      { "term": "冚家鏟", "replacement": "衰人" },
-      { "term": "仆街", "replacement": "衰人" },
-      { "term": "撲街", "replacement": "衰人" },
-      { "term": "戇鳩", "replacement": "傻瓜" },
-      { "term": "痴線", "replacement": "癲癲哋" },
-      { "term": "死開", "replacement": "行開" },
-      { "term": "臭西", "replacement": "衰人" },
-      { "term": "老母", "replacement": "真係" }
+      {
+        "term": "屌",
+        "replacement": "厲害"
+      },
+      {
+        "term": "冚家鏟",
+        "replacement": "衰人"
+      },
+      {
+        "term": "仆街",
+        "replacement": "衰人"
+      },
+      {
+        "term": "撲街",
+        "replacement": "衰人"
+      },
+      {
+        "term": "戇鳩",
+        "replacement": "傻瓜"
+      },
+      {
+        "term": "痴線",
+        "replacement": "癲癲哋"
+      },
+      {
+        "term": "死開",
+        "replacement": "行開"
+      },
+      {
+        "term": "臭西",
+        "replacement": "衰人"
+      },
+      {
+        "term": "老母",
+        "replacement": "真係"
+      }
     ]
   },
   "Arabic": {
     "confidence": "high",
     "entries": [
-      { "term": "كس", "replacement": "يا سلام" },
-      { "term": "كسم", "replacement": "يا سلام" },
-      { "term": "زب", "replacement": "شيء" },
-      { "term": "شرموط", "replacement": "وقح" },
-      { "term": "شرموطة", "replacement": "وقحة" },
-      { "term": "عرص", "replacement": "وقح" },
-      { "term": "خول", "replacement": "وقح" },
-      { "term": "منيك", "replacement": "وقح" },
-      { "term": "ابن الكلب", "replacement": "قليل الأدب" },
-      { "term": "حمار", "replacement": "غافل" },
-      { "term": "تبا", "replacement": "يا للأسف" },
-      { "term": "لعنة", "replacement": "يا للأسف" }
+      {
+        "term": "كس",
+        "replacement": "يا سلام"
+      },
+      {
+        "term": "كسم",
+        "replacement": "يا سلام"
+      },
+      {
+        "term": "زب",
+        "replacement": "شيء"
+      },
+      {
+        "term": "شرموط",
+        "replacement": "وقح"
+      },
+      {
+        "term": "شرموطة",
+        "replacement": "وقحة"
+      },
+      {
+        "term": "عرص",
+        "replacement": "وقح"
+      },
+      {
+        "term": "خول",
+        "replacement": "وقح"
+      },
+      {
+        "term": "منيك",
+        "replacement": "وقح"
+      },
+      {
+        "term": "ابن الكلب",
+        "replacement": "قليل الأدب"
+      },
+      {
+        "term": "حمار",
+        "replacement": "غافل"
+      },
+      {
+        "term": "تبا",
+        "replacement": "يا للأسف"
+      },
+      {
+        "term": "لعنة",
+        "replacement": "يا للأسف"
+      }
     ]
   },
   "Hindi": {
     "confidence": "high",
     "entries": [
-      { "term": "चूतिया", "replacement": "बुद्धू" },
-      { "term": "chutiya", "replacement": "buddhu" },
-      { "term": "भोसड़ी", "replacement": "अरे यार" },
-      { "term": "bhosdi", "replacement": "arey yaar" },
-      { "term": "मादरचोद", "replacement": "बदमाश" },
-      { "term": "madarchod", "replacement": "badmash" },
-      { "term": "बहनचोद", "replacement": "बदमाश" },
-      { "term": "behenchod", "replacement": "badmash" },
-      { "term": "गांड", "replacement": "पीछे" },
-      { "term": "gaand", "replacement": "peeche" },
-      { "term": "रंडी", "replacement": "बदमाश" },
-      { "term": "randi", "replacement": "badmash" },
-      { "term": "कमीना", "replacement": "शरारती" },
-      { "term": "kamina", "replacement": "shararti" },
-      { "term": "harami", "replacement": "shararti" }
+      {
+        "term": "चूतिया",
+        "replacement": "बुद्धू"
+      },
+      {
+        "term": "chutiya",
+        "replacement": "buddhu"
+      },
+      {
+        "term": "भोसड़ी",
+        "replacement": "अरे यार"
+      },
+      {
+        "term": "bhosdi",
+        "replacement": "arey yaar"
+      },
+      {
+        "term": "मादरचोद",
+        "replacement": "बदमाश"
+      },
+      {
+        "term": "madarchod",
+        "replacement": "badmash"
+      },
+      {
+        "term": "बहनचोद",
+        "replacement": "बदमाश"
+      },
+      {
+        "term": "behenchod",
+        "replacement": "badmash"
+      },
+      {
+        "term": "गांड",
+        "replacement": "पीछे"
+      },
+      {
+        "term": "gaand",
+        "replacement": "peeche"
+      },
+      {
+        "term": "रंडी",
+        "replacement": "बदमाश"
+      },
+      {
+        "term": "randi",
+        "replacement": "badmash"
+      },
+      {
+        "term": "कमीना",
+        "replacement": "शरारती"
+      },
+      {
+        "term": "kamina",
+        "replacement": "shararti"
+      },
+      {
+        "term": "harami",
+        "replacement": "shararti"
+      }
     ]
   },
   "Vietnamese": {
     "confidence": "medium",
     "entries": [
-      { "term": "đụ", "replacement": "trời ơi" },
-      { "term": "địt", "replacement": "trời ơi" },
-      { "term": "lồn", "replacement": "trời ơi" },
-      { "term": "cặc", "replacement": "trời ơi" },
-      { "term": "đéo", "replacement": "chẳng" },
-      { "term": "đm", "replacement": "trời ơi" },
-      { "term": "vãi", "replacement": "ghê" },
-      { "term": "chó", "replacement": "trời" },
-      { "term": "ngu", "replacement": "khờ" }
+      {
+        "term": "đụ",
+        "replacement": "trời ơi"
+      },
+      {
+        "term": "địt",
+        "replacement": "trời ơi"
+      },
+      {
+        "term": "lồn",
+        "replacement": "trời ơi"
+      },
+      {
+        "term": "cặc",
+        "replacement": "trời ơi"
+      },
+      {
+        "term": "đéo",
+        "replacement": "chẳng"
+      },
+      {
+        "term": "đm",
+        "replacement": "trời ơi"
+      },
+      {
+        "term": "vãi",
+        "replacement": "ghê"
+      },
+      {
+        "term": "chó",
+        "replacement": "trời"
+      },
+      {
+        "term": "ngu",
+        "replacement": "khờ"
+      }
     ]
   },
   "Indonesian": {
     "confidence": "medium",
     "entries": [
-      { "term": "anjing", "replacement": "aduh" },
-      { "term": "anjir", "replacement": "aduh" },
-      { "term": "bangsat", "replacement": "nakal" },
-      { "term": "kontol", "replacement": "aduh" },
-      { "term": "memek", "replacement": "aduh" },
-      { "term": "ngentot", "replacement": "aduh" },
-      { "term": "bajingan", "replacement": "nakal" },
-      { "term": "goblok", "replacement": "kurang teliti" },
-      { "term": "tolol", "replacement": "kurang teliti" },
-      { "term": "brengsek", "replacement": "nakal" },
-      { "term": "kampret", "replacement": "aduh" }
+      {
+        "term": "anjing",
+        "replacement": "aduh"
+      },
+      {
+        "term": "anjir",
+        "replacement": "aduh"
+      },
+      {
+        "term": "bangsat",
+        "replacement": "nakal"
+      },
+      {
+        "term": "kontol",
+        "replacement": "aduh"
+      },
+      {
+        "term": "memek",
+        "replacement": "aduh"
+      },
+      {
+        "term": "ngentot",
+        "replacement": "aduh"
+      },
+      {
+        "term": "bajingan",
+        "replacement": "nakal"
+      },
+      {
+        "term": "goblok",
+        "replacement": "kurang teliti"
+      },
+      {
+        "term": "tolol",
+        "replacement": "kurang teliti"
+      },
+      {
+        "term": "brengsek",
+        "replacement": "nakal"
+      },
+      {
+        "term": "kampret",
+        "replacement": "aduh"
+      }
     ]
   },
   "Thai": {
     "confidence": "medium",
     "entries": [
-      { "term": "เหี้ย", "replacement": "แย่จัง" },
-      { "term": "ควย", "replacement": "แย่จัง" },
-      { "term": "หี", "replacement": "แย่จัง" },
-      { "term": "สัส", "replacement": "แย่จัง" },
-      { "term": "สัตว์", "replacement": "แย่จัง" },
-      { "term": "ไอ้เวร", "replacement": "เจ้าตัวแสบ" },
-      { "term": "แม่ง", "replacement": "จริงๆ" },
-      { "term": "มึง", "replacement": "เธอ" }
+      {
+        "term": "เหี้ย",
+        "replacement": "แย่จัง"
+      },
+      {
+        "term": "ควย",
+        "replacement": "แย่จัง"
+      },
+      {
+        "term": "หี",
+        "replacement": "แย่จัง"
+      },
+      {
+        "term": "สัส",
+        "replacement": "แย่จัง"
+      },
+      {
+        "term": "สัตว์",
+        "replacement": "แย่จัง"
+      },
+      {
+        "term": "ไอ้เวร",
+        "replacement": "เจ้าตัวแสบ"
+      },
+      {
+        "term": "แม่ง",
+        "replacement": "จริงๆ"
+      },
+      {
+        "term": "มึง",
+        "replacement": "เธอ"
+      }
     ]
   },
   "Greek": {
     "confidence": "medium",
     "entries": [
-      { "term": "μαλάκα", "replacement": "βρε" },
-      { "term": "μαλακία", "replacement": "ανοησία" },
-      { "term": "γαμώτο", "replacement": "να πάρει" },
-      { "term": "γαμώ", "replacement": "να πάρει" },
-      { "term": "πούτσα", "replacement": "ανοησία" },
-      { "term": "μουνί", "replacement": "ανοησία" },
-      { "term": "πουτάνα", "replacement": "άτακτη" },
-      { "term": "σκατά", "replacement": "κρίμα" },
-      { "term": "αρχίδι", "replacement": "ανοησία" }
+      {
+        "term": "μαλάκα",
+        "replacement": "βρε"
+      },
+      {
+        "term": "μαλακία",
+        "replacement": "ανοησία"
+      },
+      {
+        "term": "γαμώτο",
+        "replacement": "να πάρει"
+      },
+      {
+        "term": "γαμώ",
+        "replacement": "να πάρει"
+      },
+      {
+        "term": "πούτσα",
+        "replacement": "ανοησία"
+      },
+      {
+        "term": "μουνί",
+        "replacement": "ανοησία"
+      },
+      {
+        "term": "πουτάνα",
+        "replacement": "άτακτη"
+      },
+      {
+        "term": "σκατά",
+        "replacement": "κρίμα"
+      },
+      {
+        "term": "αρχίδι",
+        "replacement": "ανοησία"
+      }
     ]
   },
   "Czech": {
     "confidence": "medium",
     "entries": [
-      { "term": "kurva", "replacement": "kruci" },
-      { "term": "píča", "replacement": "hloupost" },
-      { "term": "pica", "replacement": "hloupost" },
-      { "term": "hovno", "replacement": "nesmysl" },
-      { "term": "sračka", "replacement": "nesmysl" },
-      { "term": "debil", "replacement": "popleta" },
-      { "term": "kokot", "replacement": "popleta" },
-      { "term": "zmrd", "replacement": "darebák" },
-      { "term": "prdel", "replacement": "zadek" },
-      { "term": "do prdele", "replacement": "kruci" }
+      {
+        "term": "kurva",
+        "replacement": "kruci"
+      },
+      {
+        "term": "píča",
+        "replacement": "hloupost"
+      },
+      {
+        "term": "pica",
+        "replacement": "hloupost"
+      },
+      {
+        "term": "hovno",
+        "replacement": "nesmysl"
+      },
+      {
+        "term": "sračka",
+        "replacement": "nesmysl"
+      },
+      {
+        "term": "debil",
+        "replacement": "popleta"
+      },
+      {
+        "term": "kokot",
+        "replacement": "popleta"
+      },
+      {
+        "term": "zmrd",
+        "replacement": "darebák"
+      },
+      {
+        "term": "prdel",
+        "replacement": "zadek"
+      },
+      {
+        "term": "do prdele",
+        "replacement": "kruci"
+      }
     ]
   },
   "Slovak": {
     "confidence": "medium",
     "entries": [
-      { "term": "kurva", "replacement": "kruci" },
-      { "term": "piča", "replacement": "hlúposť" },
-      { "term": "hovno", "replacement": "nezmysel" },
-      { "term": "debil", "replacement": "popleta" },
-      { "term": "kokot", "replacement": "popleta" },
-      { "term": "jebať", "replacement": "trápiť" },
-      { "term": "prdel", "replacement": "zadok" },
-      { "term": "sráč", "replacement": "darebák" }
+      {
+        "term": "kurva",
+        "replacement": "kruci"
+      },
+      {
+        "term": "piča",
+        "replacement": "hlúposť"
+      },
+      {
+        "term": "hovno",
+        "replacement": "nezmysel"
+      },
+      {
+        "term": "debil",
+        "replacement": "popleta"
+      },
+      {
+        "term": "kokot",
+        "replacement": "popleta"
+      },
+      {
+        "term": "jebať",
+        "replacement": "trápiť"
+      },
+      {
+        "term": "prdel",
+        "replacement": "zadok"
+      },
+      {
+        "term": "sráč",
+        "replacement": "darebák"
+      }
     ]
   },
   "Romanian": {
     "confidence": "medium",
     "entries": [
-      { "term": "pula", "replacement": "aiurea" },
-      { "term": "pizda", "replacement": "aiurea" },
-      { "term": "futu", "replacement": "of" },
-      { "term": "muie", "replacement": "aiurea" },
-      { "term": "căcat", "replacement": "prostie" },
-      { "term": "cacat", "replacement": "prostie" },
-      { "term": "curva", "replacement": "obraznică" },
-      { "term": "dracu", "replacement": "naiba" },
-      { "term": "prost", "replacement": "neatent" }
+      {
+        "term": "pula",
+        "replacement": "aiurea"
+      },
+      {
+        "term": "pizda",
+        "replacement": "aiurea"
+      },
+      {
+        "term": "futu",
+        "replacement": "of"
+      },
+      {
+        "term": "muie",
+        "replacement": "aiurea"
+      },
+      {
+        "term": "căcat",
+        "replacement": "prostie"
+      },
+      {
+        "term": "cacat",
+        "replacement": "prostie"
+      },
+      {
+        "term": "curva",
+        "replacement": "obraznică"
+      },
+      {
+        "term": "dracu",
+        "replacement": "naiba"
+      },
+      {
+        "term": "prost",
+        "replacement": "neatent"
+      }
     ]
   },
   "Bulgarian": {
     "confidence": "medium",
     "entries": [
-      { "term": "мамка", "replacement": "по дяволите" },
-      { "term": "курва", "replacement": "немирница" },
-      { "term": "путка", "replacement": "глупост" },
-      { "term": "хуй", "replacement": "глупост" },
-      { "term": "лайно", "replacement": "глупост" },
-      { "term": "копеле", "replacement": "хитрец" },
-      { "term": "шибан", "replacement": "проклет" }
+      {
+        "term": "мамка",
+        "replacement": "по дяволите"
+      },
+      {
+        "term": "курва",
+        "replacement": "немирница"
+      },
+      {
+        "term": "путка",
+        "replacement": "глупост"
+      },
+      {
+        "term": "хуй",
+        "replacement": "глупост"
+      },
+      {
+        "term": "лайно",
+        "replacement": "глупост"
+      },
+      {
+        "term": "копеле",
+        "replacement": "хитрец"
+      },
+      {
+        "term": "шибан",
+        "replacement": "проклет"
+      }
     ]
   },
   "Croatian": {
     "confidence": "medium",
     "entries": [
-      { "term": "jebem", "replacement": "koma" },
-      { "term": "jebi", "replacement": "briga" },
-      { "term": "pizda", "replacement": "glupost" },
-      { "term": "kurac", "replacement": "glupost" },
-      { "term": "kurva", "replacement": "nevaljalica" },
-      { "term": "govno", "replacement": "glupost" },
-      { "term": "sranje", "replacement": "glupost" },
-      { "term": "budala", "replacement": "smetenjak" }
+      {
+        "term": "jebem",
+        "replacement": "koma"
+      },
+      {
+        "term": "jebi",
+        "replacement": "briga"
+      },
+      {
+        "term": "pizda",
+        "replacement": "glupost"
+      },
+      {
+        "term": "kurac",
+        "replacement": "glupost"
+      },
+      {
+        "term": "kurva",
+        "replacement": "nevaljalica"
+      },
+      {
+        "term": "govno",
+        "replacement": "glupost"
+      },
+      {
+        "term": "sranje",
+        "replacement": "glupost"
+      },
+      {
+        "term": "budala",
+        "replacement": "smetenjak"
+      }
     ]
   },
   "Slovenian": {
     "confidence": "low",
     "entries": [
-      { "term": "jebi", "replacement": "pusti" },
-      { "term": "pizda", "replacement": "neumnost" },
-      { "term": "kurac", "replacement": "neumnost" },
-      { "term": "drek", "replacement": "neumnost" },
-      { "term": "sranje", "replacement": "neumnost" },
-      { "term": "kurba", "replacement": "porednica" }
+      {
+        "term": "jebi",
+        "replacement": "pusti"
+      },
+      {
+        "term": "pizda",
+        "replacement": "neumnost"
+      },
+      {
+        "term": "kurac",
+        "replacement": "neumnost"
+      },
+      {
+        "term": "drek",
+        "replacement": "neumnost"
+      },
+      {
+        "term": "sranje",
+        "replacement": "neumnost"
+      },
+      {
+        "term": "kurba",
+        "replacement": "porednica"
+      }
     ]
   },
   "Hungarian": {
     "confidence": "medium",
     "entries": [
-      { "term": "bazd meg", "replacement": "a mindenit" },
-      { "term": "bazmeg", "replacement": "a mindenit" },
-      { "term": "kurva", "replacement": "csibész" },
-      { "term": "fasz", "replacement": "csuda" },
-      { "term": "picsa", "replacement": "csuda" },
-      { "term": "geci", "replacement": "csuda" },
-      { "term": "szar", "replacement": "vacak" },
-      { "term": "barom", "replacement": "csacsi" }
+      {
+        "term": "bazd meg",
+        "replacement": "a mindenit"
+      },
+      {
+        "term": "bazmeg",
+        "replacement": "a mindenit"
+      },
+      {
+        "term": "kurva",
+        "replacement": "csibész"
+      },
+      {
+        "term": "fasz",
+        "replacement": "csuda"
+      },
+      {
+        "term": "picsa",
+        "replacement": "csuda"
+      },
+      {
+        "term": "geci",
+        "replacement": "csuda"
+      },
+      {
+        "term": "szar",
+        "replacement": "vacak"
+      },
+      {
+        "term": "barom",
+        "replacement": "csacsi"
+      }
     ]
   },
   "Finnish": {
     "confidence": "medium",
     "entries": [
-      { "term": "vittu", "replacement": "hitto" },
-      { "term": "vitun", "replacement": "hiton" },
-      { "term": "perkele", "replacement": "hitto" },
-      { "term": "saatana", "replacement": "hitto" },
-      { "term": "paska", "replacement": "roska" },
-      { "term": "helvetti", "replacement": "hitto" },
-      { "term": "kusipää", "replacement": "tolvana" },
-      { "term": "mulkku", "replacement": "tolvana" }
+      {
+        "term": "vittu",
+        "replacement": "hitto"
+      },
+      {
+        "term": "vitun",
+        "replacement": "hiton"
+      },
+      {
+        "term": "perkele",
+        "replacement": "hitto"
+      },
+      {
+        "term": "saatana",
+        "replacement": "hitto"
+      },
+      {
+        "term": "paska",
+        "replacement": "roska"
+      },
+      {
+        "term": "helvetti",
+        "replacement": "hitto"
+      },
+      {
+        "term": "kusipää",
+        "replacement": "tolvana"
+      },
+      {
+        "term": "mulkku",
+        "replacement": "tolvana"
+      }
     ]
   },
   "Swedish": {
     "confidence": "medium",
     "entries": [
-      { "term": "fan", "replacement": "sjutton" },
-      { "term": "jävla", "replacement": "sjuttons" },
-      { "term": "jävlar", "replacement": "sjutton" },
-      { "term": "helvete", "replacement": "sjutton" },
-      { "term": "skit", "replacement": "strunt" },
-      { "term": "kuk", "replacement": "strunt" },
-      { "term": "fitta", "replacement": "strunt" },
-      { "term": "hora", "replacement": "rackare" },
-      { "term": "idiot", "replacement": "tokstolle" }
+      {
+        "term": "fan",
+        "replacement": "sjutton"
+      },
+      {
+        "term": "jävla",
+        "replacement": "sjuttons"
+      },
+      {
+        "term": "jävlar",
+        "replacement": "sjutton"
+      },
+      {
+        "term": "helvete",
+        "replacement": "sjutton"
+      },
+      {
+        "term": "skit",
+        "replacement": "strunt"
+      },
+      {
+        "term": "kuk",
+        "replacement": "strunt"
+      },
+      {
+        "term": "fitta",
+        "replacement": "strunt"
+      },
+      {
+        "term": "hora",
+        "replacement": "rackare"
+      },
+      {
+        "term": "idiot",
+        "replacement": "tokstolle"
+      }
     ]
   },
   "Danish": {
     "confidence": "medium",
     "entries": [
-      { "term": "fanden", "replacement": "søren" },
-      { "term": "for helvede", "replacement": "for søren" },
-      { "term": "lort", "replacement": "vrøvl" },
-      { "term": "pik", "replacement": "vrøvl" },
-      { "term": "kusse", "replacement": "vrøvl" },
-      { "term": "luder", "replacement": "spilopmager" },
-      { "term": "røvhul", "replacement": "fjols" },
-      { "term": "skide", "replacement": "pokkers" }
+      {
+        "term": "fanden",
+        "replacement": "søren"
+      },
+      {
+        "term": "for helvede",
+        "replacement": "for søren"
+      },
+      {
+        "term": "lort",
+        "replacement": "vrøvl"
+      },
+      {
+        "term": "pik",
+        "replacement": "vrøvl"
+      },
+      {
+        "term": "kusse",
+        "replacement": "vrøvl"
+      },
+      {
+        "term": "luder",
+        "replacement": "spilopmager"
+      },
+      {
+        "term": "røvhul",
+        "replacement": "fjols"
+      },
+      {
+        "term": "skide",
+        "replacement": "pokkers"
+      }
     ]
   },
   "Norwegian": {
     "confidence": "medium",
     "entries": [
-      { "term": "faen", "replacement": "søren" },
-      { "term": "helvete", "replacement": "søren" },
-      { "term": "dritt", "replacement": "tull" },
-      { "term": "kuk", "replacement": "tull" },
-      { "term": "fitte", "replacement": "tull" },
-      { "term": "hore", "replacement": "rakker" },
-      { "term": "rævhøl", "replacement": "tosk" },
-      { "term": "jævla", "replacement": "sørens" }
+      {
+        "term": "faen",
+        "replacement": "søren"
+      },
+      {
+        "term": "helvete",
+        "replacement": "søren"
+      },
+      {
+        "term": "dritt",
+        "replacement": "tull"
+      },
+      {
+        "term": "kuk",
+        "replacement": "tull"
+      },
+      {
+        "term": "fitte",
+        "replacement": "tull"
+      },
+      {
+        "term": "hore",
+        "replacement": "rakker"
+      },
+      {
+        "term": "rævhøl",
+        "replacement": "tosk"
+      },
+      {
+        "term": "jævla",
+        "replacement": "sørens"
+      }
     ]
   },
   "Nynorsk": {
     "confidence": "low",
     "entries": [
-      { "term": "faen", "replacement": "søren" },
-      { "term": "helvete", "replacement": "søren" },
-      { "term": "dritt", "replacement": "tull" },
-      { "term": "jævla", "replacement": "søren sin" },
-      { "term": "hore", "replacement": "rakkar" }
+      {
+        "term": "faen",
+        "replacement": "søren"
+      },
+      {
+        "term": "helvete",
+        "replacement": "søren"
+      },
+      {
+        "term": "dritt",
+        "replacement": "tull"
+      },
+      {
+        "term": "jævla",
+        "replacement": "søren sin"
+      },
+      {
+        "term": "hore",
+        "replacement": "rakkar"
+      }
     ]
   },
   "Hebrew": {
     "confidence": "medium",
     "entries": [
-      { "term": "זין", "replacement": "שטות" },
-      { "term": "כוס", "replacement": "שטות" },
-      { "term": "חרא", "replacement": "שטות" },
-      { "term": "בן זונה", "replacement": "חוצפן" },
-      { "term": "זונה", "replacement": "חוצפנית" },
-      { "term": "מזדיין", "replacement": "מעצבן" },
-      { "term": "אידיוט", "replacement": "מבולבל" }
+      {
+        "term": "זין",
+        "replacement": "שטות"
+      },
+      {
+        "term": "כוס",
+        "replacement": "שטות"
+      },
+      {
+        "term": "חרא",
+        "replacement": "שטות"
+      },
+      {
+        "term": "בן זונה",
+        "replacement": "חוצפן"
+      },
+      {
+        "term": "זונה",
+        "replacement": "חוצפנית"
+      },
+      {
+        "term": "מזדיין",
+        "replacement": "מעצבן"
+      },
+      {
+        "term": "אידיוט",
+        "replacement": "מבולבל"
+      }
     ]
   },
   "Persian": {
     "confidence": "medium",
     "entries": [
-      { "term": "کیر", "replacement": "چرت" },
-      { "term": "کس", "replacement": "چرت" },
-      { "term": "کونی", "replacement": "بی‌ادب" },
-      { "term": "جنده", "replacement": "بی‌ادب" },
-      { "term": "گاییدم", "replacement": "بی‌خیال" },
-      { "term": "کصافت", "replacement": "بی‌ادب" },
-      { "term": "خفه شو", "replacement": "ساکت" }
+      {
+        "term": "کیر",
+        "replacement": "چرت"
+      },
+      {
+        "term": "کس",
+        "replacement": "چرت"
+      },
+      {
+        "term": "کونی",
+        "replacement": "بی‌ادب"
+      },
+      {
+        "term": "جنده",
+        "replacement": "بی‌ادب"
+      },
+      {
+        "term": "گاییدم",
+        "replacement": "بی‌خیال"
+      },
+      {
+        "term": "کصافت",
+        "replacement": "بی‌ادب"
+      },
+      {
+        "term": "خفه شو",
+        "replacement": "ساکت"
+      }
     ]
   },
   "Malay": {
     "confidence": "low",
     "entries": [
-      { "term": "babi", "replacement": "aduhai" },
-      { "term": "sial", "replacement": "aduhai" },
-      { "term": "pukimak", "replacement": "aduhai" },
-      { "term": "bodoh", "replacement": "kurang teliti" },
-      { "term": "bangang", "replacement": "kurang teliti" },
-      { "term": "celaka", "replacement": "malang" }
+      {
+        "term": "babi",
+        "replacement": "aduhai"
+      },
+      {
+        "term": "sial",
+        "replacement": "aduhai"
+      },
+      {
+        "term": "pukimak",
+        "replacement": "aduhai"
+      },
+      {
+        "term": "bodoh",
+        "replacement": "kurang teliti"
+      },
+      {
+        "term": "bangang",
+        "replacement": "kurang teliti"
+      },
+      {
+        "term": "celaka",
+        "replacement": "malang"
+      }
     ]
   },
   "Filipino": {
     "confidence": "low",
     "entries": [
-      { "term": "putangina", "replacement": "naku po" },
-      { "term": "tangina", "replacement": "naku po" },
-      { "term": "gago", "replacement": "loko" },
-      { "term": "gaga", "replacement": "loka" },
-      { "term": "bobo", "replacement": "makakalimutin" },
-      { "term": "tanga", "replacement": "makakalimutin" },
-      { "term": "puta", "replacement": "naku" },
-      { "term": "leche", "replacement": "naku" }
+      {
+        "term": "putangina",
+        "replacement": "naku po"
+      },
+      {
+        "term": "tangina",
+        "replacement": "naku po"
+      },
+      {
+        "term": "gago",
+        "replacement": "loko"
+      },
+      {
+        "term": "gaga",
+        "replacement": "loka"
+      },
+      {
+        "term": "bobo",
+        "replacement": "makakalimutin"
+      },
+      {
+        "term": "tanga",
+        "replacement": "makakalimutin"
+      },
+      {
+        "term": "puta",
+        "replacement": "naku"
+      },
+      {
+        "term": "leche",
+        "replacement": "naku"
+      }
     ]
   },
   "Catalan": {
     "confidence": "low",
     "entries": [
-      { "term": "merda", "replacement": "carai" },
-      { "term": "collons", "replacement": "carai" },
-      { "term": "hòstia", "replacement": "carai" },
-      { "term": "puta", "replacement": "murria" },
-      { "term": "cabró", "replacement": "murri" },
-      { "term": "gilipolles", "replacement": "bajoc" }
+      {
+        "term": "merda",
+        "replacement": "carai"
+      },
+      {
+        "term": "collons",
+        "replacement": "carai"
+      },
+      {
+        "term": "hòstia",
+        "replacement": "carai"
+      },
+      {
+        "term": "puta",
+        "replacement": "murria"
+      },
+      {
+        "term": "cabró",
+        "replacement": "murri"
+      },
+      {
+        "term": "gilipolles",
+        "replacement": "bajoc"
+      }
     ]
   },
   "Afrikaans": {
     "confidence": "low",
     "entries": [
-      { "term": "kak", "replacement": "twak" },
-      { "term": "poes", "replacement": "twak" },
-      { "term": "fok", "replacement": "bliksem" },
-      { "term": "doos", "replacement": "swaap" },
-      { "term": "hoer", "replacement": "deugniet" },
-      { "term": "moer", "replacement": "bliksem" }
+      {
+        "term": "kak",
+        "replacement": "twak"
+      },
+      {
+        "term": "poes",
+        "replacement": "twak"
+      },
+      {
+        "term": "fok",
+        "replacement": "bliksem"
+      },
+      {
+        "term": "doos",
+        "replacement": "swaap"
+      },
+      {
+        "term": "hoer",
+        "replacement": "deugniet"
+      },
+      {
+        "term": "moer",
+        "replacement": "bliksem"
+      }
     ]
   },
   "Tamil": {
     "confidence": "low",
     "entries": [
-      { "term": "பொறுக்கி", "replacement": "குறும்பு" },
-      { "term": "punda", "replacement": "aiyo" },
-      { "term": "thevidiya", "replacement": "kurumbu" },
-      { "term": "myir", "replacement": "aiyo" },
-      { "term": "loosu", "replacement": "kalaikkaran" }
+      {
+        "term": "பொறுக்கி",
+        "replacement": "குறும்பு"
+      },
+      {
+        "term": "punda",
+        "replacement": "aiyo"
+      },
+      {
+        "term": "thevidiya",
+        "replacement": "kurumbu"
+      },
+      {
+        "term": "myir",
+        "replacement": "aiyo"
+      },
+      {
+        "term": "loosu",
+        "replacement": "kalaikkaran"
+      }
     ]
   }
 }

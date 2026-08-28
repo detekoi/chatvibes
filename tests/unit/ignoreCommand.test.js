@@ -7,6 +7,7 @@
 // and a clear refusal when the name is neither.
 
 import { jest } from '@jest/globals';
+import { getTranslator } from '../../src/i18n/index.js';
 
 describe('TTS ignore commands', () => {
     let enqueueMessage;
@@ -27,6 +28,9 @@ describe('TTS ignore commands', () => {
         user,
         args,
         replyToId: 'msg-1',
+        // commandProcessor binds this to the channel's language; the real
+        // translator keeps these assertions checking the message a viewer sees.
+        t: getTranslator('en'),
     });
 
     beforeEach(async () => {

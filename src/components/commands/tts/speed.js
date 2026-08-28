@@ -11,7 +11,8 @@ import {
 
 export default createTtsSettingCommand({
     name: 'speed',
-    property: 'speed preference',
+    scope: 'user',
+    propertyKey: 'cmd.property.speedPreference',
     description: `Sets your personal TTS speed (${TTS_SPEED_MIN} to ${TTS_SPEED_MAX}, 1.0 is normal). Use 'reset' for channel default.`,
     usage: '!tts speed <value|reset>',
     readCurrent: async (context) => {
@@ -22,10 +23,9 @@ export default createTtsSettingCommand({
     setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'speed', val, context.user['user-id']),
     parseFn: (str) => parseFloat(str),
     validateFn: (val) => !isNaN(val) && val >= TTS_SPEED_MIN && val <= TTS_SPEED_MAX,
-    validationHint: `Must be a number between ${TTS_SPEED_MIN} and ${TTS_SPEED_MAX}.`,
-    formatCurrent: (val, usage) => `Your current speed preference: ${val ?? 'Channel Default'}. Usage: ${usage}`,
-    formatSet: (val) => `Your TTS speed preference set to ${val}.`,
-    formatReset: () => `Your TTS speed preference has been reset to the channel default.`,
+    hintKey: 'cmd.hint.numberRange',
+    hintParams: { min: TTS_SPEED_MIN, max: TTS_SPEED_MAX },
+    showChannelDefaultWhenUnset: true,
     logSet: (context, val) => `[${context.channel.substring(1)}] User ${context.user.username} set speed preference to ${val}.`,
     logReset: (context) => `[${context.channel.substring(1)}] User ${context.user.username} reset speed preference.`
 });

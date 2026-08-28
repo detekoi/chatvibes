@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { getTranslator } from '../../src/i18n/index.js';
 
 describe('Factory-based TTS Command Handlers', () => {
   let mockLogger;
@@ -49,7 +50,8 @@ describe('Factory-based TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         args: [],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await defaultSpeedCommand.default.execute(context);
@@ -68,7 +70,8 @@ describe('Factory-based TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         args: ['reset'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await defaultSpeedCommand.default.execute(context);
@@ -88,7 +91,8 @@ describe('Factory-based TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         args: ['2.0'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await defaultSpeedCommand.default.execute(context);
@@ -106,7 +110,8 @@ describe('Factory-based TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         args: ['invalid'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await defaultSpeedCommand.default.execute(context);
@@ -134,7 +139,8 @@ describe('Factory-based TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser', 'user-id': '999' },
         args: [],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await speedCommand.default.execute(context);
@@ -154,7 +160,8 @@ describe('Factory-based TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser', 'user-id': '999' },
         args: ['reset'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await speedCommand.default.execute(context);
@@ -175,7 +182,8 @@ describe('Factory-based TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser', 'user-id': '999' },
         args: ['1.8'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await speedCommand.default.execute(context);

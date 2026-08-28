@@ -1,6 +1,7 @@
 // src/lib/emotes/emoteProcessor.js
 // Orchestrator: takes Twitch chat fragments, checks cache, calls Gemini, rebuilds the TTS string.
 import logger from '../logger.js';
+import { getTranslator, DEFAULT_LOCALE } from '../../i18n/index.js';
 import { describeSingleEmote, describeBatchEmotes, isGeminiAvailable } from './emoteDescriberApi.js';
 import { getUsersById } from '../../components/twitch/helixClient.js';
 
@@ -100,8 +101,9 @@ export function groupFragments(fragments) {
  *
  * @param {Array<{type: string, text: string, emote?: {id: string}}>} fragments
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag for the descriptions and their wrapper wording.
  */
-export async function describeEmoteFragments(fragments) {
+export async function describeEmoteFragments(fragments, locale = DEFAULT_LOCALE) {
     if (!isGeminiAvailable() || !fragments?.length) return null;
 
     const emoteFragments = fragments.filter(f => f.type === 'emote' && f.emote?.id);
@@ -125,16 +127,19 @@ export async function describeEmoteFragments(fragments) {
     const uniqueEmotes = Array.from(emoteCounts.entries());
     const descriptions = await Promise.all(
         uniqueEmotes.map(([emoteId, { name, ownerId, isAnimated }]) =>
-            describeSingleEmote(emoteId, name, getOwnerDisplayName(ownerId), isAnimated)
+            describeSingleEmote(emoteId, name, getOwnerDisplayName(ownerId), isAnimated, ownerId, 'twitch', locale)
         )
     );
 
+    const t = getTranslator(locale);
     const parts = [];
     for (let i = 0; i < uniqueEmotes.length; i++) {
         const [, { count }] = uniqueEmotes[i];
         const desc = descriptions[i];
         if (!desc) continue;
-        parts.push(count > 1 ? `(${count} ${desc} emotes)` : `(${desc} emote)`);
+        parts.push(count > 1
+            ? t('emote.wrap.repeated', { count, description: desc })
+            : t('emote.wrap', { description: desc }));
     }
 
     if (parts.length === 0) {
@@ -152,8 +157,9 @@ export async function describeEmoteFragments(fragments) {
  *
  * @param {Array<{type: string, text: string, emote?: {id: string}}>} fragments
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag for the descriptions and their wrapper wording.
  */
-export async function processMessageWithEmoteDescriptions(fragments) {
+export async function processMessageWithEmoteDescriptions(fragments, locale = DEFAULT_LOCALE) {
     if (!fragments?.length) return null;
 
     const emoteFragments = fragments.filter(f => f.type === 'emote' && f.emote?.id);
@@ -182,10 +188,10 @@ export async function processMessageWithEmoteDescriptions(fragments) {
     let descriptionMap;
     if (emoteEntries.length === 1) {
         descriptionMap = new Map();
-        const desc = await describeSingleEmote(...emoteEntries[0]);
+        const desc = await describeSingleEmote(...emoteEntries[0], 'twitch', locale);
         if (desc) descriptionMap.set(emoteEntries[0][0], desc);
     } else {
-        descriptionMap = await describeBatchEmotes(emoteEntries);
+        descriptionMap = await describeBatchEmotes(emoteEntries, 'twitch', locale);
     }
 
     if (descriptionMap.size === 0) {
@@ -194,6 +200,7 @@ export async function processMessageWithEmoteDescriptions(fragments) {
     }
 
     // Walk the grouped fragments, assembling the output string
+    const t = getTranslator(locale);
     const grouped = groupFragments(fragments);
     const outputParts = [];
 
@@ -201,10 +208,14 @@ export async function processMessageWithEmoteDescriptions(fragments) {
         if (frag.type === 'emote' && frag.emote?.id) {
             const desc = descriptionMap.get(frag.emote.id);
             if (desc) {
-                outputParts.push(frag.count > 1 ? `(${frag.count} ${desc} emotes)` : `(${desc} emote)`);
+                outputParts.push(frag.count > 1
+                    ? t('emote.wrap.repeated', { count: frag.count, description: desc })
+                    : t('emote.wrap', { description: desc }));
             } else {
                 // Description failed — fall back to raw emote name
-                outputParts.push(frag.count > 1 ? `(${frag.count} ${frag.text})` : frag.text);
+                outputParts.push(frag.count > 1
+                    ? t('emote.fallback.repeated', { count: frag.count, name: frag.text })
+                    : t('emote.fallback', { name: frag.text }));
             }
         } else {
             const text = frag.text.trim();

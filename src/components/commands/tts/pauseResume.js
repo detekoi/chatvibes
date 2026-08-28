@@ -15,15 +15,15 @@ export default {
 
         if (commandAction === 'pause') {
             await ttsQueue.pauseQueue(channelNameNoHash);
-            enqueueMessage(channel, `TTS queue is now PAUSED.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.queue.paused'), { replyToId });
             logger.info(`WildcatTTS [${channelNameNoHash}]: TTS queue paused by ${user.username}.`);
         } else if (commandAction === 'resume') {
             await ttsQueue.resumeQueue(channelNameNoHash);
-            enqueueMessage(channel, `TTS queue is now RESUMED.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.queue.resumed'), { replyToId });
             logger.info(`WildcatTTS [${channelNameNoHash}]: TTS queue resumed by ${user.username}.`);
         } else {
             // Should not be reached if command mapping in tts/index.js is correct
-            enqueueMessage(channel, `Invalid action. Use pause or resume.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.queue.invalidAction'), { replyToId });
         }
     },
 };

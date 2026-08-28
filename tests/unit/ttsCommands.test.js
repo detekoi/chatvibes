@@ -2,6 +2,7 @@
 // Unit tests for TTS command handlers
 
 import { jest } from '@jest/globals';
+import { getTranslator } from '../../src/i18n/index.js';
 
 describe('TTS Command Handlers', () => {
   let mockLogger;
@@ -77,7 +78,8 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'testuser' },
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await stopCommand.default.execute(context);
@@ -104,7 +106,10 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'moderator', mod: true },
-        replyToId: '123'
+        replyToId: '123',
+        // commandProcessor binds this to the channel's language; the real one is
+        // used here so the assertion checks the message a viewer actually sees.
+        t: getTranslator('en')
       };
 
       await stopCommand.default.execute(context);
@@ -130,7 +135,8 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'regularuser' },
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await stopCommand.default.execute(context);
@@ -156,7 +162,8 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'testuser' },
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await stopCommand.default.execute(context);
@@ -178,7 +185,10 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'moderator', mod: true },
-        replyToId: '123'
+        replyToId: '123',
+        // commandProcessor binds this to the channel's language; the real one is
+        // used here so the assertion checks the message a viewer actually sees.
+        t: getTranslator('en')
       };
 
       await stopCommand.default.execute(context);
@@ -204,7 +214,8 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'regularuser' },
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await stopCommand.default.execute(context);
@@ -231,7 +242,10 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'moderator', mod: true },
-        replyToId: '123'
+        replyToId: '123',
+        // commandProcessor binds this to the channel's language; the real one is
+        // used here so the assertion checks the message a viewer actually sees.
+        t: getTranslator('en')
       };
 
       await clearCommand.default.execute(context);
@@ -250,7 +264,8 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'moderator' },
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await clearCommand.default.execute(context);
@@ -290,7 +305,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: [],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -309,7 +325,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: [],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -328,7 +345,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: ['reset'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -352,7 +370,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: ['default'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -371,7 +390,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: ['auto'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -395,7 +415,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: ['friendly_person'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -424,7 +445,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: ['Voice', 'With', 'Spaces'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -446,7 +468,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: ['this', 'is', 'a', 'message'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -470,7 +493,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: ['Friendly_Person'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);
@@ -489,7 +513,8 @@ describe('TTS Command Handlers', () => {
         channel: '#testchannel',
         user: { username: 'testuser' },
         args: ['reset'],
-        replyToId: '123'
+        replyToId: '123',
+        t: getTranslator('en')
       };
 
       await voiceCommand.default.execute(context);

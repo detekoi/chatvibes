@@ -2,6 +2,7 @@
 // WebSocket server: channel client tracking, token authentication, and heartbeat.
 
 import { WebSocketServer, WebSocket } from 'ws';
+import { getTranslator, resolveChannelLocale } from '../../i18n/index.js';
 import logger from '../../lib/logger.js';
 import { INSTANCE_ID } from '../../lib/instanceId.js';
 import { isChannelAllowed, resolveToChannelName } from '../../lib/allowList.js';
@@ -159,11 +160,7 @@ async function notifyStalePlayer(channelName) {
     // Record before sending: a failed send is far better than a nag loop.
     await setTtsState(channelName, 'stalePlayerNoticeAt', Date.now());
 
-    await enqueueMessage(
-        channelName,
-        'Heads up: your WildcatTTS browser source is running an outdated version. ' +
-        'Right-click the source in OBS and choose Refresh to get noticeably faster audio.'
-    );
+    await enqueueMessage(channelName, getTranslator(resolveChannelLocale(state))('player.stale'));
     logger.info({ channel: channelName }, 'Sent stale-player refresh notice to chat');
 }
 

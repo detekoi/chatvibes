@@ -9,7 +9,8 @@
 //      breaks that or turns "lollipop" into "el oh el-lipop". The anchors use
 //      \p{L}\p{N} lookarounds rather than \b, because \b is ASCII-only and
 //      would mis-fire on n-tilde, Cyrillic, and Greek, which matters the moment
-//      the non-English profanity lists are in play.
+//      the non-English profanity lists are in play. A change of script counts as
+//      a boundary too, so a Latin term matches inside spaceless Japanese text.
 //
 //   2. Replacement happens in a single pass. Substituted text is never
 //      re-scanned, so a rule that expands to a word another rule matches does
@@ -18,23 +19,31 @@
 
 import { URL_REGEX } from '../urlProcessor.js';
 
-// Private Use Area sentinels. A URL is swapped for MASK_OPEN + index +
-// MASK_CLOSE while the rules run. Digits alone would be ambiguous: a message
-// like "I have 3 cats https://x.com" would see the restore pass match the
-// literal "3" and splice a URL into the wrong place. These code points cannot
-// appear in Twitch chat, and they are neither \p{L} nor \p{N}, so they read as
-// word boundaries to the matcher.
-const MASK_OPEN = '\uE000';
-const MASK_CLOSE = '\uE001';
-
-// Both sentinels, for stripping them out of incoming text.
-const MASK_CHARS = /[\uE000\uE001]/g;
+// Private Use Area code points have no legitimate use in chat and reach the TTS
+// API as junk, so they are dropped from incoming text.
+const PRIVATE_USE = /[\uE000-\uF8FF]/g;
 
 // Scripts written without spaces between words. A \p{L} lookaround is the
 // wrong boundary test for these, because neighbouring characters are letters
 // even at a real word edge.
-const CONTINUOUS_SCRIPT =
-    /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
+const CONTINUOUS_SCRIPT_CLASS =
+    '\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Thai}\\p{Script=Lao}\\p{Script=Khmer}\\p{Script=Myanmar}';
+
+const CONTINUOUS_SCRIPT = new RegExp(`[${CONTINUOUS_SCRIPT_CLASS}]`, 'u');
+
+// Boundary assertions for a term written in a spaced script.
+//
+// The naive form, (?<![\p{L}\p{N}_]), treats every letter as word-internal —
+// but Kana and Kanji are letters, so a Latin term sitting directly against
+// Japanese text looked word-internal and never matched. Japanese has no spaces,
+// so "それkwskで" is how that language actually writes it, and the term would
+// have fired only when a viewer happened to add spaces.
+//
+// These instead reject only a neighbouring letter or digit that is NOT itself
+// continuous-script. A change of script is a word boundary in its own right,
+// which is what makes "それkwskで" match while "xkwsk" and "kwskx" still do not.
+const BOUNDARY_BEFORE = `(?<!(?![${CONTINUOUS_SCRIPT_CLASS}])[\\p{L}\\p{N}_])`;
+const BOUNDARY_AFTER = `(?!(?![${CONTINUOUS_SCRIPT_CLASS}])[\\p{L}\\p{N}_])`;
 
 // Word segmentation stands in for the missing boundaries. It is what separates
 // "你在操什么" (操 is its own word, filter it) from "操作系统" (操 is the first
@@ -107,7 +116,7 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
         .map(key => {
             const literal = escapeLiteral(key);
             if (!CONTINUOUS_SCRIPT.test(key)) {
-                return `(?<![\\p{L}\\p{N}_])${literal}(?![\\p{L}\\p{N}_])`;
+                return `${BOUNDARY_BEFORE}${literal}${BOUNDARY_AFTER}`;
             }
             needsSegmentation = true;
             return literal;
@@ -123,10 +132,17 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
 /**
  * Apply a compiled rule set to text.
  *
- * URL spans are masked out before matching and restored verbatim afterwards,
- * so a dictionary key can never be expanded inside a hostname or path. This
- * only bites when readFullUrls is on (otherwise urlProcessor has already
- * collapsed the URL to "example dot com") but it is cheap insurance.
+ * Rules run on the gaps *between* URLs; the URLs themselves are copied through
+ * untouched, so a dictionary key can never be expanded inside a hostname or
+ * path. This only bites when readFullUrls is on (otherwise urlProcessor has
+ * already collapsed the URL to "example dot com") but it is cheap insurance.
+ *
+ * It used to mask each URL as a sentinel-wrapped index and rewrite the whole
+ * string in one pass, which put that index in band with the text being matched:
+ * a rule whose key was a digit (`!tts pronounce 1 = one` is accepted, since a
+ * match key may start with \p{N}) rewrote the index inside its own placeholder,
+ * and both the URL and the restore were lost, leaving private-use characters in
+ * the audio. Splitting has no in-band encoding to corrupt.
  *
  * @param {string} text
  * @param {{re: RegExp, map: Map<string, string>, caseSensitive: boolean} | null} rules
@@ -135,23 +151,41 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
 export function applyRewrites(text, rules) {
     if (!rules || typeof text !== 'string' || !text) return text;
 
-    // Strip any sentinel characters the message already contained. Without
-    // this, a message carrying both a URL and a forged MASK_OPEN + digits +
-    // MASK_CLOSE sequence would have that forgery rewritten into a copy of the
-    // URL by the restore pass below. These are Private Use Area code points
-    // with no legitimate use in chat, so dropping them costs nothing.
-    const safe = text.replace(MASK_CHARS, '');
+    const safe = text.replace(PRIVATE_USE, '');
 
-    const urls = [];
     // A fresh regex each call: URL_REGEX carries the g flag, and a shared
     // instance would leak lastIndex between messages.
     const urlRe = new RegExp(URL_REGEX.source, URL_REGEX.flags);
-    const masked = safe.replace(urlRe, match => {
-        urls.push(match);
-        return `${MASK_OPEN}${urls.length - 1}${MASK_CLOSE}`;
-    });
 
-    // Computed lazily and at most once per message: segmentation is only
+    // Rules run on the gaps between URLs, and the URLs themselves are copied
+    // through untouched.
+    //
+    // This used to swap each URL for a sentinel-wrapped index and rewrite the
+    // whole string in one pass, which put the index in band with the text the
+    // rules were matching. A rule whose key was a digit — `!tts pronounce 1 =
+    // one` is accepted, since a match key may start with \p{N} — then rewrote
+    // the index inside its own placeholder, the restore pass no longer
+    // recognised it, and the URL was lost with the sentinels left in the audio.
+    // Splitting has no in-band encoding to corrupt.
+    let out = '';
+    let cursor = 0;
+    for (const match of safe.matchAll(urlRe)) {
+        out += rewriteSegment(safe.slice(cursor, match.index), rules) + match[0];
+        cursor = match.index + match[0].length;
+    }
+    return out + rewriteSegment(safe.slice(cursor), rules);
+}
+
+/**
+ * Apply a rule set to one span of non-URL text.
+ * @param {string} segment
+ * @param {{re: RegExp, map: Map<string, string>, caseSensitive: boolean, needsSegmentation: boolean}} rules
+ * @returns {string}
+ */
+function rewriteSegment(segment, rules) {
+    if (!segment) return segment;
+
+    // Computed lazily and at most once per segment: segmentation is only
     // needed if a continuous-script term actually matches, which never happens
     // for an English channel.
     let bounds = null;
@@ -159,11 +193,11 @@ export function applyRewrites(text, rules) {
     // lastIndex is reset explicitly: the rule set is memoized and reused across
     // messages, and a stale lastIndex would skip the start of a string.
     rules.re.lastIndex = 0;
-    const rewritten = masked.replace(rules.re, (match, offset) => {
-        // Latin-script terms carry their own lookarounds in the pattern and are
-        // already correctly bounded, so they skip this entirely.
+    return segment.replace(rules.re, (match, offset) => {
+        // Terms in a spaced script carry their own lookarounds in the pattern
+        // and are already correctly bounded, so they skip this entirely.
         if (rules.needsSegmentation && CONTINUOUS_SCRIPT.test(match)) {
-            bounds ??= segmentBoundaries(masked);
+            bounds ??= segmentBoundaries(segment);
             if (!bounds.has(offset) || !bounds.has(offset + match.length)) {
                 return match;
             }
@@ -171,11 +205,6 @@ export function applyRewrites(text, rules) {
         const key = rules.caseSensitive ? match : match.toLowerCase();
         return rules.map.get(key) ?? match;
     });
-
-    if (!urls.length) return rewritten;
-
-    const restoreRe = new RegExp(`${MASK_OPEN}(\\d+)${MASK_CLOSE}`, 'g');
-    return rewritten.replace(restoreRe, (whole, i) => urls[Number(i)] ?? whole);
 }
 
 /**

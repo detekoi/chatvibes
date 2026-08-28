@@ -2,9 +2,11 @@
 // Gemini Vision API integration for emote descriptions.
 // Responsibilities: client init, single-emote describe, batch-emote describe.
 import { GoogleGenAI } from '@google/genai';
+import { withTimeout } from '../timeUtils.js';
 import config from '../../config/index.js';
 import logger from '../logger.js';
 import { getCachedDescription, cacheDescription } from './emoteCache.js';
+import { DEFAULT_LOCALE, LANGUAGE_BOOSTS } from '../../i18n/index.js';
 import { fetchEmoteImage, fetchAnimatedEmoteFrames } from './emoteImageFetcher.js';
 
 const { geminiModel, timeoutMs, animatedTimeoutMs } = config.emote;
@@ -18,6 +20,29 @@ Rules:
 - Reply with ONLY the short description — no preamble, no quotes, no trailing punctuation.
 - Do not output the emote's raw alphanumeric string verbatim (e.g. do not say "parfai14Parfait" or "LUL"). You may use meaningful English words embedded in the name (e.g. "parfait dessert" from "parfai14Parfait" is fine), but do not begin your reply with the full emote token itself.
 - When describing pride flags, always name the specific flag rather than generic terms. Examples: "rainbow Pride flag", "bisexual Pride flag", "transgender Pride flag", "lesbian Pride flag", "pansexual Pride flag", "nonbinary Pride flag", "asexual Pride flag". These are important cultural identifiers and accurate naming is essential for accessibility.`;
+
+// BCP-47 -> the language's own name, for the prompt. Sourced from the same
+// table the rest of the bot uses rather than a second hand-written list.
+// The English name paired with the endonym. The name alone is the provider's
+// enum value, so Cantonese reads as "Chinese,Yue" — the endonym removes the
+// ambiguity without needing a second hand-maintained list of names.
+const LANGUAGE_NAMES = new Map(
+    Object.entries(LANGUAGE_BOOSTS).map(([name, v]) => [v.bcp47, `${name} (${v.endonym})`])
+);
+
+/**
+ * The clause that tells the model which language to answer in.
+ *
+ * Descriptions are generated natively in the target language rather than
+ * translated afterwards: these are two to six words with no surrounding
+ * context, which is far too little for a translation pass to get right.
+ */
+function languageClause(locale) {
+    if (!locale || locale === DEFAULT_LOCALE) return '';
+    const name = LANGUAGE_NAMES.get(locale);
+    if (!name) return '';
+    return ` Reply in ${name}, not English.`;
+}
 
 let genAI = null;
 
@@ -75,9 +100,10 @@ function buildEmoteContext(emoteName, ownerName, platform = 'twitch') {
  * @param {string} [ownerId]
  * @param {string} [platform='twitch'] - 'twitch' or 'youtube'
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag; the prompt asks for a reply in this language.
  */
-export async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnimated = false, ownerId = null, platform = 'twitch') {
-    const cached = await getCachedDescription(emoteId);
+export async function describeSingleEmote(emoteId, emoteName, ownerName = null, isAnimated = false, ownerId = null, platform = 'twitch', locale = DEFAULT_LOCALE) {
+    const cached = await getCachedDescription(emoteId, locale);
     if (cached) return cached;
 
     if (!genAI) return null;
@@ -109,13 +135,13 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
     try {
         const emoteContext = buildEmoteContext(emoteName, ownerName, platform);
         const prompt = animatedSuccess
-            ? `This is a vertical animation strip of the ${emoteContext} — all frames are stacked top-to-bottom in sequence. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No word "emote".`
-            : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".`;
+            ? `This is a vertical animation strip of the ${emoteContext} — all frames are stacked top-to-bottom in sequence. Describe what happens across the animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No word "emote".${languageClause(locale)}`
+            : `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".${languageClause(locale)}`;
 
         const contents = [...imageParts, { text: prompt }];
         const effectiveTimeout = animatedSuccess ? animatedTimeoutMs : timeoutMs;
 
-        const response = await Promise.race([
+        const response = await withTimeout(
             genAI.models.generateContent({
                 model: geminiModel,
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -131,15 +157,14 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
                     },
                 },
             }),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Gemini timeout')), effectiveTimeout)
-            ),
-        ]);
+            effectiveTimeout,
+            'Gemini timeout',
+        );
 
         const parsed = JSON.parse(response.text);
         const description = parsed?.description?.trim().replace(/[.!?,;:]+$/g, '');
         if (description) {
-            cacheDescription(emoteId, description, emoteName, ownerId);
+            cacheDescription(emoteId, description, emoteName, ownerId, locale);
             logger.debug({ emoteId, emoteName, ownerName, isAnimated, animatedSuccess, description }, 'Emote described by Gemini');
             return description;
         }
@@ -156,15 +181,16 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
  * @param {Array<[string, string, string|null, boolean, string|null]>} emoteEntries - [emoteId, emoteName, ownerName, isAnimated, ownerId]
  * @param {string} [platform='twitch'] - 'twitch' or 'youtube'
  * @returns {Promise<Map<string, string>>} Map of emoteId -> description
+ * @param {string} [locale] - BCP-47 tag; the prompt asks for a reply in this language.
  */
-export async function describeBatchEmotes(emoteEntries, platform = 'twitch') {
+export async function describeBatchEmotes(emoteEntries, platform = 'twitch', locale = DEFAULT_LOCALE) {
     const results = new Map();
     if (!genAI || emoteEntries.length === 0) return results;
 
     // Separate cached vs uncached
     const uncached = [];
     for (const [emoteId, emoteName, ownerName, isAnimated, ownerId] of emoteEntries) {
-        const cached = await getCachedDescription(emoteId);
+        const cached = await getCachedDescription(emoteId, locale);
         if (cached) {
             results.set(emoteId, cached);
         } else {
@@ -235,7 +261,7 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch') {
 
         try {
             const batchTimeout = Math.max(baseTimeoutMs, group.length * 2000 + 5000);
-            const response = await Promise.race([
+            const response = await withTimeout(
                 genAI.models.generateContent({
                     model: geminiModel,
                     systemInstruction: SYSTEM_INSTRUCTION,
@@ -262,10 +288,9 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch') {
                         },
                     },
                 }),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Gemini batch timeout')), batchTimeout)
-                ),
-            ]);
+                batchTimeout,
+                'Gemini batch timeout',
+            );
 
             const parsed = JSON.parse(response.text);
             if (Array.isArray(parsed?.emotes)) {
@@ -274,7 +299,7 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch') {
                     const desc = entry?.description?.trim().replace(/[.!?,;:]+$/g, '');
                     if (typeof idx === 'number' && idx >= 0 && idx < group.length && desc) {
                         const emoteId = group[idx].emoteId;
-                        cacheDescription(emoteId, desc, group[idx].emoteName, group[idx].ownerId);
+                        cacheDescription(emoteId, desc, group[idx].emoteName, group[idx].ownerId, locale);
                         results.set(emoteId, desc);
                     }
                 }
@@ -285,8 +310,8 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch') {
     };
 
     const platformLabel = platform === 'youtube' ? 'YouTube' : 'Twitch';
-    const staticPrompt = `Describe each ${platformLabel} emote below in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".`;
-    const animatedPrompt = `Each emote below is animated — you are seeing sequential frames from its animation. Describe what happens across each animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No word "emote".`;
+    const staticPrompt = `Describe each ${platformLabel} emote below in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".${languageClause(locale)}`;
+    const animatedPrompt = `Each emote below is animated — you are seeing sequential frames from its animation. Describe what happens across each animation in 2-6 words for text-to-speech. Use the emote name and channel name as clues to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on the action or transformation depicted. Be concise. No word "emote".${languageClause(locale)}`;
 
     await Promise.all([
         describeBatch(staticEmotes, staticPrompt, timeoutMs),
@@ -307,9 +332,10 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch') {
  * @param {string} emoteName - Display name / label for the emote
  * @param {string} [platform='youtube'] - Platform label for the prompt
  * @returns {Promise<string | null>}
+ * @param {string} [locale] - BCP-47 tag; the prompt asks for a reply in this language.
  */
-export async function describeEmoteFromUrl(imageUrl, cacheKey, emoteName, platform = 'youtube') {
-    const cached = await getCachedDescription(cacheKey);
+export async function describeEmoteFromUrl(imageUrl, cacheKey, emoteName, platform = 'youtube', locale = DEFAULT_LOCALE) {
+    const cached = await getCachedDescription(cacheKey, locale);
     if (cached) return cached;
 
     if (!genAI) return null;
@@ -328,9 +354,9 @@ export async function describeEmoteFromUrl(imageUrl, cacheKey, emoteName, platfo
         };
 
         const emoteContext = buildEmoteContext(emoteName, null, platform);
-        const prompt = `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name as a clue to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".`;
+        const prompt = `Describe this ${emoteContext} in 2-6 words for text-to-speech. Use the emote name as a clue to identify the subject — but do not echo the raw emote token verbatim in your reply (individual meaningful words from the name are fine). Focus on what it visually depicts. Be concise. No word "emote".${languageClause(locale)}`;
 
-        const result = await Promise.race([
+        const result = await withTimeout(
             genAI.models.generateContent({
                 model: geminiModel,
                 systemInstruction: SYSTEM_INSTRUCTION,
@@ -346,15 +372,14 @@ export async function describeEmoteFromUrl(imageUrl, cacheKey, emoteName, platfo
                     },
                 },
             }),
-            new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Gemini timeout')), timeoutMs)
-            ),
-        ]);
+            timeoutMs,
+            'Gemini timeout',
+        );
 
         const parsed = JSON.parse(result.text);
         const description = parsed?.description?.trim().replace(/[.!?,;:]+$/g, '');
         if (description) {
-            cacheDescription(cacheKey, description, emoteName);
+            cacheDescription(cacheKey, description, emoteName, undefined, locale);
             logger.debug({ cacheKey, emoteName, platform, description }, 'YouTube emote described by Gemini');
             return description;
         }

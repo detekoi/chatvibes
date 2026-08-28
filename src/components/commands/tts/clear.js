@@ -13,7 +13,7 @@ export default {
         const channelNameNoHash = channel.substring(1);
 
         await ttsQueue.clearQueue(channelNameNoHash);
-        enqueueMessage(channel, `TTS queue has been CLEARED.`, { replyToId });
+        enqueueMessage(channel, context.t('cmd.queue.cleared'), { replyToId });
         logger.info(`WildcatTTS [${channelNameNoHash}]: TTS queue cleared by ${user.username}.`);
     },
 };

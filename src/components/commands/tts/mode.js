@@ -14,7 +14,7 @@ export default {
 
         if (args.length === 0) {
             const currentState = await getTtsState(channelNameNoHash);
-            enqueueMessage(channel, `Current TTS mode is: ${currentState.mode}. Use '!tts mode <all|command|bits|points>'.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.mode.current', { mode: currentState.mode }), { replyToId });
             return;
         }
 
@@ -23,17 +23,17 @@ export default {
         if (rawMode === 'bits' || rawMode === 'points' || rawMode === 'bits_points_only') {
             newMode = 'bits_points_only';
         } else if (rawMode !== 'all' && rawMode !== 'command') {
-            enqueueMessage(channel, `Invalid mode. Use 'all', 'command', 'bits', or 'points'.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.mode.invalid'), { replyToId });
             return;
         }
 
         const success = await setTtsState(channelNameNoHash, 'mode', newMode);
 
         if (success) {
-            enqueueMessage(channel, `TTS mode set to: ${newMode}.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.mode.set', { mode: newMode }), { replyToId });
             logger.info(`WildcatTTS [${channelNameNoHash}]: TTS mode set to ${newMode} by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `Could not set TTS mode.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.mode.failed'), { replyToId });
         }
     },
 };

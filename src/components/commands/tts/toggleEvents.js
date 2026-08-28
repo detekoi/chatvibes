@@ -14,7 +14,7 @@ export default {
 
         if (args.length === 0) {
             const currentState = await getTtsState(channelNameNoHash);
-            enqueueMessage(channel, `TTS for events is currently ${currentState.speakEvents ? 'ON' : 'OFF'}. Use '!tts events <on|off>'.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.events.current', { state: context.t(currentState.speakEvents ? 'cmd.onOff.on' : 'cmd.onOff.off') }), { replyToId });
             return;
         }
 
@@ -26,17 +26,17 @@ export default {
         } else if (action === 'off') {
             enableEvents = false;
         } else {
-            enqueueMessage(channel, `Invalid argument. Use 'on' or 'off'.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.events.invalid'), { replyToId });
             return;
         }
 
         const success = await setTtsState(channelNameNoHash, 'speakEvents', enableEvents);
 
         if (success) {
-            enqueueMessage(channel, `TTS for events has been turned ${enableEvents ? 'ON' : 'OFF'}.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.events.set', { state: context.t(enableEvents ? 'cmd.onOff.on' : 'cmd.onOff.off') }), { replyToId });
             logger.info(`WildcatTTS [${channelNameNoHash}]: TTS events ${enableEvents ? 'enabled' : 'disabled'} by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `Could not toggle TTS for events.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.events.failed'), { replyToId });
         }
     },
 };

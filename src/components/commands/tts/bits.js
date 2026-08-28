@@ -16,7 +16,7 @@ export default {
         const currentConfig = await getTtsState(channelNameNoHash);
 
         if (!action) {
-            enqueueMessage(channel, `Bits → TTS is currently ${currentConfig.bitsModeEnabled ? 'ON' : 'OFF'} with a minimum of ${currentConfig.bitsMinimumAmount || 100} bits. Use !tts bitsconfig <on|off|min amount>.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.bits.current', { state: context.t(currentConfig.bitsModeEnabled ? 'cmd.onOff.on' : 'cmd.onOff.off'), minimum: currentConfig.bitsMinimumAmount || 100 }), { replyToId });
             return;
         }
 
@@ -26,22 +26,22 @@ export default {
         if (action === 'on') {
             enabled = true;
             await setBitsConfig(channelNameNoHash, { enabled, minimumAmount: minAmount });
-            enqueueMessage(channel, `Bits → TTS has been ENABLED.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.bits.enabled'), { replyToId });
         } else if (action === 'off') {
             enabled = false;
             await setBitsConfig(channelNameNoHash, { enabled, minimumAmount: minAmount });
-            enqueueMessage(channel, `Bits → TTS has been DISABLED.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.bits.disabled'), { replyToId });
         } else if (action === 'min') {
             const newMin = parseInt(args[1], 10);
             if (isNaN(newMin) || newMin < 1) {
-                enqueueMessage(channel, `Please provide a valid minimum bit amount (e.g., !tts bitsconfig min 100).`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.bits.needAmount'), { replyToId });
                 return;
             }
             minAmount = newMin;
             await setBitsConfig(channelNameNoHash, { enabled, minimumAmount: minAmount });
-            enqueueMessage(channel, `Minimum Bits for TTS set to ${minAmount}.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.bits.minSet', { minimum: minAmount }), { replyToId });
         } else {
-            enqueueMessage(channel, `Invalid command. Use !tts bitsconfig <on|off|min amount>.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.bits.invalid'), { replyToId });
         }
     },
 };

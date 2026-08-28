@@ -19,6 +19,7 @@ import crypto from 'crypto';
 import { initializeCommandProcessor } from './components/commands/commandProcessor.js';
 import { initializeChatSender } from './lib/chatSender.js';
 import { createLeaderElection } from './lib/leaderElection.js';
+import { startChannelLanguageSync, stopChannelLanguageSync } from './lib/channelLanguageSync.js';
 
 // Channel Management
 import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithEventSub, listenForChannelChanges } from './components/twitch/channelManager.js';
@@ -384,6 +385,8 @@ async function main() {
                 logger.info('WildcatTTS (DEV MODE): Skipping EventSub sync (assuming manual setup or ngrok).');
             }
 
+            startChannelLanguageSync();
+
             eventSubStartedByThisInstance = true;
         };
 
@@ -391,6 +394,8 @@ async function main() {
             if (!eventSubStartedByThisInstance) return;
             try {
                 logger.info('WildcatTTS: Stopping EventSub subsystem');
+
+                stopChannelLanguageSync();
 
                 // Clean up channel listener first
                 if (channelChangeListener) {

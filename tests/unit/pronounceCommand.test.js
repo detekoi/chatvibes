@@ -2,6 +2,7 @@
 // Unit tests for !tts pronounce and !tts profanity.
 
 import { jest } from '@jest/globals';
+import { getTranslator } from '../../src/i18n/index.js';
 
 describe('TTS pronunciation commands', () => {
     let enqueueMessage;
@@ -17,6 +18,10 @@ describe('TTS pronunciation commands', () => {
         user: { username },
         args,
         replyToId: 'msg-1',
+        // commandProcessor binds this to the channel's language. The real
+        // translator is used so these assertions still check the message a
+        // viewer sees, rather than whatever a stub echoed back.
+        t: getTranslator('en'),
     });
 
     beforeEach(async () => {
@@ -281,7 +286,10 @@ describe('TTS pronunciation commands', () => {
             ttsStateMock.getTtsState.mockResolvedValue({ languageBoost: 'English', profanityFilterEnabled: true });
             await profanity.execute(context(['on']));
             expect(ttsStateMock.setTtsState).not.toHaveBeenCalled();
-            expect(reply()).toMatch(/already on/);
+            // "ON", not "on": the state now renders through `cmd.onOff.*` like
+            // every sibling toggle, instead of a hardcoded English literal that
+            // stayed English in all 39 other locales.
+            expect(reply()).toMatch(/already ON/);
         });
 
         it('warns that auto means the English list', async () => {

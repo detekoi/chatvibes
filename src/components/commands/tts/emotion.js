@@ -8,7 +8,8 @@ import { VALID_EMOTIONS } from '../../tts/ttsConstants.js';
 
 export default createTtsSettingCommand({
     name: 'emotion',
-    property: 'emotion preference',
+    scope: 'user',
+    propertyKey: 'cmd.property.emotionPreference',
     description: `Sets your preferred TTS emotion. Valid emotions: ${VALID_EMOTIONS.join(', ')}. Use 'auto' or 'reset' to use channel default.`,
     usage: '!tts emotion <emotion_name|auto|reset>',
     readCurrent: async (context) => {
@@ -18,12 +19,13 @@ export default createTtsSettingCommand({
     resetSetting: async (context) => clearGlobalUserPreference(context.user.username, 'emotion', context.user['user-id']),
     setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'emotion', val, context.user['user-id']),
     validateFn: (val) => VALID_EMOTIONS.includes(val),
-    validationHint: `Valid options are: ${VALID_EMOTIONS.join(', ')}.`,
-    formatCurrent: (val, usage) => val
-        ? `Your current TTS emotion is set to: ${val}. Usage: ${usage}`
-        : `You haven't set a specific TTS emotion. The channel default will be used. Usage: ${usage}`,
-    formatSet: (val) => `Your TTS emotion has been set to: ${val}.`,
-    formatReset: () => `Your TTS emotion preference has been reset. The channel default will now be used.`,
+    hintKey: 'cmd.hint.emotions',
+    hintParams: { list: VALID_EMOTIONS.join(', ') },
+    // Two different sentences rather than one with a blank slot: "you have not
+    // set one" is not the same statement as "it is currently X".
+    currentKey: (val) => (val ? 'cmd.emotion.current' : 'cmd.emotion.currentUnset'),
+    setKey: 'cmd.emotion.set',
+    resetKey: 'cmd.emotion.reset',
     logSet: (context, val) => `[${context.channel.substring(1)}] User ${context.user.username} set emotion preference to ${val}.`,
     logReset: (context) => `[${context.channel.substring(1)}] User ${context.user.username} reset emotion preference.`,
     resetAliases: ['reset', 'auto']

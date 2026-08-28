@@ -10,6 +10,6 @@ export default {
         const { channel, replyToId } = context;
         // Point to the new section in your existing documentation URL
         const docLink = 'https://docs.wildcat.chat/wildcatttsdocs.html#language-boost'; 
-        enqueueMessage(channel, `You can find the list of available language boost options here: ${docLink}`, { replyToId });
+        enqueueMessage(channel, context.t('cmd.languages.link', { docLink }), { replyToId });
     },
 };

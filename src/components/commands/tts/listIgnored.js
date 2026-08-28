@@ -22,19 +22,19 @@ export default {
                 entry.platform === PLATFORM_YOUTUBE ? `${entry.label} (YouTube)` : entry.label);
 
             if (labels.length === 0) {
-                enqueueMessage(channel, `No users are currently on the TTS ignore list.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.ignore.listEmpty'), { replyToId });
                 return;
             }
 
             // Paginate if the list is too long for one message
             const MAX_USERS_PER_MSG = 15;
             for (let i = 0; i < labels.length; i += MAX_USERS_PER_MSG) {
-                const prefix = i === 0 ? 'Ignored users: ' : 'More ignored: ';
+                const prefix = context.t(i === 0 ? 'cmd.ignore.listPrefix' : 'cmd.ignore.listMore');
                 enqueueMessage(channel, prefix + labels.slice(i, i + MAX_USERS_PER_MSG).join(', '), { replyToId });
             }
         } catch (error) {
             logger.error({ err: error, channelName: channelNameNoHash }, 'Error fetching ignored users for TTS.');
-            enqueueMessage(channel, `Error fetching ignored list.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.ignore.listFailed'), { replyToId });
         }
     },
 };

@@ -6,6 +6,7 @@
 import logger from './logger.js';
 import { processMessageUrls } from './urlProcessor.js';
 import { replaceEmojisWithText, stripEmojis } from './emojiUtils.js';
+import { DEFAULT_LOCALE } from '../i18n/index.js';
 import { isGeminiAvailable, processMessageWithEmoteDescriptions } from './emotes/index.js';
 import { applyRewrites } from './textRewrite/replaceEngine.js';
 
@@ -38,21 +39,26 @@ import { applyRewrites } from './textRewrite/replaceEngine.js';
  * @param {boolean} [options.readFullUrls=false] - Whether to read full URLs aloud.
  * @param {object|null} [options.pronunciationRules=null] - Compiled rule set from
  *     getPronunciationRules, or null to skip the pass.
+ * @param {string} [options.locale='en'] - BCP-47 tag for the channel. Drives the emoji
+ *     labels, the emote descriptions Gemini generates, and the wrapper wording around
+ *     both. Channel-level, not per-viewer: these are heard by everyone watching, and a
+ *     viewer's own languageBoost override is only resolved later in ttsQueue.enqueue.
  * @param {Function} [options.emoteProcessor] - Emote step override, same
  *     signature as processEmoteFragments. YouTube passes its own processor so
  *     both platforms share the rest of the pipeline rather than duplicating it.
  * @returns {Promise<string>} The processed TTS-ready text.
  */
-export async function formatTtsText(text, fragments, { emoteMode = 'read', channelEmoteMode = 'read', readFullUrls = false, pronunciationRules = null, emoteProcessor = processEmoteFragments } = {}) {
+export async function formatTtsText(text, fragments, { emoteMode = 'read', channelEmoteMode = 'read', readFullUrls = false, pronunciationRules = null, locale = DEFAULT_LOCALE, emoteProcessor = processEmoteFragments } = {}) {
     // Step 1: Process emotes via fragment data
-    let processed = await emoteProcessor(text, fragments, emoteMode, channelEmoteMode);
+    let processed = await emoteProcessor(text, fragments, emoteMode, channelEmoteMode, locale);
 
     // Step 2: Process URLs
     processed = processMessageUrls(processed, readFullUrls);
 
     // Step 3: Process Unicode emojis
-    const processEmoji = emoteMode === 'skip' ? stripEmojis : replaceEmojisWithText;
-    processed = processEmoji(processed);
+    processed = emoteMode === 'skip'
+        ? stripEmojis(processed)
+        : replaceEmojisWithText(processed, locale);
 
     // Step 4: Expand pronunciation dictionary entries
     if (pronunciationRules) {
@@ -69,9 +75,10 @@ export async function formatTtsText(text, fragments, { emoteMode = 'read', chann
  * @param {Array|null} fragments - Twitch EventSub fragments.
  * @param {string} emoteMode - 'read' | 'skip' | 'describe'
  * @param {string} channelEmoteMode - Channel default, used for describe fallback.
+ * @param {string} [locale] - BCP-47 tag the descriptions are generated in.
  * @returns {Promise<string>} Emote-processed text.
  */
-async function processEmoteFragments(text, fragments, emoteMode, channelEmoteMode) {
+async function processEmoteFragments(text, fragments, emoteMode, channelEmoteMode, locale = DEFAULT_LOCALE) {
     if (emoteMode === 'read' || !fragments) {
         return text;
     }
@@ -83,7 +90,7 @@ async function processEmoteFragments(text, fragments, emoteMode, channelEmoteMod
     // emoteMode === 'describe'
     if (isGeminiAvailable()) {
         try {
-            const described = await processMessageWithEmoteDescriptions(fragments);
+            const described = await processMessageWithEmoteDescriptions(fragments, locale);
             if (described) return described;
         } catch (error) {
             logger.debug({ err: error }, 'Emote description failed, falling back');

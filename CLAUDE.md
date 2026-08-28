@@ -74,6 +74,28 @@ export TWITCH_CHANNELS=yourchannel
 
 ## Pronunciation and Profanity
 
+- **Pronunciation entries can be scoped by language.** An entry may carry `only` or `except`
+  (BCP-47 lists); with neither it applies everywhere, which is true of all but four built-ins,
+  so there was no migration. Channel overrides accept the same shape — a bare string is the
+  legacy form and means "everywhere", as with the ignore list. Scoping exists because these
+  are English acronyms matched as **whole words**, and a few are ordinary words elsewhere:
+  `ty` is "you" in Polish, Czech and Slovak, and `af` is "off" in Afrikaans and Dutch, where it
+  also injects profanity into a normal sentence. Word boundaries cannot help — being a whole
+  word is exactly the problem. They use `except` rather than `only: ["en"]` deliberately:
+  Twitch acronyms travel, and a German channel's chat is still full of `gg` and `brb`, so
+  scope by demonstrated collision rather than by origin. `scripts/audit-pronunciation-collisions.js`
+  shortlists candidates for a human; see `docs/pronunciation-probe-results.md`.
+  **Scope only entries whose local meaning differs.** The audit also surfaces tokens whose
+  local reading means the *same* thing (`gm` as "Guten Morgen", `np` as "nema problema") —
+  those are English loanwords in the local chat, the expansion is faithful, and scoping them
+  would leave the bare acronym to be read out as letters. `np` is both at once: "na przykład"
+  in Polish is a real collision, "nema problema" in Croatian is not, and only `pl` is scoped.
+- **`getPronunciationRules` caches by locale as well as by source object**, and that is
+  load-bearing. Channels with no overrides share one rule set, so a cache keyed on the
+  `pronunciations` object alone would hand every such channel whichever language compiled
+  first. `src/lib/profanity/index.js` keys its cache on the language combination for the same
+  reason. The locale is derived inside the function from the config, so no call site can
+  forget to pass it.
 - **Pronunciation dictionary** (`src/lib/textRewrite/`): a built-in list of Twitch acronyms
   (`PRONUNCIATION_DEFAULTS` in `tts-config.json`) merged with per-channel overrides stored in the
   `pronunciations` map on the channel config. A channel entry with an empty value switches off the
@@ -88,6 +110,16 @@ export TWITCH_CHANNELS=yourchannel
     heard phonetically, `omg` as "oh em gee"), so it is not relied on for anything.
   - Matching is case-insensitive and single-pass, so an expansion is never re-scanned by another
     rule. Word boundaries use `\p{L}\p{N}` lookarounds rather than `\b`, which is ASCII-only.
+    **A change of script is a boundary too**: Kana and Kanji are `\p{L}`, so without that a
+    Latin term never matched inside Japanese text — and since Japanese has no spaces, that is
+    how the language is written, meaning a Japanese-scoped entry would have fired only when a
+    viewer happened to add spaces around it. `それkwskで` now expands; `xkwsk` still does not.
+  - **Rules run on the gaps between URLs; the URLs are copied through untouched.** They used
+    to be swapped for a sentinel-wrapped index and the whole string rewritten in one pass,
+    which put that index in band with the text being matched — a rule whose key was a digit
+    (`!tts pronounce 1 = one` is accepted, since a match key may start with `\p{N}`) rewrote
+    the index inside its own placeholder, and both the URL and the restore were lost, leaving
+    private-use characters in the audio. Splitting has no in-band encoding to corrupt.
   - MiniMax's own `pronunciation_dict` API parameter is deliberately **not** used: the probe showed
     it matches case-sensitively, so `LFG` would not match a `lfg` entry.
 - **Profanity filter** (`src/lib/profanity/`): off by default, per channel. Word lists for all 40
@@ -119,6 +151,10 @@ export TWITCH_CHANNELS=yourchannel
 - `src/components/tts/ttsQueue.js` - Manages TTS message queue
 - `src/components/tts/ttsState.js` - Manages TTS configuration state
 - `src/components/tts/ttsConstants.js` - Default settings and constants
+- `src/i18n/` - Message catalogs and the ICU-subset formatter (see below)
+- `scripts/translate-catalogs.js` - Build-time catalog translation (run by hand, never in CI)
+- `scripts/audit-pronunciation-collisions.js` - Shortlists acronyms that are real words elsewhere
+- `scripts/probe-pronunciation-language.js` - Proposes dictionary entries for a non-English language
 - `src/components/commands/handlers/` - Command handlers for TTS
 - `src/components/web/server.js` - WebSocket server for the TTS player
 - `src/components/web/public/tts-player.js` - Browser-based audio player
@@ -136,6 +172,123 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
 - Ignore list (`ignoredUserIds` — see below)
 - Redemption announcements (`announceUnfulfilledRedemptions` — defaults to on, see below)
 - User-specific preferences (including language)
+- Announcement locale (`announcementLocale` — optional, see i18n below)
+
+### Internationalization (`src/i18n/`)
+
+Announcements are spoken aloud, so an English string on a Spanish channel is not a label a
+viewer can ignore — it is read out in a Spanish accent. Catalogs live in
+`src/i18n/messages/<bcp47>.json`, one per supported language.
+
+- **`languageBoost` is not a locale.** It is a MiniMax *synthesis hint*, it defaults to
+  `auto`, and `ttsService.mapLanguageBoost()` also accepts `'None'`/`'Automatic'`, none of
+  which name a language. `src/i18n/locales.json` is the single source of truth mapping
+  `languageBoost` ↔ BCP-47 ↔ Twitch `broadcaster_language`; a test asserts it stays in step
+  with `VALID_LANGUAGE_BOOSTS`. `npm run sync-constants` copies it to the web UI.
+- **`announcementLocale` overrides the derived value**, so a channel can run an English voice
+  with Spanish announcements. Unset (the normal case) derives from `languageBoost`, and
+  `auto` falls back to English — so no migration was needed.
+- **Everything the bot emits resolves at the *channel* level**, never per-viewer: an
+  announcement is heard by the whole channel. This is why announcements render in the handler
+  before dispatch and `ttsQueue.enqueue`'s per-message resolution is untouched — in
+  particular the profanity filter that deliberately lives there did not have to move.
+- **Emote descriptions are generated natively in the channel's language**, not translated
+  after the fact: they are two to six words with no surrounding context, which is far too
+  little for a translation pass to work from. `emoteDescriberApi.js` appends a "reply in X"
+  clause to its Gemini prompt, and `emoteCache.js` keys on **`emoteId` + locale** — except
+  for English, which keeps the bare emote id so every document written before this stays
+  correct and no backfill is needed. `findEmoteDescriptionsByName` filters locale in memory
+  rather than in the query, because those legacy documents have no `locale` field at all and
+  a `where` clause would skip every one of them; it also returns the *base* emote id, since
+  handing back the `"<emoteId>:<locale>"` document id would make the next write suffix it
+  twice. `!tts emote` passes the channel's locale, so a moderator edits their own language.
+- **Translations are generated at build time and committed**, by `npm run translate`
+  (`gemini-3.7-flash`). Runtime translation was rejected for these strings: they are a closed
+  set of templates, so translating per-message would put a Gemini round-trip in the TTS hot
+  path and produce output that varies between renders. Emote descriptions are the one
+  genuinely unbounded surface and stay a runtime call.
+- **Re-translation is incremental at two levels.** A per-key hash covers that key's English
+  text and its own translator note; a global hash covers the system instruction, glossary and
+  do-not-translate list. Editing one note therefore re-translates one key, while changing the
+  glossary correctly invalidates everything. Folding the notes into the global hash, as the
+  first version did, made a single note edit re-translate every key in all 39 locales. The
+  hash file is flushed after **each locale**, not once at the end: the run talks to a flaky
+  API for many minutes, and a version killed partway through would otherwise leave the
+  catalogs it had already written unrecorded, so the next run redid work sitting correct on
+  disk. Expect to re-run it — Gemini returns sustained 503s under load, and the script
+  refuses to write a catalog that would fail CI, so a bad round leaves the previous good file
+  in place and the next run picks up exactly what is missing.
+- **A message whose singular and plural differ in *shape* needs two keys, not one plural.**
+  A plural message may vary the wording between categories; it must not vary the structure.
+  A language whose only category is `other` uses that branch for every number including one,
+  so if the singular omits the count and the plural includes it, that language has to pick:
+  Japanese rendered the emote fallback as `(1Kappa)` where English says bare `Kappa`, and
+  Chinese rendered a single emote as `(1 个X表情)` where English says `(X emote)`. The four
+  affected keys are split into `x` and `x.repeated`, with the caller choosing. Splitting also
+  keeps the validator's category check strict, which an `=1` branch would have forced us to
+  relax. A test in `i18nCatalogs.test.js` asserts the two branches stay structurally
+  identical, so this is enforced rather than remembered.
+- **Nothing from the model is trusted.** `src/i18n/validate.js` runs in CI over every
+  catalog: keys complete, no orphans, placeholders preserved, ICU well-formed, and plural
+  branches matching *exactly* the categories `Intl.PluralRules` reports for that locale. That
+  last rule is the one that matters — asked to translate an English `one`/`other` message,
+  a model will happily return `one`/`other` for Arabic, which needs six categories, and the
+  result reads as the wrong grammatical form for most numbers.
+- **`src/i18n/format.js` is a deliberate ICU subset** (`{arg}`, `plural`, `select`, `#`) with
+  no dependency, because the web dashboard builds with `esbuild bundle: false` and has no
+  bundler entry point. It does not support ICU apostrophe escaping, so a literal `{` or `}`
+  cannot appear in a message.
+- **Grammatical gender is only partly solvable.** Slavic, Semitic and Indic languages inflect
+  verbs by subject gender and the bot rarely knows it, so the translation prompt requires
+  genderless phrasings (present tense, noun phrases) instead of defaulting to masculine.
+  Hebrew and Arabic cannot comply — their verbs inflect for gender in *every* tense — so
+  those catalogs carry a masculine default. Where a gender *is* known (`resolvePronounSubject`
+  on resub and watch-streak messages), `announce.saidMessage` takes a `{g, select, ...}`.
+  Any message given a gender key must expose it in `messages/en.json`, or the validator
+  rejects the translated form as an invented placeholder.
+- The English catalog is the contract every other locale is checked against, so
+  `translate-catalogs.js` refuses to translate it even when named explicitly.
+- **Chat replies are localized through `context.t`.** `commandProcessor` already reads the
+  channel config to decide `botRespondsInChat`, so it resolves the locale from that same read
+  and binds a translator onto the command context. Commands call `context.t('cmd.…')` rather
+  than each doing its own lookup, and subcommand dispatch spreads the context so it
+  propagates. A command invoked without one throws rather than silently falling back to
+  English — the tests supply the real translator so their assertions still check the message
+  a viewer sees.
+- **`createTtsSettingCommand` takes message keys, not callbacks.** Its eight callers each used
+  to hand back finished English from `formatCurrent`/`formatSet`/`formatReset`. They now name a
+  `scope` (`user` or `channel`) and a `propertyKey`, and the two shared shapes take the
+  property name as a parameter — so eight commands share two messages instead of carrying
+  eight near-duplicate pairs. Commands whose English genuinely differs override a single key.
+  **`usage` deliberately stays an untranslated string**: it is the command's syntax line, and a
+  translator rewriting `!tts language` would break the thing it documents.
+- **A validator that reports a reason returns a catalog key, not prose.** `validateSay` in
+  `textRewrite/pronunciation.js` used to return English fragments (`'cannot be empty'`) that
+  `!tts pronounce` spliced into a sentence it had already translated, so a non-English channel
+  got a sentence that switched language halfway. It now returns `{ reasonKey, reasonParams }`
+  and the caller resolves them. Apply the same rule to any future validator whose message is
+  composed rather than shown whole.
+- **`!tts status` reports `Paused: Yes`, not `Paused: true`.** It interpolated a raw boolean,
+  which rendered as the English words `true`/`false` in every language. This is the one place
+  the English output deliberately changed rather than being held byte-identical.
+- **`src/lib/channelLanguageSync.js` fills the language in from Twitch** so a streamer who
+  never opens the dashboard still gets announcements in their own language. It reads
+  `broadcaster_language` from Helix `/channels` (via `getChannelInformation`, batching 100
+  broadcaster IDs per request) and **writes only when the channel has made no choice** —
+  `languageBoost` unset or one of the auto values. An explicit setting is never overwritten,
+  which is why this needs no opt-out in the dashboard. Twitch languages with no MiniMax
+  equivalent (`other`, `asl`, and the ones the provider does not synthesise) leave the
+  channel on auto rather than being guessed at. It runs from the leader-election hook
+  alongside EventSub, so N Cloud Run instances do not all poll Helix and race on the write,
+  and every write logs at `info` because the silent branches log at `debug`.
+- **It reads through `getStoredLanguageBoost`, never `getTtsState`, and that distinction is
+  load-bearing.** `getTtsState` swallows a Firestore read error and returns
+  `DEFAULT_TTS_SETTINGS`, whose `languageBoost` is `'auto'` — indistinguishable from a channel
+  that genuinely never chose one. Any caller that *writes* on the absence of a setting would
+  therefore destroy a real preference during a transient outage. `getStoredLanguageBoost` lets
+  the error propagate so the sync can skip the channel instead. The same trap is noted inline
+  at `getTtsState`'s catch block ("a failed read is not evidence the channel is new"); apply
+  the same reasoning to any future setting that gets auto-populated.
 
 ### Redemption announcements and the reward queue (`announceUnfulfilledRedemptions`)
 

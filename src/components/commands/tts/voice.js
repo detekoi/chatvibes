@@ -19,9 +19,9 @@ export default {
             const prefs = await getGlobalUserPreferences(username, userId);
             const currentVoice = prefs.voiceId;
             if (currentVoice) {
-                enqueueMessage(channel, `Your current TTS voice is set to: ${currentVoice}. Use '!tts voice <voice_id>' to change it or '!tts voice reset' to use the channel default.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.voice.current', { value: currentVoice }), { replyToId });
             } else {
-                enqueueMessage(channel, `You haven't set a specific TTS voice. The channel default will be used. Use '!tts voice <voice_id>' to set one.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.voice.currentUnset'), { replyToId });
             }
             return;
         }
@@ -30,9 +30,9 @@ export default {
         if (args.length === 1 && (args[0].toLowerCase() === 'reset' || args[0].toLowerCase() === 'default' || args[0].toLowerCase() === 'auto')) {
             const success = await clearGlobalUserPreference(username, 'voiceId', userId);
             if (success) {
-                enqueueMessage(channel, `Your TTS voice preference has been reset. The channel default will now be used.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.voice.reset'), { replyToId });
             } else {
-                enqueueMessage(channel, `Could not reset your TTS voice preference at this time.`, { replyToId });
+                enqueueMessage(channel, context.t('cmd.voice.resetFailed'), { replyToId });
             }
             return;
         }
@@ -66,9 +66,9 @@ export default {
 
         const success = await setGlobalUserPreference(username, 'voiceId', validVoiceIdToStore, userId);
         if (success) {
-            enqueueMessage(channel, `Your TTS voice has been set to: ${validVoiceIdToStore}.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.voice.set', { value: validVoiceIdToStore }), { replyToId });
         } else {
-            enqueueMessage(channel, `Could not set your TTS voice to ${requestedVoiceIdInput} at this time.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.voice.setFailed', { value: requestedVoiceIdInput }), { replyToId });
         }
     },
 };

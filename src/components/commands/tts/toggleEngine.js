@@ -21,18 +21,21 @@ export default {
         } else {
             // This case should ideally not be reached if routing in tts.js is correct
             logger.error(`toggleEngine called with unexpected action: ${actionTriggered}`);
-            enqueueMessage(channel, `Internal error processing command '${actionTriggered}'.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.engine.error', { action: actionTriggered }), { replyToId });
             return;
         }
 
         const success = await setTtsState(channelNameNoHash, 'engineEnabled', enableTTS);
 
         if (success) {
-            const statusMessage = `TTS engine has been ${enableTTS ? 'ENABLED' : 'DISABLED'}.`;
-            enqueueMessage(channel, statusMessage, { replyToId });
-            logger.info(`WildcatTTS [${channelNameNoHash}]: ${statusMessage} by ${user.username}.`);
+            const state = enableTTS ? 'ENABLED' : 'DISABLED';
+            enqueueMessage(channel, context.t('cmd.engine.set', {
+                state: context.t(enableTTS ? 'cmd.engine.enabled' : 'cmd.engine.disabled'),
+            }), { replyToId });
+            // The log stays English: it is read by operators, not by the channel.
+            logger.info(`WildcatTTS [${channelNameNoHash}]: TTS engine has been ${state}. by ${user.username}.`);
         } else {
-            enqueueMessage(channel, `Could not change TTS engine state at this time.`, { replyToId });
+            enqueueMessage(channel, context.t('cmd.engine.failed'), { replyToId });
         }
     },
 };

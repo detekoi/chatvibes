@@ -372,3 +372,100 @@ describe('pronunciation', () => {
         });
     });
 });
+
+describe('script changes as word boundaries', () => {
+    // Japanese, Chinese and Thai are written without spaces, so a Latin term
+    // sitting against them has a letter on either side. The naive
+    // (?<![\p{L}\p{N}_]) anchor therefore treated it as word-internal and never
+    // fired — which is how those languages actually write it, so a term scoped
+    // to Japanese would have looked effective while doing nothing.
+    const rules = compileRules({ kwsk: '詳しく', ns: 'ナイスショット', gg: 'good game' });
+
+    test.each([
+        ['それkwskで', 'それ詳しくで', 'Kana on both sides'],
+        ['これはnsです', 'これはナイスショットです', 'Kana on both sides'],
+        ['kwsk お願い', '詳しく お願い', 'space before, Kana after'],
+        ['ns！', 'ナイスショット！', 'punctuation after'],
+        ['配信gg', '配信good game', 'Kanji before'],
+    ])('%s -> %s (%s)', (input, expected) => {
+        expect(applyRewrites(input, rules)).toBe(expected);
+    });
+
+    test.each([
+        ['xkwsk', 'Latin letter before'],
+        ['kwskx', 'Latin letter after'],
+        ['ID:ns123', 'digit after'],
+        ['1ns', 'digit before'],
+    ])('%s is still left alone (%s)', (input) => {
+        expect(applyRewrites(input, rules)).toBe(input);
+    });
+
+    test('English behaviour is unchanged by the relaxation', () => {
+        const en = compileRules({ fr: 'for real', lol: 'el oh el' });
+        expect(applyRewrites('fr real', en)).toBe('for real real');
+        expect(applyRewrites('frfr', en)).toBe('frfr');
+        expect(applyRewrites('before', en)).toBe('before');
+        expect(applyRewrites('lollipop', en)).toBe('lollipop');
+    });
+
+    test('a digit-bearing term now matches against CJK, which cuts both ways', () => {
+        // The upside: "おつo7です" is expanded. The cost: a term made only of
+        // digits would fire inside a number written next to Kanji, which is why
+        // 888 (proposed as applause) is left out of the dictionary — see
+        // docs/pronunciation-language-proposals.md.
+        const digits = compileRules({ o7: 'salute', 888: 'applause' });
+        expect(applyRewrites('おつo7です', digits)).toBe('おつsaluteです');
+        expect(applyRewrites('価格は888円', digits)).toBe('価格はapplause円');
+    });
+});
+
+describe('URLs are never rewritten', () => {
+    // This path had no coverage at all, which is how the corruption below
+    // survived: rules ran over a sentinel-encoded index that lived in band with
+    // the text being matched.
+    const rules = compileRules({ fr: 'for real', gg: 'good game' });
+
+    test('a dictionary key inside a URL is left alone', () => {
+        const text = 'see https://example.com/fr/gg-page for details';
+        expect(applyRewrites(text, rules)).toBe(text);
+    });
+
+    test('text around a URL is still rewritten', () => {
+        expect(applyRewrites('gg see https://example.com fr', rules))
+            .toBe('good game see https://example.com for real');
+    });
+
+    test('multiple URLs all survive', () => {
+        const text = 'https://a.example.com and https://b.example.com';
+        expect(applyRewrites(text, rules)).toBe(text);
+    });
+
+    test('a digit rule does not destroy URLs', () => {
+        // The original bug. A match key may begin with \p{N}, so
+        // "!tts pronounce 1 = one" is a supported thing for a moderator to do.
+        // The URL placeholder was an index between two non-word sentinels, so a
+        // digit rule rewrote the index inside the placeholder, the restore pass
+        // stopped recognising it, and both URLs vanished — leaving private-use
+        // characters in the text sent to the synthesiser.
+        const digits = compileRules({ 1: 'one', 0: 'zero' });
+        const text = 'check https://example.com/page1 and https://google.com';
+        const out = applyRewrites(text, digits);
+        expect(out).toBe(text);
+        expect(out).not.toMatch(/[\uE000-\uF8FF]/);
+    });
+
+    test('digits outside a URL are still rewritten', () => {
+        const digits = compileRules({ 1: 'one' });
+        expect(applyRewrites('take 1 https://example.com/1', digits))
+            .toBe('take one https://example.com/1');
+    });
+
+    test('private use characters in the message are dropped', () => {
+        expect(applyRewrites('hi \uE000\uE001 there', rules)).toBe('hi  there');
+    });
+
+    test('a term adjacent to a URL still matches, as the mask boundary allowed', () => {
+        expect(applyRewrites('https://example.com gg', rules))
+            .toBe('https://example.com good game');
+    });
+});
