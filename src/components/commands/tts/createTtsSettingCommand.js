@@ -1,7 +1,5 @@
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
-import { getTtsState } from '../../tts/ttsState.js';
-import { getTranslator, resolveChannelLocale } from '../../../i18n/index.js';
 
 /**
  * Builds one of the "read / set / reset a setting" TTS subcommands.
@@ -78,12 +76,9 @@ export function createTtsSettingCommand({
         usage,
         permission,
         execute: async (context) => {
-            const { channel, args, replyToId } = context;
-
-            // Channel-level, like everything else the bot emits: the reply lands
-            // in chat where everyone reads it, not only the viewer who typed it.
-            const channelName = channel.replace('#', '').toLowerCase();
-            const t = getTranslator(resolveChannelLocale(await getTtsState(channelName)));
+            // t is bound to the channel's language by commandProcessor, which
+            // already read the config to decide whether the bot may reply at all.
+            const { channel, args, replyToId, t } = context;
             const property = t(propertyKey);
             const params = { property, usage, ...messageParams };
 

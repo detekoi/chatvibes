@@ -197,6 +197,16 @@
   "cmd.noPermission": "You don't have permission for '!tts {subcommand}'.",
   "cmd.failed": "Oops! Something went wrong trying to run !{command}.",
   "player.stale": "Heads up: your WildcatTTS browser source is running an outdated version. Right-click the source in OBS and choose Refresh to get noticeably faster audio.",
+  "cmd.profanity.note.autoShort": " Channel language is \"auto\", so the English list is in use.",
+  "cmd.engine.enabled": "ENABLED",
+  "cmd.engine.disabled": "DISABLED",
+  "cmd.engine.set": "TTS engine has been {state}.",
+  "cmd.status.yes": "Yes",
+  "cmd.status.no": "No",
+  "cmd.pronounce.reason.mustBeText": "must be text",
+  "cmd.pronounce.reason.empty": "cannot be empty",
+  "cmd.pronounce.reason.tooLong": "must be {max} characters or fewer",
+  "cmd.pronounce.reason.containsLink": "cannot contain a link",
   "_notes": {
     "announce.tier": "A fragment with a LEADING SPACE, spliced mid-sentence into the sub messages. Keep the leading space and keep the word Tier in English.",
     "announce.tierParen": "A fragment with a LEADING SPACE, appended after the verb. Keep the leading space.",
@@ -268,6 +278,15 @@
     "cmd.emote.view": "{descriptions} is a comma-separated list of quoted descriptions, already in this language.",
     "cmd.noPermission": "{subcommand} is the literal subcommand name the viewer typed; never translate it.",
     "cmd.failed": "{command} is the literal command name; never translate it.",
-    "player.stale": "'Refresh' is the exact wording of OBS's own right-click menu item. Use OBS's translation of that menu item if the software is localized, otherwise leave it in English."
+    "player.stale": "'Refresh' is the exact wording of OBS's own right-click menu item. Use OBS's translation of that menu item if the software is localized, otherwise leave it in English.",
+    "cmd.profanity.note.autoShort": "Has a LEADING SPACE; appended to the sentence before it. The terser form of cmd.profanity.note.auto, used when the filter is switched on rather than when its status is reported. \"auto\" is a literal setting value.",
+    "cmd.engine.enabled": "A state word spliced into cmd.engine.set, capitalised for emphasis in chat.",
+    "cmd.engine.disabled": "As above.",
+    "cmd.status.yes": "Answers 'Paused:' in the status line.",
+    "cmd.status.no": "As above.",
+    "cmd.pronounce.reason.mustBeText": "A sentence fragment completing \"The spoken form ___.\" — no leading capital, no full stop.",
+    "cmd.pronounce.reason.empty": "A sentence fragment completing \"The spoken form ___.\" — no leading capital, no full stop.",
+    "cmd.pronounce.reason.tooLong": "A sentence fragment completing \"The spoken form ___.\" — no leading capital, no full stop.",
+    "cmd.pronounce.reason.containsLink": "A sentence fragment completing \"The spoken form ___.\" — no leading capital, no full stop."
   }
 }

@@ -20,7 +20,7 @@ export default {
             engine: context.t(ttsState.engineEnabled ? 'cmd.status.enabled' : 'cmd.status.disabled'),
             mode: ttsState.mode,
             pending: cq.queue.length,
-            paused: cq.isPaused,
+            paused: context.t(cq.isPaused ? 'cmd.status.yes' : 'cmd.status.no'),
             voice: ttsState.voiceId,
         });
         // Use native Twitch reply instead of @mention

@@ -262,6 +262,15 @@ viewer can ignore — it is read out in a Spanish accent. Catalogs live in
   eight near-duplicate pairs. Commands whose English genuinely differs override a single key.
   **`usage` deliberately stays an untranslated string**: it is the command's syntax line, and a
   translator rewriting `!tts language` would break the thing it documents.
+- **A validator that reports a reason returns a catalog key, not prose.** `validateSay` in
+  `textRewrite/pronunciation.js` used to return English fragments (`'cannot be empty'`) that
+  `!tts pronounce` spliced into a sentence it had already translated, so a non-English channel
+  got a sentence that switched language halfway. It now returns `{ reasonKey, reasonParams }`
+  and the caller resolves them. Apply the same rule to any future validator whose message is
+  composed rather than shown whole.
+- **`!tts status` reports `Paused: Yes`, not `Paused: true`.** It interpolated a raw boolean,
+  which rendered as the English words `true`/`false` in every language. This is the one place
+  the English output deliberately changed rather than being held byte-identical.
 - **`src/lib/channelLanguageSync.js` fills the language in from Twitch** so a streamer who
   never opens the dashboard still gets announcements in their own language. It reads
   `broadcaster_language` from Helix `/channels` (via `getChannelInformation`, batching 100

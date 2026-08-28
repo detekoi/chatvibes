@@ -63,21 +63,36 @@ describe('the English source catalog', () => {
     });
 });
 
-// Every catalog string is fed to a speech synthesiser, which reads an
-// abbreviation as its letters. Translation models reach for them constantly
-// when a string is short, and it is invisible in review unless you speak the
-// language, so it is asserted rather than eyeballed.
-describe('no catalog abbreviates a word', () => {
-    // One to four letters followed by a period, where the period ends the token
-    // rather than the sentence. Anchored on a letter so the legitimate "{subtext}. "
-    // sentence ending does not match.
-    const ABBREVIATION = /(?:^|[\s(])(\p{L}{1,4})\.(?=\s|$)/u;
+// A speech synthesiser reads an abbreviation as its letters, so "мес." is heard
+// as "эм е эс" rather than "месяцев". Translation models reach for abbreviations
+// constantly when a string is short, and it is invisible in review unless you
+// speak the language, so it is asserted rather than eyeballed.
+//
+// Scoped to the namespaces that are actually SPOKEN. The cmd.* messages are chat
+// replies read with the eyes, where an abbreviation is ordinary writing —
+// Catalan "p. ex." and Russian "см." are both correct there, and flagging them
+// would push translators into stilted prose for no gain.
+describe('no spoken catalog abbreviates a word', () => {
+    const SPOKEN = /^(announce|emoji|emote)\./;
+    // A short token, a period, then a space and a LOWERCASE letter — a period
+    // that does not end a sentence. That mid-sentence position is what separates
+    // an abbreviation from an ordinary short word: "мес. подряд" is "месяцев"
+    // truncated, while "bits. Use" is just a sentence ending in a short word.
+    //
+    // Requiring the lowercase continuation is what makes this usable. Matching
+    // any short-token period flagged 42 English keys — every sentence ending in
+    // "TTS.", "time." or "bits." — which is no signal at all.
+    //
+    // The cost is that an abbreviation at the very end of a string is missed.
+    // Trailing ones are rarer, and a check nobody can trust because it cries
+    // wolf on the source language is worth less than a narrower one that holds.
+    const ABBREVIATION = /(?:^|[\s(])\p{L}{1,4}\.\s+\p{Ll}/u;
     const all = [...present];
 
     test.each(all)('%s', (locale) => {
         const catalog = read(`${locale}.json`);
         const hits = Object.entries(catalog)
-            .filter(([k, v]) => !k.startsWith('_') && typeof v === 'string' && ABBREVIATION.test(v))
+            .filter(([k, v]) => SPOKEN.test(k) && typeof v === 'string' && ABBREVIATION.test(v))
             .map(([k, v]) => `${k}: ${v}`);
         expect(hits).toEqual([]);
     });
@@ -141,10 +156,16 @@ describe('the code and the catalog agree on which keys exist', () => {
     // ternaries, and through lookup tables. Matching only the call form reported
     // a third of the catalog as dead.
     const declared = new Set(Object.keys(source).filter(k => !k.startsWith('_')));
+
+    // Matched on the namespaces keys actually use, NOT filtered against the
+    // catalog. Collecting only strings already known to be declared made the
+    // "key exists" assertion below tautological — it could never find a missing
+    // one, which is the half of this pair that catches a typo.
+    const KEY_SHAPED = /'((?:announce|cmd|emoji|emote|player)\.[a-zA-Z0-9._]+)'/g;
     const referenced = new Map();
     for (const file of walk('src')) {
-        for (const match of readFileSync(file, 'utf8').matchAll(/'([a-zA-Z0-9._]+)'/g)) {
-            if (declared.has(match[1]) && !referenced.has(match[1])) referenced.set(match[1], file);
+        for (const match of readFileSync(file, 'utf8').matchAll(KEY_SHAPED)) {
+            if (!referenced.has(match[1])) referenced.set(match[1], file);
         }
     }
 

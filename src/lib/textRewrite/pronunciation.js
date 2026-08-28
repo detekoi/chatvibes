@@ -115,20 +115,29 @@ export function normalizeMatchKey(raw) {
 
 /**
  * Validate and normalize the spoken form.
+ *
+ * A failure returns a catalog key and its parameters rather than English prose:
+ * the caller splices the reason into a sentence it has already translated, so an
+ * English fragment there would land mid-sentence on a non-English channel.
+ *
  * @param {string} raw
- * @returns {{ok: true, value: string} | {ok: false, reason: string}}
+ * @returns {{ok: true, value: string} | {ok: false, reasonKey: string, reasonParams?: object}}
  */
 export function validateSay(raw) {
-    if (typeof raw !== 'string') return { ok: false, reason: 'must be text' };
+    if (typeof raw !== 'string') return { ok: false, reasonKey: 'cmd.pronounce.reason.mustBeText' };
 
     const say = raw.replace(CONTROL_CHARS, '').trim().replace(/\s+/g, ' ');
 
     // An empty spoken form would let a message reduce to "", and every caller
     // treats empty text as nothing to say and drops it. Use the remove or off
     // sub-actions for that instead of smuggling it through as a value.
-    if (!say) return { ok: false, reason: 'cannot be empty' };
+    if (!say) return { ok: false, reasonKey: 'cmd.pronounce.reason.empty' };
     if (say.length > PRONUNCIATION_LIMITS.MAX_SAY_LENGTH) {
-        return { ok: false, reason: `must be ${PRONUNCIATION_LIMITS.MAX_SAY_LENGTH} characters or fewer` };
+        return {
+            ok: false,
+            reasonKey: 'cmd.pronounce.reason.tooLong',
+            reasonParams: { max: PRONUNCIATION_LIMITS.MAX_SAY_LENGTH },
+        };
     }
 
     // A URL in the spoken form would be re-expanded by the URL processor on a
@@ -136,7 +145,7 @@ export function validateSay(raw) {
     // flag: a one-shot test has no use for lastIndex, and reusing the shared
     // URL_REGEX export would leave its lastIndex mutated for other callers.
     if (new RegExp(URL_REGEX.source, 'i').test(say)) {
-        return { ok: false, reason: 'cannot contain a link' };
+        return { ok: false, reasonKey: 'cmd.pronounce.reason.containsLink' };
     }
 
     return { ok: true, value: say };

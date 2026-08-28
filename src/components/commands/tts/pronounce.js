@@ -154,7 +154,7 @@ export default {
 
             const say = validateSay(whole.slice(eqIndex + 1));
             if (!say.ok) {
-                reply(t('cmd.pronounce.badSay', { reason: say.reason }));
+                reply(t('cmd.pronounce.badSay', { reason: t(say.reasonKey, say.reasonParams) }));
                 return;
             }
 

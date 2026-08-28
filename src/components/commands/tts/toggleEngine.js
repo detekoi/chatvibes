@@ -28,9 +28,12 @@ export default {
         const success = await setTtsState(channelNameNoHash, 'engineEnabled', enableTTS);
 
         if (success) {
-            const statusMessage = `TTS engine has been ${enableTTS ? 'ENABLED' : 'DISABLED'}.`;
-            enqueueMessage(channel, statusMessage, { replyToId });
-            logger.info(`WildcatTTS [${channelNameNoHash}]: ${statusMessage} by ${user.username}.`);
+            const state = enableTTS ? 'ENABLED' : 'DISABLED';
+            enqueueMessage(channel, context.t('cmd.engine.set', {
+                state: context.t(enableTTS ? 'cmd.engine.enabled' : 'cmd.engine.disabled'),
+            }), { replyToId });
+            // The log stays English: it is read by operators, not by the channel.
+            logger.info(`WildcatTTS [${channelNameNoHash}]: TTS engine has been ${state}. by ${user.username}.`);
         } else {
             enqueueMessage(channel, context.t('cmd.engine.failed'), { replyToId });
         }

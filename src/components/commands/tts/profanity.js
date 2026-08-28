@@ -90,7 +90,7 @@ export default {
                 reply(t('cmd.profanity.onNoList', { language: info.language }));
                 return;
             }
-            const note = info.isFallback ? ' Channel language is "auto", so the English list is in use.' : '';
+            const note = info.isFallback ? t('cmd.profanity.note.autoShort') : '';
             reply(t('cmd.profanity.turnedOn', { entries: info.entries, language: info.language, note }));
         } catch (error) {
             logger.error({ err: error, channel: channelName, args }, 'Error in !tts profanity');
