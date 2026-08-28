@@ -132,10 +132,17 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
 /**
  * Apply a compiled rule set to text.
  *
- * URL spans are masked out before matching and restored verbatim afterwards,
- * so a dictionary key can never be expanded inside a hostname or path. This
- * only bites when readFullUrls is on (otherwise urlProcessor has already
- * collapsed the URL to "example dot com") but it is cheap insurance.
+ * Rules run on the gaps *between* URLs; the URLs themselves are copied through
+ * untouched, so a dictionary key can never be expanded inside a hostname or
+ * path. This only bites when readFullUrls is on (otherwise urlProcessor has
+ * already collapsed the URL to "example dot com") but it is cheap insurance.
+ *
+ * It used to mask each URL as a sentinel-wrapped index and rewrite the whole
+ * string in one pass, which put that index in band with the text being matched:
+ * a rule whose key was a digit (`!tts pronounce 1 = one` is accepted, since a
+ * match key may start with \p{N}) rewrote the index inside its own placeholder,
+ * and both the URL and the restore were lost, leaving private-use characters in
+ * the audio. Splitting has no in-band encoding to corrupt.
  *
  * @param {string} text
  * @param {{re: RegExp, map: Map<string, string>, caseSensitive: boolean} | null} rules

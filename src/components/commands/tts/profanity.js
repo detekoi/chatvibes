@@ -69,7 +69,13 @@ export default {
             }
 
             if (Boolean(ttsConfig.profanityFilterEnabled) === enable) {
-                reply(t('cmd.profanity.already', { setting: enable ? 'on' : 'off', effect: enable ? onEffect : offEffect }));
+                // `cmd.onOff.*`, as toggleEvents and bits already do. The literal
+                // 'on'/'off' here was the one English word left inside an
+                // otherwise translated sentence.
+                reply(t('cmd.profanity.already', {
+                    setting: t(enable ? 'cmd.onOff.on' : 'cmd.onOff.off'),
+                    effect: enable ? onEffect : offEffect,
+                }));
                 return;
             }
 

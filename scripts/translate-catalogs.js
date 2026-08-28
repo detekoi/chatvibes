@@ -302,9 +302,18 @@ async function translateLocale({ catalog, locale }) {
     const source = catalog.source;
     const existing = loadCatalog(catalog, locale);
     const keys = staleKeys(catalog, locale, existing);
-    if (!keys.length) return { locale: label, skipped: true };
 
-    if (DRY_RUN) return { locale: label, dryRun: keys.length };
+    // Keys the target still carries that the English source has dropped. They
+    // are not "stale" in the sense staleKeys means -- nothing needs translating
+    // -- but skipping on `!keys.length` alone left them in the file forever,
+    // and the validator rejects an orphan. That deadlocked the pipeline:
+    // deleting one English key put the repo in a state CI refused and this
+    // script reported as "unchanged". Falling through rewrites the catalog from
+    // the source's key list, which drops them, and costs no API calls.
+    const orphans = Object.keys(existing).filter(k => !k.startsWith('_') && !(k in source));
+    if (!keys.length && !orphans.length) return { locale: label, skipped: true };
+
+    if (DRY_RUN) return { locale: label, dryRun: keys.length, pruned: orphans.length };
 
     const merged = { ...existing };
     for (let i = 0; i < keys.length; i += BATCH_SIZE) {
@@ -358,7 +367,7 @@ async function translateLocale({ catalog, locale }) {
     // every catalog it had already written unrecorded — so the next run redoes
     // work that is sitting correct on disk.
     flushSidecar();
-    return { locale: label, translated: keys.length };
+    return { locale: label, translated: keys.length, pruned: orphans.length };
 }
 
 function flushSidecar() {
@@ -394,13 +403,23 @@ async function main() {
 
     const results = await runPool(jobs, translateLocale, CONCURRENCY);
 
-    const done = results.filter(r => r.translated);
+    // A prune-only result has `translated: 0`, which is falsy — bucketing on
+    // that alone reported "0 written" while 39 catalogs were rewritten.
+    const done = results.filter(r => r.translated || r.pruned);
     const skipped = results.filter(r => r.skipped);
     const dry = results.filter(r => r.dryRun);
     const bad = results.filter(r => r.failed || r.error);
 
-    for (const r of dry) console.log(`  ${r.locale}: ${r.dryRun} key(s) would be translated`);
-    for (const r of done) console.log(`  ${r.locale}: ${r.translated} key(s)`);
+    const describe = (r, n, verb) => {
+        const parts = [];
+        if (n) parts.push(`${n} key(s)${verb}`);
+        // Named separately so a run that only tidies up is not mistaken for one
+        // that spent money.
+        if (r.pruned) parts.push(`${r.pruned} orphan(s) pruned`);
+        return parts.join(', ');
+    };
+    for (const r of dry) console.log(`  ${r.locale}: ${describe(r, r.dryRun, ' would be translated')}`);
+    for (const r of done) console.log(`  ${r.locale}: ${describe(r, r.translated, '')}`);
     if (skipped.length) console.log(`  up to date: ${skipped.map(r => r.locale).join(', ')}`);
 
     for (const r of bad) {

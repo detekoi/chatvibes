@@ -172,7 +172,23 @@ export function buildEffectiveMap(channelEntries = {}, locale = DEFAULT_LOCALE) 
         // wrote a malformed entry meant to change this key, not to keep the
         // default, and silently falling back reads as the write being ignored.
         if (!entry) { delete merged[key]; continue; }
-        merged[key] = entry;
+
+        // A channel override that says nothing about scope inherits the
+        // built-in's. `!tts pronounce af = as heck` writes a bare string, and
+        // replacing the entry wholesale dropped `except: ["af", "nl"]` with it —
+        // so an ordinary Afrikaans "af" started being expanded again, which is
+        // the exact collision the scoping exists to prevent, and on a channel
+        // with the filter on it turns normal speech into a bleep.
+        //
+        // The moderator was editing the words, not ruling on which languages the
+        // rule belongs in; they have no reason to know the scope is there. A
+        // channel that does want it everywhere can say so with an explicit
+        // `only`/`except`, which still wins here.
+        const builtIn = DEFAULT_ENTRIES[key];
+        const scoped = entry.only === undefined && entry.except === undefined && builtIn;
+        merged[key] = scoped
+            ? { say: entry.say, only: builtIn.only, except: builtIn.except }
+            : entry;
     }
 
     const out = Object.create(null);

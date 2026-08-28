@@ -286,7 +286,10 @@ describe('TTS pronunciation commands', () => {
             ttsStateMock.getTtsState.mockResolvedValue({ languageBoost: 'English', profanityFilterEnabled: true });
             await profanity.execute(context(['on']));
             expect(ttsStateMock.setTtsState).not.toHaveBeenCalled();
-            expect(reply()).toMatch(/already on/);
+            // "ON", not "on": the state now renders through `cmd.onOff.*` like
+            // every sibling toggle, instead of a hardcoded English literal that
+            // stayed English in all 39 other locales.
+            expect(reply()).toMatch(/already ON/);
         });
 
         it('warns that auto means the English list', async () => {

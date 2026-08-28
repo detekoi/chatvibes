@@ -128,6 +128,37 @@ describe('entry shapes', () => {
     });
 });
 
+describe('a channel override must not silently unscope a built-in', () => {
+    // The motivating bug: `!tts pronounce af = as heck` writes a bare string,
+    // which used to replace the built-in wholesale and take `except: [af, nl]`
+    // with it — reintroducing the profanity injection into ordinary Afrikaans
+    // that the scoping was added to stop.
+    it('keeps the built-in scope when the override does not mention one', () => {
+        expect(buildEffectiveMap({ af: 'as heck' }, 'en').af).toBe('as heck');
+        expect(buildEffectiveMap({ af: 'as heck' }, 'af').af).toBeUndefined();
+        expect(buildEffectiveMap({ af: 'as heck' }, 'nl').af).toBeUndefined();
+    });
+
+    it('keeps it for the object form too, not just the bare string', () => {
+        expect(buildEffectiveMap({ af: { say: 'as heck' } }, 'af').af).toBeUndefined();
+    });
+
+    it('lets a channel opt back in by saying so explicitly', () => {
+        expect(buildEffectiveMap({ af: { say: 'as heck', except: [] } }, 'af').af).toBe('as heck');
+        expect(buildEffectiveMap({ af: { say: 'as heck', only: ['af'] } }, 'af').af).toBe('as heck');
+    });
+
+    it('narrows rather than inherits when the channel gives its own scope', () => {
+        const entry = { say: 'as heck', except: ['nl'] };
+        expect(buildEffectiveMap({ af: entry }, 'af').af).toBe('as heck');
+        expect(buildEffectiveMap({ af: entry }, 'nl').af).toBeUndefined();
+    });
+
+    it('does not invent a scope for a key with no built-in', () => {
+        expect(buildEffectiveMap({ zzz: 'zed zed zed' }, 'af').zzz).toBe('zed zed zed');
+    });
+});
+
 describe('the defaults data itself', () => {
     const config = JSON.parse(readFileSync('src/components/tts/tts-config.json', 'utf8'));
 
