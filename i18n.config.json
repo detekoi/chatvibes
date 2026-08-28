@@ -1,6 +1,9 @@
 {
   "_README": "Drives scripts/translate-catalogs.js. The sibling web UI has its own copy of this file with its own paths; the script is run from here against either.",
   "sourceLocale": "en",
+  "promptVersion": 5,
+  "spoken": true,
+  "localesFile": "src/i18n/locales.json",
   "source": "src/i18n/messages/en.json",
   "outDir": "src/i18n/messages",
   "sidecar": "src/i18n/.translation-hashes.json",

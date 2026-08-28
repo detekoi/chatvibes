@@ -58,11 +58,59 @@ const root = path.dirname(path.resolve(CONFIG_PATH));
 const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
 const resolve = (p) => path.resolve(root, p);
 
-const source = JSON.parse(readFileSync(resolve(config.source), 'utf8'));
+/**
+ * The catalogs to translate.
+ *
+ * One repo has a single flat catalog per locale; the other splits its strings
+ * across a shared file and one per page, named `<page>-<locale>.json`. Both are
+ * a list of (id, source file, output pattern), and `config.source`/`outDir`
+ * stays as the one-catalog shorthand.
+ */
+const catalogs = config.catalogs ?? [{
+    id: null,
+    source: config.source,
+    out: path.join(config.outDir, '{locale}.json'),
+}];
+
+/**
+ * Catalogs may be nested objects (`{"msg": {"saved": "Saved"}}`) or flat dotted
+ * keys. Everything downstream -- hashing, the prompt, the validator -- works on
+ * the flat form, so nesting is a serialization detail handled at the edges.
+ */
+const flatten = (obj, prefix = '') => Object.fromEntries(Object.entries(obj).flatMap(([key, value]) => (
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? Object.entries(flatten(value, `${prefix}${key}.`))
+        : [[prefix + key, value]]
+)));
+
+function unflatten(flat) {
+    const out = {};
+    for (const [key, value] of Object.entries(flat)) {
+        const parts = key.split('.');
+        let node = out;
+        for (const part of parts.slice(0, -1)) {
+            if (typeof node[part] !== 'object' || node[part] === null) node[part] = {};
+            node = node[part];
+        }
+        node[parts.at(-1)] = value;
+    }
+    return out;
+}
+
+const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
+const decode = (obj) => (config.nested ? flatten(obj) : obj);
+const encode = (obj) => (config.nested ? unflatten(obj) : obj);
+
+for (const catalog of catalogs) {
+    catalog.source = decode(readJson(resolve(catalog.source)));
+}
+
 const sidecarPath = resolve(config.sidecar);
 const sidecar = existsSync(sidecarPath) ? JSON.parse(readFileSync(sidecarPath, 'utf8')) : {};
 
-const localesMeta = JSON.parse(readFileSync(resolve('src/i18n/locales.json'), 'utf8'));
+// The 40-language table lives in the bot repo and is copied to the others by
+// `npm run sync-constants`, so where it is depends on which config is driving.
+const localesMeta = readJson(resolve(config.localesFile || 'src/i18n/locales.json'));
 const allTargets = [...new Set(Object.values(localesMeta.LANGUAGE_BOOSTS).map(v => v.bcp47))]
     .filter(l => l !== config.sourceLocale);
 
@@ -78,7 +126,12 @@ if (requested.length !== targets.length) {
 
 const hash = (s) => createHash('sha256').update(String(s)).digest('hex').slice(0, 16);
 
-const PROMPT_VERSION = 5;
+// Stands in for the system instruction, which is not hashed directly: bump the
+// `promptVersion` in a config after editing the rules and that repo's catalogs
+// re-translate. It lives in the config rather than here because the two repos
+// share this script but not their catalogs, and a constant would make an edit
+// aimed at one of them invalidate both.
+const PROMPT_VERSION = config.promptVersion ?? 5;
 // Split deliberately. The global hash covers what changes every message — the
 // system instruction, the glossary, the do-not-translate list — and invalidates
 // everything when it moves. A key's own hash covers its English text and its own
@@ -91,63 +144,84 @@ const promptHash = hash(JSON.stringify({
     glossary: config.glossary,
 }));
 
-const keyHash = (key) => hash(JSON.stringify([source[key], source._notes?.[key] ?? null]));
+const keyHash = (catalog, key) =>
+    hash(JSON.stringify([catalog.source[key], catalog.source._notes?.[key] ?? null]));
+
+/**
+ * Where a catalog's bookkeeping lives.
+ *
+ * A single-catalog config keys straight on the locale, which is the shape the
+ * bot's existing sidecar already has -- prefixing it would discard the record of
+ * every translation done so far and re-run all thirty-nine locales.
+ */
+const sidecarKey = (catalog, locale) => (catalog.id ? `${catalog.id}/${locale}` : locale);
 
 const displayName = (locale) => {
     const entry = Object.entries(localesMeta.LANGUAGE_BOOSTS).find(([, v]) => v.bcp47 === locale);
     return entry ? `${entry[0]} (${entry[1].endonym})` : locale;
 };
 
-function catalogPath(locale) {
-    return path.join(resolve(config.outDir), `${locale}.json`);
+function catalogPath(catalog, locale) {
+    return resolve(catalog.out.replace('{locale}', locale));
 }
 
-function loadCatalog(locale) {
-    const p = catalogPath(locale);
-    return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {};
+function loadCatalog(catalog, locale) {
+    const p = catalogPath(catalog, locale);
+    return existsSync(p) ? decode(readJson(p)) : {};
 }
 
 /**
  * Keys whose English changed since the last run, plus any the target is
  * missing. Without this every run re-translates every locale from scratch.
  */
-function staleKeys(locale, existing) {
-    const seen = sidecar[locale] || {};
+function staleKeys(catalog, locale, existing) {
+    const seen = sidecar[sidecarKey(catalog, locale)] || {};
     const promptChanged = seen._prompt !== promptHash;
-    return Object.keys(source).filter(key => {
+    return Object.keys(catalog.source).filter(key => {
         if (promptChanged) return !key.startsWith('_');
         if (key.startsWith('_')) return false;
         if (FORCE) return true;
         if (!(key in existing)) return true;
-        return seen[key] !== keyHash(key);
+        return seen[key] !== keyHash(catalog, key);
     });
 }
 
-const SYSTEM_INSTRUCTION = `You translate UI and text-to-speech strings for a live-streaming bot.
+// Numbered at render time from this list. `spoken` decides whether the
+// read-aloud rule is included: it is essential for the bot, whose strings go
+// through a speech synthesiser that pronounces "min." as three letters, and
+// simply false for the dashboard, whose strings are read off a screen. With
+// `spoken: true` the rendered text is byte-identical to the original eight
+// rules, so turning this into a list cost no re-translation.
+const RULES = (spoken) => [
+    'Preserve every {placeholder} exactly as written, including its spelling and case. Never translate, rename, reorder into a different placeholder, add one, or drop one.',
+    'Preserve ICU MessageFormat structure: {name, plural, ...} and {name, select, ...}. The literal # stands for a number and must survive.',
+    'Translate the TEXT inside plural and select branches, never the branch keywords (one, few, many, other, he, she) and never the argument names.',
+    'Some values begin or end with a space, or are sentence fragments joined to other strings. Preserve leading and trailing spaces exactly.',
+    'Return every key you were given, and no others.',
+    `GRAMMATICAL GENDER. The subject of these messages is a viewer of unknown gender, and the same string is reused for every viewer.
+   - If the string contains a {g, select, ...} placeholder, inflect using it. Its values are exactly: he, she, other.
+   - If it does NOT contain one, you have no gender information at all. Do not default to the masculine. Rewrite so the sentence does not inflect for gender at all — use the present tense instead of a past participle, a noun phrase instead of a verb, or an impersonal construction. This matters most in Slavic, Semitic and Indic languages, where a masculine past tense is simply wrong for half of all viewers.`,
+    ...(spoken ? ['These strings are READ ALOUD by a speech synthesiser. Never abbreviate. Write every word out in full — no "мес.", no "min.", no "no." — because an abbreviation is spoken as its letters, not as the word it stands for. Do not use digits in place of words that would normally be spelled out, and avoid symbols a synthesiser cannot pronounce.'] : []),
+    'If the target language has only the "other" plural category, that single branch is used for EVERY number including 1. Word it so it reads correctly for one as well as many — do not carry over an English plural marker that would produce "1 bits".',
+    ...(config.extraRules || []),
+];
+
+const SYSTEM_INSTRUCTION = `${config.role || 'You translate UI and text-to-speech strings for a live-streaming bot.'}
 
 Reply with ONLY a JSON object mapping each key to its translated string. No preamble, no explanation, no markdown fence.
 
 Absolute rules:
-1. Preserve every {placeholder} exactly as written, including its spelling and case. Never translate, rename, reorder into a different placeholder, add one, or drop one.
-2. Preserve ICU MessageFormat structure: {name, plural, ...} and {name, select, ...}. The literal # stands for a number and must survive.
-3. Translate the TEXT inside plural and select branches, never the branch keywords (one, few, many, other, he, she) and never the argument names.
-4. Some values begin or end with a space, or are sentence fragments joined to other strings. Preserve leading and trailing spaces exactly.
-5. Return every key you were given, and no others.
-6. GRAMMATICAL GENDER. The subject of these messages is a viewer of unknown gender, and the same string is reused for every viewer.
-   - If the string contains a {g, select, ...} placeholder, inflect using it. Its values are exactly: he, she, other.
-   - If it does NOT contain one, you have no gender information at all. Do not default to the masculine. Rewrite so the sentence does not inflect for gender at all — use the present tense instead of a past participle, a noun phrase instead of a verb, or an impersonal construction. This matters most in Slavic, Semitic and Indic languages, where a masculine past tense is simply wrong for half of all viewers.
-7. These strings are READ ALOUD by a speech synthesiser. Never abbreviate. Write every word out in full — no "мес.", no "min.", no "no." — because an abbreviation is spoken as its letters, not as the word it stands for. Do not use digits in place of words that would normally be spelled out, and avoid symbols a synthesiser cannot pronounce.
-8. If the target language has only the "other" plural category, that single branch is used for EVERY number including 1. Word it so it reads correctly for one as well as many — do not carry over an English plural marker that would produce "1 bits".`;
+${RULES(config.spoken !== false).map((rule, i) => `${i + 1}. ${rule}`).join('\n')}`;
 
-function buildPrompt(locale, keys) {
+function buildPrompt(catalog, locale, keys) {
     const categories = new Intl.PluralRules(locale).resolvedOptions().pluralCategories;
     const dnt = (config.doNotTranslate || []).join(', ');
     const glossary = Object.entries(config.glossary || {})
         .map(([term, meaning]) => `  - "${term}": ${meaning}`)
         .join('\n');
 
-    const payload = Object.fromEntries(keys.map(k => [k, source[k]]));
-    const notes = Object.entries(source._notes || {})
+    const payload = Object.fromEntries(keys.map(k => [k, catalog.source[k]]));
+    const notes = Object.entries(catalog.source._notes || {})
         .filter(([k]) => keys.includes(k))
         .map(([k, note]) => `  - ${k}: ${note}`)
         .join('\n');
@@ -199,21 +273,23 @@ async function callModel(prompt, extra = '') {
     }
 }
 
-async function translateLocale(locale) {
-    const existing = loadCatalog(locale);
-    const keys = staleKeys(locale, existing);
-    if (!keys.length) return { locale, skipped: true };
+async function translateLocale({ catalog, locale }) {
+    const label = catalog.id ? `${catalog.id}/${locale}` : locale;
+    const source = catalog.source;
+    const existing = loadCatalog(catalog, locale);
+    const keys = staleKeys(catalog, locale, existing);
+    if (!keys.length) return { locale: label, skipped: true };
 
-    if (DRY_RUN) return { locale, dryRun: keys.length };
+    if (DRY_RUN) return { locale: label, dryRun: keys.length };
 
     const merged = { ...existing };
     for (let i = 0; i < keys.length; i += BATCH_SIZE) {
         const batch = keys.slice(i, i + BATCH_SIZE);
-        const prompt = buildPrompt(locale, batch);
+        const prompt = buildPrompt(catalog, locale, batch);
 
         const t0 = Date.now();
         let out = await callModel(prompt);
-        console.log(`  ${locale}: ${batch.length} key(s) in ${Date.now() - t0}ms`);
+        console.log(`  ${label}: ${batch.length} key(s) in ${Date.now() - t0}ms`);
         Object.assign(merged, out);
 
         // Feed the validator's complaints back once. A model that dropped a
@@ -222,36 +298,43 @@ async function translateLocale(locale) {
         let problems = validateCatalog(locale, { ...source, ...merged }, source, { maxChatLength: config.maxChatLength })
             .filter(p => batch.some(k => p.startsWith(`${k}:`)));
         if (problems.length) {
-            console.log(`  ${locale}: retrying ${problems.length} problem(s)`);
+            console.log(`  ${label}: retrying ${problems.length} problem(s)`);
             const retryKeys = [...new Set(problems.map(p => p.split(':')[0]))].filter(k => batch.includes(k));
             out = await callModel(
-                buildPrompt(locale, retryKeys),
+                buildPrompt(catalog, locale, retryKeys),
                 `Your previous attempt had these problems. Fix them exactly:\n${problems.map(p => `  - ${p}`).join('\n')}`
             );
             Object.assign(merged, out);
         }
     }
 
+    // Reduced to exactly the keys the source still has, which is what gets
+    // written. Validating `merged` instead checked a superset that includes
+    // whatever the previous catalog held, so a key removed from the English —
+    // 51 dead <option> labels, in the run that found this — came back as an
+    // orphan complaint and the whole catalog was refused. Orphans could
+    // therefore never be pruned: every run failed on the leftovers of the last.
+    const ordered = Object.fromEntries(Object.keys(source).map(k => [k, merged[k]]));
+
     // Never write a catalog that would fail CI.
-    const problems = validateCatalog(locale, merged, source, { maxChatLength: config.maxChatLength });
+    const problems = validateCatalog(locale, ordered, source, { maxChatLength: config.maxChatLength });
     if (problems.length) {
-        return { locale, failed: problems };
+        return { locale: label, failed: problems };
     }
 
-    const ordered = Object.fromEntries(Object.keys(source).map(k => [k, merged[k]]));
-    mkdirSync(path.dirname(catalogPath(locale)), { recursive: true });
-    writeFileSync(catalogPath(locale), JSON.stringify(ordered, null, 2) + '\n');
+    mkdirSync(path.dirname(catalogPath(catalog, locale)), { recursive: true });
+    writeFileSync(catalogPath(catalog, locale), JSON.stringify(encode(ordered), null, 2) + '\n');
 
-    sidecar[locale] = {
+    sidecar[sidecarKey(catalog, locale)] = {
         _prompt: promptHash,
-        ...Object.fromEntries(Object.keys(source).filter(k => !k.startsWith('_')).map(k => [k, keyHash(k)])),
+        ...Object.fromEntries(Object.keys(source).filter(k => !k.startsWith('_')).map(k => [k, keyHash(catalog, k)])),
     };
     // Flushed per locale rather than once at the end. This talks to a flaky API
     // for many minutes, and a run killed partway through would otherwise leave
     // every catalog it had already written unrecorded — so the next run redoes
     // work that is sitting correct on disk.
     flushSidecar();
-    return { locale, translated: keys.length };
+    return { locale: label, translated: keys.length };
 }
 
 function flushSidecar() {
@@ -269,7 +352,8 @@ async function runPool(items, worker, limit) {
             try {
                 results.push(await worker(item));
             } catch (err) {
-                results.push({ locale: item, error: err.message });
+                const label = item.catalog?.id ? `${item.catalog.id}/${item.locale}` : item.locale;
+                results.push({ locale: label, error: err.message });
             }
         }
     }));
@@ -281,9 +365,10 @@ async function main() {
         console.error('GEMINI_API_KEY is not set.');
         process.exit(1);
     }
-    console.log(`${DRY_RUN ? '[dry run] ' : ''}${MODEL} -> ${targets.length} locale(s) from ${config.source}\n`);
+    const jobs = catalogs.flatMap(catalog => targets.map(locale => ({ catalog, locale })));
+    console.log(`${DRY_RUN ? '[dry run] ' : ''}${MODEL} -> ${targets.length} locale(s) x ${catalogs.length} catalog(s) = ${jobs.length} job(s)\n`);
 
-    const results = await runPool(targets, translateLocale, CONCURRENCY);
+    const results = await runPool(jobs, translateLocale, CONCURRENCY);
 
     const done = results.filter(r => r.translated);
     const skipped = results.filter(r => r.skipped);

@@ -15,7 +15,7 @@
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "test:voices": "node testVoices.js",
-    "sync-constants": "cp src/components/tts/tts-config.json ../chatvibes-web-ui/functions/src/services/tts-config.json && cp src/i18n/locales.json ../chatvibes-web-ui/functions/src/services/locales.json && echo '\u2705 Constants synced to Firebase UI!'",
+    "sync-constants": "cp src/components/tts/tts-config.json ../chatvibes-web-ui/functions/src/services/tts-config.json && cp src/i18n/locales.json ../chatvibes-web-ui/functions/src/services/locales.json && cp src/i18n/locales.json ../chatvibes-web-ui/public/i18n/locales.json && echo '\u2705 Constants synced to Firebase UI!'",
     "translate": "node scripts/translate-catalogs.js",
     "translate:check": "node scripts/translate-catalogs.js --dry-run"
   },
