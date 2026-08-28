@@ -98,8 +98,32 @@ function unflatten(flat) {
 }
 
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
-const decode = (obj) => (config.nested ? flatten(obj) : obj);
-const encode = (obj) => (config.nested ? unflatten(obj) : obj);
+
+/**
+ * `_notes` is a map of key -> translator guidance, not message content, so it
+ * is lifted out before flattening and put back whole.
+ *
+ * Flattening it along with everything else turned `_notes` into keys like
+ * `_notes.cmd.saved`, which left `source._notes` undefined -- and every read of
+ * it is optional-chained, so nothing threw. The two silent results: a note
+ * never reached the prompt, and editing one did not change that key's hash, so
+ * the key it was written for was never re-translated.
+ */
+const decode = (obj) => {
+    if (!config.nested) return obj;
+    const { _notes, ...rest } = obj;
+    const flat = flatten(rest);
+    if (_notes) flat._notes = _notes;
+    return flat;
+};
+
+const encode = (obj) => {
+    if (!config.nested) return obj;
+    const { _notes, ...rest } = obj;
+    const nested = unflatten(rest);
+    if (_notes) nested._notes = _notes;
+    return nested;
+};
 
 for (const catalog of catalogs) {
     catalog.source = decode(readJson(resolve(catalog.source)));
