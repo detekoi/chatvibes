@@ -6,7 +6,7 @@ import config from '../../../config/index.js';
 import { convertEventSubToTags } from '../eventSubToTags.js';
 import { processMessage as processCommand, hasPermission } from '../../commands/commandProcessor.js';
 import { mapPermissionLevel } from '../../../lib/permissions.js';
-import { stripCommandPrefixFromFragments } from '../../../lib/ttsCommandText.js';
+import { parseTtsCommandText, stripCommandPrefixFromFragments } from '../../../lib/ttsCommandText.js';
 import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
@@ -143,8 +143,10 @@ export async function handleChatMessage(event, channelName) {
 
     // Build command-specific fragments: strip the leading "!tts" text prefix so
     // the fragment array aligns with the text say.js will speak (everything after !tts).
+    // Case-insensitive, matching commandProcessor: "!TTS hello" is dispatched
+    // to say.js too, so its fragments need the same trim.
     let commandFragments = ttsFragments;
-    if (cleanMessage.startsWith('!tts') && ttsFragments) {
+    if (parseTtsCommandText(cleanMessage) && ttsFragments) {
         commandFragments = stripCommandPrefixFromFragments(ttsFragments, '!tts');
     }
 

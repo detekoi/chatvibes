@@ -255,18 +255,23 @@ function _scheduleReconnect(channelId, connState) {
  * from anyone else here — a "subs" or "vip" gate therefore admits only
  * moderators and the owner from YouTube.
  *
+ * The display name is deliberately left out. permissions.js also treats a
+ * username equal to the channel name as the broadcaster, which is sound for a
+ * Twitch login (unique, and the message is authenticated) but not for a
+ * YouTube display name, which anyone can set to anything. Badges are the only
+ * signal here that the viewer cannot choose for themselves.
+ *
  * @param {object|undefined} tags - msg.tags from the proxy.
- * @param {string} username - Display name, for the log line permissions.js writes.
- * @returns {{ username: string, badges: Record<string, boolean> }}
+ * @returns {{ badges: Record<string, boolean> }}
  */
-function toRoleTags(tags, username) {
+function toRoleTags(tags) {
     const badges = {};
     const raw = typeof tags?.badges === 'string' ? tags.badges : '';
     for (const badge of raw.split(',')) {
         const id = badge.split('/')[0].trim();
         if (id) badges[id] = true;
     }
-    return { username, badges };
+    return { badges };
 }
 
 /**
@@ -354,7 +359,7 @@ export async function handleYouTubeChatMessage(channelId, msg) {
                 'YouTube Chat: Skipping !tts - unrecognized ttsPermissionLevel');
             return;
         }
-        if (requiredPermission !== 'everyone' && !hasPermissionLevel(requiredPermission, toRoleTags(msg.tags, username), channelId)) {
+        if (requiredPermission !== 'everyone' && !hasPermissionLevel(requiredPermission, toRoleTags(msg.tags), channelId)) {
             logger.debug({ channelId, username, requiredPermission },
                 'YouTube Chat: Skipping !tts - insufficient ttsPermissionLevel');
             return;

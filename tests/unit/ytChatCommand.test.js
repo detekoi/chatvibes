@@ -145,6 +145,14 @@ describe('YouTube chat: !tts command', () => {
             expect(spoken()[0].text).toBe('hello');
         });
 
+        it('does not treat a display name matching the channel as the broadcaster', async () => {
+            // A YouTube display name is chosen by the viewer, so the login-equals-channel
+            // fallback in permissions.js must not apply here.
+            getTtsState.mockResolvedValue({ ...baseConfig, ttsPermissionLevel: 'mods' });
+            await handleYouTubeChatMessage('chan-1', message('!tts hello', { username: 'chan-1' }));
+            expect(dispatchYouTubeTtsEvent).not.toHaveBeenCalled();
+        });
+
         it('denies everyone on an unrecognised level rather than failing open', async () => {
             getTtsState.mockResolvedValue({ ...baseConfig, ttsPermissionLevel: 'bogus' });
             await handleYouTubeChatMessage('chan-1', message('!tts hello', { tags: { badges: 'broadcaster/1' } }));

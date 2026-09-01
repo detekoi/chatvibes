@@ -42,6 +42,11 @@ describe('stripCommandPrefixFromFragments', () => {
         expect(out).toEqual([{ type: 'text', text: 'hello ' }, { type: 'emote', text: 'Kappa' }]);
     });
 
+    it('matches the prefix case-insensitively', () => {
+        const out = stripCommandPrefixFromFragments([{ type: 'text', text: '!TTS hello' }]);
+        expect(out).toEqual([{ type: 'text', text: 'hello' }]);
+    });
+
     it('drops the fragment entirely when only the prefix was in it', () => {
         const out = stripCommandPrefixFromFragments([
             { type: 'text', text: '!tts ' },

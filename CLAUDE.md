@@ -35,7 +35,9 @@ This repository contains a Twitch Text-to-Speech (TTS) bot named WildcatTTS. The
     would close a cycle, and a test pins the two together — and `ttsPermissionLevel` is enforced
     as the Twitch `say` handler does. The proxy only forwards owner and moderator badges
     (membership badges carry no icon type), so a `subs`/`vip` gate admits only those two from
-    YouTube. Note that YouTube's `all` mode does not apply `ttsPermissionLevel` at all; that
+    YouTube. Role checks use **badges only**: `permissions.js` also treats a username equal to
+    the channel name as the broadcaster, which is sound for an authenticated Twitch login but
+    not for a YouTube display name, which the viewer picks — so `toRoleTags` never passes one. Note that YouTube's `all` mode does not apply `ttsPermissionLevel` at all; that
     predates this and was left alone.
 
 - **Key Flows**:
