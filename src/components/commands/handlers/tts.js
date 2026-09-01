@@ -31,6 +31,7 @@ import preferences from '../tts/preferences.js';
 import emoteCmd from '../tts/emote.js';
 import pronounce from '../tts/pronounce.js';
 import profanity from '../tts/profanity.js';
+import redeems from '../tts/redeems.js';
 import { hasPermission } from '../commandProcessor.js'; // Import the centralized function
 // Create subcommands object. Exported so tests can check it against
 // tts/subcommandNames.js, which the YouTube path consults (see that file).
@@ -75,6 +76,10 @@ export const ttsSubCommands = {
     pronounciation: pronounce, // common misspelling
     profanity,
     profanityfilter: profanity,
+    redeems,
+    redeem: redeems,
+    rewards: redeems,
+    reward: redeems,
 };
 
 export default {

@@ -11,14 +11,9 @@ import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { consumeFragments } from '../redemptionFragmentCache.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { isRewardMuted } from '../../../lib/rewardMuteList.js';
 import { getTranslator, resolveChannelLocale } from '../../../i18n/index.js';
-import { Firestore } from '@google-cloud/firestore';
-
-let _firestoreDb = null;
-function getDb() {
-    if (!_firestoreDb) _firestoreDb = new Firestore();
-    return _firestoreDb;
-}
+import { getBroadcasterAccessToken } from '../broadcasterToken.js';
 
 // Redemption IDs already announced, so a redemption can't be announced twice.
 // Twitch's docs don't state whether an auto-fulfilled (skip-queue) redemption also
@@ -222,6 +217,16 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         return;
     }
 
+    // A muted reward (a soundboard, say) is never announced, on either path.
+    // Checked before the pending-approval stash below so a muted redemption is
+    // not held and then spoken on approval; the removeRedemption covers an
+    // entry stashed before the reward was muted.
+    if (isRewardMuted(ttsConfig, rewardId)) {
+        if (redemptionId) redemptionCache.removeRedemption(redemptionId);
+        logger.debug({ channelLogin, rewardId, rewardTitle }, 'Reward is muted — skipping redemption announcement');
+        return;
+    }
+
     // Opt-out, not opt-in: a config written before this setting existed has no
     // field at all, and those are exactly the channels the silence was reported on.
     const announceOnAdd = ttsConfig.announceUnfulfilledRedemptions !== false;
@@ -317,58 +322,6 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         userId,
         type: 'event'
     }, sharedSessionInfo);
-}
-
-/**
- * Get user access token for broadcaster from Firestore
- * This retrieves the broadcaster's OAuth token with channel:manage:redemptions scope
- */
-async function getBroadcasterAccessToken(broadcasterId, channelLogin) {
-    try {
-        const db = getDb();
-
-        // Get user document from managedChannels collection (keyed by broadcaster ID)
-        const userDoc = await db.collection('managedChannels').doc(broadcasterId).get();
-
-        if (!userDoc.exists) {
-            logger.warn({ broadcasterId }, 'Broadcaster not found in managedChannels - cannot get user token');
-            return null;
-        }
-
-        const userData = userDoc.data();
-        const { needsTwitchReAuth } = userData;
-
-        if (needsTwitchReAuth) {
-            logger.warn({ broadcasterId }, 'Broadcaster needs to re-authenticate - cannot reject redemption');
-            return null;
-        }
-
-        const twitchUserId = broadcasterId;
-
-        // Get access token from Firestore (migrated from Secret Manager)
-        const oauthDoc = await db.collection('users').doc(twitchUserId)
-            .collection('private').doc('oauth').get();
-
-        if (!oauthDoc.exists) {
-            logger.warn({ channelLogin, twitchUserId }, 'Broadcaster OAuth tokens not found in Firestore');
-            return null;
-        }
-
-        const accessToken = oauthDoc.data()?.twitchAccessToken;
-        if (accessToken) {
-            logger.debug({ channelLogin }, 'Retrieved broadcaster access token from Firestore');
-            return accessToken.trim();
-        } else {
-            logger.warn({ channelLogin, twitchUserId }, 'Broadcaster OAuth doc exists but no access token');
-            return null;
-        }
-    } catch (error) {
-        logger.error({
-            err: error,
-            channelLogin
-        }, 'Error getting broadcaster access token');
-        return null;
-    }
 }
 
 /**

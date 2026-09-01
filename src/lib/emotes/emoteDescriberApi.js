@@ -76,6 +76,15 @@ export function isGeminiAvailable() {
 }
 
 /**
+ * The shared client, for other small Gemini calls (rewardMatcherApi.js) so a
+ * deployment configures one key in one place. null until initGeminiClient ran.
+ * @returns {import('@google/genai').GoogleGenAI | null}
+ */
+export function getGeminiClient() {
+    return genAI;
+}
+
+/**
  * Build a context-aware emote prompt prefix.
  * @param {string} emoteName
  * @param {string | null} ownerName

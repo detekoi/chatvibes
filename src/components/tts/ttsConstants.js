@@ -47,6 +47,9 @@ export const DEFAULT_TTS_SETTINGS = {
     // TTS ignore list, keyed by immutable platform account ID. See src/lib/ignoreList.js
     // for the key format and why login names are not used.
     ignoredUserIds: {},
+    // Channel point rewards whose redemptions are not announced, keyed by
+    // Twitch reward ID. See src/lib/rewardMuteList.js.
+    mutedRewardIds: {},
     // It's good practice to initialize userPreferences in default settings
     // userPreferences: {}, // Will be handled by ttsState.js if it needs to be part of base default
 };

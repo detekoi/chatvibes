@@ -508,6 +508,66 @@ export async function removeIgnoredUser(channelName, key) {
     }
 }
 
+// --- Muted rewards (channel point redemptions that are not announced) ---
+//
+// Keyed by Twitch reward ID; see src/lib/rewardMuteList.js for the shape and
+// why it is an exclusion list. Same write mechanics as the ignore list.
+
+/**
+ * Stop announcing redemptions of one reward.
+ * @param {string} channelName
+ * @param {string} rewardId Twitch custom reward ID.
+ * @param {{ title: string, by: string|null, at: string }} entry Built by buildMutedRewardEntry.
+ * @returns {Promise<boolean>}
+ */
+export async function muteReward(channelName, rewardId, entry) {
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
+    try {
+        await docRef.set({
+            mutedRewardIds: { [rewardId]: entry },
+            updatedAt: FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        const config = await getTtsState(channelId);
+        config.mutedRewardIds = { ...(config.mutedRewardIds || {}), [rewardId]: entry };
+        channelConfigsCache.set(channelId, config);
+        logger.info(`[${channelName}] Reward muted: ${rewardId} ("${entry.title}")`);
+        return true;
+    } catch (error) {
+        logger.error({ err: error, channel: channelName, rewardId }, 'Failed to mute reward in Firestore.');
+        return false;
+    }
+}
+
+/**
+ * Announce redemptions of one reward again.
+ * @param {string} channelName
+ * @param {string} rewardId
+ * @returns {Promise<boolean>}
+ */
+export async function unmuteReward(channelName, rewardId) {
+    const channelId = resolveChannelId(channelName);
+    const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
+    try {
+        await docRef.update(new FieldPath('mutedRewardIds', rewardId), FieldValue.delete(),
+            'updatedAt', FieldValue.serverTimestamp());
+
+        const config = await getTtsState(channelId);
+        const next = { ...(config.mutedRewardIds || {}) };
+        delete next[rewardId];
+        config.mutedRewardIds = next;
+        channelConfigsCache.set(channelId, config);
+        logger.info(`[${channelName}] Reward unmuted: ${rewardId}`);
+        return true;
+    } catch (error) {
+        // 5 is NOT_FOUND: the entry was already gone, which is the desired end state.
+        if (error.code === 5) return true;
+        logger.error({ err: error, channel: channelName, rewardId }, 'Failed to unmute reward in Firestore.');
+        return false;
+    }
+}
+
 // --- Pronunciation dictionary (channel overrides for the built-in acronyms) ---
 //
 // Stored as a map field rather than an array, so arrayUnion/arrayRemove do not

@@ -558,6 +558,51 @@ describe('handleRedemptionAnnouncement', () => {
         });
     });
 
+    describe('mutedRewardIds', () => {
+        const mutedConfig = {
+            ...defaultTtsConfig,
+            mutedRewardIds: { 'reward-horn': { title: 'Air Horn', by: 'twitch:1', at: null } },
+        };
+        const hornEvent = (status) => ({
+            id: 'redemption-horn',
+            user_name: 'TestUser',
+            user_login: 'testuser',
+            user_id: '4242',
+            reward: { id: 'reward-horn', title: 'Air Horn' },
+            user_input: '',
+            status,
+        });
+
+        it('stays silent for a muted reward that skips the queue', async () => {
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.add', hornEvent('fulfilled'), 'testchannel', mutedConfig
+            );
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('neither stashes nor later announces a muted reward on the deferred path', async () => {
+            const deferredMuted = { ...mutedConfig, announceUnfulfilledRedemptions: false };
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.add', hornEvent('unfulfilled'), 'testchannel', deferredMuted
+            );
+            expect(mockAddRedemption).not.toHaveBeenCalled();
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.update', hornEvent('fulfilled'), 'testchannel', deferredMuted
+            );
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('still announces every other reward', async () => {
+            const event = { ...hornEvent('fulfilled'), id: 'redemption-other', reward: { id: 'reward-other', title: 'Hydrate' } };
+            await handleRedemptionAnnouncement(
+                'channel.channel_points_custom_reward_redemption.add', event, 'testchannel', mutedConfig
+            );
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel', expect.objectContaining({ text: 'TestUser redeemed Hydrate' }), null
+            );
+        });
+    });
+
     it('should use fallback name when user_name is missing', async () => {
         const event = {
             reward: { id: 'reward-123', title: 'Hydrate' },

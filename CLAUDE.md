@@ -94,6 +94,8 @@ export TWITCH_CHANNELS=yourchannel
   - `!tts defaultlanguage <language>` - (Mod) Set channel's default language boost.
   - `!tts pronounce <word> = <how to say it>` - (Mod) Add or update a channel pronunciation.
   - `!tts pronounce list | remove <word> | off <word> | test <text> | defaults` - (Mod) Manage the dictionary. `off` disables a built-in without deleting it; `test` previews an expansion without speaking it.
+  - `!tts redeems mute <reward title>` / `unmute <reward title>` / `list` / `all` - (Mod) Choose which
+    channel point redeems are announced. See "Muted rewards" below for how a typed title is resolved.
   - `!tts profanity block|allow|status` - (Mod) Start or stop the profanity filter (off by default). The verb names the outcome because `on` reads as if it enables profanity; `on`/`off` and a few synonyms are still accepted.
 
 ## Pronunciation and Profanity
@@ -207,6 +209,29 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
   A cheer whose text starts with `!tts` is routed to the cheer branch with the prefix dropped, not
   to `say.js`: through `say` it would hit the permission level and go silent in `bits_points_only`,
   which is the opposite of what a paid message deserves. `chatHandlerCheers.test.js` pins it.
+- **Muted rewards (`mutedRewardIds`).** Redemption announcements are all-or-nothing under
+  `speakRedemptionEvents`; this map carves out the rewards that stay silent, typically soundboards,
+  which play their own audio. It is an **exclusion** list keyed by Twitch's reward ID (a rename
+  must not shed the entry) with the title stored for display only, so every existing channel hears
+  no change and there was no migration. `src/lib/rewardMuteList.js` owns the format and the
+  dashboard mirrors it in `functions/src/services/mutedRewards.ts`; change both together. The guard
+  sits in `handleRedemptionAnnouncement` **before** the pending-approval stash, so a muted reward is
+  neither announced on `.add` nor held and spoken on approval. The configured TTS reward is never in
+  this list: it is not announced anyway, and `!tts redeems mute` refuses it.
+  - **`!tts redeems mute <title>` resolves the title to an ID through Helix**, which needs the
+    *broadcaster's* token (`channel:manage:redemptions`), not the app token, so
+    `customRewards.js` calls Helix directly rather than through `helixClient.js`, using the token
+    the dashboard stored (`broadcasterToken.js`, shared with redemption rejection). A channel whose
+    streamer never signed in to the dashboard is told so.
+  - **Resolution is deterministic first, model second, and the model may only narrow.**
+    `rewardResolver.js` takes the exact title, then a unique partial match (every typed word in one
+    title, any order). Only when that yields nothing or several does it ask Gemini
+    (`rewardMatcherApi.js`, the emote describer's client and model) — for typos and paraphrases — and
+    it accepts the answer only if the model is confident *and* the ID is in the pool it was shown.
+    A pick from outside the candidates, a low-confidence pick, an error or no API key all fall back
+    to the deterministic answer, so the model cannot mute a reward the words could not have meant.
+    Every reply names the reward actually muted, and `unmute` matches against the stored titles
+    without a Helix call, so a wrong resolution costs one command.
 - **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `true` (default, interactive mode), `false` (silent mode)
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings

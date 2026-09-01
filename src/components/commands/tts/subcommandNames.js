@@ -51,6 +51,10 @@ export const TTS_SUBCOMMAND_NAMES = new Set([
     'pronounciation',
     'profanity',
     'profanityfilter',
+    'redeems',
+    'redeem',
+    'rewards',
+    'reward',
 ]);
 
 /**
