@@ -16,6 +16,7 @@ import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js
 import { resolveChannelLocale } from '../../../i18n/index.js';
 import { storeFragments } from '../redemptionFragmentCache.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { isTtsSubCommand } from '../../commands/tts/subcommandNames.js';
 
 /**
  * Handle channel.chat.message events
@@ -101,11 +102,18 @@ export async function handleChatMessage(event, channelName) {
     const containsBannedWord = ttsConfig.bannedWords?.length > 0 &&
         ttsConfig.bannedWords.some(w => w && cleanMessage.toLowerCase().includes(String(w).toLowerCase()));
 
-    // If TTS is globally off, user is ignored, or message contains banned word, skip TTS
-    if (!ttsConfig.engineEnabled || isTtsIgnored || containsBannedWord) {
-        if (containsBannedWord) {
-            logger.debug({ channelName, user: username }, 'Skipping message containing banned word');
-        }
+    // These three suppress *speech*, not commands. Returning here used to skip
+    // command processing too, so "!tts off" locked moderators out of "!tts on"
+    // and every other chat command until someone opened the dashboard, and an
+    // ignored viewer could not run "!tts ignore del" to opt back in. Commands
+    // now run below with their own checks: say.js refuses when the engine is
+    // off and replies to say so. The one command that must not run for an
+    // ignored viewer or a banned word is "!tts <text>", because it is speech.
+    const speechSuppressed = !ttsConfig.engineEnabled || isTtsIgnored || containsBannedWord;
+    const ttsCommand = parseTtsCommandText(cleanMessage);
+    const isSayCommand = !!ttsCommand && ttsCommand.args.length > 0 && !isTtsSubCommand(ttsCommand.args[0]);
+    if (isSayCommand && (isTtsIgnored || containsBannedWord)) {
+        logger.debug({ channelName, user: username, ignored: isTtsIgnored, bannedWord: containsBannedWord }, 'Skipping !tts say');
         return;
     }
 
@@ -146,7 +154,7 @@ export async function handleChatMessage(event, channelName) {
     // Case-insensitive, matching commandProcessor: "!TTS hello" is dispatched
     // to say.js too, so its fragments need the same trim.
     let commandFragments = ttsFragments;
-    if (parseTtsCommandText(cleanMessage) && ttsFragments) {
+    if (ttsCommand && ttsFragments) {
         commandFragments = stripCommandPrefixFromFragments(ttsFragments, '!tts');
     }
 
@@ -157,6 +165,11 @@ export async function handleChatMessage(event, channelName) {
         channelEmoteMode,
         readFullUrls: ttsConfig.readFullUrls,
     });
+
+    if (speechSuppressed) {
+        logger.debug({ channelName, user: username, engineEnabled: ttsConfig.engineEnabled, ignored: isTtsIgnored, bannedWord: containsBannedWord }, 'Speech suppressed; command processed only');
+        return;
+    }
 
     // --- TTS PUBLISHING ---
     // A. If a command was just run, decide if we should READ the command text aloud

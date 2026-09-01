@@ -298,8 +298,8 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
 **`!tts mode [all|command|bits_points_only]`**
 
   * **Description:** Changes the TTS mode.
-      * `all`: Reads all chat messages (based on `!tts permission` setting) and enabled events. **(Default)**
-      * `command`: Reads only explicit `!tts` commands and enabled events. Ignores regular chat.
+      * `all`: Reads all chat messages (based on `!tts permission` setting) and enabled events.
+      * `command`: Reads only explicit `!tts` commands and enabled events. Ignores regular chat. **(Default)**
       * `bits_points_only`: Reads only Bits cheers and Channel Point redemptions. Ignores regular chat and commands.
   * **Permission:** Moderator
   * **Usage:**
