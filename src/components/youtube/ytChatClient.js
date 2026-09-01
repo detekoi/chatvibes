@@ -11,6 +11,9 @@ import { getTranslator, resolveChannelLocale } from '../../i18n/index.js';
 import { getPronunciationRules } from '../../lib/textRewrite/pronunciation.js';
 import { processYouTubeEmotes } from './ytEmoteProcessor.js';
 import { isYouTubeUserIgnored } from '../../lib/ignoreList.js';
+import { hasPermissionLevel, mapPermissionLevel } from '../../lib/permissions.js';
+import { parseTtsCommandText, stripCommandPrefixFromFragments } from '../../lib/ttsCommandText.js';
+import { isTtsSubCommand } from '../commands/tts/subcommandNames.js';
 
 const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://ytchat.wildcat.chat/ws';
 
@@ -189,7 +192,7 @@ function _connect(channelId, connState) {
         ws.on('message', async (data) => {
             try {
                 const msg = JSON.parse(data.toString());
-                await _handleMessage(channelId, msg);
+                await handleYouTubeChatMessage(channelId, msg);
             } catch (err) {
                 logger.warn({ err, channelId, rawData: data.toString().substring(0, 200) }, 'YouTube Chat: Failed to parse message');
             }
@@ -243,12 +246,38 @@ function _scheduleReconnect(channelId, connState) {
 }
 
 /**
+ * Translate the proxy's tag shape into the one src/lib/permissions.js reads.
+ *
+ * The proxy sends badges as a comma-joined string of "<id>/1" (see poller.go
+ * normalizeAction), mapping the YouTube OWNER icon to "broadcaster" and
+ * MODERATOR to "moderator". Membership badges are custom images with no icon
+ * type, so the proxy does not forward them and a member is indistinguishable
+ * from anyone else here — a "subs" or "vip" gate therefore admits only
+ * moderators and the owner from YouTube.
+ *
+ * @param {object|undefined} tags - msg.tags from the proxy.
+ * @param {string} username - Display name, for the log line permissions.js writes.
+ * @returns {{ username: string, badges: Record<string, boolean> }}
+ */
+function toRoleTags(tags, username) {
+    const badges = {};
+    const raw = typeof tags?.badges === 'string' ? tags.badges : '';
+    for (const badge of raw.split(',')) {
+        const id = badge.split('/')[0].trim();
+        if (id) badges[id] = true;
+    }
+    return { username, badges };
+}
+
+/**
  * Handle incoming messages from yt-chat-proxy.
  * Message format from the proxy (see poller.go normalizeAction):
  *   { type: "message", eventType, username, message, emotes, emoteFragments?, tags, id, channelId, amount?, subtext?, bodyColor?, headerColor? }
  *   { type: "system", status?, message? }
+ *
+ * Exported for tests; the WebSocket handler above is the only runtime caller.
  */
-async function _handleMessage(channelId, msg) {
+export async function handleYouTubeChatMessage(channelId, msg) {
     // System messages (connection status, waiting for stream, etc.)
     if (msg.type === 'system') {
         logger.info({ channelId, status: msg.status, message: msg.message }, 'YouTube Chat: System message');
@@ -298,6 +327,43 @@ async function _handleMessage(channelId, msg) {
     const locale = resolveChannelLocale(ttsConfig);
     const t = getTranslator(locale);
 
+    // "!tts <text>" from YouTube. Twitch routes this through commandProcessor
+    // to the say handler; YouTube has no command processing at all, so the one
+    // command that answers with audio is recognised here. It is what makes the
+    // bot usable from YouTube in command mode, where nothing else is spoken.
+    //
+    // The subcommands are deliberately not run: the bot cannot reply in a
+    // YouTube chat, and "!tts off" typed there should stay silent rather than
+    // be read aloud as the word "off". Cheers and memberships keep their own
+    // paths below; only plain chat is checked.
+    let textToSpeak = messageText;
+    let fragmentsToSpeak = msg.emoteFragments || null;
+    const ttsCommand = eventType === 'chat' ? parseTtsCommandText(messageText) : null;
+    if (ttsCommand) {
+        if (ttsCommand.args.length === 0 || isTtsSubCommand(ttsCommand.args[0])) {
+            logger.debug({ channelId, username, subcommand: ttsCommand.args[0] || null },
+                'YouTube Chat: !tts subcommand not available from YouTube, skipping');
+            return;
+        }
+
+        // Same gate the say handler applies on Twitch, so ttsPermissionLevel
+        // cannot be sidestepped by typing the command from YouTube instead.
+        const requiredPermission = mapPermissionLevel(ttsConfig.ttsPermissionLevel);
+        if (requiredPermission === null) {
+            logger.debug({ channelId, username, ttsPermissionLevel: ttsConfig.ttsPermissionLevel },
+                'YouTube Chat: Skipping !tts - unrecognized ttsPermissionLevel');
+            return;
+        }
+        if (requiredPermission !== 'everyone' && !hasPermissionLevel(requiredPermission, toRoleTags(msg.tags, username), channelId)) {
+            logger.debug({ channelId, username, requiredPermission },
+                'YouTube Chat: Skipping !tts - insufficient ttsPermissionLevel');
+            return;
+        }
+
+        textToSpeak = ttsCommand.args.join(' ');
+        fragmentsToSpeak = stripCommandPrefixFromFragments(fragmentsToSpeak);
+    }
+
     // Resolve emote mode from channel config.
     // YouTube does not currently support per-user emote mode overrides (unlike Twitch).
     const emoteMode = ttsConfig.emoteMode || 'describe';
@@ -307,7 +373,7 @@ async function _handleMessage(channelId, msg) {
     // Shared pipeline: emotes → URLs → Unicode emoji → pronunciations.
     // Only the emote step differs from Twitch, so it is injected rather than
     // the whole pipeline being duplicated here.
-    let processedText = await formatTtsText(messageText, msg.emoteFragments || null, {
+    let processedText = await formatTtsText(textToSpeak, fragmentsToSpeak, {
         emoteMode,
         channelEmoteMode: emoteMode,
         readFullUrls: ttsConfig.readFullUrls,
@@ -353,13 +419,19 @@ async function _handleMessage(channelId, msg) {
 
         case 'chat':
         default:
+            // "!tts <text>" is spoken in every mode, exactly as on Twitch where
+            // the say handler runs before the mode is consulted.
+            if (ttsCommand) {
+                ttsType = 'command_say';
+                break;
+            }
+
             // Regular chat — follow TTS mode rules
             ttsType = 'chat';
 
             // Check TTS mode (same logic as Twitch)
             if (ttsConfig.mode === 'command') {
-                // In command mode, only !tts commands trigger TTS
-                // YouTube doesn't have commands, so skip regular chat
+                // In command mode, only "!tts <text>" triggers TTS, handled above
                 logger.debug({ channelId, mode: ttsConfig.mode }, 'YouTube Chat: Skipping regular chat in command mode');
                 return;
             }

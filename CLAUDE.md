@@ -23,6 +23,20 @@ This repository contains a Twitch Text-to-Speech (TTS) bot named WildcatTTS. The
     - `false`: Silent mode - bot listens to chat but does NOT respond to commands. All configuration happens via the web dashboard.
   - The setting is configured per-channel via the `botRespondsInChat` field in Firestore's `ttsChannelConfigs` collection.
   - Implementation: See `src/components/twitch/eventsub.js` for EventSub webhook handling and `src/lib/chatSender.js` for message sending that respects the botRespondsInChat setting.
+  - **YouTube chat and `!tts`**: YouTube messages (`src/components/youtube/ytChatClient.js`)
+    never go through `commandProcessor` — the bot cannot reply in a YouTube chat, so the
+    subcommands have nothing to say there. The one exception is `!tts <text>`, which answers in
+    audio: the handler recognises it via `src/lib/ttsCommandText.js`, strips the prefix from the
+    text and from emote fragments, and speaks it as `command_say` in every mode. Without this a
+    channel in command mode heard nothing from YouTube but Super Chats. Two boundaries are
+    deliberate: a recognised subcommand name (`!tts off`, `!tts status`) stays **silent** rather
+    than being read aloud as a word — the list lives in `commands/tts/subcommandNames.js`,
+    separate from the dispatch map because importing `handlers/tts.js` from the YouTube client
+    would close a cycle, and a test pins the two together — and `ttsPermissionLevel` is enforced
+    as the Twitch `say` handler does. The proxy only forwards owner and moderator badges
+    (membership badges carry no icon type), so a `subs`/`vip` gate admits only those two from
+    YouTube. Note that YouTube's `all` mode does not apply `ttsPermissionLevel` at all; that
+    predates this and was left alone.
 
 - **Key Flows**:
   1. Bot subscribes to EventSub webhooks for specified Twitch channels

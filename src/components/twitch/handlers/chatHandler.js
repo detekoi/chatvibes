@@ -6,6 +6,7 @@ import config from '../../../config/index.js';
 import { convertEventSubToTags } from '../eventSubToTags.js';
 import { processMessage as processCommand, hasPermission } from '../../commands/commandProcessor.js';
 import { mapPermissionLevel } from '../../../lib/permissions.js';
+import { stripCommandPrefixFromFragments } from '../../../lib/ttsCommandText.js';
 import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
@@ -231,41 +232,4 @@ export async function handleChatMessage(event, channelName) {
             logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping regular chat in command mode');
         }
     }
-}
-
-/**
- * Strip the command prefix (e.g. "!tts") from the beginning of a fragment array.
- * The first text fragment typically contains "!tts " or "!tts" — we remove that
- * prefix text so the remaining fragments align with the content say.js will speak.
- *
- * @param {Array<{type: string, text: string}>} fragments - Original fragments (cheermotes already filtered).
- * @param {string} prefix - The command prefix to strip, e.g. "!tts".
- * @returns {Array<{type: string, text: string}>} A new array with the prefix removed from the first text fragment.
- */
-function stripCommandPrefixFromFragments(fragments, prefix) {
-    if (!fragments || fragments.length === 0) return fragments;
-
-    const result = [];
-    let prefixStripped = false;
-
-    for (const frag of fragments) {
-        if (!prefixStripped && frag.type === 'text') {
-            const trimmed = frag.text.trimStart();
-            if (trimmed.toLowerCase().startsWith(prefix.toLowerCase())) {
-                // Remove the prefix and any trailing whitespace after it
-                const remaining = trimmed.slice(prefix.length).replace(/^\s+/, '');
-                prefixStripped = true;
-                if (remaining) {
-                    result.push({ ...frag, text: remaining });
-                }
-                // If nothing remains after stripping, skip this fragment entirely
-            } else {
-                result.push(frag);
-            }
-        } else {
-            result.push(frag);
-        }
-    }
-
-    return result;
 }
