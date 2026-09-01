@@ -55,6 +55,8 @@ export const TTS_SUBCOMMAND_NAMES = new Set([
     'redeem',
     'rewards',
     'reward',
+    'readcommands',
+    'chatcommands',
 ]);
 
 /**

@@ -450,7 +450,13 @@ export async function handleYouTubeChatMessage(channelId, msg) {
                 logger.debug({ channelId, mode: ttsConfig.mode }, 'YouTube Chat: Skipping regular chat in bits_points_only mode');
                 return;
             }
-            // mode === 'all' falls through
+            // mode === 'all'. A message starting with "!" is another bot's
+            // command, not speech, when readCommandMessages is off. "!tts" was
+            // handled above and never gets here, exactly as on Twitch.
+            if (ttsConfig.readCommandMessages === false && messageText.trimStart().startsWith('!')) {
+                logger.debug({ channelId, username }, 'YouTube Chat: Skipping chat - starts with ! and readCommandMessages is off');
+                return;
+            }
             break;
     }
 

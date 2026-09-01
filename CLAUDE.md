@@ -96,6 +96,8 @@ export TWITCH_CHANNELS=yourchannel
   - `!tts pronounce list | remove <word> | off <word> | test <text> | defaults` - (Mod) Manage the dictionary. `off` disables a built-in without deleting it; `test` previews an expansion without speaking it.
   - `!tts redeems mute <reward title>` / `unmute <reward title>` / `list` / `all` - (Mod) Choose which
     channel point redeems are announced. See "Muted rewards" below for how a typed title is resolved.
+  - `!tts readcommands on|off` - (Mod) Whether a chat message that starts with `!` is read in `all`
+    mode. Off skips other bots' commands (`!lurk`, `!so`); `!tts` is never affected. See below.
   - `!tts profanity block|allow|status` - (Mod) Start or stop the profanity filter (off by default). The verb names the outcome because `on` reads as if it enables profanity; `on`/`off` and a few synonyms are still accepted.
 
 ## Pronunciation and Profanity
@@ -209,6 +211,19 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
   A cheer whose text starts with `!tts` is routed to the cheer branch with the prefix dropped, not
   to `say.js`: through `say` it would hit the permission level and go silent in `bits_points_only`,
   which is the opposite of what a paid message deserves. `chatHandlerCheers.test.js` pins it.
+- **Chat commands for other bots (`readCommandMessages`).** In `all` mode a `!`-prefixed message the
+  bot does not recognise (`!lurk`, `!so`, `!sr` for Nightbot or StreamElements) gets `null` back from
+  `commandProcessor`, falls through to the regular-chat branch of `chatHandler.js` and is read as chat;
+  a command the bot does know but that is not `!tts` is read aloud there on purpose. `readCommandMessages`
+  (default `true`, so no backfill and no channel heard a change) switches both off: a message starting
+  with `!` is then not speech. Two things are deliberately outside it. `!tts` never reaches either
+  branch, because `say.js` enqueues its own speech and returns `'tts'` before the setting is consulted,
+  so `!tts <text>` keeps working with it off. A cheer whose text starts with `!` is still read, as
+  cheers are exempt from every other gate. The setting means nothing in `command` and
+  `bits_points_only`, which never read these, so the dashboard shows the switch off and locked there
+  (the mirror of the cheer switch, which locks *on* in `bits_points_only`). The YouTube client applies
+  the same test at its `all` fallthrough, after `!tts` has been recognised. `!tts readcommands on|off`
+  flips it from chat. `chatHandlerCommandMessages.test.js` and `ytChatCommandMessages.test.js` pin it.
 - **Muted rewards (`mutedRewardIds`).** Redemption announcements are all-or-nothing under
   `speakRedemptionEvents`; this map carves out the rewards that stay silent, typically soundboards,
   which play their own audio. It is an **exclusion** list keyed by Twitch's reward ID (a rename

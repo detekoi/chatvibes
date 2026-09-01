@@ -28,6 +28,10 @@ export const DEFAULT_TTS_SETTINGS = {
     // this switch is for all and command mode. A cheer is paid for, so it is
     // never subject to ttsPermissionLevel.
     readCheerMessages: true,
+    // Read a chat message that starts with "!" in all mode. Off skips other
+    // bots' commands (!lurk, !so, !sr) that were being spoken as chat. "!tts"
+    // is never affected: it is dispatched as a command before this is consulted.
+    readCommandMessages: true,
     bitsMinimumAmount: 1, // Cheers below this are not read. 1 means every cheer that carries a message.
     // A reward that does not skip Twitch's request queue is redeemed as
     // .add + unfulfilled, and waiting for the streamer to accept it means a

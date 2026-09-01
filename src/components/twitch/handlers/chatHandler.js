@@ -185,10 +185,23 @@ export async function handleChatMessage(event, channelName) {
     }
 
     // --- TTS PUBLISHING ---
+    // readCommandMessages off means a message starting with "!" is not speech
+    // in all mode. It covers both branches below: a command the bot ran itself
+    // (!myvoice) and one it does not know (!lurk, !so), which otherwise falls
+    // through and is read as ordinary chat. !tts never reaches either branch:
+    // say.js enqueues its own speech and returns 'tts', which is skipped here.
+    // Cheers are exempt below, as they are from every other gate: paid for.
+    const isCommandShaped = cleanMessage.trimStart().startsWith('!');
+    const skipCommandMessage = ttsConfig.readCommandMessages === false && isCommandShaped;
+
     // A. If a command was just run, decide if we should READ the command text aloud
     if (processedCommandName) {
         // Read non-tts commands aloud in 'all' mode
         if (processedCommandName !== 'tts' && ttsConfig.mode === 'all') {
+            if (skipCommandMessage) {
+                logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Skipping command text - readCommandMessages is off');
+                return;
+            }
             const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls, pronunciationRules: getPronunciationRules(ttsConfig),
             locale });
             if (processedMessage) {
@@ -229,6 +242,10 @@ export async function handleChatMessage(event, channelName) {
         }
         // Handle regular chat messages (no bits)
         else if (ttsConfig.mode === 'all') {
+            if (skipCommandMessage) {
+                logger.debug({ channel: channelName, user: username }, 'Skipping chat - starts with ! and readCommandMessages is off');
+                return;
+            }
             const requiredPermission = mapPermissionLevel(ttsConfig.ttsPermissionLevel);
             if (requiredPermission === null) {
                 logger.debug({ channel: channelName, user: username, ttsPermissionLevel: ttsConfig.ttsPermissionLevel }, 'Skipping chat - unrecognized ttsPermissionLevel');
