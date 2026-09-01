@@ -424,9 +424,15 @@ export async function handleYouTubeChatMessage(channelId, msg) {
 
         case 'chat':
         default:
-            // "!tts <text>" is spoken in every mode, exactly as on Twitch where
-            // the say handler runs before the mode is consulted.
+            // "!tts <text>" is spoken in all and command mode, exactly as on
+            // Twitch. In bits_points_only mode the Twitch say handler stays
+            // silent, because speech there is something a viewer pays for, and
+            // so does this.
             if (ttsCommand) {
+                if (ttsConfig.mode === 'bits_points_only') {
+                    logger.debug({ channelId, mode: ttsConfig.mode }, 'YouTube Chat: Skipping !tts in bits_points_only mode');
+                    return;
+                }
                 ttsType = 'command_say';
                 break;
             }

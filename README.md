@@ -79,7 +79,7 @@ Approved streamers can add or remove WildcatTTS and configure streaming software
    * To avoid chat filters, grant moderator status to the bot with `/mod <bot-username>`.
 
 5. **How TTS Triggers Work**:
-   * By default, WildcatTTS operates in **all messages** mode, where it reads most chat messages. You can use the `!tts permission` and `!tts mode` commands to change this behavior.
+   * By default, WildcatTTS operates in **command** mode, where it reads only `!tts <message>`. You can use the `!tts mode` and `!tts permission` commands, or the dashboard, to change this behavior.
    * You can trigger TTS with commands such as `!tts <your message>` or `!tts say <your message>`.
    * In **Bits to TTS** mode, the bot reads messages only when a cheer meets the minimum Bit amount.
    * In **Channel Points to TTS** mode, viewers redeem a custom Channel Point reward to read a message.
@@ -239,13 +239,12 @@ The Channel Points to TTS feature works with all TTS modes:
 ## OBS Browser Source Setup
 
 1. In OBS, add a new **Browser** source.
-2. Set the URL to your unique TTS URL from the WildcatTTS dashboard, or to `http://localhost:8080/?channel=yourchannelname` for local development.
-3. Set the width and height for the source.
-4. Right-click the Browser source in OBS and select **Interact**.
-5. If the page shows **Click to Enable TTS Audio**, select it once to enable audio playback.
-6. Open the **Audio Mixer** section in OBS.
-7. Select the options menu (⋮) next to the browser source audio track and select **Advanced Audio Properties**.
-8. Set **Audio Monitoring** to **Monitor and Output**.
+2. Set the URL to your unique TTS URL from the WildcatTTS dashboard (the **OBS Setup** button). For local development, point it at your local server; the player needs both the `channel` and `token` query parameters.
+3. Keep the default width and height. The page has no visible content, and size does not affect audio.
+4. Select **Control audio via OBS**, and make sure **Shutdown source when not visible** is not selected.
+5. Open the **Audio Mixer** section in OBS.
+6. Select the options menu (⋮) next to the browser source audio track and select **Advanced Audio Properties**.
+7. Set **Audio Monitoring** to **Monitor and Output**.
 
 ## Command Documentation
 
@@ -322,7 +321,7 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
       * `!tts permission mods`
       * `!tts permission` (shows current permission setting)
 
-**`!tts bits [on|off|min <amount>]`**
+**`!tts bitsconfig [on|off|min <amount>]`** (Alias: `!tts bits`)
 
   * **Description:** Configures Bits to TTS mode and minimum cheer requirements.
       * `on`: Enables Bits to TTS mode.

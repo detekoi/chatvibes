@@ -4,7 +4,8 @@
 // YouTube messages never go through commandProcessor, so before this the only
 // thing a channel in command mode ever spoke from YouTube was Super Chats. The
 // handler now recognises the one command that answers in audio, and these tests
-// pin the boundaries: it works in every mode, it strips the prefix from the
+// pin the boundaries: it works in all and command mode and stays silent in
+// bits_points_only mode (as the Twitch say handler does), it strips the prefix from the
 // text and from emote fragments, it stays silent for subcommands the bot could
 // not answer anyway, and it honours ttsPermissionLevel the way the Twitch say
 // handler does.
@@ -90,10 +91,10 @@ describe('YouTube chat: !tts command', () => {
         expect(spoken()[0]).toMatchObject({ text: 'hello', type: 'command_say' });
     });
 
-    it('speaks the command in bits_points_only mode, matching Twitch', async () => {
+    it('stays silent in bits_points_only mode, matching the Twitch say handler', async () => {
         getTtsState.mockResolvedValue({ ...baseConfig, mode: 'bits_points_only' });
         await handleYouTubeChatMessage('chan-1', message('!tts hello'));
-        expect(spoken()[0]).toMatchObject({ text: 'hello', type: 'command_say' });
+        expect(spoken()).toEqual([]);
     });
 
     it('stays silent for a bare !tts', async () => {

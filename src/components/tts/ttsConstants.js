@@ -9,7 +9,7 @@ const ttsConfig = JSON.parse(readFileSync(join(__dirname, 'tts-config.json'), 'u
 
 export const DEFAULT_TTS_SETTINGS = {
     engineEnabled: true,
-    mode: 'all',
+    mode: 'command', // A channel that never chose one starts in command mode; the dashboard writes this at first sign-in
     ttsPermissionLevel: 'everyone',
     voiceId: config.tts?.defaultVoiceId || 'Friendly_Person',
     speed: config.tts?.defaultSpeed || ttsConfig.SPEED.DEFAULT,

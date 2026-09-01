@@ -27,7 +27,8 @@ This repository contains a Twitch Text-to-Speech (TTS) bot named WildcatTTS. The
     never go through `commandProcessor` — the bot cannot reply in a YouTube chat, so the
     subcommands have nothing to say there. The one exception is `!tts <text>`, which answers in
     audio: the handler recognises it via `src/lib/ttsCommandText.js`, strips the prefix from the
-    text and from emote fragments, and speaks it as `command_say` in every mode. Without this a
+    text and from emote fragments, and speaks it as `command_say` in `all` and `command` mode
+    (in `bits_points_only` it stays silent, as the Twitch `say` handler does). Without this a
     channel in command mode heard nothing from YouTube but Super Chats. Two boundaries are
     deliberate: a recognised subcommand name (`!tts off`, `!tts status`) stays **silent** rather
     than being read aloud as a word — the list lives in `commands/tts/subcommandNames.js`,
@@ -179,7 +180,13 @@ export TWITCH_CHANNELS=yourchannel
 
 TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with these settings:
 - Engine enabled/disabled
-- Mode (all chat or command only)
+- Mode (`all`, `command`, or `bits_points_only`). **The default for a channel that never chose one
+  is `command`**, and the dashboard writes `mode: 'command'` at first sign-in when the field is
+  unset so the bot and the dashboard agree. Before 2026-08-31 the bot's in-memory default was
+  `all` while the dashboard displayed an unset mode as `command`; the channels that had lived with
+  that were backfilled to `mode: 'all'` by `scripts/backfill_mode_all.js` so nothing they heard
+  changed. In `bits_points_only` mode `!tts <text>` is silent on both platforms, so speech is only
+  ever something a viewer paid for.
 - **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `true` (default, interactive mode), `false` (silent mode)
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings
