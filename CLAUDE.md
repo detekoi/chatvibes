@@ -204,6 +204,9 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
   `readCheerMessages: false` by `scripts/backfill_read_cheer_messages.js` so they heard no change,
   and the dead field was deleted. Before this, cheers in `all` mode were gated by the permission
   level; that went with the change.
+  A cheer whose text starts with `!tts` is routed to the cheer branch with the prefix dropped, not
+  to `say.js`: through `say` it would hit the permission level and go silent in `bits_points_only`,
+  which is the opposite of what a paid message deserves. `chatHandlerCheers.test.js` pins it.
 - **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `true` (default, interactive mode), `false` (silent mode)
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings

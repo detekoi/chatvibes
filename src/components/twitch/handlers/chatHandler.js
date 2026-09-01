@@ -159,12 +159,25 @@ export async function handleChatMessage(event, channelName) {
     }
 
     // --- COMMAND PROCESSING ---
-    const processedCommandName = await processCommand(channelName, tags, cleanMessage, {
-        fragments: commandFragments,
-        emoteMode,
-        channelEmoteMode,
-        readFullUrls: ttsConfig.readFullUrls,
-    });
+    // A cheer whose message starts with "!tts" is still a cheer: the viewer paid
+    // for it, so it must not go through say.js, where ttsPermissionLevel applies
+    // and bits_points_only mode is silent. The prefix is dropped and the text
+    // falls through to the cheer branch below. A cheer carrying a real
+    // subcommand ("!tts status") is rare and still runs as a command.
+    const isPaidSay = isSayCommand && bits > 0;
+    let processedCommandName = null;
+    if (isPaidSay) {
+        cleanMessage = ttsCommand.args.join(' ');
+        if (ttsFragments) ttsFragments = commandFragments;
+        logger.debug({ channelName, user: username, bits }, 'Cheer message starts with !tts; reading it as a cheer');
+    } else {
+        processedCommandName = await processCommand(channelName, tags, cleanMessage, {
+            fragments: commandFragments,
+            emoteMode,
+            channelEmoteMode,
+            readFullUrls: ttsConfig.readFullUrls,
+        });
+    }
 
     if (speechSuppressed) {
         logger.debug({ channelName, user: username, engineEnabled: ttsConfig.engineEnabled, ignored: isTtsIgnored, bannedWord: containsBannedWord }, 'Speech suppressed; command processed only');

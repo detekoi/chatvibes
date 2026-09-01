@@ -13,6 +13,7 @@ describe('handleChatMessage: cheer messages', () => {
     let dispatchTtsEvent;
     let getTtsState;
     let hasPermission;
+    let processMessage;
 
     const baseConfig = { engineEnabled: true, mode: 'command', emoteMode: 'read', ttsPermissionLevel: 'everyone' };
 
@@ -21,12 +22,13 @@ describe('handleChatMessage: cheer messages', () => {
         dispatchTtsEvent = jest.fn().mockResolvedValue(true);
         getTtsState = jest.fn().mockResolvedValue({ ...baseConfig });
         hasPermission = jest.fn().mockReturnValue(false); // a plain viewer
+        processMessage = jest.fn().mockResolvedValue(null);
 
         jest.unstable_mockModule('../../src/lib/logger.js', () => ({
             default: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
         }));
         jest.unstable_mockModule('../../src/components/commands/commandProcessor.js', () => ({
-            processMessage: jest.fn().mockResolvedValue(null),
+            processMessage,
             hasPermission,
         }));
         jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
@@ -96,6 +98,28 @@ describe('handleChatMessage: cheer messages', () => {
             await handleChatMessage(cheer(100), 'testchannel');
             expect(spoken()).toHaveLength(1);
         }
+    });
+
+    it('reads a cheer whose message starts with !tts as a cheer, not a command', async () => {
+        // Paid for, so neither the permission level nor bits_points_only silence applies,
+        // and the prefix is not spoken.
+        getTtsState.mockResolvedValue({ ...baseConfig, mode: 'bits_points_only', ttsPermissionLevel: 'mods' });
+        const event = cheer(100, 'Cheer100 !tts hello there');
+        event.message.fragments = [
+            { type: 'cheermote', text: 'Cheer100' },
+            { type: 'text', text: ' !tts hello there' },
+        ];
+        await handleChatMessage(event, 'testchannel');
+        expect(processMessage).not.toHaveBeenCalled();
+        expect(spoken()).toHaveLength(1);
+        expect(spoken()[0]).toMatchObject({ type: 'cheer_tts', text: 'hello there' });
+    });
+
+    it('still runs a real subcommand sent with a cheer', async () => {
+        processMessage.mockResolvedValue('tts');
+        await handleChatMessage(cheer(100, 'Cheer100 !tts status'), 'testchannel');
+        expect(processMessage).toHaveBeenCalledTimes(1);
+        expect(spoken()).toEqual([]);
     });
 
     it('skips a cheer below the minimum', async () => {
