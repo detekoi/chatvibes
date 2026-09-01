@@ -72,7 +72,7 @@ describe('!tts redeems', () => {
 
     it('lists nothing muted by default', async () => {
         await redeems.execute(context([]));
-        expect(reply()).toMatch(/Every channel point redeem is announced/);
+        expect(reply()).toMatch(/announces every channel point redeem/);
         expect(listCustomRewards).not.toHaveBeenCalled();
     });
 
@@ -81,13 +81,13 @@ describe('!tts redeems', () => {
             mutedRewardIds: { 'r-fog': { title: 'Fog Horn', by: null, at: null }, 'r-horn': 'Air Horn' },
         });
         await redeems.execute(context(['list']));
-        expect(reply()).toBe('Redeems not announced: Air Horn, Fog Horn. Everything else is announced.');
+        expect(reply()).toBe('Muted redeems: Air Horn, Fog Horn. The bot announces all other redeems.');
     });
 
     it('lists every reward from Twitch and marks the muted ones', async () => {
         ttsStateMock.getTtsState.mockResolvedValue({ mutedRewardIds: { 'r-horn': 'Air Horn' } });
         await redeems.execute(context(['all']));
-        expect(reply()).toBe('Channel point rewards: Air Horn (not announced), Fog Horn, Text to Speech');
+        expect(reply()).toBe('Channel point rewards: Air Horn (muted), Fog Horn, Text to Speech');
     });
 
     it('mutes an exact title and stores the reward ID with provenance', async () => {
@@ -95,7 +95,7 @@ describe('!tts redeems', () => {
         expect(ttsStateMock.muteReward).toHaveBeenCalledWith('testchannel', 'r-horn', expect.objectContaining({
             title: 'Air Horn', by: 'twitch:777',
         }));
-        expect(reply()).toBe('Redeems of "Air Horn" will no longer be announced. Undo with "!tts redeems unmute Air Horn".');
+        expect(reply()).toBe('The bot will not announce redeems of "Air Horn". To undo this, use "!tts redeems unmute Air Horn".');
         expect(pickRewardWithGemini).not.toHaveBeenCalled();
     });
 
@@ -104,13 +104,13 @@ describe('!tts redeems', () => {
         await redeems.execute(context(['mute', 'airhron']));
         expect(pickRewardWithGemini).toHaveBeenCalledWith('airhron', rewards);
         expect(ttsStateMock.muteReward).toHaveBeenCalledWith('testchannel', 'r-horn', expect.anything());
-        expect(reply()).toMatch(/"Air Horn" will no longer be announced/);
+        expect(reply()).toMatch(/will not announce redeems of "Air Horn"/);
     });
 
     it('asks for the full name when several rewards match', async () => {
         await redeems.execute(context(['mute', 'horn']));
         expect(ttsStateMock.muteReward).not.toHaveBeenCalled();
-        expect(reply()).toBe('"horn" could be any of: Air Horn, Fog Horn. Please use the full name.');
+        expect(reply()).toBe('"horn" matches more than one reward: Air Horn, Fog Horn. Use the full name.');
     });
 
     it('says so when nothing matches', async () => {
@@ -122,14 +122,14 @@ describe('!tts redeems', () => {
     it('refuses to mute the TTS reward itself', async () => {
         await redeems.execute(context(['mute', 'text', 'to', 'speech']));
         expect(ttsStateMock.muteReward).not.toHaveBeenCalled();
-        expect(reply()).toMatch(/is the TTS reward itself/);
+        expect(reply()).toMatch(/is the TTS reward/);
     });
 
     it('reports an already muted reward without writing', async () => {
         ttsStateMock.getTtsState.mockResolvedValue({ mutedRewardIds: { 'r-horn': 'Air Horn' } });
         await redeems.execute(context(['mute', 'Air Horn']));
         expect(ttsStateMock.muteReward).not.toHaveBeenCalled();
-        expect(reply()).toMatch(/already not announced/);
+        expect(reply()).toMatch(/already muted/);
     });
 
     it('unmutes by the stored title without calling Twitch', async () => {
@@ -137,7 +137,7 @@ describe('!tts redeems', () => {
         await redeems.execute(context(['unmute', 'air horn']));
         expect(listCustomRewards).not.toHaveBeenCalled();
         expect(ttsStateMock.unmuteReward).toHaveBeenCalledWith('testchannel', 'r-horn');
-        expect(reply()).toBe('Redeems of "Air Horn" will be announced again.');
+        expect(reply()).toBe('The bot will announce redeems of "Air Horn" again.');
     });
 
     it('reports an unmute of something that is not muted', async () => {
@@ -152,7 +152,7 @@ describe('!tts redeems', () => {
         expect(reply()).toMatch(/sign in to the dashboard/);
         listCustomRewards.mockRejectedValue(new RewardListError('request_failed'));
         await redeems.execute(context(['mute', 'air horn']));
-        expect(reply()).toMatch(/Could not fetch/);
+        expect(reply()).toMatch(/could not get the channel point rewards/);
     });
 
     it('shows usage for an unknown verb or a missing title', async () => {
