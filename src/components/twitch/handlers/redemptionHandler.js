@@ -264,13 +264,18 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         return;
     }
 
+    // From here on nothing is going to be spoken for this redemption, so an
+    // entry stashed on the deferred path (.add + unfulfilled, opted out) is
+    // dropped rather than left to the cache's 24-hour expiry.
     if (!rewardTitle) {
+        if (redemptionId) redemptionCache.removeRedemption(redemptionId);
         logger.debug({ channelLogin }, 'Redemption event missing reward title - skipping announcement');
         return;
     }
 
     // Check if user is on the ignore list
     if (isTwitchUserIgnored(ttsConfig, userId)) {
+        if (redemptionId) redemptionCache.removeRedemption(redemptionId);
         logger.debug({ channelLogin, user: userLogin, userId }, 'Redemption from ignored user — skipping TTS announcement');
         return;
     }

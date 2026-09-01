@@ -603,6 +603,27 @@ describe('handleRedemptionAnnouncement', () => {
         });
     });
 
+    it('drops the stashed entry when an ignored user\'s deferred redemption is approved', async () => {
+        const ignoredConfig = {
+            ...deferredTtsConfig,
+            ignoredUserIds: { 'twitch:4242': { label: 'Ignored', source: 'moderator', by: null, at: null } },
+        };
+        const event = {
+            id: 'redemption-ignored',
+            user_name: 'TestUser',
+            user_login: 'testuser',
+            user_id: '4242',
+            reward: { id: 'reward-123', title: 'Hydrate' },
+            user_input: '',
+            status: 'fulfilled',
+        };
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.update', event, 'testchannel', ignoredConfig
+        );
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        expect(mockRemoveRedemption).toHaveBeenCalledWith('redemption-ignored');
+    });
+
     it('should use fallback name when user_name is missing', async () => {
         const event = {
             reward: { id: 'reward-123', title: 'Hydrate' },
