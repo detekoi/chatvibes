@@ -195,18 +195,12 @@ export async function handleChatMessage(event, channelName) {
     else {
         // Handle messages with bits (cheers)
         if (bits > 0) {
-            const minimumBits = ttsConfig.bitsMinimumAmount || 1;
+            const minimumBits = Math.max(1, Number(ttsConfig.bitsMinimumAmount) || 1);
             if (bits >= minimumBits) {
-                // Only process if in all mode or bits/points mode
-                if (ttsConfig.mode === 'all' || ttsConfig.mode === 'bits_points_only' || ttsConfig.bitsModeEnabled) {
-                    // In 'all' mode, cheers must also pass the ttsPermissionLevel check
-                    if (ttsConfig.mode === 'all') {
-                        const requiredPermission = mapPermissionLevel(ttsConfig.ttsPermissionLevel);
-                        if (requiredPermission === null || (!hasPermission(requiredPermission, tags, channelName) && requiredPermission !== 'everyone')) {
-                            logger.debug({ channel: channelName, user: username, requiredPermission: requiredPermission ?? ttsConfig.ttsPermissionLevel, bits }, 'Skipping cheer - insufficient permission');
-                            return;
-                        }
-                    }
+                // A cheer is paid for, so it is not subject to ttsPermissionLevel
+                // in any mode. bits_points_only always reads cheer messages; all
+                // and command mode read them unless readCheerMessages is off.
+                if (ttsConfig.mode === 'bits_points_only' || ttsConfig.readCheerMessages !== false) {
                     const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls, pronunciationRules: getPronunciationRules(ttsConfig),
             locale });
                     if (processedMessage) {
@@ -214,7 +208,7 @@ export async function handleChatMessage(event, channelName) {
                         logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
                     }
                 } else {
-                    logger.debug({ channel: channelName, bits, mode: ttsConfig.mode }, 'Skipping cheer - mode not compatible');
+                    logger.debug({ channel: channelName, bits, mode: ttsConfig.mode }, 'Skipping cheer - readCheerMessages is off');
                 }
             } else {
                 logger.debug({ channel: channelName, bits, minimumBits }, 'Skipping cheer - insufficient bits');

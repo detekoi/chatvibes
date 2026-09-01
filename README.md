@@ -21,7 +21,7 @@ To read the full list of commands and voices, visit the documentation:
   * Reads Twitch chat messages aloud.
   * Announces Twitch events (subscriptions, cheers, and raids).
   * **Interactive or Silent Mode:** Configure the bot to answer chat commands or operate silently in the background.
-  * **Monetization with Bits:** Require users to cheer a minimum number of Bits to read messages aloud or to generate music.
+  * **Cheer messages:** The message attached to a cheer is read aloud in every mode once it meets a minimum you set. Bits/Points Only mode makes cheers and channel point rewards the only way to speak.
   * **Channel Points to TTS:** Create a custom Twitch Channel Point reward that viewers redeem with a message to read it aloud.
   * Customizable voices and speech parameters through the Wavespeed AI API (`minimax/speech-02-turbo` model).
   * Personal voice, emotion, pitch, and speed preferences for each user.
@@ -81,7 +81,7 @@ Approved streamers can add or remove WildcatTTS and configure streaming software
 5. **How TTS Triggers Work**:
    * By default, WildcatTTS operates in **command** mode, where it reads only `!tts <message>`. You can use the `!tts mode` and `!tts permission` commands, or the dashboard, to change this behavior.
    * You can trigger TTS with commands such as `!tts <your message>` or `!tts say <your message>`.
-   * In **Bits to TTS** mode, the bot reads messages only when a cheer meets the minimum Bit amount.
+   * In **Bits/Points Only** mode, the bot reads only cheer messages that meet the minimum Bit amount, and Channel Point redemptions.
    * In **Channel Points to TTS** mode, viewers redeem a custom Channel Point reward to read a message.
    * Read the [WildcatTTS documentation](https://docs.wildcat.chat/wildcatttsdocs.html) for detailed trigger and voice setup.
    * The repository for the WildcatTTS web UI is located at [chatvibes-web-ui](https://github.com/detekoi/chatvibes-web-ui).
@@ -323,16 +323,16 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
 
 **`!tts bitsconfig [on|off|min <amount>]`** (Alias: `!tts bits`)
 
-  * **Description:** Configures Bits to TTS mode and minimum cheer requirements.
-      * `on`: Enables Bits to TTS mode.
-      * `off`: Disables Bits to TTS mode.
-      * `min <amount>`: Sets the minimum Bit cheer amount (for example, `min 100`).
+  * **Description:** Controls whether the message attached to a cheer is read aloud, and the minimum bits a cheer needs. Cheers are read in every mode (always in Bits/Points Only mode) and are not subject to `!tts permission`.
+      * `on`: Read cheer messages (the default).
+      * `off`: Do not read cheer messages. Has no effect in Bits/Points Only mode.
+      * `min <amount>`: Sets the minimum Bit cheer amount (for example, `min 100`). Default is 1.
   * **Permission:** Moderator
   * **Usage:**
       * `!tts bits on`
       * `!tts bits off`
       * `!tts bits min 100`
-      * `!tts bits` (shows current Bits status)
+      * `!tts bits` (shows the current setting)
 
 ---
 

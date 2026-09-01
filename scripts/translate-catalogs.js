@@ -138,9 +138,18 @@ const localesMeta = readJson(resolve(config.localesFile || 'src/i18n/locales.jso
 const allTargets = [...new Set(Object.values(localesMeta.LANGUAGE_BOOSTS).map(v => v.bcp47))]
     .filter(l => l !== config.sourceLocale);
 
+// A config may name the locales it ships (`locales: [...]`); a site whose other
+// catalogs are hand-translated into eight languages has no use for the other
+// thirty-one, and generating them silently adds languages its switcher does not
+// offer. Without the key every locale in localesFile is a target.
+const configured = Array.isArray(config.locales) ? config.locales.filter(l => l !== config.sourceLocale) : null;
+if (configured) {
+    const unknown = configured.filter(l => !allTargets.includes(l));
+    if (unknown.length) throw new Error(`config.locales names locales not in ${config.localesFile}: ${unknown.join(', ')}`);
+}
 const requested = opt('locales', '')
     ? opt('locales', '').split(',').map(s => s.trim()).filter(Boolean)
-    : allTargets;
+    : (configured ?? allTargets);
 // The source catalog is hand-authored and is the contract every other locale is
 // checked against; round-tripping it through the model would rewrite it silently.
 const targets = requested.filter(l => l !== config.sourceLocale);

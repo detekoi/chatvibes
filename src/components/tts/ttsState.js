@@ -1095,9 +1095,9 @@ async function setUserEnglishNormalizationPreference(channelName, username, user
     await setUserPreference(channelName, username, userId, 'englishNormalization', value);
 }
 
-// --- Functions for Bits-for-TTS Configuration ---
+// --- Functions for cheer configuration (readCheerMessages, bitsMinimumAmount) ---
 /**
- * Sets the Bits-for-TTS configuration for a channel.
+ * Sets the cheer configuration for a channel: whether cheer messages are read, and the minimum bits.
  * @param {string} channelName - The name of the channel.
  * @param {object} bitsConfig - An object containing { enabled, minimumAmount }.
  * @returns {Promise<boolean>}
@@ -1107,42 +1107,42 @@ export async function setBitsConfig(channelName, { enabled, minimumAmount }) {
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
         const updatePayload = {
-            bitsModeEnabled: enabled,
+            readCheerMessages: enabled,
             bitsMinimumAmount: minimumAmount,
             updatedAt: FieldValue.serverTimestamp()
         };
         await docRef.set(updatePayload, { merge: true });
-        logger.info(`[${channelName}] Bits-for-TTS config updated: Enabled=${enabled}, Min=${minimumAmount}`);
+        logger.info(`[${channelName}] Cheer config updated: readCheerMessages=${enabled}, minimumBits=${minimumAmount}`);
         // Update local cache
         const currentConfig = channelConfigsCache.get(channelId) || {};
         channelConfigsCache.set(channelId, { ...currentConfig, ...updatePayload });
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName }, 'Failed to set Bits-for-TTS config.');
+        logger.error({ err: error, channel: channelName }, 'Failed to set cheer config.');
         return false;
     }
 }
 
 /**
- * Gets the Bits-for-TTS configuration for a channel.
+ * Gets the cheer configuration for a channel.
  * @param {string} channelName - The name of the channel.
  * @returns {Promise<{enabled: boolean, minimumAmount: number}>}
  */
 export async function getBitsConfig(channelName) {
     const config = await getTtsState(channelName);
     return {
-        enabled: !!config.bitsModeEnabled,
-        minimumAmount: typeof config.bitsMinimumAmount === 'number' ? config.bitsMinimumAmount : 0
+        enabled: config.readCheerMessages !== false,
+        minimumAmount: Math.max(1, Number(config.bitsMinimumAmount) || 1)
     };
 }
 
 /**
- * Resets the Bits-for-TTS configuration for a channel to defaults (disabled, min 0).
+ * Resets the cheer configuration for a channel to defaults (cheer messages read, minimum 1 bit).
  * @param {string} channelName - The name of the channel.
  * @returns {Promise<boolean>}
  */
 export async function resetBitsConfig(channelName) {
-    return setBitsConfig(channelName, { enabled: false, minimumAmount: 0 });
+    return setBitsConfig(channelName, { enabled: true, minimumAmount: 1 });
 }
 
 /**

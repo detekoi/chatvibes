@@ -24,6 +24,11 @@ export const DEFAULT_TTS_SETTINGS = {
     channel: 'mono',
     languageBoost: config.tts?.defaultLanguageBoost || 'auto',
     speakEvents: true,
+    // Speak the message attached to a cheer. bits_points_only always does;
+    // this switch is for all and command mode. A cheer is paid for, so it is
+    // never subject to ttsPermissionLevel.
+    readCheerMessages: true,
+    bitsMinimumAmount: 1, // Cheers below this are not read. 1 means every cheer that carries a message.
     // A reward that does not skip Twitch's request queue is redeemed as
     // .add + unfulfilled, and waiting for the streamer to accept it means a
     // channel that never works its queue hears nothing from that reward at all.

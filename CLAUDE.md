@@ -194,6 +194,16 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
   that were backfilled to `mode: 'all'` by `scripts/backfill_mode_all.js` so nothing they heard
   changed. In `bits_points_only` mode `!tts <text>` is silent on both platforms, so speech is only
   ever something a viewer paid for.
+- **Cheer messages (`readCheerMessages`, `bitsMinimumAmount`).** The text attached to a cheer is
+  read in every mode once it meets `bitsMinimumAmount` (default 1), and **a cheer is never subject
+  to `ttsPermissionLevel`**, because it is paid for. `readCheerMessages` (default `true`) switches
+  that off in `all` and `command` mode; `bits_points_only` ignores it, since reading cheers is the
+  point of that mode. This replaced `bitsModeEnabled`, whose dashboard label "Require Bits for
+  TTS" implied a gate it never was: it only ever *added* cheer reading to `command` mode and was
+  a no-op in `all`. The five command-mode channels that existed at the switch were backfilled to
+  `readCheerMessages: false` by `scripts/backfill_read_cheer_messages.js` so they heard no change,
+  and the dead field was deleted. Before this, cheers in `all` mode were gated by the permission
+  level; that went with the change.
 - **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `true` (default, interactive mode), `false` (silent mode)
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings

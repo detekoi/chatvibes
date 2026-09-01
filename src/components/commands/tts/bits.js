@@ -5,7 +5,7 @@ import { enqueueMessage } from '../../../lib/chatSender.js';
 
 export default {
     name: 'bitsconfig',
-    description: 'Configure Bits → TTS. Usage: !tts bitsconfig <on|off|min amount>',
+    description: 'Read cheer messages aloud, and the minimum bits a cheer needs. Usage: !tts bitsconfig <on|off|min amount>',
     usage: '!tts bitsconfig <on|off|min amount>',
     permission: 'moderator',
     execute: async (context) => {
@@ -16,12 +16,12 @@ export default {
         const currentConfig = await getTtsState(channelNameNoHash);
 
         if (!action) {
-            enqueueMessage(channel, context.t('cmd.bits.current', { state: context.t(currentConfig.bitsModeEnabled ? 'cmd.onOff.on' : 'cmd.onOff.off'), minimum: currentConfig.bitsMinimumAmount || 100 }), { replyToId });
+            enqueueMessage(channel, context.t('cmd.bits.current', { state: context.t(currentConfig.readCheerMessages !== false ? 'cmd.onOff.on' : 'cmd.onOff.off'), minimum: Math.max(1, Number(currentConfig.bitsMinimumAmount) || 1) }), { replyToId });
             return;
         }
 
-        let enabled = currentConfig.bitsModeEnabled;
-        let minAmount = currentConfig.bitsMinimumAmount || 100;
+        let enabled = currentConfig.readCheerMessages !== false;
+        let minAmount = Math.max(1, Number(currentConfig.bitsMinimumAmount) || 1);
 
         if (action === 'on') {
             enabled = true;
