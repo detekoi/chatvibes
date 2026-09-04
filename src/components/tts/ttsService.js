@@ -286,13 +286,13 @@ export function readSseAudio(stream, { signal, onChunk, idleTimeoutMs }) {
       settled = true;
       clearTimeout(idleTimer);
       if (signal) signal.removeEventListener('abort', onAbort);
+      // Release the socket now rather than when the provider gets round to closing
+      // it: on success there is nothing left to read, and on failure the rest of a
+      // clip nobody will use should not keep arriving.
+      try { stream.destroy(); } catch { /* already gone */ }
       fn(value);
     };
-    const fail = err => {
-      finish(reject, err);
-      // Stop the provider sending the rest of a clip nobody will use.
-      try { stream.destroy(); } catch { /* already gone */ }
-    };
+    const fail = err => finish(reject, err);
     const armIdleTimer = () => {
       clearTimeout(idleTimer);
       idleTimer = setTimeout(() => {
@@ -523,6 +523,14 @@ async function attemptGeneration302(text, voiceId, options = {}) {
   } catch (error) {
     const durationMs = Date.now() - startTime;
     const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.includes('timeout'));
+
+    // On an HTTP error status axios hands back the body as an unread stream, and an
+    // unread response holds its socket until the far end times it out. Under a
+    // provider outage that is one leaked socket per failed request.
+    const errorBody = error.response?.data;
+    if (streaming && errorBody && typeof errorBody.destroy === 'function') {
+      try { errorBody.destroy(); } catch { /* already gone */ }
+    }
 
     logger.error({
       logKey: '302_API_ERROR',

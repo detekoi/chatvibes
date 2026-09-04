@@ -251,6 +251,13 @@ function describePayload(payload) {
  *
  * `payload` is either the 'STOP_CURRENT_AUDIO' sentinel or a discriminated audio
  * object from generateSpeech: `{kind:'buffer', data, mime}` or `{kind:'url', url}`.
+ * `options.exclude` is a Set of sockets to skip — the clients that already received
+ * this clip slice by slice through openClipStream; the stop sentinel ignores it.
+ *
+ * @param {string} channelName
+ * @param {'STOP_CURRENT_AUDIO' | {kind: 'buffer', data: Buffer, mime: string} | {kind: 'url', url: string}} payload
+ * @param {object} [options]
+ * @param {Set<WebSocket>} [options.exclude]
  *
  * Buffers go out as raw binary frames, which is the whole point of the exercise —
  * it keeps the audio on the socket that is already open to the right Cloud Run

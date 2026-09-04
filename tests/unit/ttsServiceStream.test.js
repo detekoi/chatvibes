@@ -71,6 +71,15 @@ describe('readSseAudio', () => {
         expect(data.toString('hex')).toBe('ff');
     });
 
+    test('releases the socket as soon as the final event lands', async () => {
+        // A provider that is slow to close would otherwise hold the connection open
+        // for as long as it likes after the clip is complete.
+        const stream = streamOf([sse([chunkEvent('ff'), finalEvent()])], { end: false });
+        const data = await readSseAudio(stream, { idleTimeoutMs: 1000 });
+        expect(data.toString('hex')).toBe('ff');
+        expect(stream.destroyed).toBe(true);
+    });
+
     test('rejects an empty stream', async () => {
         await expect(readSseAudio(streamOf(['']), { idleTimeoutMs: 1000 })).rejects.toThrow(/no audio payload/);
     });
@@ -175,6 +184,23 @@ describe('generateSpeech via 302.ai streaming', () => {
         expect(mockAxios).toHaveBeenCalledTimes(2);
         expect(mockAxios.mock.calls[1][0].url).toBe('https://ws.test/speech');
         expect(audio).toEqual({ kind: 'url', url: 'https://cdn.example/a.mp3' });
+    });
+
+    test('destroys the unread body of an HTTP error response before falling back', async () => {
+        // With responseType 'stream', axios attaches the error body as an unread
+        // stream; left alone it keeps the socket until the far end times it out.
+        const body = streamOf(['{"error":"rate limited"}'], { end: false });
+        const httpError = Object.assign(new Error('Request failed with status code 429'), {
+            response: { status: 429, data: body },
+        });
+        mockAxios
+            .mockRejectedValueOnce(httpError)
+            .mockResolvedValueOnce({ data: { data: { status: 'completed', outputs: ['https://cdn.example/c.mp3'] } } });
+
+        const audio = await ttsService.generateSpeech('hello', 'Friendly_Person');
+
+        expect(body.destroyed).toBe(true);
+        expect(audio).toEqual({ kind: 'url', url: 'https://cdn.example/c.mp3' });
     });
 
     test('aborting mid-stream rejects with AbortError and does not trip the breaker', async () => {
