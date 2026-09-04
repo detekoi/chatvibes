@@ -1,6 +1,58 @@
 const audioPlayer = document.getElementById('ttsAudioPlayer');
+// Entries are either a URL string (a CDN link, or an object URL for a whole clip
+// that arrived as one binary frame) or a clip object from the chunked path below.
 const audioQueue = [];
 let isPlaying = false;
+
+// ---------------------------------------------------------------------------
+// Chunked clips
+//
+// A player that announces 'chunkedAudio' is sent each clip as it is rendered:
+// an `audioStart` message, then binary frames carrying slices of the MP3, then
+// `audioEnd`. Slices are fed to a MediaSource so playback can begin on the first
+// one, which is 0.5-1.3s before the whole clip would have arrived. A clip whose
+// end has already landed by the time its turn comes (the usual case for anything
+// queued behind another clip) is played as one Blob instead — simpler, and
+// nothing is gained by streaming bytes that are all here already.
+//
+// MediaSource for 'audio/mpeg' is supported by Chromium, so by OBS's browser
+// source. If it is not, the feature is simply not announced and the server sends
+// whole clips as before.
+// ---------------------------------------------------------------------------
+const CHUNKED_MIME = 'audio/mpeg';
+const supportsChunkedAudio = (() => {
+    try {
+        return typeof MediaSource !== 'undefined'
+            && typeof MediaSource.isTypeSupported === 'function'
+            && MediaSource.isTypeSupported(CHUNKED_MIME);
+    } catch (e) {
+        return false;
+    }
+})();
+
+// The clip currently receiving slices from the socket, if any. Frames arrive in
+// order on one socket, so a binary frame between audioStart and audioEnd belongs
+// to this clip; outside that window it is a whole clip in one frame.
+let openClip = null;
+// The clip being played through a MediaSource, if any.
+let currentClip = null;
+
+function newClip(id) {
+    return {
+        id,
+        chunks: [],          // ArrayBuffers in arrival order
+        ended: false,        // audioEnd received
+        discard: false,      // dropped: stopped, or the server said so
+        mediaSource: null,
+        sourceBuffer: null,
+        appendIndex: 0,      // next chunk to append to the SourceBuffer
+        objectUrl: null,
+    };
+}
+
+function isClip(entry) {
+    return entry !== null && typeof entry === 'object' && Array.isArray(entry.chunks);
+}
 
 // Object URLs this player created from inline audio frames. Tracked so they can be
 // revoked after playback — an OBS source runs for the length of a stream, and every
@@ -86,6 +138,9 @@ function connectWebSocket() {
     }
 
     ws = new WebSocket(wsUrl);
+    // Slices go into a SourceBuffer, which takes ArrayBuffers; a whole clip in one
+    // frame is wrapped in a Blob below, as it always was.
+    ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
         console.log('TTS WebSocket connected successfully.');
@@ -99,7 +154,9 @@ function connectWebSocket() {
         // it asks the TTS provider for a URL instead, which still works but is
         // roughly a second slower per clip.
         try {
-            ws.send(JSON.stringify({ type: 'hello', features: ['binaryAudio'] }));
+            const features = ['binaryAudio'];
+            if (supportsChunkedAudio) features.push('chunkedAudio');
+            ws.send(JSON.stringify({ type: 'hello', features }));
         } catch (e) {
             console.warn('TTS WebSocket: error sending hello', e);
         }
@@ -126,8 +183,12 @@ function connectWebSocket() {
         // the browser never has to fetch them from a CDN. Object URLs are revoked
         // once played (see releaseAudioUrl) — without that an OBS source running for
         // a whole stream would hold on to every clip it has ever played.
-        if (event.data instanceof Blob) {
-            const blob = event.data.type ? event.data : new Blob([event.data], { type: 'audio/mpeg' });
+        if (event.data instanceof ArrayBuffer || event.data instanceof Blob) {
+            if (openClip) {
+                receiveChunk(openClip, event.data);
+                return;
+            }
+            const blob = event.data instanceof Blob ? event.data : new Blob([event.data], { type: 'audio/mpeg' });
             const objectUrl = URL.createObjectURL(blob);
             ownObjectUrls.add(objectUrl);
             audioQueue.push(objectUrl);
@@ -146,6 +207,24 @@ function connectWebSocket() {
                     playNextInQueue();
                 } else {
                     console.warn('TTS WebSocket received unsafe audio URL, ignoring:', data.url);
+                }
+            } else if (data.type === 'audioStart' && data.clipId) {
+                if (openClip && !openClip.ended) {
+                    // Should not happen — the server ends one clip before starting the
+                    // next — but never leave a clip open forever waiting for frames.
+                    console.warn('Player: audioStart while a clip was still open; closing it', openClip.id);
+                    finishClip(openClip, true);
+                }
+                openClip = newClip(data.clipId);
+                audioQueue.push(openClip);
+                playNextInQueue();
+            } else if (data.type === 'audioEnd') {
+                if (openClip && openClip.id === data.clipId) {
+                    const clip = openClip;
+                    openClip = null;
+                    finishClip(clip, !!data.discard);
+                } else {
+                    console.warn('Player: audioEnd for a clip that is not open:', data.clipId);
                 }
             } else if (data.type === 'stopAudio') {
                 console.log('TTS WebSocket received stopAudio command');
@@ -213,8 +292,32 @@ function playNextInQueue() {
     if (isPlaying || audioQueue.length === 0) {
         return;
     }
+    const next = audioQueue.shift();
+
+    if (isClip(next)) {
+        if (next.discard) {
+            // Dropped while it sat in the queue; move on without touching the player.
+            playNextInQueue();
+            return;
+        }
+        isPlaying = true;
+        releaseAudioUrl(currentObjectUrl);
+        if (next.ended) {
+            // Everything is here already: one Blob, no MediaSource needed.
+            const blob = new Blob(next.chunks, { type: CHUNKED_MIME });
+            next.chunks = [];
+            const objectUrl = URL.createObjectURL(blob);
+            ownObjectUrls.add(objectUrl);
+            currentObjectUrl = objectUrl;
+            startPlayback(objectUrl, `clip ${next.id}`);
+        } else {
+            playClipStreaming(next);
+        }
+        return;
+    }
+
     isPlaying = true;
-    const audioUrl = audioQueue.shift();
+    const audioUrl = next;
     console.log('Player: Attempting to play audio:', audioUrl);
 
     // Release the previous clip's bytes now that we are moving on.
@@ -235,9 +338,13 @@ function playNextInQueue() {
         return;
     }
 
+    startPlayback(safeSrc, audioUrl);
+}
+
+function startPlayback(src, label) {
     // Set volume based on content type (music vs TTS)
     // Music files are typically .wav format, TTS is typically .mp3
-    if (safeSrc.includes('.wav')) {
+    if (src.includes('.wav')) {
         // Likely music content - may need volume adjustment
         audioPlayer.volume = 0.8;
     } else {
@@ -245,14 +352,115 @@ function playNextInQueue() {
         audioPlayer.volume = 1.0;
     }
 
-    audioPlayer.src = safeSrc;
+    audioPlayer.src = src;
     audioPlayer.play()
-        .then(() => console.log('Player: Playback started for:', audioUrl))
+        .then(() => console.log('Player: Playback started for:', label))
         .catch(e => {
-            console.error('Player: Error playing audio:', audioUrl, e);
+            console.error('Player: Error playing audio:', label, e);
+            if (currentClip) currentClip.discard = true;
+            currentClip = null;
+            releaseAudioUrl(currentObjectUrl);
+            currentObjectUrl = null;
             isPlaying = false;
             playNextInQueue();
         });
+}
+
+// A slice arrived for the open clip. If it is the clip playing, the SourceBuffer
+// pump picks it up; if it is still queued, it waits with the others.
+function receiveChunk(clip, data) {
+    if (clip.discard) return;
+    if (data instanceof ArrayBuffer) {
+        clip.chunks.push(data);
+        if (clip === currentClip) pumpAppends(clip);
+        return;
+    }
+    // A Blob only shows up if binaryType did not take; read it into an ArrayBuffer,
+    // chaining on the previous conversion so order is kept.
+    clip.pendingBlob = (clip.pendingBlob || Promise.resolve())
+        .then(() => data.arrayBuffer())
+        .then(buf => {
+            if (clip.discard) return;
+            clip.chunks.push(buf);
+            if (clip === currentClip) pumpAppends(clip);
+        });
+}
+
+// audioEnd arrived, or the clip is being abandoned.
+function finishClip(clip, discard) {
+    const settle = () => {
+        clip.ended = true;
+        if (discard) {
+            clip.discard = true;
+            clip.chunks = [];
+            if (clip === currentClip) {
+                // Playing right now: stop and advance. The server is sending the
+                // finished audio another way, or gave up on it.
+                console.log('Player: server discarded the clip being played', clip.id);
+                stopCurrentAudio();
+            }
+            return;
+        }
+        if (clip === currentClip) pumpAppends(clip);
+    };
+    if (clip.pendingBlob) clip.pendingBlob.then(settle);
+    else settle();
+}
+
+function playClipStreaming(clip) {
+    currentClip = clip;
+    const mediaSource = new MediaSource();
+    clip.mediaSource = mediaSource;
+    clip.objectUrl = URL.createObjectURL(mediaSource);
+    ownObjectUrls.add(clip.objectUrl);
+    currentObjectUrl = clip.objectUrl;
+
+    mediaSource.addEventListener('sourceopen', () => {
+        if (currentClip !== clip) return; // stopped before the source opened
+        try {
+            clip.sourceBuffer = mediaSource.addSourceBuffer(CHUNKED_MIME);
+        } catch (e) {
+            console.error('Player: could not open a SourceBuffer; skipping clip', clip.id, e);
+            clip.discard = true;
+            stopCurrentAudio();
+            return;
+        }
+        clip.sourceBuffer.addEventListener('updateend', () => pumpAppends(clip));
+        clip.sourceBuffer.addEventListener('error', e => console.error('Player: SourceBuffer error', clip.id, e));
+        pumpAppends(clip);
+    }, { once: true });
+
+    // play() on an empty MediaSource simply waits for data, so it can be issued
+    // now; the promise resolves once the first slice has been decoded.
+    startPlayback(clip.objectUrl, `clip ${clip.id}`);
+}
+
+// Append the next slice, or close the stream once the last one is in. Called on
+// every event that could unblock the SourceBuffer: a new slice, updateend, audioEnd.
+function pumpAppends(clip) {
+    const sb = clip.sourceBuffer;
+    const ms = clip.mediaSource;
+    if (!sb || !ms || ms.readyState !== 'open' || sb.updating || clip.discard) return;
+    if (clip.appendIndex < clip.chunks.length) {
+        const chunk = clip.chunks[clip.appendIndex];
+        clip.chunks[clip.appendIndex] = null; // let the bytes go once appended
+        clip.appendIndex++;
+        try {
+            sb.appendBuffer(chunk);
+        } catch (e) {
+            console.error('Player: appendBuffer failed; abandoning clip', clip.id, e);
+            clip.discard = true;
+            stopCurrentAudio();
+        }
+        return;
+    }
+    if (clip.ended) {
+        try {
+            ms.endOfStream();
+        } catch (e) {
+            console.warn('Player: endOfStream failed', clip.id, e);
+        }
+    }
 }
 
 audioPlayer.onended = () => {
@@ -261,12 +469,15 @@ audioPlayer.onended = () => {
     // period does not sit in memory until somebody speaks again.
     releaseAudioUrl(currentObjectUrl);
     currentObjectUrl = null;
+    currentClip = null;
     isPlaying = false;
     playNextInQueue();
 };
 
 audioPlayer.onerror = (e) => {
     console.error('TTS Player: <audio> element error:', e);
+    if (currentClip) currentClip.discard = true;
+    currentClip = null;
     releaseAudioUrl(currentObjectUrl);
     currentObjectUrl = null;
     isPlaying = false;
@@ -275,6 +486,9 @@ audioPlayer.onerror = (e) => {
 
 function stopCurrentAudio() {
     console.log('TTS Player: Stopping current audio.');
+    // Slices still arriving for a stopped clip are dropped on receipt.
+    if (currentClip) currentClip.discard = true;
+    currentClip = null;
     audioPlayer.pause();
     audioPlayer.currentTime = 0; // Reset time
     audioPlayer.src = ""; // Clear source
@@ -290,14 +504,21 @@ function stopCurrentAudio() {
 
 function stopAllAudio() { // For !tts clear or full stop
     console.log('TTS Player: Stopping all audio and clearing queue.');
+    if (currentClip) currentClip.discard = true;
+    currentClip = null;
     audioPlayer.pause();
     audioPlayer.currentTime = 0;
     audioPlayer.src = "";
     releaseAudioUrl(currentObjectUrl);
     currentObjectUrl = null;
     isPlaying = false;
-    // Discard bytes for clips that will now never play.
-    audioQueue.forEach(releaseAudioUrl);
+    // Discard bytes for clips that will now never play. A queued chunked clip is
+    // marked rather than closed: its remaining frames are dropped on receipt and
+    // its audioEnd closes it normally.
+    audioQueue.forEach(entry => {
+        if (isClip(entry)) { entry.discard = true; entry.chunks = []; }
+        else releaseAudioUrl(entry);
+    });
     audioQueue.length = 0; // Clear the queue
 }
 

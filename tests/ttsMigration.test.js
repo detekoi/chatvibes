@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import { Readable } from 'node:stream';
 
 // Mock axios before importing modules that use it
 jest.unstable_mockModule('axios', () => ({
@@ -15,11 +16,13 @@ const { generateSpeech, _resetT302Circuit } = await import('../src/components/tt
 // both output formats — there is no data.url field on this API.
 const MP3_BYTES = [0x49, 0x44, 0x33, 0x04, 0x00, 0xff, 0xfb, 0x90, 0x00];
 const MP3_HEX = Buffer.from(MP3_BYTES).toString('hex');
+// Inline bytes are streamed (see attemptGeneration302), so the body is a server-sent
+// event stream. A fresh Readable per call: a stream can only be consumed once.
 const hex302Response = (hex = MP3_HEX) => ({
-    data: {
+    data: Readable.from([Buffer.from(`data: ${JSON.stringify({
         data: { audio: hex, status: 2 },
         base_resp: { status_code: 0, status_msg: 'success' }
-    }
+    })}\n\n`)])
 });
 const expectedBuffer = { kind: 'buffer', data: Buffer.from(MP3_BYTES), mime: 'audio/mpeg' };
 
@@ -50,7 +53,7 @@ describe('TTS Migration', () => {
         });
 
         it('should call 302.ai endpoint for supported voice', async () => {
-            axios.mockResolvedValue(hex302Response());
+            axios.mockImplementation(async () => hex302Response());
 
             const audio = await generateSpeech('Hello', 'English_expressive_narrator');
 
@@ -67,7 +70,7 @@ describe('TTS Migration', () => {
         });
 
         it('should request hex output so the audio arrives inline', async () => {
-            axios.mockResolvedValue(hex302Response());
+            axios.mockImplementation(async () => hex302Response());
 
             await generateSpeech('Hello', 'English_expressive_narrator');
 
@@ -94,7 +97,7 @@ describe('TTS Migration', () => {
         describe('request timeout', () => {
             const budgetFor = async text => {
                 jest.clearAllMocks();
-                axios.mockResolvedValue(hex302Response());
+                axios.mockImplementation(async () => hex302Response());
                 await generateSpeech(text, 'English_expressive_narrator');
                 return axios.mock.calls[0][0].timeout;
             };
@@ -284,7 +287,7 @@ describe('TTS Migration', () => {
         });
 
         it('should call 302.ai endpoint for previously wavespeed-only voice', async () => {
-            axios.mockResolvedValue(hex302Response());
+            axios.mockImplementation(async () => hex302Response());
 
             const audio = await generateSpeech('Hello', 'Wise_Woman');
 
@@ -301,7 +304,7 @@ describe('TTS Migration', () => {
         });
 
         it('should pass language boost through to 302.ai for all voices', async () => {
-            axios.mockResolvedValue(hex302Response());
+            axios.mockImplementation(async () => hex302Response());
 
             // 'Bulgarian' is supported by 302.ai
             await generateSpeech('Hello', 'Wise_Woman', { languageBoost: 'Bulgarian' });
@@ -315,7 +318,7 @@ describe('TTS Migration', () => {
         });
 
         it('should allow supported language boost for 302.ai', async () => {
-            axios.mockResolvedValue(hex302Response());
+            axios.mockImplementation(async () => hex302Response());
 
             // 'Bulgarian' is supported by 302
             await generateSpeech('Hello', 'English_expressive_narrator', { languageBoost: 'Bulgarian' });

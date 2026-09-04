@@ -59,6 +59,7 @@ describe('allowViewerPreferences Feature', () => {
       sendAudioToChannel: jest.fn(),
       hasActiveClients: jest.fn(() => true),
       channelPrefersUrlAudio: jest.fn(() => false),
+      openClipStream: jest.fn(() => null),
       STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
     }));
 

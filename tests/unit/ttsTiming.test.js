@@ -61,6 +61,7 @@ describe('ttsQueue TTS_TIMING log', () => {
             sendAudioToChannel: jest.fn(),
             hasActiveClients: jest.fn().mockReturnValue(true),
             channelPrefersUrlAudio: jest.fn().mockReturnValue(false),
+            openClipStream: jest.fn().mockReturnValue(null),
             STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
         };
         const mockTtsState = {
@@ -145,8 +146,8 @@ describe('ttsQueue TTS_TIMING log', () => {
         // is the slow one, so it is still in flight when the queue reaches it.
         mockTtsService.generateSpeech
             .mockReturnValueOnce(new Promise(r => { resolveFirst = r; }))
-            .mockReturnValueOnce(after(40))   // three, prefetched
-            .mockReturnValueOnce(after(10));  // two
+            .mockImplementationOnce(() => after(40))   // three, prefetched
+            .mockImplementationOnce(() => after(10));  // two
 
         // Texts of distinct lengths so log lines can be told apart by textLength.
         const run = text => timing.runWithTiming(

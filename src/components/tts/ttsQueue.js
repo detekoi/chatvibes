@@ -1,4 +1,5 @@
 // src/components/tts/ttsQueue.js
+import { randomUUID } from 'node:crypto';
 import { Firestore } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 import { INSTANCE_ID } from '../../lib/instanceId.js';
@@ -14,7 +15,7 @@ import {
     getUserLanguagePreference,
     getUserEnglishNormalizationPreference
 } from './ttsState.js';
-import { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, STOP_CURRENT_AUDIO } from '../web/server.js';
+import { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, openClipStream, STOP_CURRENT_AUDIO } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
@@ -172,6 +173,65 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
 }
 
 /**
+ * The slices of one clip as the provider renders them.
+ *
+ * generateSpeech pushes into this through `onChunk`; beginChunkedDelivery replays
+ * what has arrived and subscribes for the rest. Keeping the slices on the queue
+ * item rather than forwarding them straight from `onChunk` is what lets a
+ * prefetched clip stream: its slices land while an earlier clip is still playing,
+ * and are sent the moment its own turn comes.
+ */
+function createClip() {
+    const clip = { chunks: [], listeners: new Set(), firstChunkMs: null };
+    clip.push = buf => {
+        clip.chunks.push(buf);
+        if (clip.firstChunkMs === null) clip.firstChunkMs = Date.now();
+        for (const listener of clip.listeners) listener(buf);
+    };
+    return clip;
+}
+
+/**
+ * Forward a clip's slices to every target channel's chunk-capable players.
+ *
+ * Returns null when no target has such a player, and the caller falls back to
+ * sending the finished buffer. Otherwise slices already collected are replayed
+ * first (a prefetched clip may be complete by now), then live ones follow in
+ * order. `end()` must be called exactly once, on success or failure: the player
+ * holds the clip open until it arrives.
+ */
+function beginChunkedDelivery(targets, event) {
+    const clip = event.clip;
+    if (!clip) return null;
+
+    const clipId = randomUUID();
+    const streams = new Map();
+    for (const target of targets) {
+        const stream = openClipStream(target, clipId);
+        if (stream) streams.set(target, stream);
+    }
+    if (streams.size === 0) return null;
+
+    const forward = buf => {
+        for (const stream of streams.values()) stream.chunk(buf);
+        if (event.timing && event.timing.firstChunkSentMs === undefined) {
+            event.timing.firstChunkSentMs = Date.now();
+        }
+    };
+    for (const buf of clip.chunks) forward(buf);
+    clip.listeners.add(forward);
+
+    return {
+        clipId,
+        recipientsFor: target => streams.get(target)?.recipients,
+        end(opts) {
+            clip.listeners.delete(forward);
+            for (const stream of streams.values()) stream.end(opts);
+        },
+    };
+}
+
+/**
  * Start prefetching speech generation for upcoming queued items.
  * Called after a message starts processing so the next N items
  * have their API calls running in parallel.
@@ -187,10 +247,12 @@ function startPrefetch(channelName) {
 
         const controller = new AbortController();
         if (event.timing) event.timing.prefetchStartMs = Date.now();
+        event.clip = createClip();
         const promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
             ...event.voiceConfig,
             preferUrlOutput: channelPrefersUrlAudio(channelName),
-            signal: controller.signal
+            signal: controller.signal,
+            onChunk: event.clip.push,
         }).catch(err => {
             // Swallow abort errors; log others as warnings.
             // processQueue will handle the null result gracefully.
@@ -228,7 +290,7 @@ function cancelAllPrefetches(channelName) {
  *
  * Query: jsonPayload.logKey="TTS_TIMING"
  */
-function logTiming(channelName, event, audio, wasPrefetched) {
+function logTiming(channelName, event, audio, wasPrefetched, chunked) {
     const t = event.timing;
     if (!t) return;
     t.sentMs = Date.now();
@@ -241,6 +303,10 @@ function logTiming(channelName, event, audio, wasPrefetched) {
         source: t.source ?? null,
         route: t.route ?? null,
         prefetched: wasPrefetched,
+        // Whether the player got the clip slice by slice; firstAudioMs is then the
+        // moment the first slice went out, which is when speech can start
+        chunked,
+        firstAudioMs: elapsed(t, t.originMs != null ? 'originMs' : 'receivedMs', 'firstChunkSentMs'),
         textLength: event.text.length,
         audioKind: audio.kind,
         audioBytes: audio.kind === 'buffer' ? audio.data.length : null,
@@ -306,6 +372,12 @@ export async function processQueue(channelName) {
 
     logger.info(`[${channelName}] Processing TTS for ${cq.currentUserSpeaking} (Voice: ${event.voiceConfig.voiceId}, Emotion: ${event.voiceConfig.emotion}, Lang: ${event.voiceConfig.languageBoost}): "${event.text.substring(0, 30)}..."`);
 
+    // Channels this clip is delivered to: every participant of a shared-chat
+    // session, or just this one.
+    const sharedChannels = event.sharedSessionInfo?.channels;
+    const targets = Array.isArray(sharedChannels) && sharedChannels.length > 0 ? sharedChannels : [channelName];
+    let delivery = null;
+
     try {
         let audio;
         const genStartMs = Date.now();
@@ -313,28 +385,38 @@ export async function processQueue(channelName) {
         // Check if this event was already prefetched
         const prefetched = cq.prefetchResults.get(event);
         const wasPrefetched = !!prefetched;
+        let promise;
+        let controller = null;
         if (prefetched) {
             cq.prefetchResults.delete(event);
             // The prefetch controller is separate — we don't assign it to
             // currentSpeechController because the request is already in-flight.
             // If stopCurrentSpeech is called, cancelAllPrefetches handles it.
             logger.debug(`[${channelName}] Using prefetched result for "${event.text.substring(0, 30)}..."`);
-            audio = await prefetched.promise;
+            promise = prefetched.promise;
         } else {
             // No prefetch available — generate normally with a new controller
-            const controller = new AbortController();
+            controller = new AbortController();
             cq.currentSpeechController = controller;
-            audio = await generateSpeech(event.text, event.voiceConfig.voiceId, {
+            event.clip = createClip();
+            promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
                 ...event.voiceConfig,
                 preferUrlOutput: channelPrefersUrlAudio(channelName),
-                signal: controller.signal
+                signal: controller.signal,
+                onChunk: event.clip.push,
             });
+        }
 
-            // Check if this specific generation was aborted
-            if (controller.signal.aborted) {
-                logger.info(`[${channelName}] Speech generation for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} was aborted while processing.`);
-                audio = null;
-            }
+        // Players that can start on a partial clip get the slices as they land —
+        // the ones a prefetch already collected go out right now.
+        delivery = beginChunkedDelivery(targets, event);
+
+        audio = await promise;
+
+        // Check if this specific generation was aborted
+        if (controller && controller.signal.aborted) {
+            logger.info(`[${channelName}] Speech generation for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} was aborted while processing.`);
+            audio = null;
         }
 
         if (event.timing) {
@@ -346,6 +428,18 @@ export async function processQueue(channelName) {
             cq.currentSpeech = audio;
             // currentUserSpeaking is already set for this audio
 
+            // A buffer is complete on the chunked players once end() lands, so they
+            // are excluded from the whole-buffer send below. A URL (the Wavespeed
+            // fallback) cannot have been streamed: the player drops whatever slices
+            // it saw and plays the URL like everyone else.
+            const streamedComplete = delivery && audio.kind === 'buffer';
+            if (delivery) delivery.end({ discard: !streamedComplete });
+            const sendWhole = target => {
+                const exclude = streamedComplete ? delivery.recipientsFor(target) : null;
+                if (exclude) sendAudioToChannel(target, audio, { exclude });
+                else sendAudioToChannel(target, audio);
+            };
+
             // Send audio to all channels in shared session if applicable
             if (event.sharedSessionInfo && event.sharedSessionInfo.channels && event.sharedSessionInfo.channels.length > 0) {
                 const sessionId = event.sharedSessionInfo.sessionId;
@@ -355,7 +449,7 @@ export async function processQueue(channelName) {
                 // Send to all participating channels
                 for (const targetChannel of channels) {
                     if (hasActiveClients(targetChannel)) {
-                        sendAudioToChannel(targetChannel, audio);
+                        sendWhole(targetChannel);
                         logger.info(`[SharedChat:${sessionId}] Sent audio to ${targetChannel} for ${cq.currentUserSpeaking}`);
                     } else {
                         // Only this instance's sockets are reachable from here, and only
@@ -380,17 +474,20 @@ export async function processQueue(channelName) {
                 }
             } else {
                 // Normal single-channel audio delivery
-                sendAudioToChannel(channelName, audio);
-                logger.info(`[${channelName}] Sent audio to web for ${cq.currentUserSpeaking} (${audio.kind})`);
+                sendWhole(channelName);
+                logger.info(`[${channelName}] Sent audio to web for ${cq.currentUserSpeaking} (${audio.kind}${streamedComplete ? ', streamed' : ''})`);
             }
 
-            logTiming(channelName, event, audio, wasPrefetched);
+            logTiming(channelName, event, audio, wasPrefetched, !!streamedComplete);
         } else {
             // No audio — issue in generateSpeech, prefetch failure, or aborted
+            if (delivery) delivery.end({ discard: true });
             logger.warn(`[${channelName}] generateSpeech returned no audio for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking}.`);
             // currentSpeech remains null, currentUserSpeaking will be cleared in finally
         }
     } catch (error) {
+        // The player is holding the clip open; tell it to let go.
+        if (delivery) delivery.end({ discard: true });
         if (error.name === 'AbortError') {
             logger.info(`[${channelName}] Speech generation fetch aborted for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking}.`);
         } else {

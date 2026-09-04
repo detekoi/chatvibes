@@ -51,6 +51,7 @@ describe('ttsQueue module', () => {
       sendAudioToChannel: jest.fn(),
       hasActiveClients: jest.fn().mockReturnValue(true),
       channelPrefersUrlAudio: jest.fn().mockReturnValue(false),
+      openClipStream: jest.fn().mockReturnValue(null),
       STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
     };
 

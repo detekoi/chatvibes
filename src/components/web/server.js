@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import logger from '../../lib/logger.js';
 
 import { createApiRouter, applyCors } from './apiRoutes.js';
-import { initializeWebSocketServer, sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, STOP_CURRENT_AUDIO } from './webSocket.js';
+import { initializeWebSocketServer, sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, STOP_CURRENT_AUDIO, openClipStream } from './webSocket.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,4 +96,4 @@ export function initializeWebServer({ onClientConnect } = {}) {
 }
 
 // Re-export for any consumers that import these directly from server.js
-export { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, STOP_CURRENT_AUDIO };
+export { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, openClipStream, STOP_CURRENT_AUDIO };

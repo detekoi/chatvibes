@@ -254,6 +254,118 @@ export function _resetT302Circuit() {
 }
 
 /**
+ * Collect the audio from a MiniMax t2a_v2 streaming response.
+ *
+ * The body is server-sent events, one JSON object per `data:` line. Events with
+ * `data.status` 1 carry a hex slice of MP3 in `data.audio`; the event with status 2
+ * closes the stream (and repeats the whole clip unless exclude_aggregated_audio was
+ * honoured — so its audio is ignored whenever slices were already received). An
+ * API-level failure arrives the same way it does unstreamed: as a non-zero
+ * `base_resp.status_code` inside an event.
+ *
+ * The slices concatenate to a valid MP3 — the boundaries are not frame-aligned,
+ * which matters to nobody who joins them, and MSE on the player side keeps a byte
+ * queue across appends for exactly this reason.
+ *
+ * @param {import('stream').Readable} stream
+ * @param {object} opts
+ * @param {AbortSignal} [opts.signal]
+ * @param {(chunk: Buffer) => void} [opts.onChunk] - Called with each slice as it lands, in order.
+ * @param {number} opts.idleTimeoutMs - Longest gap tolerated between events.
+ * @returns {Promise<Buffer>} the whole clip
+ */
+export function readSseAudio(stream, { signal, onChunk, idleTimeoutMs }) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let pending = '';
+    let settled = false;
+    let idleTimer = null;
+
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(idleTimer);
+      if (signal) signal.removeEventListener('abort', onAbort);
+      fn(value);
+    };
+    const fail = err => {
+      finish(reject, err);
+      // Stop the provider sending the rest of a clip nobody will use.
+      try { stream.destroy(); } catch { /* already gone */ }
+    };
+    const armIdleTimer = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        const err = new Error('302.ai API request timed out (no stream data)');
+        err.code = 'ECONNABORTED';
+        fail(err);
+      }, idleTimeoutMs);
+    };
+    const onAbort = () => fail(new DOMException('Aborted by user', 'AbortError'));
+
+    if (signal) {
+      if (signal.aborted) { onAbort(); return; }
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+    armIdleTimer();
+
+    const handleEvent = raw => {
+      let event;
+      try {
+        event = JSON.parse(raw);
+      } catch {
+        logger.warn({ raw: raw.substring(0, 120) }, '302.ai stream carried an unparseable event; skipping it');
+        return;
+      }
+      if (event.base_resp?.status_code !== undefined && event.base_resp.status_code !== 0) {
+        const { status_code: code, status_msg: msg } = event.base_resp;
+        fail(new Error(`302.ai API error ${code}: ${msg}`));
+        return;
+      }
+      const hex = event.data?.audio;
+      const isFinal = event.data?.status === 2;
+      if (typeof hex === 'string' && hex.length > 0 && !(isFinal && chunks.length > 0)) {
+        const buf = Buffer.from(hex, 'hex');
+        if (buf.length > 0) {
+          chunks.push(buf);
+          if (onChunk) {
+            try { onChunk(buf); } catch (err) { logger.warn({ err }, 'onChunk handler threw; continuing'); }
+          }
+        }
+      }
+      if (isFinal) {
+        finish(resolve, Buffer.concat(chunks));
+      }
+    };
+
+    stream.on('data', data => {
+      if (settled) return;
+      armIdleTimer();
+      pending += data.toString('utf8');
+      let nl;
+      while ((nl = pending.indexOf('\n')) >= 0) {
+        const line = pending.slice(0, nl).replace(/\r$/, '');
+        pending = pending.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const body = line.slice(5).trim();
+        if (body && body !== '[DONE]') handleEvent(body);
+        if (settled) return;
+      }
+    });
+    stream.on('end', () => {
+      // A stream that closes without a status-2 event still counts if it carried
+      // audio; the provider has been seen to end abruptly after the last slice.
+      if (chunks.length > 0) finish(resolve, Buffer.concat(chunks));
+      else fail(new Error('302.ai API returned no audio payload (empty stream)'));
+    });
+    stream.on('error', err => {
+      if (signal?.aborted) onAbort();
+      else fail(err);
+    });
+  });
+}
+
+/**
  * Internal function to attempt TTS generation via 302.ai
  */
 async function attemptGeneration302(text, voiceId, options = {}) {
@@ -295,6 +407,30 @@ async function attemptGeneration302(text, voiceId, options = {}) {
     output_format: options.preferUrlOutput ? 'url' : 'hex'
   };
 
+  // Inline bytes are streamed. With stream: true the API answers with server-sent
+  // events, each carrying a hex slice of the MP3 as it is rendered, and the first
+  // slice arrives well before the whole clip would have. Measured against the live
+  // API on 2026-09-04 (speech-2.8-turbo, us-west client):
+  //
+  //   text        whole clip     first chunk   stream complete
+  //   36 chars    1790-2223ms    1216-1261ms   1374-1418ms
+  //   180 chars   2650-2761ms    1384-1426ms   1864-1910ms
+  //   400 chars   2898ms         2305ms        2946ms
+  //
+  // Two things fall out. Even the *complete* streamed clip lands sooner than the
+  // whole-clip request, so streaming pays off before anyone plays a chunk early;
+  // and the first chunk lands 0.5-1.3s before that, which is what `onChunk` is for —
+  // ttsQueue forwards each slice to a player that can start on it. The URL path
+  // cannot stream, and T302_STREAMING=false is the escape hatch if the provider's
+  // event format changes.
+  const streaming = input.output_format === 'hex' && config.tts.t302Streaming !== false;
+  if (streaming) {
+    input.stream = true;
+    // Without this the final event repeats the whole clip; readSseAudio guards
+    // against it anyway in case a proxy ignores the option.
+    input.stream_options = { exclude_aggregated_audio: true };
+  }
+
   // Log request details for debugging
   logger.info({
     logKey: '302_API_REQUEST',
@@ -318,7 +454,8 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       'Content-Type': 'application/json'
     },
     data: input,
-    timeout: t302TimeoutFor(text)
+    timeout: t302TimeoutFor(text),
+    ...(streaming ? { responseType: 'stream' } : {}),
   };
 
   if (options.signal) {
@@ -327,6 +464,20 @@ async function attemptGeneration302(text, voiceId, options = {}) {
 
   try {
     const response = await axios(requestConfig);
+
+    if (streaming) {
+      // axios's timeout stops applying once the headers are in, so the body has
+      // its own idle budget: the same per-request figure, but reset by every chunk.
+      const data = await readSseAudio(response.data, {
+        signal: options.signal,
+        onChunk: options.onChunk,
+        idleTimeoutMs: t302TimeoutFor(text),
+      });
+      const durationMs = Date.now() - startTime;
+      logger.info({ bytes: data.length, durationMs, voiceId, streamed: true }, 'TTS audio generated successfully via 302.ai');
+      return { kind: 'buffer', data, mime: 'audio/mpeg' };
+    }
+
     const durationMs = Date.now() - startTime;
 
     if (options.signal && options.signal.aborted) {
@@ -383,7 +534,7 @@ async function attemptGeneration302(text, voiceId, options = {}) {
       errorCode: error.code,
       errorMessage: error.message,
       responseStatus: error.response?.status,
-      responseData: error.response?.data
+      responseData: streaming ? '[stream]' : error.response?.data
     }, `302.ai API error after ${durationMs}ms: ${error.message}`);
 
     if (isTimeout) {
@@ -399,6 +550,11 @@ async function attemptGeneration302(text, voiceId, options = {}) {
  * Returns a discriminated payload rather than a bare URL, because the two providers
  * deliver audio differently: 302.ai hands back the bytes inline, Wavespeed a CDN link.
  * Callers must branch on `kind` — see sendAudioToChannel in components/web/webSocket.js.
+ *
+ * `options.onChunk(Buffer)` is called with each slice of the clip as the provider
+ * renders it, in order, on the streaming path (302.ai inline bytes). It is never
+ * called on the URL path or the Wavespeed fallback, and a slice may have been
+ * delivered for an attempt that then failed — the returned payload is the truth.
  *
  * @returns {Promise<{kind: 'buffer', data: Buffer, mime: string} | {kind: 'url', url: string}>}
  */

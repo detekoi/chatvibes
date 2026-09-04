@@ -72,6 +72,9 @@ function loadConfig() {
             defaultLanguageBoost: process.env.TTS_DEFAULT_LANGUAGE_BOOST || 'auto',
             t302ApiKey: process.env.T302_API_KEY || process.env['302_KEY'], // Fallback for local dev if needed
             t302Endpoint: process.env.T302_API_ENDPOINT || 'https://api.302.ai/minimaxi/v1/t2a_v2',
+            // Streamed synthesis is the default; set T302_STREAMING=false to go back to
+            // one whole-clip response per request (see attemptGeneration302).
+            t302Streaming: process.env.T302_STREAMING !== 'false',
         },
         app: {
             logLevel: process.env.LOG_LEVEL || 'info',

@@ -185,6 +185,59 @@ export function channelPrefersUrlAudio(channelName) {
 }
 
 /**
+ * Start delivering one clip chunk by chunk to the clients that can play it that way.
+ *
+ * Returns null when no client for the channel announced `chunkedAudio`, in which
+ * case the caller sends the finished buffer through sendAudioToChannel as before.
+ * Otherwise the recipients are fixed at this moment: a client that connects
+ * mid-clip is not sent a tail of frames it never saw the start of, and one that
+ * disconnects is skipped. Frames go out in order on the same socket, which is the
+ * only ordering the player relies on — an `audioStart` control message, the binary
+ * slices, then `audioEnd`. `end({ discard: true })` tells the player to drop the
+ * clip, streamed slices and all, because the finished audio is arriving another
+ * way (the Wavespeed URL fallback) or not at all.
+ *
+ * @param {string} channelName
+ * @param {string} clipId
+ * @returns {null | { recipients: Set<WebSocket>, chunk(buf: Buffer): void, end(opts?: { discard?: boolean }): void }}
+ */
+export function openClipStream(channelName, clipId) {
+    const resolved = resolveToChannelName(channelName);
+    const clients = channelClients.get(resolved);
+    if (!clients || clients.size === 0) return null;
+
+    const recipients = new Set();
+    for (const ws of clients) {
+        if (ws.readyState === WebSocket.OPEN && ws.supportsChunkedAudio) recipients.add(ws);
+    }
+    if (recipients.size === 0) return null;
+
+    const sendTo = (ws, frame) => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        try {
+            ws.send(frame);
+        } catch (err) {
+            logger.warn({ err, channel: resolved, clipId }, 'Failed to send chunked audio frame');
+        }
+    };
+
+    const start = JSON.stringify({ type: 'audioStart', clipId });
+    for (const ws of recipients) sendTo(ws, start);
+    logger.debug({ channel: resolved, clipId, recipients: recipients.size }, 'Chunked clip delivery started');
+
+    return {
+        recipients,
+        chunk(buf) {
+            for (const ws of recipients) sendTo(ws, buf);
+        },
+        end({ discard = false } = {}) {
+            const frame = JSON.stringify({ type: 'audioEnd', clipId, discard });
+            for (const ws of recipients) sendTo(ws, frame);
+        },
+    };
+}
+
+/**
  * Describe an audio payload for logging without dumping a whole buffer.
  */
 function describePayload(payload) {
@@ -205,7 +258,7 @@ function describePayload(payload) {
  * not announced binary support (an OBS source running a cached older player) fall
  * back to the URL flow so their audio keeps working, and get nudged to refresh.
  */
-export function sendAudioToChannel(channelName, payload) {
+export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
     const resolved = resolveToChannelName(channelName);
     const clients = channelClients.get(resolved);
 
@@ -230,6 +283,10 @@ export function sendAudioToChannel(channelName, payload) {
     let staleClients = 0;
 
     clients.forEach(ws => {
+        // A client that already received this clip chunk by chunk must not get the
+        // whole buffer again on top; the stop sentinel still goes to everyone.
+        if (exclude && exclude.has(ws) && !isStop) return;
+
         if (ws.readyState !== WebSocket.OPEN) {
             logger.warn(
                 `TTS WebSocket client for ${resolved} not open (state: ${ws.readyState}). Message not sent.`
@@ -387,6 +444,7 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
         // Assume no binary support until the client says otherwise. Players older
         // than the binary-audio change never send a hello, so absence is the signal.
         ws.supportsBinaryAudio = false;
+        ws.supportsChunkedAudio = false;
 
         // Register client
         if (!channelClients.has(channelName)) {
@@ -427,9 +485,11 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
                 } else if (parsedMessage?.type === 'hello') {
                     const features = Array.isArray(parsedMessage.features) ? parsedMessage.features : [];
                     ws.supportsBinaryAudio = features.includes('binaryAudio');
+                    // Chunked delivery rides on binary frames, so it implies binary.
+                    ws.supportsChunkedAudio = ws.supportsBinaryAudio && features.includes('chunkedAudio');
                     logger.debug(
                         { channel: channelName, features },
-                        `Client announced features; binary audio ${ws.supportsBinaryAudio ? 'supported' : 'unsupported'}`
+                        `Client announced features; binary audio ${ws.supportsBinaryAudio ? 'supported' : 'unsupported'}, chunked ${ws.supportsChunkedAudio ? 'supported' : 'unsupported'}`
                     );
                 }
             } catch {
