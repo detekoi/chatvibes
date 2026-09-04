@@ -5,6 +5,7 @@ import logger from '../../../lib/logger.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
+import { emoteOffsetsToFragments } from '../../../lib/emoteOffsetsToFragments.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { pronounService } from '../../../lib/pronounService.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
@@ -182,7 +183,11 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     logger.debug({ channelName, user: resubLogin }, 'Resub message contains banned word — announcing resub only');
                 } else {
                     const emoteMode = ttsConfig.emoteMode || 'describe';
-                    const fragments = event.message?.fragments || null;
+                    // This payload has no `fragments`; its emotes come as { begin, end, id }
+                    // offsets. Without the conversion the emote step saw null and every mode
+                    // read the emote token as a word.
+                    const fragments = event.message?.fragments
+                        || emoteOffsetsToFragments(event.message?.text, event.message?.emotes);
                     // Started together so the pronoun fetch overlaps formatting, but awaited
                     // separately: a message that formats to empty is never spoken, so it must
                     // not wait on a lookup whose result it would discard.

@@ -305,6 +305,16 @@ viewer can ignore — it is read out in a Spanish accent. Catalogs live in
   announcement is heard by the whole channel. This is why announcements render in the handler
   before dispatch and `ttsQueue.enqueue`'s per-message resolution is untouched — in
   particular the profanity filter that deliberately lives there did not have to move.
+- **`channel.subscription.message` carries emote offsets, not fragments.** Chat and
+  `channel.chat.notification` payloads have `message.fragments`, which the emote step of
+  `formatTtsText` consumes. The resub payload has `message.emotes` (`{ begin, end, id }`
+  offsets into `message.text`, code-point indexed, `end` inclusive) instead, so the handler
+  passed `null` fragments and every emote mode was silently a no-op there: an emote-only
+  resub message was read as the token (`DinoDance`) whatever the channel chose.
+  `src/lib/emoteOffsetsToFragments.js` rebuilds fragments from the offsets; the channel's
+  `emoteMode` then applies to sub messages exactly as it does to chat, with no special case.
+  Forcing `describe` for subs was considered and rejected — a `skip` channel opted out of
+  hearing emotes, and the describe default already covers the common case.
 - **Emote descriptions are generated natively in the channel's language**, not translated
   after the fact: they are two to six words with no surrounding context, which is far too
   little for a translation pass to work from. `emoteDescriberApi.js` appends a "reply in X"

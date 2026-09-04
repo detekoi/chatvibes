@@ -371,6 +371,34 @@ describe('notificationHandler', () => {
             );
         });
 
+        it('should rebuild fragments from the payload emote offsets so the emote mode applies', async () => {
+            // channel.subscription.message carries message.emotes offsets, not fragments.
+            // Passing null here silently disabled every emote mode for resub messages.
+            mockFormatTtsText.mockResolvedValueOnce('a dancing green dinosaur emote');
+            const event = {
+                user_name: 'coconutmelonss',
+                user_login: 'coconutmelonss',
+                tier: '1000',
+                cumulative_months: 3,
+                message: { text: 'DinoDance', emotes: [{ begin: 0, end: 8, id: 'emotesv2_dino' }] }
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockFormatTtsText).toHaveBeenCalledWith(
+                'DinoDance',
+                [{ type: 'emote', text: 'DinoDance', emote: { id: 'emotesv2_dino' } }],
+                expect.objectContaining({ emoteMode: 'describe' })
+            );
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({
+                    text: 'coconutmelonss resubscribed for 3 months (Tier 1)! They said: a dancing green dinosaur emote',
+                }),
+                null
+            );
+        });
+
         it('should announce the sub streak when the viewer shares it', async () => {
             const event = {
                 user_name: 'Resubber',
