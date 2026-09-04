@@ -19,6 +19,7 @@ import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is impo
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
 import { resolveToChannelName } from '../../lib/allowList.js';
+import { snapshotTiming, elapsed } from '../../lib/ttsTiming.js';
 
 let db;
 const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
@@ -55,6 +56,7 @@ export function getOrCreateChannelQueue(channelName) {
 }
 
 export async function enqueue(channelName, eventData, sharedSessionInfo = null) {
+    const enqueueStartMs = Date.now();
     const { text, user, type = 'chat', voiceOptions = {} } = eventData;
 
     const logData = {
@@ -159,7 +161,12 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         }
     }
 
-    cq.queue.push({ type, text: finalText, user, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo });
+    // The timing record travels in the async context up to here and on the queue
+    // item from here, since processQueue runs outside the context that enqueued it.
+    const timingSnapshot = snapshotTiming();
+    const timing = timingSnapshot ? { ...timingSnapshot, enqueueStartMs, enqueuedMs: Date.now() } : null;
+
+    cq.queue.push({ type, text: finalText, user, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
 }
@@ -179,6 +186,7 @@ function startPrefetch(channelName) {
         if (cq.prefetchResults.has(event)) continue; // Already prefetching this item
 
         const controller = new AbortController();
+        if (event.timing) event.timing.prefetchStartMs = Date.now();
         const promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
             ...event.voiceConfig,
             preferUrlOutput: channelPrefersUrlAudio(channelName),
@@ -209,6 +217,53 @@ function cancelAllPrefetches(channelName) {
     }
     logger.debug(`[${channelName}] Cancelled ${cq.prefetchResults.size} active prefetch(es)`);
     cq.prefetchResults.clear();
+}
+
+/**
+ * One line per clip sent, with the wait broken down by stage so the slow one can
+ * be read straight off the logs. All values are milliseconds; a stage that did
+ * not happen on this message's route is null. `totalMs` runs from Twitch's own
+ * timestamp when there is one (Twitch and Cloud Run clocks are both NTP-synced,
+ * so a few ms of skew is possible), otherwise from receipt.
+ *
+ * Query: jsonPayload.logKey="TTS_TIMING"
+ */
+function logTiming(channelName, event, audio, wasPrefetched) {
+    const t = event.timing;
+    if (!t) return;
+    t.sentMs = Date.now();
+
+    logger.info({
+        logKey: 'TTS_TIMING',
+        channel: channelName,
+        user: event.user || 'event_tts',
+        type: event.type,
+        source: t.source ?? null,
+        route: t.route ?? null,
+        prefetched: wasPrefetched,
+        textLength: event.text.length,
+        audioKind: audio.kind,
+        audioBytes: audio.kind === 'buffer' ? audio.data.length : null,
+        // Twitch -> our webhook (network + any Twitch-side delay)
+        twitchToWebhookMs: elapsed(t, 'originMs', 'receivedMs'),
+        // Firestore dedup claim before any handling starts
+        claimMs: elapsed(t, 'receivedMs', 'claimedMs'),
+        // Handler work between receipt and the start of enqueue: config reads,
+        // command processing, emote describe, formatting, and the Pub/Sub hop
+        // when the route is 'pubsub'
+        handlerMs: elapsed(t, 'receivedMs', 'enqueueStartMs'),
+        pubsubHopMs: elapsed(t, 'publishedMs', 'pubsubReceivedMs'),
+        // Preference lookups and the profanity pass inside enqueue
+        enqueueMs: elapsed(t, 'enqueueStartMs', 'enqueuedMs'),
+        // Time sat behind earlier items before this one was picked up
+        queueWaitMs: elapsed(t, 'enqueuedMs', 'genStartMs'),
+        // Provider round trip, from whichever call actually produced the audio
+        generateMs: elapsed(t, t.prefetchStartMs ? 'prefetchStartMs' : 'genStartMs', 'genEndMs'),
+        // How long processQueue itself blocked on audio (shorter than generateMs
+        // when the prefetch had a head start)
+        waitedForAudioMs: elapsed(t, 'genStartMs', 'genEndMs'),
+        totalMs: elapsed(t, 'originMs', 'sentMs') ?? elapsed(t, 'receivedMs', 'sentMs'),
+    }, `[${channelName}] TTS timing for ${event.user || 'event_tts'}`);
 }
 
 export async function processQueue(channelName) {
@@ -253,9 +308,11 @@ export async function processQueue(channelName) {
 
     try {
         let audio;
+        const genStartMs = Date.now();
 
         // Check if this event was already prefetched
         const prefetched = cq.prefetchResults.get(event);
+        const wasPrefetched = !!prefetched;
         if (prefetched) {
             cq.prefetchResults.delete(event);
             // The prefetch controller is separate — we don't assign it to
@@ -278,6 +335,11 @@ export async function processQueue(channelName) {
                 logger.info(`[${channelName}] Speech generation for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking} was aborted while processing.`);
                 audio = null;
             }
+        }
+
+        if (event.timing) {
+            event.timing.genStartMs = genStartMs;
+            event.timing.genEndMs = Date.now();
         }
 
         if (audio) {
@@ -321,6 +383,8 @@ export async function processQueue(channelName) {
                 sendAudioToChannel(channelName, audio);
                 logger.info(`[${channelName}] Sent audio to web for ${cq.currentUserSpeaking} (${audio.kind})`);
             }
+
+            logTiming(channelName, event, audio, wasPrefetched);
         } else {
             // No audio — issue in generateSpeech, prefetch failure, or aborted
             logger.warn(`[${channelName}] generateSpeech returned no audio for "${event.text.substring(0, 30)}..." by ${cq.currentUserSpeaking}.`);

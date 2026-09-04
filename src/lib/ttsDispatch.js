@@ -19,6 +19,7 @@ import { publishTtsEvent } from './pubsub.js';
 import { hasActiveClients } from '../components/web/server.js';
 import * as ttsQueue from '../components/tts/ttsQueue.js';
 import { claimOnce } from './firestoreClaim.js';
+import { markTiming } from './ttsTiming.js';
 
 let db;
 const YT_CLAIM_COLLECTION = 'processedYouTubeMessages';
@@ -62,6 +63,7 @@ export async function dispatchTtsEvent(channelName, eventData, sharedSessionInfo
             { channel: channelName, user: eventData?.user, messageId: eventData?.messageId || 'N/A' },
             'Serving TTS event locally, bypassing Pub/Sub'
         );
+        markTiming('route', 'local');
         await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
         return;
     }

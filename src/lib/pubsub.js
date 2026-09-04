@@ -2,6 +2,7 @@
 import { PubSub } from '@google-cloud/pubsub';
 import logger from './logger.js';
 import { INSTANCE_ID } from './instanceId.js';
+import { runWithTiming, snapshotTiming } from './ttsTiming.js';
 
 const TOPIC_NAME = 'chatvibes-tts-events';
 const SUBSCRIPTION_PREFIX = 'chatvibes-tts-sub';
@@ -62,7 +63,10 @@ export async function publishTtsEvent(channelName, eventData, sharedSessionInfo 
             eventData,
             sharedSessionInfo, // Include shared session metadata if present
             timestamp: Date.now(),
-            source: INSTANCE_ID
+            source: INSTANCE_ID,
+            // Carried across the hop so the serving instance can report end-to-end
+            // timing for a message it did not receive from Twitch itself.
+            timing: { ...(snapshotTiming() || {}), publishedMs: Date.now() },
         };
 
         const dataBuffer = Buffer.from(JSON.stringify(message));
@@ -134,7 +138,7 @@ export async function subscribeTtsEvents(handler) {
         subscription.on('message', async (message) => {
             try {
                 const data = JSON.parse(message.data.toString());
-                const { channelName, eventData, sharedSessionInfo, source } = data;
+                const { channelName, eventData, sharedSessionInfo, source, timing } = data;
 
                 const logData = {
                     pubsubMessageId: message.id,
@@ -152,8 +156,12 @@ export async function subscribeTtsEvents(handler) {
                     logger.info(logData, `Received from Pub/Sub - EventSub msgId: ${eventData?.messageId || 'NONE'} - user: ${eventData?.user}`);
                 }
 
-                // Call the handler with shared session info
-                await handler(channelName, eventData, sharedSessionInfo);
+                // Call the handler with shared session info, inside the timing
+                // context the publisher captured so TTS_TIMING covers the hop.
+                await runWithTiming(
+                    { ...(timing || {}), route: 'pubsub', pubsubReceivedMs: Date.now() },
+                    () => handler(channelName, eventData, sharedSessionInfo)
+                );
 
                 // Acknowledge the message
                 message.ack();

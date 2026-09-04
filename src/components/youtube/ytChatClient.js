@@ -14,6 +14,7 @@ import { isYouTubeUserIgnored } from '../../lib/ignoreList.js';
 import { hasPermissionLevel, mapPermissionLevel } from '../../lib/permissions.js';
 import { parseTtsCommandText, stripCommandPrefixFromFragments } from '../../lib/ttsCommandText.js';
 import { isTtsSubCommand } from '../commands/tts/subcommandNames.js';
+import { runWithTiming } from '../../lib/ttsTiming.js';
 
 const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://ytchat.wildcat.chat/ws';
 
@@ -192,7 +193,10 @@ function _connect(channelId, connState) {
         ws.on('message', async (data) => {
             try {
                 const msg = JSON.parse(data.toString());
-                await handleYouTubeChatMessage(channelId, msg);
+                // No origin timestamp: the proxy does not forward one, so YouTube
+                // timing starts at receipt here.
+                await runWithTiming({ source: 'youtube', receivedMs: Date.now() },
+                    () => handleYouTubeChatMessage(channelId, msg));
             } catch (err) {
                 logger.warn({ err, channelId, rawData: data.toString().substring(0, 200) }, 'YouTube Chat: Failed to parse message');
             }
