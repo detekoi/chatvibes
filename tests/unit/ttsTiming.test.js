@@ -171,7 +171,8 @@ describe('ttsQueue TTS_TIMING log', () => {
         expect(three.prefetched).toBe(true);
         // Three's provider call started while two was still rendering, so the round
         // trip is longer than the time the queue actually blocked waiting for it.
-        expect(three.generateMs).toBeGreaterThanOrEqual(40);
+        // Node timers can fire a millisecond or two before Date.now() agrees.
+        expect(three.generateMs).toBeGreaterThanOrEqual(35);
         expect(three.waitedForAudioMs).toBeLessThan(three.generateMs);
         expect(three.queueWaitMs).toBeGreaterThanOrEqual(10);
     });

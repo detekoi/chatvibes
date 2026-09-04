@@ -253,6 +253,12 @@ function startPrefetch(channelName) {
             preferUrlOutput: channelPrefersUrlAudio(channelName),
             signal: controller.signal,
             onChunk: event.clip.push,
+        }).then(audio => {
+            // The provider round trip ends here, not when processQueue gets round
+            // to awaiting it — for a clip queued behind a long one the two can be
+            // seconds apart, and generateMs must not absorb the queue wait.
+            if (event.timing) event.timing.prefetchEndMs = Date.now();
+            return audio;
         }).catch(err => {
             // Swallow abort errors; log others as warnings.
             // processQueue will handle the null result gracefully.
@@ -323,8 +329,12 @@ function logTiming(channelName, event, audio, wasPrefetched, chunked) {
         enqueueMs: elapsed(t, 'enqueueStartMs', 'enqueuedMs'),
         // Time sat behind earlier items before this one was picked up
         queueWaitMs: elapsed(t, 'enqueuedMs', 'genStartMs'),
-        // Provider round trip, from whichever call actually produced the audio
-        generateMs: elapsed(t, t.prefetchStartMs ? 'prefetchStartMs' : 'genStartMs', 'genEndMs'),
+        // Provider round trip, from whichever call actually produced the audio. A
+        // prefetch that was cancelled leaves its start mark behind, so the flag
+        // decides, not the mark.
+        generateMs: wasPrefetched
+            ? elapsed(t, 'prefetchStartMs', t.prefetchEndMs !== undefined ? 'prefetchEndMs' : 'genEndMs')
+            : elapsed(t, 'genStartMs', 'genEndMs'),
         // How long processQueue itself blocked on audio (shorter than generateMs
         // when the prefetch had a head start)
         waitedForAudioMs: elapsed(t, 'genStartMs', 'genEndMs'),
@@ -389,9 +399,12 @@ export async function processQueue(channelName) {
         let controller = null;
         if (prefetched) {
             cq.prefetchResults.delete(event);
-            // The prefetch controller is separate — we don't assign it to
-            // currentSpeechController because the request is already in-flight.
-            // If stopCurrentSpeech is called, cancelAllPrefetches handles it.
+            // The request is already in flight under the prefetch controller. It is
+            // adopted as the current one so that `!tts stop` can abort it: the
+            // entry has just left prefetchResults, so cancelAllPrefetches no longer
+            // sees it, and without this the clip landed and played after the stop.
+            controller = prefetched.controller;
+            cq.currentSpeechController = controller;
             logger.debug(`[${channelName}] Using prefetched result for "${event.text.substring(0, 30)}..."`);
             promise = prefetched.promise;
         } else {
@@ -610,8 +623,11 @@ export async function persistAllQueues() {
             continue;
         }
 
-        // Serialize queue items (convert Date objects to ISO strings)
-        const serializedQueue = cq.queue.map(item => ({
+        // Serialize queue items (convert Date objects to ISO strings). `clip` and
+        // `timing` are runtime-only: the clip holds a listener Set and a function,
+        // which Firestore rejects, and a timing record restored after a restart
+        // would report the downtime as queue wait.
+        const serializedQueue = cq.queue.map(({ clip: _clip, timing: _timing, ...item }) => ({
             ...item,
             timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp
         }));
@@ -666,6 +682,10 @@ export async function restoreAllQueues() {
             // Restore queue items (convert ISO strings back to Date objects)
             const restoredQueue = queue.map(item => ({
                 ...item,
+                // Belt and braces with persistAllQueues: a record from before the
+                // restart must not be reported as this process's latency.
+                timing: null,
+                clip: undefined,
                 timestamp: typeof item.timestamp === 'string' ? new Date(item.timestamp) : item.timestamp
             }));
 

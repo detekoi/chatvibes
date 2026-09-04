@@ -125,6 +125,7 @@ export async function dispatchYouTubeTtsEvent(channelId, eventData) {
     }, now, { channel: channelId, messageId: messageId || 'N/A', platform: 'youtube' });
 
     if (!claimed) return false;
+    markTiming('claimedMs');
 
     // Re-check rather than reusing servesHere: a browser source may have connected
     // during the handicap wait, and enqueueing locally is still the cheaper route.
