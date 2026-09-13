@@ -326,7 +326,7 @@ viewer can ignore — it is read out in a Spanish accent. Catalogs live in
   handing back the `"<emoteId>:<locale>"` document id would make the next write suffix it
   twice. `!tts emote` passes the channel's locale, so a moderator edits their own language.
 - **Translations are generated at build time and committed**, by `npm run translate`
-  (`gemini-3.7-flash`). Runtime translation was rejected for these strings: they are a closed
+  (`gemini-3.8-flash`). Runtime translation was rejected for these strings: they are a closed
   set of templates, so translating per-message would put a Gemini round-trip in the TTS hot
   path and produce output that varies between renders. Emote descriptions are the one
   genuinely unbounded surface and stay a runtime call.

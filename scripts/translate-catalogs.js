@@ -7,7 +7,7 @@
 // that varies between renders. Emote descriptions are the one genuinely
 // unbounded surface and stay a runtime call; everything else lives here.
 //
-// The model is gemini-3.7-flash rather than the flash-lite used at runtime:
+// The model is gemini-3.8-flash rather than the flash-lite used at runtime:
 // this is not latency-sensitive, and translation quality is the whole point.
 //
 // Nothing is trusted on the way out. Every response is checked by
@@ -33,7 +33,7 @@ import { GoogleGenAI } from '@google/genai';
 import { validateCatalog } from '../src/i18n/validate.js';
 import { withTimeout } from '../src/lib/timeUtils.js';
 
-const MODEL = process.env.TRANSLATE_GEMINI_MODEL || 'gemini-3.7-flash';
+const MODEL = process.env.TRANSLATE_GEMINI_MODEL || 'gemini-3.8-flash';
 const TIMEOUT_MS = 120_000;
 // Concurrency is the main lever when the API is busy: a 503 here means capacity,
 // not a bad request, so backing off in parallelism helps more than retrying
