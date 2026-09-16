@@ -32,7 +32,7 @@ export const COMMUNITY_SUB_GIFT_TYPE = 'channel.chat.notification.community_sub_
  *
  * A backstop, not a latency budget. pronounService caps its own fetch at 3s and never
  * rejects, so this only matters if that guarantee ever breaks. It was 500ms and that
- * lost the race on every cold cache — a miss on pronouns.alejo.io costs ~700-760ms, so
+ * lost the race on every cold cache — a miss on api.pronouns.alejo.io costs ~700-760ms, so
  * viewers with pronouns registered were still announced as "They". Nothing is gained by
  * cutting it fine: the announcement then spends seconds in TTS generation regardless.
  */

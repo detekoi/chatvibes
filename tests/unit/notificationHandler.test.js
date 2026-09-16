@@ -724,7 +724,7 @@ describe('notificationHandler', () => {
 
         it('should still use the pronoun when the lookup takes longer than half a second', async () => {
             // Regression: the fallback used to fire at 500ms, which lost the race on every
-            // cold cache (a pronouns.alejo.io miss costs ~700-760ms), so viewers with
+            // cold cache (an api.pronouns.alejo.io miss costs ~700-760ms), so viewers with
             // pronouns registered were announced as "They" anyway.
             jest.useFakeTimers();
             try {
