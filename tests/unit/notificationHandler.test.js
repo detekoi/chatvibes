@@ -480,6 +480,24 @@ describe('notificationHandler', () => {
             );
         });
 
+        it('should not look up pronouns when the event carries no login', async () => {
+            mockFormatTtsText.mockResolvedValueOnce('Still here!');
+            const event = {
+                tier: '1000',
+                cumulative_months: 3,
+                message: { text: 'Still here!' }
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockPronounService.getUserPronouns).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: expect.stringContaining('They said: Still here!') }),
+                null
+            );
+        });
+
         it('should use the resubber pronouns for the "said" prefix', async () => {
             mockFormatTtsText.mockResolvedValueOnce('Love this stream!');
             mockPronounService.getUserPronouns.mockResolvedValueOnce({ Subject: 'She', subject: 'she' });
@@ -803,7 +821,7 @@ describe('notificationHandler', () => {
                 };
 
                 const pending = handleNotification(WATCH_STREAK_TYPE, event, 'parfaitfair');
-                await jest.advanceTimersByTimeAsync(2500);
+                await jest.advanceTimersByTimeAsync(3200);
                 await pending;
 
                 expect(mockDispatchTtsEvent).toHaveBeenCalledWith(

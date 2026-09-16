@@ -31,17 +31,20 @@ export const COMMUNITY_SUB_GIFT_TYPE = 'channel.chat.notification.community_sub_
  * How long to wait on the pronoun API before falling back to "They".
  *
  * A backstop, not a latency budget. pronounService caps its own fetch at 3s and never
- * rejects, so this only matters if that guarantee ever breaks. It was 500ms and that
+ * rejects, so this only matters if that guarantee ever breaks; it must therefore sit
+ * above that 3s cap or it stops being a backstop. It was 500ms and that
  * lost the race on every cold cache — a miss on api.pronouns.alejo.io costs ~700-760ms, so
  * viewers with pronouns registered were still announced as "They". Nothing is gained by
  * cutting it fine: the announcement then spends seconds in TTS generation regardless.
  */
-const PRONOUN_LOOKUP_TIMEOUT_MS = 2500;
+const PRONOUN_LOOKUP_TIMEOUT_MS = 3200;
 
 /**
  * Subject pronoun for the "<Subject> said:" prefix on a viewer message attached to an
- * event. Falls back to the catalog's own subject pronoun when the login is unknown, the
- * API has no entry, or the lookup exceeds PRONOUN_LOOKUP_TIMEOUT_MS.
+ * event. Falls back to the catalog's own subject pronoun when there is no login, the
+ * API has no entry, or the lookup exceeds PRONOUN_LOOKUP_TIMEOUT_MS. Callers pass null
+ * rather than a display-name or localized "someone" fallback so no placeholder is ever
+ * sent to the API.
  *
  * Returns both the literal pronoun and a coarse gender key. English uses the literal, so
  * neopronouns survive; languages whose verb agrees with the subject use the key in a
@@ -55,7 +58,7 @@ const PRONOUN_LOOKUP_TIMEOUT_MS = 2500;
  */
 async function resolvePronounSubject(t, login) {
     const fallback = { subject: t('announce.pronoun.subject'), g: 'other' };
-    if (!login || login === 'someone') return fallback;
+    if (!login) return fallback;
 
     const pronouns = await new Promise(resolve => {
         let done = false;
@@ -156,7 +159,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
         case 'channel.subscription.message': {
             // Resubscription with message
             const resubUser = event.user_name || event.user_login || t('announce.fallback.someone');
-            const resubLogin = (event.user_login || resubUser).toLowerCase(); // pronoun lookup keys on the login
+            const resubLogin = event.user_login ? event.user_login.toLowerCase() : null; // pronoun lookup keys on the login
             if (isTwitchUserIgnored(ttsConfig, event.user_id)) {
                 logger.debug({ channelName, user: resubUser, userId: event.user_id }, 'Resub from ignored user — skipping TTS');
                 return;
@@ -334,7 +337,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
         case WATCH_STREAK_TYPE: {
             // Watch streak milestone (from channel.chat.notification with notice_type: watch_streak)
             const streakUser = event.chatter_user_name || event.chatter_user_login || t('announce.fallback.someone');
-            const streakLogin = (event.chatter_user_login || streakUser).toLowerCase(); // pronoun lookup keys on the login
+            const streakLogin = event.chatter_user_login ? event.chatter_user_login.toLowerCase() : null; // pronoun lookup keys on the login
             const streakCount = event.watch_streak?.streak_count;
             if (!streakCount || streakCount <= 0) {
                 logger.warn({ channelName, user: streakUser, streakCount }, 'Watch streak event with invalid streak_count — skipping TTS');
