@@ -1,14 +1,20 @@
 #!/usr/bin/env node
 // scripts/backfill_bot_responds_in_chat.js
 //
-// One-off, for the removal of the `botMode` read-time fallback in ttsState.js.
+// One-off, for the removal of the read-time `botRespondsInChat` fallbacks in
+// ttsState.js, so that DEFAULT_TTS_SETTINGS is the only default.
 //
-// `botMode` was never a working feature, but the bot still read it: a config
-// with no `botRespondsInChat` and `botMode: 'authenticated'` was treated as
-// responding in chat, while one with neither field is silent. With the fallback
-// gone those channels would stop getting chat replies the moment the new bot
-// deployed. This pins them to `botRespondsInChat: true` so nothing they see
-// changes, and deletes the dead field everywhere it exists.
+// The bot used to decide a missing `botRespondsInChat` itself, in two steps.
+// `botMode: 'authenticated'` read as responding in chat; `botMode` was never a
+// working feature, but that read was live. Anything else read as silent, from a
+// hardcoded `false` that was left behind when the default in ttsConstants.js
+// moved to `true` (2025-11-19) — so a channel whose config lacked the field was
+// silent while the documentation said it responded.
+//
+// With both gone a missing field means `true`. This writes down what each
+// channel was actually getting, so nothing changes for them on deploy:
+// `true` where `botMode` was 'authenticated', `false` for the rest. It also
+// deletes the dead `botMode` field everywhere it exists.
 //
 // Run it before deploying the bot. It is safe against the old bot too, which
 // prefers `botRespondsInChat` whenever it is set. The dashboard must stop
@@ -27,8 +33,8 @@ for (const doc of snapshot.docs) {
     const data = doc.data();
     const name = data.channelName || doc.id;
     const update = {};
-    if (data.botRespondsInChat === undefined && data.botMode === 'authenticated') {
-        update.botRespondsInChat = true;
+    if (data.botRespondsInChat === undefined || data.botRespondsInChat === null) {
+        update.botRespondsInChat = data.botMode === 'authenticated';
     }
     if (data.botMode !== undefined) {
         update.botMode = FieldValue.delete();

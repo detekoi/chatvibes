@@ -277,7 +277,13 @@ TTS configuration is stored in Firestore's `ttsChannelConfigs` collection with t
     to the deterministic answer, so the model cannot mute a reward the words could not have meant.
     Every reply names the reward actually muted, and `unmute` matches against the stored titles
     without a Helix call, so a wrong resolution costs one command.
-- **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `true` (default, interactive mode), `false` (silent mode)
+- **Bot Chat Responses** (`botRespondsInChat` field): Boolean controlling whether the bot sends chat responses - `true` (default, interactive mode), `false` (silent mode).
+  `DEFAULT_TTS_SETTINGS` is the only default. Until 2026-09-17 `ttsState.js` overrode it for any
+  channel whose config lacked the field: `true` if a dead `botMode` field said `'authenticated'`,
+  otherwise a hardcoded `false` left behind when the default moved to `true`, so such a channel was
+  silent while this file said it responded. `scripts/backfill_bot_responds_in_chat.js` wrote down
+  what each channel was actually getting (three `true`, six `false`) so nothing changed for them,
+  and deleted `botMode`.
 - Voice settings (ID, speed, volume, pitch)
 - Emotion settings
 - Language boost setting

@@ -92,7 +92,6 @@ export async function initializeTtsState() {
             channelConfigsCache.set(doc.id, {
                 ...DEFAULT_TTS_SETTINGS,
                 ...data,
-                botRespondsInChat: data.botRespondsInChat ?? false,
                 userPreferences: data.userPreferences || {} // Initialize if missing
             });
         });
@@ -118,7 +117,6 @@ function _setupFirestoreListener() {
                     const newConfig = {
                         ...DEFAULT_TTS_SETTINGS,
                         ...data,
-                        botRespondsInChat: data.botRespondsInChat ?? false,
                         userPreferences: data.userPreferences || {} // Ensure userPreferences exists
                     };
                     channelConfigsCache.set(docId, newConfig);
@@ -171,7 +169,6 @@ export async function getTtsState(channelName) {
             const config = {
                 ...DEFAULT_TTS_SETTINGS,
                 ...data,
-                botRespondsInChat: data.botRespondsInChat ?? false,
                 userPreferences: data.userPreferences || {}
             };
             channelConfigsCache.set(channelId, config);
