@@ -548,8 +548,3 @@ per-instance and does not span Cloud Run instances.
 It counts subscriptions rather than collapsing them into a set of type names — the set is what hid
 the original occurrence. `scripts/cleanup-eventsub.js` deletes strays on the legacy hostname.
 When removing a duplicate, confirm the surviving copy exists first or you drop coverage.
-
-### Migration
-The code automatically migrates old `botMode` settings to `botRespondsInChat`:
-- `'authenticated'` → `true` (bot responds in chat)
-- `'anonymous'` or `'auto'` → `false` (bot is silent)

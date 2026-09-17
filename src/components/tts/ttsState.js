@@ -89,16 +89,10 @@ export async function initializeTtsState() {
         snapshot.forEach(doc => {
             // Ensure userPreferences field exists
             const data = doc.data();
-            // Migration: Convert old botMode to botRespondsInChat
-            let botRespondsInChat = data.botRespondsInChat;
-            if (botRespondsInChat === undefined && data.botMode !== undefined) {
-                // Migrate from old botMode: 'authenticated' -> true, others -> false
-                botRespondsInChat = data.botMode === 'authenticated';
-            }
             channelConfigsCache.set(doc.id, {
                 ...DEFAULT_TTS_SETTINGS,
                 ...data,
-                botRespondsInChat: botRespondsInChat !== undefined ? botRespondsInChat : false,
+                botRespondsInChat: data.botRespondsInChat ?? false,
                 userPreferences: data.userPreferences || {} // Initialize if missing
             });
         });
@@ -120,17 +114,11 @@ function _setupFirestoreListener() {
                 const data = change.doc.data();
                 if (change.type === 'added' || change.type === 'modified') {
                     logger.info(`TTS config for ${docId} ${change.type}. Updating cache.`);
-                    // Migration: Convert old botMode to botRespondsInChat
-                    let botRespondsInChat = data.botRespondsInChat;
-                    if (botRespondsInChat === undefined && data.botMode !== undefined) {
-                        // Migrate from old botMode: 'authenticated' -> true, others -> false
-                        botRespondsInChat = data.botMode === 'authenticated';
-                    }
                     const previousConfig = channelConfigsCache.get(docId);
                     const newConfig = {
                         ...DEFAULT_TTS_SETTINGS,
                         ...data,
-                        botRespondsInChat: botRespondsInChat !== undefined ? botRespondsInChat : false,
+                        botRespondsInChat: data.botRespondsInChat ?? false,
                         userPreferences: data.userPreferences || {} // Ensure userPreferences exists
                     };
                     channelConfigsCache.set(docId, newConfig);
@@ -180,16 +168,10 @@ export async function getTtsState(channelName) {
         const docSnap = await docRef.get();
         if (docSnap.exists) {
             const data = docSnap.data();
-            // Migration: Convert old botMode to botRespondsInChat
-            let botRespondsInChat = data.botRespondsInChat;
-            if (botRespondsInChat === undefined && data.botMode !== undefined) {
-                // Migrate from old botMode: 'authenticated' -> true, others -> false
-                botRespondsInChat = data.botMode === 'authenticated';
-            }
             const config = {
                 ...DEFAULT_TTS_SETTINGS,
                 ...data,
-                botRespondsInChat: botRespondsInChat !== undefined ? botRespondsInChat : false,
+                botRespondsInChat: data.botRespondsInChat ?? false,
                 userPreferences: data.userPreferences || {}
             };
             channelConfigsCache.set(channelId, config);
