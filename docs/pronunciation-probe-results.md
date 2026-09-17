@@ -296,7 +296,7 @@ bare acronym for the synthesiser to read out as letters.
 | Polish | "na przykład" — *for example* | different meaning | yes |
 | Croatian | "nema problema" — *no problem* | same meaning, loanword | no |
 
-The separate, wider issue noted in `CLAUDE.md` is that a *long* expansion is English prose:
+The separate, wider issue noted in `docs/pronunciation-and-profanity.md` is that a *long* expansion is English prose:
 `lfg` becomes "let's fucking go" on a Spanish channel. That is also usually faithful, since
 `lfg` is itself an English loan there — it would only be worth a per-language `say` if a
 streamer asked for everything to be spoken in their own language.

@@ -10,6 +10,7 @@ on:
       - 'README-*.md'
       - 'LICENSE.md'
       - 'CLAUDE.md'
+      - 'docs/**'
       - 'gemini/**' # Assuming 'gemini/' folder is for local LLM interaction
       - '.vscode/**'
       - '.idea/**'
