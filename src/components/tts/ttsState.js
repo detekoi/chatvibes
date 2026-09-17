@@ -186,7 +186,7 @@ export async function getTtsState(channelName) {
         // this call only and leave the cache for the listener to fill.
         return { ...DEFAULT_TTS_SETTINGS, userPreferences: {} };
     }
-    // No document exists - this is a new channel, use defaults (botRespondsInChat: false)
+    // No document exists - this is a new channel, use defaults
     const defaultConfigCopy = { ...DEFAULT_TTS_SETTINGS, userPreferences: {} };
     channelConfigsCache.set(channelId, defaultConfigCopy);
     return defaultConfigCopy;
