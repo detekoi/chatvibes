@@ -8,6 +8,7 @@ const {
     addAllowedChannel,
     setChannelActive,
     removeAllowedChannel,
+    getChannelIdFromName,
 } = await import('../../../src/lib/allowList.js');
 
 describe('allowList (Firestore-backed cache)', () => {
@@ -210,16 +211,29 @@ describe('allowList (Firestore-backed cache)', () => {
             expect(isChannelAllowed('111')).toBe(false);
         });
 
-        it('removes the mapped ID when given only a login name', () => {
+        it('removes a legacy name-only channel when given only its login name', () => {
             updateAllowedChannels([
-                { name: 'alice', twitchUserId: '111' },
+                { name: 'alice' },
                 { name: 'bob', twitchUserId: '222' },
             ]);
             removeAllowedChannel('alice', null);
             expect(isChannelAllowed('alice')).toBe(false);
-            expect(isChannelAllowed('111')).toBe(false);
-            expect(isChannelActive('111')).toBe(false);
             expect(isChannelAllowed('222')).toBe(true);
+        });
+
+        it('keeps the channel when a legacy name-only duplicate of an ID doc is deleted', () => {
+            // managedChannels/alice (no twitchUserId) and managedChannels/111 both
+            // exist; deleting the legacy one must not revoke the live one.
+            updateAllowedChannels([
+                { name: 'alice', twitchUserId: '111', isActive: true },
+                { name: 'alice', isActive: true },
+                { name: 'bob', twitchUserId: '222' },
+            ]);
+            removeAllowedChannel('alice', null);
+            expect(isChannelAllowed('alice')).toBe(true);
+            expect(isChannelActive('alice')).toBe(true);
+            expect(isChannelActive('111')).toBe(true);
+            expect(getChannelIdFromName('alice')).toBe('111');
         });
     });
 

@@ -453,7 +453,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
     }
 
     // Resolve emote mode: user preference → channel default → 'describe'
-    const userEmoteMode = await getUserEmoteModePreference(userName, userId);
+    const userEmoteMode = await getUserEmoteModePreference(userId);
     const channelEmoteMode = ttsConfig.emoteMode || 'describe';
     const locale = resolveChannelLocale(ttsConfig);
     const emoteMode = userEmoteMode || channelEmoteMode;

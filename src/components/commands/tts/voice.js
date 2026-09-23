@@ -16,7 +16,7 @@ export default {
         const userId = user['user-id'];
 
         if (args.length === 0) {
-            const prefs = await getGlobalUserPreferences(username, userId);
+            const prefs = await getGlobalUserPreferences(userId);
             const currentVoice = prefs.voiceId;
             if (currentVoice) {
                 enqueueMessage(channel, context.t('cmd.voice.current', { value: currentVoice }), { replyToId });
@@ -28,7 +28,7 @@ export default {
 
         // Check for 'reset' first, as it's a single keyword
         if (args.length === 1 && (args[0].toLowerCase() === 'reset' || args[0].toLowerCase() === 'default' || args[0].toLowerCase() === 'auto')) {
-            const success = await clearGlobalUserPreference(username, 'voiceId', userId);
+            const success = await clearGlobalUserPreference(userId, 'voiceId');
             if (success) {
                 enqueueMessage(channel, context.t('cmd.voice.reset'), { replyToId });
             } else {
@@ -64,7 +64,7 @@ export default {
         // Use the correctly cased ID from the available voices list for storing
         const validVoiceIdToStore = matchedVoice.id;
 
-        const success = await setGlobalUserPreference(username, 'voiceId', validVoiceIdToStore, userId);
+        const success = await setGlobalUserPreference(userId, 'voiceId', validVoiceIdToStore, username);
         if (success) {
             enqueueMessage(channel, context.t('cmd.voice.set', { value: validVoiceIdToStore }), { replyToId });
         } else {

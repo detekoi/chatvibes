@@ -8,18 +8,13 @@ import {
     getTtsState,
     getChannelTtsConfig,
     getGlobalUserPreferences,
-    getUserEmotionPreference,
-    getUserVoicePreference,
-    getUserPitchPreference,
-    getUserSpeedPreference,
-    getUserLanguagePreference,
-    getUserEnglishNormalizationPreference
+    getChannelUserPreferences
 } from './ttsState.js';
 import { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, openClipStream, STOP_CURRENT_AUDIO } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
-import { resolveToChannelName } from '../../lib/allowList.js';
+import { resolveToChannelName, getChannelIdFromName, getChannelNameFromId } from '../../lib/allowList.js';
 import { snapshotTiming, elapsed } from '../../lib/ttsTiming.js';
 
 let db;
@@ -49,7 +44,8 @@ export function getOrCreateChannelQueue(channelName) {
             isProcessing: false,
             currentSpeech: null,
             currentSpeechController: null,
-            currentUserSpeaking: null, // Tracks who/what triggered the current/last speech
+            currentUserSpeaking: null, // Tracks who/what triggered the current/last speech (display)
+            currentUserIdSpeaking: null, // Account ID of that speaker; `!tts stop` ownership checks this
             prefetchResults: new Map(), // event -> { promise: Promise<url>, controller: AbortController }
         });
     }
@@ -93,38 +89,29 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     // Check if viewer preferences are allowed (defaults to true if not set)
     const allowViewerPrefs = ttsStatus && ttsStatus.allowViewerPreferences !== false;
     let globalUserPrefs = {};
-    let userEmotion = null;
-    let userVoice = null;
-    let userPitch = null;
-    let userSpeed = null;
-    let userLanguage = null;
-    let userEnglishNorm = null;
+    let channelUserPrefs = {};
 
-    const userId = eventData.userId; // Extract User ID from eventData
+    // Preferences are keyed by account ID; an event without one (anonymous gift,
+    // system announcement) gets channel defaults.
+    const userId = eventData.userId;
 
-    if (user && allowViewerPrefs) {
-        // Fetch all user preferences in parallel to minimize latency
-        [globalUserPrefs, userEmotion, userVoice, userPitch, userSpeed, userLanguage, userEnglishNorm] = await Promise.all([
-            getGlobalUserPreferences(user, userId),
-            getUserEmotionPreference(channelName, user, userId),
-            getUserVoicePreference(channelName, user, userId),
-            getUserPitchPreference(channelName, user, userId),
-            getUserSpeedPreference(channelName, user, userId),
-            getUserLanguagePreference(channelName, user, userId),
-            getUserEnglishNormalizationPreference(channelName, user, userId),
+    if (userId && allowViewerPrefs) {
+        [globalUserPrefs, channelUserPrefs] = await Promise.all([
+            getGlobalUserPreferences(userId),
+            getChannelUserPreferences(channelName, userId),
         ]);
     }
 
     const finalVoiceOptions = {
-        voiceId: globalUserPrefs.voiceId || userVoice || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId,
-        speed: (globalUserPrefs.speed ?? userSpeed) ?? channelConfig.speed ?? DEFAULT_TTS_SETTINGS.speed,
-        pitch: (globalUserPrefs.pitch ?? userPitch) ?? channelConfig.pitch ?? DEFAULT_TTS_SETTINGS.pitch,
-        emotion: globalUserPrefs.emotion || userEmotion || channelConfig.emotion || DEFAULT_TTS_SETTINGS.emotion,
-        languageBoost: globalUserPrefs.languageBoost || userLanguage || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
+        voiceId: globalUserPrefs.voiceId || channelUserPrefs.voiceId || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId,
+        speed: (globalUserPrefs.speed ?? channelUserPrefs.speed) ?? channelConfig.speed ?? DEFAULT_TTS_SETTINGS.speed,
+        pitch: (globalUserPrefs.pitch ?? channelUserPrefs.pitch) ?? channelConfig.pitch ?? DEFAULT_TTS_SETTINGS.pitch,
+        emotion: globalUserPrefs.emotion || channelUserPrefs.emotion || channelConfig.emotion || DEFAULT_TTS_SETTINGS.emotion,
+        languageBoost: globalUserPrefs.languageBoost || channelUserPrefs.languageBoost || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
 
-        volume: (channelConfig.voiceVolumes && channelConfig.voiceVolumes[globalUserPrefs.voiceId || userVoice || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId])
+        volume: (channelConfig.voiceVolumes && channelConfig.voiceVolumes[globalUserPrefs.voiceId || channelUserPrefs.voiceId || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId])
             || channelConfig.volume || DEFAULT_TTS_SETTINGS.volume,
-        englishNormalization: (globalUserPrefs.englishNormalization ?? userEnglishNorm) ?? (channelConfig.englishNormalization !== undefined
+        englishNormalization: (globalUserPrefs.englishNormalization ?? channelUserPrefs.englishNormalization) ?? (channelConfig.englishNormalization !== undefined
             ? channelConfig.englishNormalization
             : DEFAULT_TTS_SETTINGS.englishNormalization),
         sampleRate: channelConfig.sampleRate || DEFAULT_TTS_SETTINGS.sampleRate,
@@ -376,6 +363,7 @@ export async function processQueue(channelName) {
     cq.currentSpeechController = null;
     cq.currentSpeech = null;
     cq.currentUserSpeaking = event.user || 'event_tts'; // Set user for the current item
+    cq.currentUserIdSpeaking = event.userId || null;
 
     // Start prefetching upcoming items while we process the current one
     startPrefetch(channelName);
@@ -520,6 +508,7 @@ export async function processQueue(channelName) {
         // as there's no active speech associated with them from this attempt.
         if (!cq.currentSpeech && cq.currentUserSpeaking === (event.user || 'event_tts')) {
             cq.currentUserSpeaking = null;
+            cq.currentUserIdSpeaking = null;
         }
 
         cq.isProcessing = false;
@@ -531,6 +520,7 @@ export async function processQueue(channelName) {
             // If currentSpeech is null (last item failed/aborted), currentUserSpeaking should also be null.
             if (!cq.currentSpeech) {
                 cq.currentUserSpeaking = null;
+                cq.currentUserIdSpeaking = null;
             }
             logger.debug(`[${channelName}] TTS Queue is empty and processing finished. Last speaker (if audio was sent): ${cq.currentUserSpeaking}`);
         }
@@ -562,6 +552,7 @@ export async function stopCurrentSpeech(channelName) {
         sendAudioToChannel(channelName, STOP_CURRENT_AUDIO);
         cq.currentSpeech = null;         // Clear the audio
         cq.currentUserSpeaking = null;   // Clear the associated speaker
+        cq.currentUserIdSpeaking = null;
         stoppedSomethingSignificant = true;
     }
 
@@ -610,10 +601,20 @@ export async function persistAllQueues() {
     let totalPersisted = 0;
 
     for (const [channelName, cq] of channelQueues.entries()) {
+        // Keyed by broadcaster ID so a rename across the restart cannot orphan the queue.
+        const channelId = getChannelIdFromName(channelName);
+        if (!channelId) {
+            if (cq.queue.length > 0) {
+                logger.warn({ channel: channelName, pending: cq.queue.length }, 'No Twitch user ID known for channel; not persisting its TTS queue');
+            }
+            continue;
+        }
+        const docRef = db.collection(TTS_QUEUE_PERSISTENCE_COLLECTION).doc(channelId);
+
         if (cq.queue.length === 0) {
             // No pending items, delete persistence doc if it exists
             persistenceTasks.push(
-                db.collection(TTS_QUEUE_PERSISTENCE_COLLECTION).doc(channelName).delete()
+                docRef.delete()
                     .catch(err => {
                         if (err.code !== 5) { // Ignore "NOT_FOUND" errors (code 5)
                             logger.warn({ err, channel: channelName }, 'Failed to delete empty queue persistence doc');
@@ -635,8 +636,8 @@ export async function persistAllQueues() {
         totalPersisted += cq.queue.length;
 
         persistenceTasks.push(
-            db.collection(TTS_QUEUE_PERSISTENCE_COLLECTION).doc(channelName).set({
-                channelName,
+            docRef.set({
+                channelName, // Display only; the document ID is the key
                 queue: serializedQueue,
                 queueLength: cq.queue.length,
                 isPaused: cq.isPaused,
@@ -671,7 +672,9 @@ export async function restoreAllQueues() {
 
         snapshot.forEach(doc => {
             const data = doc.data();
-            const { channelName, queue, isPaused } = data;
+            const { queue, isPaused } = data;
+            // The login may have changed since the queue was persisted.
+            const channelName = getChannelNameFromId(doc.id) || data.channelName;
 
             if (!queue || queue.length === 0) {
                 logger.debug(`[${channelName}] Persisted queue was empty, skipping restore.`);

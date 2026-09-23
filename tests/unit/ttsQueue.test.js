@@ -59,12 +59,7 @@ describe('ttsQueue module', () => {
       getTtsState: jest.fn(),
       getChannelTtsConfig: jest.fn(),
       getGlobalUserPreferences: jest.fn().mockResolvedValue({}),
-      getUserEmotionPreference: jest.fn().mockResolvedValue(null),
-      getUserVoicePreference: jest.fn().mockResolvedValue(null),
-      getUserPitchPreference: jest.fn().mockResolvedValue(null),
-      getUserSpeedPreference: jest.fn().mockResolvedValue(null),
-      getUserLanguagePreference: jest.fn().mockResolvedValue(null),
-      getUserEnglishNormalizationPreference: jest.fn().mockResolvedValue(null)
+      getChannelUserPreferences: jest.fn().mockResolvedValue({})
     };
 
     // Set up default mock responses
@@ -174,7 +169,7 @@ describe('ttsQueue module', () => {
       });
       await ttsQueue.pauseQueue(TEST_CHANNEL);
       ttsQueue.clearQueue(TEST_CHANNEL);
-      await ttsQueue.enqueue(TEST_CHANNEL, { text, user: TEST_USER, type: 'chat' });
+      await ttsQueue.enqueue(TEST_CHANNEL, { text, user: TEST_USER, userId: '12345', type: 'chat' });
       return ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue[0]?.text;
     };
 
@@ -214,7 +209,7 @@ describe('ttsQueue module', () => {
     });
 
     test('cleans both languages when a viewer diverges from the channel', async () => {
-      mockTtsState.getUserLanguagePreference.mockResolvedValue('Spanish');
+      mockTtsState.getChannelUserPreferences.mockResolvedValue({ languageBoost: 'Spanish' });
       const out = await enqueueAs(
         { profanityFilterEnabled: true, languageBoost: 'German' },
         'mierda scheisse shit'
@@ -291,6 +286,7 @@ describe('ttsQueue module', () => {
       const eventData = {
         text: 'Test message',
         user: TEST_USER,
+        userId: '12345',
         type: 'chat'
       };
 
@@ -320,6 +316,7 @@ describe('ttsQueue module', () => {
       const eventData = {
         text: 'Test message',
         user: TEST_USER,
+        userId: '12345',
         type: 'chat'
       };
 
@@ -368,7 +365,7 @@ describe('ttsQueue module', () => {
       expect(queue.queue[0].sharedSessionInfo).toEqual(sharedSessionInfo);
     });
 
-    test('should fetch all user preferences in parallel', async () => {
+    test('should look up preferences by user ID', async () => {
       // Pause queue to prevent immediate processing
       await ttsQueue.pauseQueue(TEST_CHANNEL);
 
@@ -381,14 +378,18 @@ describe('ttsQueue module', () => {
 
       await ttsQueue.enqueue(TEST_CHANNEL, eventData);
 
-      // All preference functions should have been called
-      expect(mockTtsState.getGlobalUserPreferences).toHaveBeenCalledWith(TEST_USER, '12345');
-      expect(mockTtsState.getUserEmotionPreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
-      expect(mockTtsState.getUserVoicePreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
-      expect(mockTtsState.getUserPitchPreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
-      expect(mockTtsState.getUserSpeedPreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
-      expect(mockTtsState.getUserLanguagePreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
-      expect(mockTtsState.getUserEnglishNormalizationPreference).toHaveBeenCalledWith(TEST_CHANNEL, TEST_USER, '12345');
+      // Both preference lookups go by account ID only
+      expect(mockTtsState.getGlobalUserPreferences).toHaveBeenCalledWith('12345');
+      expect(mockTtsState.getChannelUserPreferences).toHaveBeenCalledWith(TEST_CHANNEL, '12345');
+    });
+
+    test('should skip viewer preferences for an event with no user ID', async () => {
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Test message', user: TEST_USER, type: 'chat' });
+
+      expect(mockTtsState.getGlobalUserPreferences).not.toHaveBeenCalled();
+      expect(mockTtsState.getChannelUserPreferences).not.toHaveBeenCalled();
     });
   });
 
@@ -848,7 +849,7 @@ describe('ttsQueue module', () => {
       await ttsQueue.persistAllQueues();
 
       // Check if Firestore doc was created
-      const doc = mockDb.collection('ttsQueuePersistence').doc(TEST_CHANNEL);
+      const doc = mockDb.collection('ttsQueuePersistence').doc('12345');
       const snapshot = await doc.get();
 
       expect(snapshot.exists).toBe(true);
@@ -858,7 +859,7 @@ describe('ttsQueue module', () => {
     });
 
     test('should delete persistence doc for empty queues', async () => {
-      const doc = mockDb.collection('ttsQueuePersistence').doc(TEST_CHANNEL);
+      const doc = mockDb.collection('ttsQueuePersistence').doc('12345');
       await doc.set({ channelName: TEST_CHANNEL, queue: [] });
 
       // Create empty queue
@@ -883,18 +884,28 @@ describe('ttsQueue module', () => {
 
       await ttsQueue.persistAllQueues();
 
-      const doc = mockDb.collection('ttsQueuePersistence').doc(TEST_CHANNEL);
+      const doc = mockDb.collection('ttsQueuePersistence').doc('12345');
       const snapshot = await doc.get();
       const data = snapshot.data();
 
       expect(typeof data.queue[0].timestamp).toBe('string');
       expect(data.queue[0].timestamp).toBe(timestamp.toISOString());
     });
+
+    test('should not persist a queue for a channel with no known ID', async () => {
+      const queue = ttsQueue.getOrCreateChannelQueue('unknownchannel');
+      queue.queue.push({ text: 'Test', user: TEST_USER, voiceConfig: {} });
+
+      await ttsQueue.persistAllQueues();
+
+      const doc = await mockDb.collection('ttsQueuePersistence').doc('unknownchannel').get();
+      expect(doc.exists).toBe(false);
+    });
   });
 
   describe('restoreAllQueues', () => {
     test('should restore queues from Firestore', async () => {
-      const doc = mockDb.collection('ttsQueuePersistence').doc(TEST_CHANNEL);
+      const doc = mockDb.collection('ttsQueuePersistence').doc('12345');
       await doc.set({
         channelName: TEST_CHANNEL,
         queue: [
@@ -917,8 +928,21 @@ describe('ttsQueue module', () => {
       expect(queue.queue[0].timestamp).toBeInstanceOf(Date);
     });
 
+    test('should restore under the current login when the channel was renamed', async () => {
+      // Persisted under the broadcaster ID while the channel was still 'oldname'.
+      await mockDb.collection('ttsQueuePersistence').doc('12345').set({
+        channelName: 'oldname',
+        queue: [{ text: 'Restored message', user: TEST_USER, voiceConfig: {} }],
+        isPaused: true
+      });
+
+      await ttsQueue.restoreAllQueues();
+
+      expect(ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue).toHaveLength(1);
+    });
+
     test('should restore paused state', async () => {
-      const doc = mockDb.collection('ttsQueuePersistence').doc(TEST_CHANNEL);
+      const doc = mockDb.collection('ttsQueuePersistence').doc('12345');
       await doc.set({
         channelName: TEST_CHANNEL,
         queue: [{ text: 'Test', user: TEST_USER, voiceConfig: {} }],
@@ -933,7 +957,7 @@ describe('ttsQueue module', () => {
     });
 
     test('should delete persistence docs after restore', async () => {
-      const doc = mockDb.collection('ttsQueuePersistence').doc(TEST_CHANNEL);
+      const doc = mockDb.collection('ttsQueuePersistence').doc('12345');
       await doc.set({
         channelName: TEST_CHANNEL,
         queue: [{ text: 'Test', user: TEST_USER, voiceConfig: {} }],
@@ -951,7 +975,7 @@ describe('ttsQueue module', () => {
     });
 
     test('should skip empty persisted queues', async () => {
-      const doc = mockDb.collection('ttsQueuePersistence').doc(TEST_CHANNEL);
+      const doc = mockDb.collection('ttsQueuePersistence').doc('12345');
       await doc.set({
         channelName: TEST_CHANNEL,
         queue: [],

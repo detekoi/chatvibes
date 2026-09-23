@@ -118,6 +118,13 @@ preferences. Details: `docs/channel-config.md`.
 - Reward lookups need the broadcaster's token, so `customRewards.js` bypasses `helixClient.js`.
 - The mute guard sits before the pending-approval stash in `handleRedemptionAnnouncement`.
 
+**Keys** — `docs/channel-config.md`
+- Every channel- or viewer-scoped record is keyed by the immutable account ID, never the login:
+  `ttsChannelConfigs/<broadcasterId>` (and its `userPreferences.<userId>`),
+  `ttsUserPreferences/<userId>`, `ttsQueuePersistence/<broadcasterId>`. Logins are display labels.
+- A login the allow-list cannot map to an ID resolves to nothing, not to itself: reads get
+  defaults uncached, writes return false. No viewer ID, no viewer preferences.
+
 **Channels and EventSub** — `docs/allow-list.md`, `docs/eventsub-duplicate-subscriptions.md`,
 `docs/CHANNEL_MANAGEMENT.md`
 - `isChannelAllowed` (document exists) is not `isChannelActive` (`isActive: true`). Gate anything

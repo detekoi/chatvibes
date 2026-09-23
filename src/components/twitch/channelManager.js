@@ -232,7 +232,9 @@ export function listenForChannelChanges() {
             } else {
                 for (const change of changes) {
                     if (change.type === 'removed') {
-                        removeAllowedChannel(change.channelName, change.twitchUserId);
+                        // A doc keyed by ID but missing the field is still that ID's doc.
+                        const removedId = change.twitchUserId || (/^\d+$/.test(change.docId) ? change.docId : null);
+                        removeAllowedChannel(change.channelName, removedId);
                     } else {
                         setChannelActive(change.channelName, change.twitchUserId, change.isActive);
                     }

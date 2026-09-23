@@ -2,7 +2,7 @@
 import * as ttsQueue from '../../tts/ttsQueue.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
-import { hasPermission } from '../commandProcessor.js'; // Make sure this utility is available and works as expected
+import { hasPermission } from '../commandProcessor.js';
 
 export default {
     name: 'stop',
@@ -13,9 +13,12 @@ export default {
         const { channel, user, replyToId } = context;
         const channelNameNoHash = channel.substring(1);
         const invokingUsername = user.username.toLowerCase();
+        const invokingUserId = user['user-id'] || null;
 
         const cq = ttsQueue.getOrCreateChannelQueue(channelNameNoHash);
-        const userWhoseSpeechIsPlaying = cq.currentUserSpeaking ? cq.currentUserSpeaking.toLowerCase() : null;
+        const userWhoseSpeechIsPlaying = cq.currentUserSpeaking; // For logs only
+        // Ownership is decided by account ID; logins are display only.
+        const isOwnSpeech = !!invokingUserId && cq.currentUserIdSpeaking === invokingUserId;
 
         let canStop = false;
 
@@ -24,7 +27,7 @@ export default {
 
         if (isSomethingToStopServerSide) {
             // Case 1: User stopping their own message
-            if (userWhoseSpeechIsPlaying && invokingUsername === userWhoseSpeechIsPlaying) {
+            if (isOwnSpeech) {
                 canStop = true;
                 logger.info(`[${channelNameNoHash}] User ${invokingUsername} is stopping their own message.`);
             }
@@ -45,7 +48,7 @@ export default {
 
         if (!canStop) {
             // If it's not their own message and they are not a mod, and something *is* playing
-            if (isSomethingToStopServerSide && userWhoseSpeechIsPlaying && invokingUsername !== userWhoseSpeechIsPlaying) {
+            if (isSomethingToStopServerSide && userWhoseSpeechIsPlaying && !isOwnSpeech) {
                  enqueueMessage(channel, context.t('cmd.stop.notYours'), { replyToId });
             } else {
                 // This case covers non-mods when server tracks nothing active.

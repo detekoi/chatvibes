@@ -68,12 +68,7 @@ describe('ttsQueue TTS_TIMING log', () => {
             getTtsState: jest.fn().mockResolvedValue({ ...mockChannelConfig, engineEnabled: true }),
             getChannelTtsConfig: jest.fn().mockResolvedValue(mockChannelConfig),
             getGlobalUserPreferences: jest.fn().mockResolvedValue({}),
-            getUserEmotionPreference: jest.fn().mockResolvedValue(null),
-            getUserVoicePreference: jest.fn().mockResolvedValue(null),
-            getUserPitchPreference: jest.fn().mockResolvedValue(null),
-            getUserSpeedPreference: jest.fn().mockResolvedValue(null),
-            getUserLanguagePreference: jest.fn().mockResolvedValue(null),
-            getUserEnglishNormalizationPreference: jest.fn().mockResolvedValue(null)
+            getChannelUserPreferences: jest.fn().mockResolvedValue({})
         };
 
         jest.unstable_mockModule('@google-cloud/firestore', () => ({

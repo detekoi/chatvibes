@@ -13,11 +13,11 @@ export default createTtsSettingCommand({
     description: `Sets your preferred TTS emotion. Valid emotions: ${VALID_EMOTIONS.join(', ')}. Use 'auto' or 'reset' to use channel default.`,
     usage: '!tts emotion <emotion_name|auto|reset>',
     readCurrent: async (context) => {
-        const prefs = await getGlobalUserPreferences(context.user.username, context.user['user-id']);
+        const prefs = await getGlobalUserPreferences(context.user['user-id']);
         return prefs.emotion;
     },
-    resetSetting: async (context) => clearGlobalUserPreference(context.user.username, 'emotion', context.user['user-id']),
-    setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'emotion', val, context.user['user-id']),
+    resetSetting: async (context) => clearGlobalUserPreference(context.user['user-id'], 'emotion'),
+    setSetting: async (context, val) => setGlobalUserPreference(context.user['user-id'], 'emotion', val, context.user.username),
     validateFn: (val) => VALID_EMOTIONS.includes(val),
     hintKey: 'cmd.hint.emotions',
     hintParams: { list: VALID_EMOTIONS.join(', ') },

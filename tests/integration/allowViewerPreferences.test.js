@@ -11,12 +11,16 @@ import {
   TEST_CHANNEL,
   TEST_USER,
   TEST_USER2,
+  TEST_USER_ID,
+  TEST_USER2_ID,
   mockChannelConfig,
   mockChannelConfigNoViewerPrefs,
   mockUserPreferences,
   mockGlobalUserPreferences,
   mockChatMessage
 } from '../helpers/testData.js';
+
+const TEST_CHANNEL_ID = '12345';
 
 describe('allowViewerPreferences Feature', () => {
   let mockDb;
@@ -66,6 +70,9 @@ describe('allowViewerPreferences Feature', () => {
     // Import modules after mocking
     ttsState = await import('../../src/components/tts/ttsState.js');
     ttsQueue = await import('../../src/components/tts/ttsQueue.js');
+
+    const allowList = await import('../../src/lib/allowList.js');
+    allowList.addAllowedChannel(TEST_CHANNEL, TEST_CHANNEL_ID);
   });
 
   afterEach(() => {
@@ -75,7 +82,7 @@ describe('allowViewerPreferences Feature', () => {
   describe('when allowViewerPreferences is true (default)', () => {
     beforeEach(async () => {
       // Set up channel config with viewer preferences enabled
-      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL);
+      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL_ID);
       await channelDoc.set({
         ...mockChannelConfig,
         userPreferences: mockUserPreferences
@@ -88,6 +95,7 @@ describe('allowViewerPreferences Feature', () => {
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: mockChatMessage.text,
         user: TEST_USER,
+        userId: TEST_USER_ID,
         type: 'chat'
       });
 
@@ -109,12 +117,13 @@ describe('allowViewerPreferences Feature', () => {
 
     test('should use global user preferences when available', async () => {
       // Set global preferences for the user
-      const userPrefsDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER.toLowerCase());
+      const userPrefsDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
       await userPrefsDoc.set(mockGlobalUserPreferences);
 
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: mockChatMessage.text,
         user: TEST_USER,
+        userId: TEST_USER_ID,
         type: 'chat'
       });
 
@@ -139,6 +148,7 @@ describe('allowViewerPreferences Feature', () => {
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: mockChatMessage.text,
         user: 'unknownuser',
+        userId: '999999999',
         type: 'chat'
       });
 
@@ -159,7 +169,8 @@ describe('allowViewerPreferences Feature', () => {
     test('should use partial user preferences with channel defaults as fallback', async () => {
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: mockChatMessage.text,
-        user: TEST_USER2, // Only has voiceId and emotion
+        user: TEST_USER2,
+        userId: TEST_USER2_ID, // Only has voiceId and emotion
         type: 'chat'
       });
 
@@ -181,7 +192,7 @@ describe('allowViewerPreferences Feature', () => {
   describe('when allowViewerPreferences is false', () => {
     beforeEach(async () => {
       // Set up channel config with viewer preferences disabled
-      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL);
+      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL_ID);
       await channelDoc.set({
         ...mockChannelConfigNoViewerPrefs,
         userPreferences: mockUserPreferences
@@ -194,6 +205,7 @@ describe('allowViewerPreferences Feature', () => {
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: mockChatMessage.text,
         user: TEST_USER,
+        userId: TEST_USER_ID,
         type: 'chat'
       });
 
@@ -215,12 +227,13 @@ describe('allowViewerPreferences Feature', () => {
 
     test('should ignore global user preferences when disabled', async () => {
       // Set global preferences for the user
-      const userPrefsDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER.toLowerCase());
+      const userPrefsDoc = mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
       await userPrefsDoc.set(mockGlobalUserPreferences);
 
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: mockChatMessage.text,
         user: TEST_USER,
+        userId: TEST_USER_ID,
         type: 'chat'
       });
 
@@ -244,12 +257,14 @@ describe('allowViewerPreferences Feature', () => {
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: 'First message',
         user: TEST_USER,
+        userId: TEST_USER_ID,
         type: 'chat'
       });
 
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: 'Second message',
         user: TEST_USER2,
+        userId: TEST_USER2_ID,
         type: 'chat'
       });
 
@@ -275,7 +290,7 @@ describe('allowViewerPreferences Feature', () => {
   describe('when allowViewerPreferences is undefined (legacy behavior)', () => {
     beforeEach(async () => {
       // Set up channel config without allowViewerPreferences field
-      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL);
+      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL_ID);
       const configWithoutField = { ...mockChannelConfig };
       delete configWithoutField.allowViewerPreferences;
       await channelDoc.set({
@@ -290,6 +305,7 @@ describe('allowViewerPreferences Feature', () => {
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: mockChatMessage.text,
         user: TEST_USER,
+        userId: TEST_USER_ID,
         type: 'chat'
       });
 
@@ -308,7 +324,7 @@ describe('allowViewerPreferences Feature', () => {
 
   describe('direct voiceOptions override', () => {
     beforeEach(async () => {
-      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL);
+      const channelDoc = mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL_ID);
       await channelDoc.set({
         ...mockChannelConfigNoViewerPrefs,
         userPreferences: mockUserPreferences
@@ -321,6 +337,7 @@ describe('allowViewerPreferences Feature', () => {
       await ttsQueue.enqueue(TEST_CHANNEL, {
         text: mockChatMessage.text,
         user: TEST_USER,
+        userId: TEST_USER_ID,
         type: 'chat',
         voiceOptions: {
           voiceId: 'Calm_Man',

@@ -145,7 +145,7 @@ describe('Factory-based TTS Command Handlers', () => {
 
       await speedCommand.default.execute(context);
 
-      expect(mockTtsState.getGlobalUserPreferences).toHaveBeenCalledWith('testuser', '999');
+      expect(mockTtsState.getGlobalUserPreferences).toHaveBeenCalledWith('999');
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         'Your current speed preference: 1.2. Usage: !tts speed <value|reset>',
@@ -166,7 +166,7 @@ describe('Factory-based TTS Command Handlers', () => {
 
       await speedCommand.default.execute(context);
 
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('testuser', 'speed', '999');
+      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'speed');
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         'Your TTS speed preference has been reset to the channel default.',
@@ -188,7 +188,7 @@ describe('Factory-based TTS Command Handlers', () => {
 
       await speedCommand.default.execute(context);
 
-      expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith('testuser', 'speed', 1.8, '999');
+      expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith('999', 'speed', 1.8, 'testuser');
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         'Your TTS speed preference set to 1.8.',

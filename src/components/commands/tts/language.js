@@ -15,11 +15,11 @@ export default createTtsSettingCommand({
     description: `Sets your preferred TTS language boost. Use 'auto', 'none', or 'reset' for channel default. See !tts languageslist or ${docLink} for options.`,
     usage: `!tts language <language_name|auto|none|reset> (Full list: ${docLink})`,
     readCurrent: async (context) => {
-        const prefs = await getGlobalUserPreferences(context.user.username, context.user['user-id']);
+        const prefs = await getGlobalUserPreferences(context.user['user-id']);
         return prefs.languageBoost;
     },
-    resetSetting: async (context) => clearGlobalUserPreference(context.user.username, 'languageBoost', context.user['user-id']),
-    setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'languageBoost', val, context.user['user-id']),
+    resetSetting: async (context) => clearGlobalUserPreference(context.user['user-id'], 'languageBoost'),
+    setSetting: async (context, val) => setGlobalUserPreference(context.user['user-id'], 'languageBoost', val, context.user.username),
     validateFn: (val) => VALID_LANGUAGE_BOOSTS.some(l => l.toLowerCase() === val.toLowerCase()),
     transformFn: (val) => VALID_LANGUAGE_BOOSTS.find(l => l.toLowerCase() === val.toLowerCase()),
     hintKey: 'cmd.hint.languages',

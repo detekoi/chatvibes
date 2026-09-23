@@ -69,7 +69,8 @@ describe('TTS Command Handlers', () => {
       const mockQueue = {
         currentSpeechUrl: 'http://audio.url',
         currentSpeechController: {},
-        currentUserSpeaking: 'testuser'
+        currentUserSpeaking: 'testuser',
+        currentUserIdSpeaking: '111'
       };
 
       mockTtsQueue.getOrCreateChannelQueue.mockReturnValue(mockQueue);
@@ -77,7 +78,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '111' },
         replyToId: '123',
         t: getTranslator('en')
       };
@@ -126,7 +127,8 @@ describe('TTS Command Handlers', () => {
       const mockQueue = {
         currentSpeechUrl: 'http://audio.url',
         currentSpeechController: {},
-        currentUserSpeaking: 'otheruser'
+        currentUserSpeaking: 'otheruser',
+        currentUserIdSpeaking: '222'
       };
 
       mockTtsQueue.getOrCreateChannelQueue.mockReturnValue(mockQueue);
@@ -134,7 +136,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'regularuser' },
+        user: { username: 'regularuser', 'user-id': '333' },
         replyToId: '123',
         t: getTranslator('en')
       };
@@ -149,11 +151,13 @@ describe('TTS Command Handlers', () => {
       );
     });
 
-    test('should handle case insensitive username matching', async () => {
+    test('should match ownership by user ID, not login', async () => {
+      // The viewer renamed between queuing the message and stopping it.
       const mockQueue = {
         currentSpeechUrl: 'http://audio.url',
         currentSpeechController: {},
-        currentUserSpeaking: 'TestUser'
+        currentUserSpeaking: 'oldname',
+        currentUserIdSpeaking: '111'
       };
 
       mockTtsQueue.getOrCreateChannelQueue.mockReturnValue(mockQueue);
@@ -161,7 +165,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'newname', 'user-id': '111' },
         replyToId: '123',
         t: getTranslator('en')
       };
@@ -169,6 +173,29 @@ describe('TTS Command Handlers', () => {
       await stopCommand.default.execute(context);
 
       expect(mockTtsQueue.stopCurrentSpeech).toHaveBeenCalled();
+    });
+
+    test('should not treat a matching login with a different user ID as the owner', async () => {
+      const mockQueue = {
+        currentSpeechUrl: 'http://audio.url',
+        currentSpeechController: {},
+        currentUserSpeaking: 'testuser',
+        currentUserIdSpeaking: '111'
+      };
+
+      mockTtsQueue.getOrCreateChannelQueue.mockReturnValue(mockQueue);
+      mockCommandProcessor.hasPermission.mockReturnValue(false);
+
+      const context = {
+        channel: '#testchannel',
+        user: { username: 'testuser', 'user-id': '999' },
+        replyToId: '123',
+        t: getTranslator('en')
+      };
+
+      await stopCommand.default.execute(context);
+
+      expect(mockTtsQueue.stopCurrentSpeech).not.toHaveBeenCalled();
     });
 
     test('should allow moderator precautionary stop when nothing is tracked', async () => {
@@ -303,7 +330,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: [],
         replyToId: '123',
         t: getTranslator('en')
@@ -323,7 +350,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: [],
         replyToId: '123',
         t: getTranslator('en')
@@ -343,7 +370,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: ['reset'],
         replyToId: '123',
         t: getTranslator('en')
@@ -352,9 +379,8 @@ describe('TTS Command Handlers', () => {
       await voiceCommand.default.execute(context);
 
       expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
-        'testuser',
-        'voiceId',
-        undefined
+        '999',
+        'voiceId'
       );
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
@@ -368,7 +394,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: ['default'],
         replyToId: '123',
         t: getTranslator('en')
@@ -377,9 +403,8 @@ describe('TTS Command Handlers', () => {
       await voiceCommand.default.execute(context);
 
       expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
-        'testuser',
-        'voiceId',
-        undefined
+        '999',
+        'voiceId'
       );
     });
 
@@ -388,7 +413,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: ['auto'],
         replyToId: '123',
         t: getTranslator('en')
@@ -397,9 +422,8 @@ describe('TTS Command Handlers', () => {
       await voiceCommand.default.execute(context);
 
       expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
-        'testuser',
-        'voiceId',
-        undefined
+        '999',
+        'voiceId'
       );
     });
 
@@ -413,7 +437,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: ['friendly_person'],
         replyToId: '123',
         t: getTranslator('en')
@@ -422,10 +446,10 @@ describe('TTS Command Handlers', () => {
       await voiceCommand.default.execute(context);
 
       expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith(
-        'testuser',
+        '999',
         'voiceId',
         'Friendly_Person',
-        undefined
+        'testuser'
       );
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
@@ -443,7 +467,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: ['Voice', 'With', 'Spaces'],
         replyToId: '123',
         t: getTranslator('en')
@@ -452,10 +476,10 @@ describe('TTS Command Handlers', () => {
       await voiceCommand.default.execute(context);
 
       expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith(
-        'testuser',
+        '999',
         'voiceId',
         'Voice With Spaces',
-        undefined
+        'testuser'
       );
     });
 
@@ -466,7 +490,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: ['this', 'is', 'a', 'message'],
         replyToId: '123',
         t: getTranslator('en')
@@ -491,7 +515,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: ['Friendly_Person'],
         replyToId: '123',
         t: getTranslator('en')
@@ -511,7 +535,7 @@ describe('TTS Command Handlers', () => {
 
       const context = {
         channel: '#testchannel',
-        user: { username: 'testuser' },
+        user: { username: 'testuser', 'user-id': '999' },
         args: ['reset'],
         replyToId: '123',
         t: getTranslator('en')

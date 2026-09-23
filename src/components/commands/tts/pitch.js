@@ -16,11 +16,11 @@ export default createTtsSettingCommand({
     description: `Sets your personal TTS pitch (${TTS_PITCH_MIN} to ${TTS_PITCH_MAX}, 0 is normal). Use 'reset' for channel default.`,
     usage: '!tts pitch <value|reset>',
     readCurrent: async (context) => {
-        const prefs = await getGlobalUserPreferences(context.user.username, context.user['user-id']);
+        const prefs = await getGlobalUserPreferences(context.user['user-id']);
         return prefs.pitch;
     },
-    resetSetting: async (context) => clearGlobalUserPreference(context.user.username, 'pitch', context.user['user-id']),
-    setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'pitch', val, context.user['user-id']),
+    resetSetting: async (context) => clearGlobalUserPreference(context.user['user-id'], 'pitch'),
+    setSetting: async (context, val) => setGlobalUserPreference(context.user['user-id'], 'pitch', val, context.user.username),
     parseFn: (str) => parseInt(str, 10),
     validateFn: (val) => !isNaN(val) && val >= TTS_PITCH_MIN && val <= TTS_PITCH_MAX,
     hintKey: 'cmd.hint.integerRange',

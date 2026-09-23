@@ -229,8 +229,11 @@ export function setChannelActive(channelName, twitchUserId, active) {
  * a managedChannels document that has actually been deleted — deactivating the
  * bot calls setChannelActive instead.
  *
- * Either identifier alone is enough: each is used to recover the other, so a
- * caller that knows only the name cannot leave the ID behind, or vice versa.
+ * Given an ID, the mapped login name goes too, so a rename cannot leave the old
+ * name approved. Given only a name, the document being deleted had no
+ * twitchUserId — a legacy login-keyed doc — and such a doc never registers a
+ * name → ID mapping. A mapping found for that name therefore belongs to another,
+ * still-live document for the same channel, so the channel is left alone.
  */
 export function removeAllowedChannel(channelName, twitchUserId) {
   const names = new Set();
@@ -238,17 +241,17 @@ export function removeAllowedChannel(channelName, twitchUserId) {
 
   if (twitchUserId) {
     ids.add(String(twitchUserId));
-  }
-  if (channelName) {
-    names.add(String(channelName).trim().toLowerCase());
+  } else if (channelName) {
+    const lower = String(channelName).trim().toLowerCase();
+    if (channelNameToIdMap.has(lower)) return;
+    names.add(lower);
   }
   for (const id of ids) {
     const mappedName = channelIdToNameMap.get(id);
     if (mappedName) names.add(mappedName);
   }
-  for (const name of names) {
-    const mappedId = channelNameToIdMap.get(name);
-    if (mappedId) ids.add(mappedId);
+  if (twitchUserId && channelName) {
+    names.add(String(channelName).trim().toLowerCase());
   }
 
   for (const id of ids) {

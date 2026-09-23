@@ -7,6 +7,7 @@ export const TEST_CHANNEL = 'testchannel';
 export const TEST_USER = 'testuser';
 export const TEST_USER2 = 'testuser2';
 export const TEST_USER_ID = '123456789'; // Twitch User ID for TEST_USER
+export const TEST_USER2_ID = '223456789'; // Twitch User ID for TEST_USER2
 
 export const mockChannelConfig = {
   ...DEFAULT_TTS_SETTINGS,
@@ -27,15 +28,16 @@ export const mockChannelConfigNoViewerPrefs = {
   allowViewerPreferences: false
 };
 
+// Per-channel viewer preferences, keyed by account ID like the real data.
 export const mockUserPreferences = {
-  [TEST_USER]: {
+  [TEST_USER_ID]: {
     voiceId: 'Wise_Woman',
     emotion: 'happy',
     speed: 1.2,
     pitch: 2,
     languageBoost: 'English'
   },
-  [TEST_USER2]: {
+  [TEST_USER2_ID]: {
     voiceId: 'Calm_Man',
     emotion: 'neutral'
   }

@@ -10,6 +10,9 @@
 "Deactivate TTS Service" in the dashboard clears `isActive` and keeps the document, so a channel
 that stops using the bot stays approved: its OBS overlay socket and its dashboard keep working, and
 switching the bot back on needs no re-approval. Only deleting the document revokes approval.
+The one exception is deleting a legacy login-keyed document (no `twitchUserId`) when a document
+keyed by the same channel's ID also exists. That used to revoke the live channel too, because
+removal followed the login to the ID. `removeAllowedChannel` now leaves the channel approved.
 
 Gate on `isChannelActive` anything that speaks or reacts in a channel (EventSub events, channel
 point redemptions) — a stale EventSub subscription can outlive the deactivation that unsubscribed

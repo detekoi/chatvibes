@@ -16,11 +16,11 @@ export default createTtsSettingCommand({
     description: `Sets your personal TTS speed (${TTS_SPEED_MIN} to ${TTS_SPEED_MAX}, 1.0 is normal). Use 'reset' for channel default.`,
     usage: '!tts speed <value|reset>',
     readCurrent: async (context) => {
-        const prefs = await getGlobalUserPreferences(context.user.username, context.user['user-id']);
+        const prefs = await getGlobalUserPreferences(context.user['user-id']);
         return prefs.speed;
     },
-    resetSetting: async (context) => clearGlobalUserPreference(context.user.username, 'speed', context.user['user-id']),
-    setSetting: async (context, val) => setGlobalUserPreference(context.user.username, 'speed', val, context.user['user-id']),
+    resetSetting: async (context) => clearGlobalUserPreference(context.user['user-id'], 'speed'),
+    setSetting: async (context, val) => setGlobalUserPreference(context.user['user-id'], 'speed', val, context.user.username),
     parseFn: (str) => parseFloat(str),
     validateFn: (val) => !isNaN(val) && val >= TTS_SPEED_MIN && val <= TTS_SPEED_MAX,
     hintKey: 'cmd.hint.numberRange',

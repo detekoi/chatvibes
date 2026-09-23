@@ -118,7 +118,7 @@ export async function handleChatMessage(event, channelName) {
     }
 
     // Resolve emote mode: user preference → channel default → 'describe'
-    const userEmoteMode = await getUserEmoteModePreference(username, userId);
+    const userEmoteMode = await getUserEmoteModePreference(userId);
     // Channel-level emote mode
     let channelEmoteMode = ttsConfig.emoteMode || 'describe';
     const emoteMode = userEmoteMode || channelEmoteMode;

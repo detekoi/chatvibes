@@ -67,6 +67,36 @@ code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`
   what each channel was actually getting (three `true`, six `false`) so nothing changed for them,
   and deleted `botMode`.
 
+## Keys: account IDs, never logins
+
+Twitch logins can be renamed and then claimed by someone else; the user ID never changes. A
+record keyed by login is lost on a rename and, worse, inherited by whoever takes the name next.
+So every channel- and viewer-scoped document is keyed by ID: channel configs by broadcaster ID,
+viewer preferences by user ID (the YouTube channel ID for YouTube chatters), the persisted queue
+by broadcaster ID, the ignore list by `<platform>:<accountId>` (`ignore-list.md`).
+
+- **Most callers hold a login**, because EventSub handlers and commands pass the channel's login
+  around. `ttsState.js` maps it to the ID through the allow-list cache (`getChannelIdFromName`).
+- **An unmapped login used to fall back to itself.** That read, and created, documents under
+  a login key that nothing else used. At startup, before the allow-list loads, a lookup would
+  miss, cache defaults under the login, and keep serving them for the life of the process. Now an
+  unmapped login resolves to null: `getTtsState` serves defaults without caching them,
+  `getStoredLanguageBoost` throws, and every writer returns false. For the same reason
+  `restoreAllQueues` runs after the channel load in `bot.js`.
+- **Viewer preferences used to fall back from the ID key to the login key** on read, and wrote
+  to the login when no ID was passed. Both paths are gone, here and in the web UI
+  (`functions/src/services/preferences.ts`, `/api/tts/user-voice`). An event without a user ID
+  (an anonymous gift, for example) gets channel defaults.
+- **Per-channel `userPreferences` are read-only legacy.** Chat commands and the dashboard write
+  the global `ttsUserPreferences` document. The per-channel setters had no callers and were
+  removed. Existing entries are still honored below the global ones.
+- **`!tts stop` decides "your own message" by user ID** (`currentUserIdSpeaking`), not by
+  comparing logins.
+
+The earlier migration scripts (since deleted) skipped any login whose ID key already existed, which
+left a few records behind. `scripts/migrate-login-keys.js` merges them instead (fields already
+under the ID key win) and reports `managedChannels` documents that lack a `twitchUserId`.
+
 ## Redemption announcements and the reward queue (`announceUnfulfilledRedemptions`)
 
 A channel points reward that has **Skip Reward Requests Queue** switched off is redeemed as

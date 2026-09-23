@@ -237,9 +237,6 @@ async function main() {
         initGeminiClient(process.env.GEMINI_API_KEY);
         initEmoteDescriptionStore();
 
-        logger.info('WildcatTTS: Restoring TTS queues from previous session...');
-        await ttsQueue.restoreAllQueues();
-
         logger.info('WildcatTTS: Initializing Channel Manager (Firestore)...');
         await initializeChannelManager();
 
@@ -276,6 +273,11 @@ async function main() {
             }
         }
         if (!config.twitch.channels) config.twitch.channels = [];
+
+        // After the channel load: persisted queues are keyed by broadcaster ID, and
+        // mapping them back to a channel name needs the allow-list populated.
+        logger.info('WildcatTTS: Restoring TTS queues from previous session...');
+        await ttsQueue.restoreAllQueues();
 
         logger.info('WildcatTTS: Initializing Twitch Helix Client...');
         await initializeHelixClient();
