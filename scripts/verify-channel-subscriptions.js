@@ -15,7 +15,9 @@ const REQUIRED_SUBSCRIPTION_TYPES = [
     'channel.chat.message',           // CRITICAL for receiving chat
     'channel.subscribe',
     'channel.subscription.message',
-    'channel.subscription.gift',
+    // Gifts arrive as channel.chat.notification; channel.subscription.gift is
+    // deliberately not subscribed (see twitchSubs.js).
+    'channel.chat.notification',
     'channel.cheer',
     'channel.raid',
     'channel.channel_points_custom_reward_redemption.add',
