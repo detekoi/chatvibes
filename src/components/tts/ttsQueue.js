@@ -154,7 +154,7 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     const timingSnapshot = snapshotTiming();
     const timing = timingSnapshot ? { ...timingSnapshot, enqueueStartMs, enqueuedMs: Date.now() } : null;
 
-    cq.queue.push({ type, text: finalText, user, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing });
+    cq.queue.push({ type, text: finalText, user, userId, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
 }
@@ -653,8 +653,10 @@ export async function persistAllQueues() {
 }
 
 /**
- * Restore TTS queues from Firestore after startup
- * Call this after TTS state is initialized but before processing new messages
+ * Restore TTS queues from Firestore after startup.
+ * Call this after the channel manager has loaded the allow-list (persisted queues
+ * are keyed by broadcaster ID, mapped back to a login through it) and before
+ * processing new messages.
  */
 export async function restoreAllQueues() {
     if (!db) db = new Firestore();

@@ -621,6 +621,21 @@ describe('ttsQueue module', () => {
       );
     });
 
+    test('should record the speaker account ID while speaking, for !tts stop', async () => {
+      // Read while the item is current, through the real enqueue → process path:
+      // stop.js compares this ID, so a queued item that drops userId breaks it.
+      let speakerIdDuringSpeech;
+      mockTtsService.generateSpeech.mockImplementation(async () => {
+        speakerIdDuringSpeech = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).currentUserIdSpeaking;
+        return bufferPayload();
+      });
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'Test message', user: TEST_USER, userId: '12345' });
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      expect(speakerIdDuringSpeech).toBe('12345');
+    });
+
     test('should forward inline audio bytes to the client unchanged', async () => {
       const payload = bufferPayload();
       mockTtsService.generateSpeech.mockResolvedValue(payload);
