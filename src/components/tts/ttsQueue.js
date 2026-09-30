@@ -597,6 +597,8 @@ export async function clearQueue(channelName) {
  * `timing` are runtime-only: the clip holds a listener Set and a function, which
  * Firestore rejects, and a timing record carried across a restart or a handover
  * would report the gap as queue wait.
+ * @param {object[]} queue
+ * @returns {object[]}
  */
 function serializeQueueItems(queue) {
     return queue.map(({ clip: _clip, timing: _timing, ...item }) => ({
@@ -605,6 +607,11 @@ function serializeQueueItems(queue) {
     }));
 }
 
+/**
+ * Inverse of serializeQueueItems.
+ * @param {object[]} items
+ * @returns {object[]}
+ */
 function deserializeQueueItems(items) {
     return items.map(item => ({
         ...item,
@@ -618,14 +625,17 @@ function deserializeQueueItems(items) {
  * Empties a channel's queue for handing to the instance that now owns the
  * channel (see channelOwnership.js). The clip already playing or generating is
  * left alone: its audio is bound for this instance's browser source, if any.
+ * The login travels with the clips: the receiving instance's allow-list may not
+ * map the broadcaster ID yet, and a queue adopted under the numeric ID would
+ * never match the browser source, which registers under the login.
  * @param {string} channelName
- * @returns {{items: object[], isPaused: boolean}|null} Null when there is nothing to hand on.
+ * @returns {{channelName: string, items: object[], isPaused: boolean}|null} Null when there is nothing to hand on.
  */
 export function takeQueueForHandoff(channelName) {
     const name = resolveToChannelName(channelName);
     const cq = channelQueues.get(name);
     if (!cq || (cq.queue.length === 0 && !cq.isPaused)) return null;
-    const handoff = { items: serializeQueueItems(cq.queue), isPaused: cq.isPaused };
+    const handoff = { channelName: name, items: serializeQueueItems(cq.queue), isPaused: cq.isPaused };
     cq.queue = [];
     cq.isPaused = false;
     cancelAllPrefetches(name);

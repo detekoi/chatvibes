@@ -38,10 +38,23 @@ was forwarded in between. No lease, a Firestore
 error, or ownership switched off: the webhook is handled where it landed, exactly as before, and
 its audio reaches the browser source over Pub/Sub if there is one.
 
+**Every instance keeps its allow-list current** (`listenForAllowListChanges` in
+`channelManager.js`). Routing, the browser-source gate and queue adoption all read it, but only
+the leader used to listen for changes: every other instance kept the list it loaded at startup,
+so a channel switched on later was "inactive" there (webhooks dropped, browser source refused)
+and one switched off kept speaking until a restart. The leader's `listenForChannelChanges` still
+also manages EventSub subscriptions.
+
+**Shutdown waits for claims in flight** before releasing, and a claim checks for shutdown inside
+its transaction, so a renewal retried after the release cannot write the lease back and point
+other instances at a stopped one. **A release for want of a player** deletes the lease only if it
+still says `hasPlayer: false`; a browser source that reconnected in the meantime keeps it.
+
 **The queue moves with the channel** (`channelHandover.js`). An instance that gives a channel up
 deletes the lease first, while still reading the inbox, so other instances stop forwarding to it
 before it stops listening; the reverse order stranded whatever they forwarded in between. Then
-it writes its pending clips, and its pause, to the channel's inbox as a `queueHandoff`, which the
+it writes its pending clips, its pause and the channel's login to the channel's inbox as a
+`queueHandoff` (the login, because the receiver may not map the ID yet), which the
 next owner picks up whenever it starts listening. The new owner puts them
 ahead of anything it queued since. It also restores `ttsQueuePersistence/{broadcasterId}`, which
 is where a shutdown with ownership off, or a handoff that could not be written, leaves a queue.
@@ -84,9 +97,9 @@ clip went to whichever instance won its Pub/Sub claim, so both played a random s
 - **A handover loses what cannot be serialised:** the clip playing or being generated at that
   moment (its audio was bound for the old instance's socket), prefetched audio for queued clips
   (regenerated on the new owner), redemptions held for approval, the redemption echo guard,
-  chat fragments waiting for their redemption, and shared-chat sessions until Twitch sends the
-  next `shared_chat.update`. Recent YouTube chatters are unaffected: every instance sees every
-  YouTube message.
+  and chat fragments waiting for their redemption. Recent YouTube chatters are unaffected: every
+  instance sees every YouTube message. (Shared-chat sessions would be lost too, but nothing
+  subscribes to `channel.shared_chat.*` today, so `sharedChatManager` is never populated.)
 - **A webhook forwarded just as its owner lets go** waits in the inbox for the next owner and is
   dropped if that takes longer than the age limits above.
 - **YouTube chat is unchanged.** The proxy broadcasts to every instance and `dispatchYouTubeTtsEvent`

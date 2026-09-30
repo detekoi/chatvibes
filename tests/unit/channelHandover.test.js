@@ -90,6 +90,20 @@ test('losing a channel hands its pending clips and pause to the inbox', async ()
     expect(ttsQueue.getOrCreateChannelQueue('parfaitfair').queue).toEqual([]);
 });
 
+test('the handoff carries the login, and the new owner uses it for a channel it cannot map yet', async () => {
+    ttsQueue.adoptQueue('parfaitfair', { items: [item('one')] });
+    await ownershipListener({ type: 'lost', broadcasterId: '111', channelName: 'parfaitfair', reason: 'taken' });
+    const handoff = JSON.parse(mockForwardToInbox.mock.calls[0][1].payload);
+    expect(handoff.channelName).toBe('parfaitfair');
+
+    // '333' was added after this instance loaded its allow-list: no local mapping.
+    await ownershipListener({ type: 'acquired', broadcasterId: '333', channelName: 'newchan' });
+    await inboxHandler({ kind: 'queueHandoff', payload: { ...handoff, channelName: 'newchan' } });
+
+    expect(ttsQueue.getOrCreateChannelQueue('newchan').queue.map(i => i.text)).toEqual(['one']);
+    expect(ttsQueue.getOrCreateChannelQueue('333').queue).toEqual([]);
+});
+
 test('a channel with nothing queued and no pause hands nothing over', async () => {
     await ownershipListener({ type: 'lost', broadcasterId: '111', channelName: 'parfaitfair', reason: 'shutdown' });
     expect(mockForwardToInbox).not.toHaveBeenCalled();

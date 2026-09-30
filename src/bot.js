@@ -22,7 +22,7 @@ import { createLeaderElection } from './lib/leaderElection.js';
 import { startChannelLanguageSync, stopChannelLanguageSync } from './lib/channelLanguageSync.js';
 
 // Channel Management
-import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithEventSub, listenForChannelChanges } from './components/twitch/channelManager.js';
+import { initializeChannelManager, getActiveManagedChannels, syncManagedChannelsWithEventSub, listenForChannelChanges, listenForAllowListChanges } from './components/twitch/channelManager.js';
 
 // Pub/Sub for cross-instance TTS communication
 import { initializePubSub, subscribeTtsEvents, closePubSub } from './lib/pubsub.js';
@@ -32,6 +32,7 @@ import { isOwnershipEnabled, notePlayer, startChannelOwnership, stopChannelOwner
 import { wireChannelHandover, handOffRemainingQueues } from './lib/channelHandover.js';
 import { getChannelIdFromName } from './lib/allowList.js';
 import { getChannelsWithClients } from './components/web/server.js';
+import { handleForwardedNotification } from './components/twitch/eventsub.js';
 
 // YouTube Chat via yt-chat-proxy
 import { initializeYouTubeChat, disconnectAllYouTubeChat } from './components/youtube/ytChatClient.js';
@@ -41,6 +42,7 @@ import { initializeYouTubeChat, disconnectAllYouTubeChat } from './components/yo
 
 
 let channelChangeListener = null;
+let allowListListener = null;
 let isShuttingDown = false;
 let leaderElection = null;
 let eventSubStartedByThisInstance = false;
@@ -196,6 +198,11 @@ async function gracefulShutdown(signal) {
         logger.info('WildcatTTS: No active Firestore channel change listener to clean up.');
     }
 
+    if (allowListListener) {
+        try { allowListListener(); } catch { /* ignore */ }
+        allowListListener = null;
+    }
+
     // Persist TTS queues before shutdown to prevent message loss. With channel
     // ownership on, the leases are handed back first, and each channel's pending
     // clips go to its inbox for the instance its browser source reconnects to.
@@ -277,6 +284,10 @@ async function main() {
             logger.info('WildcatTTS: Cloud environment detected or not development. Loading channels from Firestore.');
             try {
                 const managedChannels = await getActiveManagedChannels();
+                // Every instance, not just the leader, keeps its allow-list
+                // current: webhook routing, the browser-source gate and queue
+                // handover all read it.
+                allowListListener = listenForAllowListChanges();
                 if (managedChannels && managedChannels.length > 0) {
                     config.twitch.channels = [...new Set(managedChannels)];
                     logger.info(`WildcatTTS: Loaded ${config.twitch.channels.length} channels from Firestore.`);
@@ -324,12 +335,7 @@ async function main() {
         // Registered before the web server starts: the first browser source to
         // connect claims its channel, and the handover listener must already be
         // there to open the channel's inbox.
-        wireChannelHandover({
-            onNotification: async (notification, timing) => {
-                const { handleForwardedNotification } = await import('./components/twitch/eventsub.js');
-                await handleForwardedNotification(notification, timing);
-            },
-        });
+        wireChannelHandover({ onNotification: handleForwardedNotification });
         const notePlayerFor = (channelName, present) =>
             notePlayer(getChannelIdFromName(channelName), channelName, present);
 

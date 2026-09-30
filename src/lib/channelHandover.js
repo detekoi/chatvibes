@@ -49,7 +49,9 @@ async function handOffQueue(broadcasterId, channelName, reason) {
  */
 async function handleInboxEvent(broadcasterId, event, onNotification) {
     if (event.kind === 'queueHandoff') {
-        const channelName = getChannelNameFromId(broadcasterId) || broadcasterId;
+        // This instance's own mapping first (it tracks renames), then the login
+        // the sender queued under, which a just-added channel may still lack here.
+        const channelName = getChannelNameFromId(broadcasterId) || event.payload?.channelName || broadcasterId;
         ttsQueue.adoptQueue(channelName, event.payload);
         return;
     }

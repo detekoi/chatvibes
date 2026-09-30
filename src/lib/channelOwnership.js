@@ -178,8 +178,13 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
         // Measured before the transaction: the local deadline must never run past
         // the expiry written to Firestore, however long the round trip takes.
         const startedAt = now();
+        if (stopping) return { owned: false, ownerId: null, stopped: true };
 
         const result = await db.runTransaction(async (tx) => {
+            // Checked inside as well: a transaction retried after shutdown's
+            // release deleted the lease would otherwise write it back, pointing
+            // other instances at this one for a whole TTL after it has gone.
+            if (stopping) return { owned: false, ownerId: null, stopped: true };
             const snap = await tx.get(ref);
             const data = snap.exists ? snap.data() : null;
             const t = now();
@@ -213,6 +218,9 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
                 tookOver: !!heldElsewhere,
             };
         });
+
+        // Shutdown releases whatever is owned once the claims in flight settle.
+        if (result.stopped) return result;
 
         const previous = owned.get(broadcasterId);
         if (result.owned) {
@@ -287,12 +295,21 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
         try {
             const db = getDb();
             const ref = leaseRef(broadcasterId);
-            await db.runTransaction(async (tx) => {
+            const outcome = await db.runTransaction(async (tx) => {
                 const snap = await tx.get(ref);
-                if (snap.exists && snap.data().ownerId === instanceId) {
-                    tx.delete(ref);
-                }
+                if (!snap.exists || snap.data().ownerId !== instanceId) return 'not-ours';
+                // Released for want of a player, but a browser source reconnected
+                // here and re-marked the lease since the sweep decided. Deleting
+                // it now would route the channel's webhooks away from the one
+                // instance that can play them until the next renewal.
+                if (reason === 'no-player' && snap.data().hasPlayer !== false) return 'player-back';
+                tx.delete(ref);
+                return 'deleted';
             });
+            if (outcome === 'player-back') {
+                logger.info({ channelName: entry.channelName, broadcasterId }, '[ChannelOwnership] Browser source reconnected during release, keeping channel');
+                return;
+            }
             logger.info({ channelName: entry.channelName, broadcasterId, reason }, '[ChannelOwnership] Released channel');
         } catch (err) {
             // The lease expires on its own; releasing early only speeds up handover.
@@ -439,6 +456,9 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
             intervalId = null;
         }
         if (!isOwnershipEnabled()) return;
+        // A claim already in flight may still commit. Let it finish, so what it
+        // wrote is in `owned` and released below rather than left behind.
+        await Promise.allSettled([...inFlight.values()].map(({ promise }) => promise));
         await Promise.allSettled([...owned.keys()].map(id => releaseChannel(id, 'shutdown')));
     }
 
@@ -452,7 +472,6 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
         notePlayer,
         startChannelOwnership,
         stopChannelOwnership,
-        getOwnedBroadcasterIds: () => [...owned.keys()],
         // For tests
         _sweep: sweep,
         _owned: owned,

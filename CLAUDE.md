@@ -131,6 +131,8 @@ preferences. Details: `docs/channel-config.md`.
 - `isChannelAllowed` (document exists) is not `isChannelActive` (`isActive: true`). Gate anything
   that speaks or reacts on *active*; gate what belongs to the owner (overlay socket, settings
   API) on *allowed*.
+- Every instance keeps the allow-list current (`listenForAllowListChanges`); only the leader's
+  `listenForChannelChanges` also touches EventSub subscriptions.
 - **Set `PUBLIC_URL` in `.env` to the deployed value before running any subscribe script.** The
   service answers on two hostnames and Twitch treats the callbacks as distinct, so every message
   is spoken twice. Check with `scripts/verify-channel-subscriptions.js`.

@@ -345,6 +345,10 @@ export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
 /**
  * Attach a WebSocketServer to an existing HTTP server and start handling TTS
  * overlay connections.  Returns the WebSocketServer instance.
+ * @param {import('http').Server} httpServer
+ * @param {object} [opts]
+ * @param {(channelName: string) => void} [opts.onClientConnect] - A browser source authenticated.
+ * @param {(channelName: string) => void} [opts.onChannelEmpty] - The channel's last browser source left.
  */
 export function initializeWebSocketServer(httpServer, { onClientConnect, onChannelEmpty } = {}) {
     const wss = new WebSocketServer({ server: httpServer, verifyClient: verifyUpgrade });

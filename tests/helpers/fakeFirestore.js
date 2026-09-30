@@ -107,22 +107,33 @@ export function createFakeFirestore() {
         };
         return {
             orderBy: field => queryRef(path, field),
+            limit: () => queryRef(path, orderField),
             get: async () => {
                 const rows = run();
                 const out = rows.map(r => ({ ...snapshot(r.path, r.data), ref: docRef(r.path) }));
                 return { size: out.length, empty: out.length === 0, docs: out, forEach: fn => out.forEach(fn) };
             },
             onSnapshot: (onNext, onError) => {
-                let seen = new Set();
+                // path -> data object last reported; a write replaces the object,
+                // so identity tells a modified document from an untouched one.
+                let seen = new Map();
                 const listener = () => {
                     const rows = run();
-                    const added = rows.filter(r => !seen.has(r.path));
-                    seen = new Set(rows.map(r => r.path));
-                    if (added.length === 0) return;
+                    const changes = [];
+                    for (const r of rows) {
+                        if (!seen.has(r.path)) changes.push({ type: 'added', path: r.path, data: r.data });
+                        else if (seen.get(r.path) !== r.data) changes.push({ type: 'modified', path: r.path, data: r.data });
+                    }
+                    const current = new Set(rows.map(r => r.path));
+                    for (const [path, data] of seen) {
+                        if (!current.has(path)) changes.push({ type: 'removed', path, data });
+                    }
+                    seen = new Map(rows.map(r => [r.path, r.data]));
+                    if (changes.length === 0) return;
                     onNext({
-                        docChanges: () => added.map(r => ({
-                            type: 'added',
-                            doc: { ...snapshot(r.path, r.data), ref: docRef(r.path) },
+                        docChanges: () => changes.map(c => ({
+                            type: c.type,
+                            doc: { ...snapshot(c.path, c.data), ref: docRef(c.path) },
                         })),
                     });
                 };

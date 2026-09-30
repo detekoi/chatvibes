@@ -78,6 +78,11 @@ httpServer.setTimeout(0);
 
 let initialized = false;
 
+/**
+ * @param {object} [opts]
+ * @param {(channelName: string) => void} [opts.onClientConnect] - A browser source authenticated.
+ * @param {(channelName: string) => void} [opts.onChannelEmpty] - The channel's last browser source left.
+ */
 export function initializeWebServer({ onClientConnect, onChannelEmpty } = {}) {
     if (initialized) {
         logger.warn('WildcatTTS Web Server already initialized.');

@@ -293,6 +293,73 @@ describe('release', () => {
     });
 });
 
+describe('shutdown and in-flight claims', () => {
+    test('a claim in flight when shutdown begins does not leave a lease behind', async () => {
+        const a = instance('a');
+
+        const claim = a.claimChannel(ID, NAME, { hasPlayer: true });
+        await a.stopChannelOwnership();
+        await claim;
+
+        expect(db._read(`channelLeases/${ID}`)).toBeUndefined();
+        expect(a.ownsBroadcaster(ID)).toBe(false);
+    });
+
+    test('a renewal in flight when shutdown begins does not write the released lease back', async () => {
+        const a = instance('a');
+        await a.claimChannel(ID, NAME, { hasPlayer: true });
+
+        const renewal = a.claimChannel(ID, NAME, { hasPlayer: false });
+        await a.stopChannelOwnership();
+        await renewal;
+
+        expect(db._read(`channelLeases/${ID}`)).toBeUndefined();
+    });
+
+    test('a claim that committed before shutdown is released by it', async () => {
+        const a = instance('a');
+        const lost = [];
+        a.onOwnershipChange(e => { if (e.type === 'lost') lost.push(e.reason); });
+
+        const claim = a.claimChannel(ID, NAME, { hasPlayer: true });
+        await flush(); // the transaction commits before shutdown starts
+        await a.stopChannelOwnership();
+        await claim;
+
+        expect(db._read(`channelLeases/${ID}`)).toBeUndefined();
+        expect(lost).toEqual(['shutdown']);
+    });
+});
+
+describe('a player reconnecting just before the grace release', () => {
+    test('keeps the lease when the reconnect is written before the release transaction runs', async () => {
+        const a = instance('a');
+        let players = [{ broadcasterId: ID, channelName: NAME }];
+        await a.startChannelOwnership({ getPlayerChannels: () => players });
+        const lost = [];
+        a.onOwnershipChange(e => { if (e.type === 'lost') lost.push(e.reason); });
+
+        players = [];
+        await a.notePlayer(ID, NAME, false);
+        await runFor(a, PLAYER_GRACE_MS - 1);
+
+        // The sweep decides to release (no player in its snapshot), but the
+        // source reconnects and re-marks the lease before the delete runs.
+        clock.now += 1;
+        const realTransaction = db.runTransaction;
+        db.runTransaction = async fn => {
+            db.runTransaction = realTransaction;
+            await a.notePlayer(ID, NAME, true);
+            return realTransaction(fn);
+        };
+        await a._sweep();
+
+        expect(db._read(`channelLeases/${ID}`)).toEqual(expect.objectContaining({ ownerId: 'a', hasPlayer: true }));
+        expect(a.ownsBroadcaster(ID)).toBe(true);
+        expect(lost).toEqual([]);
+    });
+});
+
 describe('disabled', () => {
     test('owns every channel and touches no Firestore', async () => {
         enabled = false;
