@@ -17,8 +17,12 @@ let db;
 let clock;
 
 function inbox(instanceId, owns = () => true) {
-    return createChannelInbox({ getDb: () => db, instanceId, ownsBroadcaster: owns, now: () => clock.now });
+    return createChannelInbox({
+        getDb: () => db, instanceId, ownsBroadcaster: owns, now: () => clock.now, retryDelaysMs: [5, 10],
+    });
 }
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 const chat = text => JSON.stringify({ subscription: { type: 'channel.chat.message' }, event: { message: { text } } });
 
@@ -117,18 +121,51 @@ test('stale events are claimed and dropped: chat after two minutes, anything els
     owner.stopAllInboxes();
 });
 
-test('a failed listener is forgotten, so the channel can be listened to again', async () => {
+test('a listener whose stream fails reopens and picks up what was forwarded meanwhile', async () => {
     const owner = inbox('b');
+    const handler = jest.fn();
+    owner.startInbox(ID, handler);
+    await flush();
+
+    db._failListeners(new Error('stream reset'));
+    await inbox('a').forwardToInbox(ID, { messageId: 'during-outage', payload: chat('x') });
+    expect(handler).not.toHaveBeenCalled();
+
+    await wait(20);
+    await flush();
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ messageId: 'during-outage' }));
+
+    await inbox('a').forwardToInbox(ID, { messageId: 'after', payload: chat('y') });
+    await flush();
+    expect(handler).toHaveBeenCalledTimes(2);
+    owner.stopAllInboxes();
+});
+
+test('stopping an inbox cancels a pending reopen', async () => {
+    const owner = inbox('b');
+    const handler = jest.fn();
+    owner.startInbox(ID, handler);
+    await flush();
+
+    db._failListeners(new Error('stream reset'));
+    owner.stopInbox(ID);
+    await wait(20);
+    await inbox('a').forwardToInbox(ID, { messageId: 'm1', payload: chat('x') });
+    await flush();
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(owner._inboxes.has(ID)).toBe(false);
+});
+
+test('a listener that fails after the channel is lost is not reopened', async () => {
+    let owns = true;
+    const owner = inbox('b', () => owns);
     owner.startInbox(ID, jest.fn());
     await flush();
 
-    db._failListeners(new Error('stream broke'));
-    expect(owner._inboxes.has(ID)).toBe(false);
+    owns = false;
+    db._failListeners(new Error('stream reset'));
+    await wait(20);
 
-    const handler = jest.fn();
-    owner.startInbox(ID, handler);
-    await inbox('a').forwardToInbox(ID, { messageId: 'm1', payload: chat('again') });
-    await flush();
-    expect(handler).toHaveBeenCalledTimes(1);
-    owner.stopAllInboxes();
+    expect(owner._inboxes.has(ID)).toBe(false);
 });

@@ -124,9 +124,9 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
     }
 
     /**
-     * Tells every listener, and resolves once all of them have finished. A 'lost'
-     * listener hands the channel's pending clips on, which must be written before
-     * the lease is deleted so the next owner finds them.
+     * Tells every listener, and resolves once all of them have finished, so a
+     * shutdown does not exit before a 'lost' listener has handed the channel's
+     * pending clips on.
      */
     async function emit(type, broadcasterId, channelName, reason) {
         const results = [];
@@ -150,8 +150,8 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
     }
 
     /**
-     * Registers a callback for ownership changes. It may return a promise; a
-     * release waits for it before deleting the lease.
+     * Registers a callback for ownership changes. It may return a promise, which
+     * the change waits for. A release deletes the lease first, then announces it.
      * @param {(change: {type: 'acquired'|'lost', broadcasterId: string, channelName: string, reason?: string}) => (void|Promise<void>)} listener
      * @returns {Function} Unsubscribe function.
      */
@@ -196,9 +196,14 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
                 expiresAt: new Date(t + LEASE_TTL_MS),
                 renewedAt: new Date(t),
             };
+            // set() replaces the document, so a renewal carries the acquisition
+            // record forward or it is gone ten seconds after a takeover.
             if (data?.ownerId !== instanceId) {
                 lease.acquiredAt = new Date(t);
                 lease.previousOwnerId = data?.ownerId || null;
+            } else {
+                lease.acquiredAt = data.acquiredAt || new Date(t);
+                lease.previousOwnerId = data.previousOwnerId || null;
             }
             tx.set(ref, lease);
             return {
@@ -267,17 +272,17 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
     }
 
     /**
-     * Gives up a lease this instance holds. Listeners run (and hand the queue on)
-     * before the lease is deleted.
+     * Gives up a lease this instance holds. The lease is deleted first, so
+     * other instances stop forwarding webhooks here while this one is still
+     * listening to the inbox; only then do listeners stop the inbox and hand
+     * the queue on. The other order left a window in which peers kept
+     * forwarding to an inbox nobody read.
      * @param {string} broadcasterId
      * @param {string} reason - For logs and listeners, e.g. 'no-player' or 'shutdown'.
      */
     async function releaseChannel(broadcasterId, reason) {
         const entry = owned.get(broadcasterId);
         if (!entry) return;
-        owned.delete(broadcasterId);
-        unwatchLease(broadcasterId);
-        await emit('lost', broadcasterId, entry.channelName, reason);
 
         try {
             const db = getDb();
@@ -293,6 +298,13 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
             // The lease expires on its own; releasing early only speeds up handover.
             logger.warn({ err, broadcasterId, reason }, '[ChannelOwnership] Failed to release lease');
         }
+
+        // A browser source that reconnected meanwhile re-claimed the channel
+        // (a new entry), or a takeover already announced the loss (no entry).
+        if (owned.get(broadcasterId) !== entry) return;
+        owned.delete(broadcasterId);
+        unwatchLease(broadcasterId);
+        await emit('lost', broadcasterId, entry.channelName, reason);
     }
 
     /**
@@ -348,7 +360,10 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
                 logger.warn({ err }, '[ChannelOwnership] Could not list local players');
             }
 
-            for (const [broadcasterId, entry] of [...owned]) {
+            // Each channel's lease is its own document, so they are renewed
+            // side by side: one after another, a few slow transactions could
+            // hold the channels at the end of the list past their deadline.
+            await Promise.allSettled([...owned].map(async ([broadcasterId, entry]) => {
                 const t = now();
                 // A lapsed lease may already belong to someone else. Treat it as
                 // lost so the queue is handed on rather than played twice.
@@ -357,28 +372,29 @@ export function createChannelOwnership({ getDb, instanceId, isEnabled, now = Dat
                     unwatchLease(broadcasterId);
                     logger.warn({ channelName: entry.channelName, broadcasterId }, '[ChannelOwnership] Lease lapsed before renewal');
                     await emit('lost', broadcasterId, entry.channelName, 'lapsed');
-                    continue;
+                    return;
                 }
                 const hasPlayer = players.has(broadcasterId);
                 if (!hasPlayer && entry.playerGoneAtMs !== null && t - entry.playerGoneAtMs >= PLAYER_GRACE_MS) {
                     await releaseChannel(broadcasterId, 'no-player');
-                    continue;
+                    return;
                 }
                 try {
                     await claimChannel(broadcasterId, entry.channelName, { hasPlayer });
                 } catch (err) {
                     logger.warn({ err, broadcasterId }, '[ChannelOwnership] Lease renewal failed, will retry');
                 }
-            }
+            }));
 
-            for (const [broadcasterId, { channelName }] of players) {
-                if (owned.has(broadcasterId)) continue;
-                try {
-                    await claimChannel(broadcasterId, channelName, { hasPlayer: true });
-                } catch (err) {
-                    logger.warn({ err, broadcasterId }, '[ChannelOwnership] Claim failed');
-                }
-            }
+            await Promise.allSettled([...players]
+                .filter(([broadcasterId]) => !owned.has(broadcasterId))
+                .map(async ([broadcasterId, { channelName }]) => {
+                    try {
+                        await claimChannel(broadcasterId, channelName, { hasPlayer: true });
+                    } catch (err) {
+                        logger.warn({ err, broadcasterId }, '[ChannelOwnership] Claim failed');
+                    }
+                }));
         } finally {
             sweepInProgress = false;
         }

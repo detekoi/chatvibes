@@ -30,13 +30,19 @@ last one leaves, or on SIGTERM.
 claims the message as before, then reads the lease: if another live instance holds it, the raw
 webhook is written to that channel's inbox and the owner, which listens with `onSnapshot`,
 claims it by deleting it in a transaction and runs `processNotification`. Chat older than
-2 minutes and other events older than 10 minutes are dropped at the owner. No lease, a Firestore
+2 minutes and other events older than 10 minutes are dropped at the owner. Firestore resets
+long-lived listener streams now and then, and the lease keeps renewing through it without
+announcing the channel again, so a failed inbox listener reopens itself (1s, 5s, 15s, 30s, then
+every 60s) for as long as the channel is owned; its first snapshot after reopening carries what
+was forwarded in between. No lease, a Firestore
 error, or ownership switched off: the webhook is handled where it landed, exactly as before, and
 its audio reaches the browser source over Pub/Sub if there is one.
 
-**The queue moves with the channel** (`channelHandover.js`). An instance that loses a channel
-writes its pending clips, and its pause, to the channel's inbox as a `queueHandoff`, and does so
-before deleting the lease, so the next owner's first snapshot has them. The new owner puts them
+**The queue moves with the channel** (`channelHandover.js`). An instance that gives a channel up
+deletes the lease first, while still reading the inbox, so other instances stop forwarding to it
+before it stops listening; the reverse order stranded whatever they forwarded in between. Then
+it writes its pending clips, and its pause, to the channel's inbox as a `queueHandoff`, which the
+next owner picks up whenever it starts listening. The new owner puts them
 ahead of anything it queued since. It also restores `ttsQueuePersistence/{broadcasterId}`, which
 is where a shutdown with ownership off, or a handoff that could not be written, leaves a queue.
 `restoreAllQueues` at startup runs only with ownership off: it handed every saved queue to

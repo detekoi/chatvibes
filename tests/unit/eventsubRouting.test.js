@@ -179,3 +179,34 @@ test('a forwarded notification is processed on the owner with the inbox route in
     }));
     expect(mockForwardToInbox).not.toHaveBeenCalled();
 });
+
+test('a raid reaches the announcement handler under the raided channel', async () => {
+    // A raid payload has no broadcaster_user_id; checking that field alone
+    // dropped every raid as coming from an inactive channel.
+    mockOwnership.isOwnershipEnabled.mockReturnValue(false);
+    const raid = {
+        subscription: { type: 'channel.raid' },
+        event: {
+            from_broadcaster_user_id: '999', from_broadcaster_user_login: 'raider', from_broadcaster_user_name: 'Raider',
+            to_broadcaster_user_id: '111', to_broadcaster_user_login: 'parfaitfair', to_broadcaster_user_name: 'ParfaitFair',
+            viewers: 12,
+        },
+    };
+
+    await deliver(raid);
+
+    expect(mockIsChannelActive).toHaveBeenCalledWith('111');
+    expect(mockHandleNotification).toHaveBeenCalledWith('channel.raid', raid.event, 'parfaitfair', expect.any(Object));
+});
+
+test('the channel is looked up by login, not by a display name that differs from it', async () => {
+    mockOwnership.isOwnershipEnabled.mockReturnValue(false);
+    const follow = {
+        subscription: { type: 'channel.follow' },
+        event: { broadcaster_user_id: '111', broadcaster_user_login: 'parfaitfair', broadcaster_user_name: 'パフェ', user_name: 'x' },
+    };
+
+    await deliver(follow);
+
+    expect(mockHandleNotification).toHaveBeenCalledWith('channel.follow', follow.event, 'parfaitfair', expect.any(Object));
+});

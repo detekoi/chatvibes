@@ -322,10 +322,15 @@ async function processNotification(notification) {
     // channel? Approval alone is not enough — a channel that deactivated the
     // bot stays on the allow-list but must not be spoken in, and a stale
     // EventSub subscription can outlive the deactivation that unsubscribed it.
-    const broadcasterUserId = event?.broadcaster_user_id;
+    //
+    // A raid carries no broadcaster_user_id, only from_/to_broadcaster_user_id,
+    // so reading that field alone dropped every raid here as "inactive".
+    const broadcasterUserId = resolveEventChannel(notification);
+    // The login first: a display name can differ from it by more than case.
     const channelName = (
-        event?.broadcaster_user_name ||
         event?.broadcaster_user_login ||
+        event?.broadcaster_user_name ||
+        event?.to_broadcaster_user_login ||
         event?.to_broadcaster_user_name
     )?.toLowerCase();
 

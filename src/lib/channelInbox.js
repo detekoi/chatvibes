@@ -30,6 +30,11 @@ const EVENTS_SUBCOLLECTION = 'inboxEvents';
 export const MAX_CHAT_AGE_MS = 2 * 60 * 1000;
 export const MAX_EVENT_AGE_MS = 10 * 60 * 1000;
 const DOC_TTL_MS = 60 * 60 * 1000;
+// Waits before reopening a listener whose stream failed, growing with each
+// consecutive failure. Firestore resets long-lived streams now and then; the
+// lease keeps renewing through it and never re-announces the channel, so the
+// inbox has to recover on its own or forwarded webhooks go unread.
+const RETRY_DELAYS_MS = [1000, 5000, 15000, 30000, 60000];
 
 function toMillis(value) {
     if (!value) return 0;
@@ -44,9 +49,10 @@ function toMillis(value) {
  * @param {string} opts.instanceId
  * @param {(broadcasterId: string) => boolean} opts.ownsBroadcaster
  * @param {() => number} [opts.now]
+ * @param {number[]} [opts.retryDelaysMs]
  */
-export function createChannelInbox({ getDb, instanceId, ownsBroadcaster: owns, now = Date.now }) {
-    // broadcasterId -> { unsubscribe, chain }
+export function createChannelInbox({ getDb, instanceId, ownsBroadcaster: owns, now = Date.now, retryDelaysMs = RETRY_DELAYS_MS }) {
+    // broadcasterId -> { unsubscribe, chain, retryTimer, failures }
     const inboxes = new Map();
 
     const eventsCollection = broadcasterId =>
@@ -131,11 +137,17 @@ export function createChannelInbox({ getDb, instanceId, ownsBroadcaster: owns, n
         const id = String(broadcasterId);
         if (inboxes.has(id)) return;
 
-        const entry = { chain: Promise.resolve(), unsubscribe: null };
+        const entry = { chain: Promise.resolve(), unsubscribe: null, retryTimer: null, failures: 0 };
         inboxes.set(id, entry);
+        listen(id, entry, handler);
+        logger.debug({ broadcasterId: id }, '[ChannelInbox] Listening');
+    }
+
+    function listen(id, entry, handler) {
         entry.unsubscribe = eventsCollection(id)
             .orderBy('enqueuedAt')
             .onSnapshot(snapshot => {
+                entry.failures = 0;
                 for (const change of snapshot.docChanges()) {
                     if (change.type !== 'added') continue;
                     const ref = change.doc.ref;
@@ -144,12 +156,26 @@ export function createChannelInbox({ getDb, instanceId, ownsBroadcaster: owns, n
                         .catch(err => logger.error({ err, broadcasterId: id, messageId: ref.id }, '[ChannelInbox] Failed to claim event'));
                 }
             }, err => {
-                logger.error({ err, broadcasterId: id }, '[ChannelInbox] Inbox listener error');
-                // A failed listener is dead. Forget it, so the next acquire of
-                // this channel starts a fresh one instead of finding it "running".
-                if (inboxes.get(id) === entry) inboxes.delete(id);
+                // A failed listener is dead. Reopen it while this instance still
+                // owns the channel. The timer lives on the entry so stopInbox can
+                // cancel it; an untracked one would reopen a stopped inbox.
+                entry.unsubscribe = null;
+                if (inboxes.get(id) !== entry) return;
+                const delayMs = retryDelaysMs[Math.min(entry.failures, retryDelaysMs.length - 1)];
+                entry.failures++;
+                logger.error({ err, broadcasterId: id, retryInMs: delayMs, failures: entry.failures },
+                    '[ChannelInbox] Inbox listener error, reopening');
+                entry.retryTimer = setTimeout(() => {
+                    entry.retryTimer = null;
+                    if (inboxes.get(id) !== entry) return;
+                    if (!owns(id)) {
+                        inboxes.delete(id);
+                        return;
+                    }
+                    listen(id, entry, handler);
+                }, delayMs);
+                entry.retryTimer.unref?.();
             });
-        logger.debug({ broadcasterId: id }, '[ChannelInbox] Listening');
     }
 
     /** @param {string} broadcasterId */
@@ -158,6 +184,7 @@ export function createChannelInbox({ getDb, instanceId, ownsBroadcaster: owns, n
         const entry = inboxes.get(id);
         if (!entry) return;
         inboxes.delete(id);
+        if (entry.retryTimer) clearTimeout(entry.retryTimer);
         try {
             entry.unsubscribe?.();
         } catch (err) {

@@ -84,6 +84,24 @@ describe('claiming', () => {
         expect(events).toEqual(['acquired']);
     });
 
+    test('renewals keep the record of when and from whom the channel was acquired', async () => {
+        const a = instance('a');
+        const b = instance('b');
+        await a.notePlayer(ID, NAME, true);
+        await a.notePlayer(ID, NAME, false);
+        await b.notePlayer(ID, NAME, true);
+        const { acquiredAt } = db._read(`channelLeases/${ID}`);
+
+        clock.now += RENEW_INTERVAL_MS;
+        await b.claimChannel(ID, NAME, { hasPlayer: true });
+        await b.claimChannel(ID, NAME, { hasPlayer: false });
+
+        const lease = db._read(`channelLeases/${ID}`);
+        expect(lease.previousOwnerId).toBe('a');
+        expect(lease.acquiredAt.getTime()).toBe(acquiredAt.getTime());
+        expect(lease.renewedAt.getTime()).toBe(clock.now);
+    });
+
     test('stops acting SAFETY_MARGIN_MS before the lease could expire', async () => {
         const a = instance('a');
         await a.claimChannel(ID, NAME);
@@ -204,20 +222,64 @@ describe('the browser source decides the owner', () => {
 });
 
 describe('release', () => {
-    test('listeners finish handing the channel on before the lease is deleted', async () => {
+    test('the lease is deleted before listeners stop the inbox, so peers stop forwarding first', async () => {
         const a = instance('a');
         const seenDuringLost = [];
-        a.onOwnershipChange(async e => {
-            if (e.type !== 'lost') return;
-            await flush(2);
-            seenDuringLost.push(db._read(`channelLeases/${ID}`)?.ownerId);
+        a.onOwnershipChange(e => {
+            if (e.type === 'lost') seenDuringLost.push(db._read(`channelLeases/${ID}`));
         });
 
         await a.claimChannel(ID, NAME);
         await a.stopChannelOwnership();
 
-        expect(seenDuringLost).toEqual(['a']);
-        expect(db._read(`channelLeases/${ID}`)).toBeUndefined();
+        expect(seenDuringLost).toEqual([undefined]);
+        expect(a.ownsBroadcaster(ID)).toBe(false);
+    });
+
+    test('keeps acting until the lease is gone: owns the channel while the delete is in flight', async () => {
+        const a = instance('a');
+        await a.claimChannel(ID, NAME);
+        let ownedDuringDelete;
+        const realTransaction = db.runTransaction;
+        db.runTransaction = fn => {
+            ownedDuringDelete = a.ownsBroadcaster(ID);
+            return realTransaction(fn);
+        };
+
+        await a.stopChannelOwnership();
+
+        expect(ownedDuringDelete).toBe(true);
+    });
+
+    test('a player that reconnects while the release is in flight keeps the channel', async () => {
+        const a = instance('a');
+        let players = [{ broadcasterId: ID, channelName: NAME }];
+        await a.startChannelOwnership({ getPlayerChannels: () => players });
+        const lost = [];
+        a.onOwnershipChange(e => { if (e.type === 'lost') lost.push(e.reason); });
+
+        players = [];
+        await a.notePlayer(ID, NAME, false);
+        clock.now += RENEW_INTERVAL_MS;
+        await a._sweep();
+        clock.now += PLAYER_GRACE_MS - RENEW_INTERVAL_MS;
+        const realTransaction = db.runTransaction;
+        let reconnected = false;
+        db.runTransaction = async fn => {
+            const result = await realTransaction(fn);
+            if (!reconnected) {
+                reconnected = true;
+                players = [{ broadcasterId: ID, channelName: NAME }];
+                db.runTransaction = realTransaction;
+                await a.notePlayer(ID, NAME, true);
+            }
+            return result;
+        };
+        await a._sweep();
+
+        expect(a.ownsBroadcaster(ID)).toBe(true);
+        expect(db._read(`channelLeases/${ID}`)).toEqual(expect.objectContaining({ ownerId: 'a', hasPlayer: true }));
+        expect(lost).toEqual([]);
     });
 
     test('after shutdown begins, a closing socket cannot re-claim', async () => {
