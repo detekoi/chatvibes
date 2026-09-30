@@ -145,6 +145,16 @@ export function hasActiveClients(channelName) {
 }
 
 /**
+ * Channels with at least one browser source connected to this instance.
+ * @returns {string[]}
+ */
+export function getChannelsWithClients() {
+    return [...channelClients.entries()]
+        .filter(([, clients]) => clients.size > 0)
+        .map(([channelName]) => channelName);
+}
+
+/**
  * Tell a channel, in chat, that its browser source is running an outdated player.
  *
  * Guarded by a timestamp on the channel config rather than an in-memory flag, so a
@@ -335,8 +345,12 @@ export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
 /**
  * Attach a WebSocketServer to an existing HTTP server and start handling TTS
  * overlay connections.  Returns the WebSocketServer instance.
+ * @param {import('http').Server} httpServer
+ * @param {object} [opts]
+ * @param {(channelName: string) => void} [opts.onClientConnect] - A browser source authenticated.
+ * @param {(channelName: string) => void} [opts.onChannelEmpty] - The channel's last browser source left.
  */
-export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) {
+export function initializeWebSocketServer(httpServer, { onClientConnect, onChannelEmpty } = {}) {
     const wss = new WebSocketServer({ server: httpServer, verifyClient: verifyUpgrade });
     logger.info('WildcatTTS TTS WebSocket Server initialized and attached to HTTP server.');
 
@@ -459,11 +473,10 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
         }
         channelClients.get(channelName).add(ws);
 
-        // Records which instance a browser source landed on. Audio for a channel is
-        // only ever sent from the one instance that won the claim for that message,
-        // so a channel appearing here under two instances at once means the sources
-        // on the losing instance are silent. Group this log by channel over a window
-        // to find those: more than one distinct `instance` for a channel is the signal.
+        // Records which instance a browser source landed on. A channel is owned by
+        // one instance holding its source (channelOwnership.js), so a channel
+        // appearing here under two instances at once means the sources on the
+        // non-owner are silent; PLAYER_ON_NON_OWNER marks the same thing directly.
         logger.info({
             logKey: 'WS_CLIENT_REGISTERED',
             channel: channelName,
@@ -518,6 +531,7 @@ export function initializeWebSocketServer(httpServer, { onClientConnect } = {}) 
                 if (clients.size === 0) {
                     channelClients.delete(channelName);
                     logger.info(`No more TTS clients for channel: ${channelName}, removing from map.`);
+                    if (onChannelEmpty) onChannelEmpty(channelName);
                 }
             }
         });

@@ -308,10 +308,12 @@ function logTiming(channelName, event, audio, wasPrefetched, chunked) {
         // Firestore dedup claim before any handling starts
         claimMs: elapsed(t, 'receivedMs', 'claimedMs'),
         // Handler work between receipt and the start of enqueue: config reads,
-        // command processing, emote describe, formatting, and the Pub/Sub hop
-        // when the route is 'pubsub'
+        // command processing, emote describe, formatting, and the Pub/Sub or
+        // inbox hop when the route is 'pubsub' or 'inbox'
         handlerMs: elapsed(t, 'receivedMs', 'enqueueStartMs'),
         pubsubHopMs: elapsed(t, 'publishedMs', 'pubsubReceivedMs'),
+        // Webhook forwarded to the channel's owning instance through Firestore
+        inboxHopMs: elapsed(t, 'forwardedMs', 'inboxReceivedMs'),
         // Preference lookups and the profanity pass inside enqueue
         enqueueMs: elapsed(t, 'enqueueStartMs', 'enqueuedMs'),
         // Time sat behind earlier items before this one was picked up
@@ -591,10 +593,112 @@ export async function clearQueue(channelName) {
 }
 
 /**
+ * Queue items as plain data, for Firestore or the channel inbox. `clip` and
+ * `timing` are runtime-only: the clip holds a listener Set and a function, which
+ * Firestore rejects, and a timing record carried across a restart or a handover
+ * would report the gap as queue wait.
+ * @param {object[]} queue
+ * @returns {object[]}
+ */
+function serializeQueueItems(queue) {
+    return queue.map(({ clip: _clip, timing: _timing, ...item }) => ({
+        ...item,
+        timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp
+    }));
+}
+
+/**
+ * Inverse of serializeQueueItems.
+ * @param {object[]} items
+ * @returns {object[]}
+ */
+function deserializeQueueItems(items) {
+    return items.map(item => ({
+        ...item,
+        timing: null,
+        clip: undefined,
+        timestamp: typeof item.timestamp === 'string' ? new Date(item.timestamp) : item.timestamp
+    }));
+}
+
+/**
+ * Empties a channel's queue for handing to the instance that now owns the
+ * channel (see channelOwnership.js). The clip already playing or generating is
+ * left alone: its audio is bound for this instance's browser source, if any.
+ * The login travels with the clips: the receiving instance's allow-list may not
+ * map the broadcaster ID yet, and a queue adopted under the numeric ID would
+ * never match the browser source, which registers under the login.
+ * @param {string} channelName
+ * @returns {{channelName: string, items: object[], isPaused: boolean}|null} Null when there is nothing to hand on.
+ */
+export function takeQueueForHandoff(channelName) {
+    const name = resolveToChannelName(channelName);
+    const cq = channelQueues.get(name);
+    if (!cq || (cq.queue.length === 0 && !cq.isPaused)) return null;
+    const handoff = { channelName: name, items: serializeQueueItems(cq.queue), isPaused: cq.isPaused };
+    cq.queue = [];
+    cq.isPaused = false;
+    cancelAllPrefetches(name);
+    return handoff;
+}
+
+/**
+ * Takes on clips another instance queued for this channel before it lost it.
+ * They were queued earlier than anything queued here since, so they go first.
+ * A pause travels with them: it was a moderator's instruction, not an
+ * instance's state.
+ * @param {string} channelName
+ * @param {{items?: object[], isPaused?: boolean}} handoff
+ */
+export function adoptQueue(channelName, { items = [], isPaused = false } = {}) {
+    const cq = getOrCreateChannelQueue(channelName);
+    const combined = [...deserializeQueueItems(items), ...cq.queue];
+    if (combined.length > MAX_QUEUE_LENGTH) {
+        logger.warn({ channel: channelName, dropped: combined.length - MAX_QUEUE_LENGTH }, 'Adopted TTS queue exceeds the limit; dropping the newest items');
+    }
+    cq.queue = combined.slice(0, MAX_QUEUE_LENGTH);
+    if (isPaused) cq.isPaused = true;
+    logger.info({ channel: channelName, adopted: items.length, queueLength: cq.queue.length, isPaused: cq.isPaused }, 'Adopted TTS queue from another instance');
+    processQueue(channelName);
+}
+
+/**
+ * Restores one channel's queue persisted by persistAllQueues, if any. Called when
+ * this instance takes the channel over, so a queue saved at shutdown lands on the
+ * instance holding the browser source rather than whichever one started first.
+ * @param {string} broadcasterId
+ */
+export async function restoreQueue(broadcasterId) {
+    if (!db) db = new Firestore();
+    const ref = db.collection(TTS_QUEUE_PERSISTENCE_COLLECTION).doc(String(broadcasterId));
+    const data = await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return null;
+        tx.delete(ref);
+        return snap.data();
+    });
+    if (!data?.queue?.length && !data?.isPaused) return;
+    const channelName = getChannelNameFromId(broadcasterId) || data.channelName;
+    adoptQueue(channelName, { items: data.queue || [], isPaused: !!data.isPaused });
+}
+
+/**
+ * Names of channels with clips waiting in this instance's queues.
+ * @returns {string[]}
+ */
+export function getChannelsWithPendingQueue() {
+    return [...channelQueues.entries()]
+        .filter(([, cq]) => cq.queue.length > 0 || cq.isPaused)
+        .map(([name]) => name);
+}
+
+/**
  * Persist all TTS queues to Firestore to prevent message loss during shutdown
  * Only persists pending items, not currently processing item
+ * @param {{deleteEmpty?: boolean}} [opts] - deleteEmpty: remove the doc of a
+ *   channel whose queue is empty here. Off when channel ownership is on.
  */
-export async function persistAllQueues() {
+export async function persistAllQueues({ deleteEmpty = true } = {}) {
     if (!db) db = new Firestore();
 
     const persistenceTasks = [];
@@ -612,6 +716,9 @@ export async function persistAllQueues() {
         const docRef = db.collection(TTS_QUEUE_PERSISTENCE_COLLECTION).doc(channelId);
 
         if (cq.queue.length === 0) {
+            // With channel ownership on, another instance may have just written
+            // this channel's doc; an empty queue here says nothing about it.
+            if (!deleteEmpty) continue;
             // No pending items, delete persistence doc if it exists
             persistenceTasks.push(
                 docRef.delete()
@@ -624,14 +731,7 @@ export async function persistAllQueues() {
             continue;
         }
 
-        // Serialize queue items (convert Date objects to ISO strings). `clip` and
-        // `timing` are runtime-only: the clip holds a listener Set and a function,
-        // which Firestore rejects, and a timing record restored after a restart
-        // would report the downtime as queue wait.
-        const serializedQueue = cq.queue.map(({ clip: _clip, timing: _timing, ...item }) => ({
-            ...item,
-            timestamp: item.timestamp instanceof Date ? item.timestamp.toISOString() : item.timestamp
-        }));
+        const serializedQueue = serializeQueueItems(cq.queue);
 
         totalPersisted += cq.queue.length;
 
@@ -653,8 +753,9 @@ export async function persistAllQueues() {
 }
 
 /**
- * Restore TTS queues from Firestore after startup.
- * Call this after the channel manager has loaded the allow-list (persisted queues
+ * Restore TTS queues from Firestore after startup. Only with channel ownership
+ * off; with it on, each queue is restored by the instance that takes the
+ * channel (restoreQueue). Call this after the channel manager has loaded the allow-list (persisted queues
  * are keyed by broadcaster ID, mapped back to a login through it) and before
  * processing new messages.
  */
@@ -684,15 +785,7 @@ export async function restoreAllQueues() {
                 return;
             }
 
-            // Restore queue items (convert ISO strings back to Date objects)
-            const restoredQueue = queue.map(item => ({
-                ...item,
-                // Belt and braces with persistAllQueues: a record from before the
-                // restart must not be reported as this process's latency.
-                timing: null,
-                clip: undefined,
-                timestamp: typeof item.timestamp === 'string' ? new Date(item.timestamp) : item.timestamp
-            }));
+            const restoredQueue = deserializeQueueItems(queue);
 
             // Get or create channel queue and restore items
             const cq = getOrCreateChannelQueue(channelName);

@@ -174,6 +174,73 @@ function changesMissedDuringStartup(changes) {
         .map(change => ({ ...change, type: 'modified' }));
 }
 
+/** The managedChannels changes in a snapshot, as plain records. */
+function readChanges(snapshot) {
+    const changes = [];
+    snapshot.docChanges().forEach(change => {
+        const channelData = change.doc.data();
+        if (channelData && typeof channelData.channelName === 'string') {
+            changes.push({
+                type: change.type,
+                channelName: channelData.channelName,
+                isActive: !!channelData.isActive,
+                twitchUserId: channelData.twitchUserId,
+                docId: change.doc.id
+            });
+        }
+    });
+    return changes;
+}
+
+/**
+ * Applies managedChannels changes to the allow-list cache. Deactivating switches
+ * the bot off but leaves the channel approved; only a deleted document revokes
+ * approval.
+ *
+ * On the initial snapshot, only ever ADD. Every document is approved regardless
+ * of isActive, but nothing is switched off: removals are unnecessary against a
+ * freshly loaded cache and can be destructive when duplicate docs exist for the
+ * same channel (a legacy name-keyed doc with isActive=false would clobber the
+ * active one).
+ */
+function applyAllowListChanges(changes, isInitialSnapshot) {
+    for (const change of changes) {
+        if (isInitialSnapshot) {
+            if (change.isActive) {
+                setChannelActive(change.channelName, change.twitchUserId, true);
+            } else {
+                addAllowedChannel(change.channelName, change.twitchUserId);
+            }
+        } else if (change.type === 'removed') {
+            // A doc keyed by ID but missing the field is still that ID's doc.
+            const removedId = change.twitchUserId || (/^\d+$/.test(change.docId) ? change.docId : null);
+            removeAllowedChannel(change.channelName, removedId);
+        } else {
+            setChannelActive(change.channelName, change.twitchUserId, change.isActive);
+        }
+    }
+}
+
+/**
+ * Keeps this instance's allow-list cache current. Runs on every instance: the
+ * leader's listenForChannelChanges does the same and also manages EventSub
+ * subscriptions, but on its own it left every other instance with the list it
+ * loaded at startup. There a channel switched on later was "inactive" (its
+ * webhooks dropped, its browser source refused) and one switched off kept
+ * speaking, until the instance restarted.
+ * @returns {Function} Unsubscribe function
+ */
+export function listenForAllowListChanges() {
+    const db = _getDb();
+    let isInitialSnapshot = true;
+    return db.collection(MANAGED_CHANNELS_COLLECTION).onSnapshot(snapshot => {
+        applyAllowListChanges(readChanges(snapshot), isInitialSnapshot);
+        isInitialSnapshot = false;
+    }, error => {
+        logger.error({ err: error }, '[ChannelManager] Allow-list listener error');
+    });
+}
+
 /**
  * Sets up a listener for changes to the managedChannels collection.
  * @returns {Function} Unsubscribe function to stop listening for changes
@@ -186,39 +253,13 @@ export function listenForChannelChanges() {
 
     const unsubscribe = db.collection(MANAGED_CHANNELS_COLLECTION)
         .onSnapshot(async snapshot => {
-            const changes = [];
+            const changes = readChanges(snapshot);
 
-            snapshot.docChanges().forEach(change => {
-                const channelData = change.doc.data();
-                if (channelData && typeof channelData.channelName === 'string') {
-                    changes.push({
-                        type: change.type,
-                        channelName: channelData.channelName,
-                        isActive: !!channelData.isActive,
-                        twitchUserId: channelData.twitchUserId,
-                        docId: change.doc.id
-                    });
-                }
-            });
-
-            // Update the caches in real-time. Deactivating switches the bot off but
-            // leaves the channel approved; only a deleted document revokes approval.
+            // Update the caches in real-time.
+            applyAllowListChanges(changes, isInitialSnapshot);
             let changesToSync = changes;
             if (isInitialSnapshot) {
                 isInitialSnapshot = false;
-                // On initial snapshot, only ever ADD. Every document is approved
-                // regardless of isActive, but nothing is switched off here: removals
-                // are unnecessary against a freshly loaded cache and can be destructive
-                // when duplicate docs exist for the same channel (a legacy name-keyed
-                // doc with isActive=false would clobber the active one).
-                for (const change of changes) {
-                    if (change.isActive) {
-                        setChannelActive(change.channelName, change.twitchUserId, true);
-                    } else {
-                        addAllowedChannel(change.channelName, change.twitchUserId);
-                    }
-                }
-
                 // syncManagedChannelsWithEventSub() already subscribed these during
                 // startup, so nothing is normally synced here. The exception is a
                 // channel switched on or off between that sync and this listener
@@ -229,16 +270,6 @@ export function listenForChannelChanges() {
                     `[ChannelManager] Initial snapshot: ${changes.length} channels loaded, ` +
                     `${changesToSync.length} changed since the startup sync`
                 );
-            } else {
-                for (const change of changes) {
-                    if (change.type === 'removed') {
-                        // A doc keyed by ID but missing the field is still that ID's doc.
-                        const removedId = change.twitchUserId || (/^\d+$/.test(change.docId) ? change.docId : null);
-                        removeAllowedChannel(change.channelName, removedId);
-                    } else {
-                        setChannelActive(change.channelName, change.twitchUserId, change.isActive);
-                    }
-                }
             }
 
             if (changesToSync.length > 0) {

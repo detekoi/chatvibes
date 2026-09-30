@@ -10,7 +10,9 @@ import { isChannelActive } from '../../lib/allowList.js';
 import { getTtsState } from '../tts/ttsState.js';
 import { Firestore, Timestamp } from '@google-cloud/firestore';
 import { claimOnce } from '../../lib/firestoreClaim.js';
-import { runWithTiming, markTiming } from '../../lib/ttsTiming.js';
+import { runWithTiming, markTiming, snapshotTiming } from '../../lib/ttsTiming.js';
+import { isOwnershipEnabled, ownsBroadcaster, getLeaseOwner } from '../../lib/channelOwnership.js';
+import { forwardToInbox } from '../../lib/channelInbox.js';
 
 // Import event handlers
 import { handleChatMessage } from './handlers/chatHandler.js';
@@ -169,7 +171,7 @@ export async function eventSubHandler(req, res, rawBody) {
             source: 'eventsub',
             originMs: Number.isFinite(originMs) ? originMs : null,
             receivedMs: Date.now(),
-        }, () => routeNotification(req, notification));
+        }, () => routeNotification(req, notification, rawBody));
     }
 
     // 4. Handle revocation notifications
@@ -184,16 +186,93 @@ export async function eventSubHandler(req, res, rawBody) {
 }
 
 /**
+ * The channel a notification acts on. Raids act on the raided channel; every
+ * other subscription type, shared-chat events included, is scoped to
+ * broadcaster_user_id.
+ * @param {object} notification
+ * @returns {string|null} Broadcaster ID.
+ */
+export function resolveEventChannel(notification) {
+    const event = notification?.event || {};
+    const isRaid = notification?.subscription?.type === 'channel.raid';
+    const broadcasterId = isRaid ? event.to_broadcaster_user_id : event.broadcaster_user_id;
+    return broadcasterId ? String(broadcasterId) : null;
+}
+
+/**
+ * Hands the notification to the instance that owns its channel (the one holding
+ * the channel's browser source) when that is not this one. With no owner, the
+ * event is handled here and its audio, if any, goes out over Pub/Sub as it did
+ * before ownership existed.
+ *
+ * Fails open: if Firestore cannot be reached the event is handled here.
+ * @returns {Promise<boolean>} True when forwarded and nothing is left to do here.
+ */
+async function forwardIfNotOwner(broadcasterId, messageId, rawBody, isChat) {
+    if (!isOwnershipEnabled() || !broadcasterId) return false;
+    // Only channels the bot is switched on for have owners; processNotification drops the rest.
+    if (!isChannelActive(broadcasterId) || ownsBroadcaster(broadcasterId)) return false;
+
+    try {
+        const lease = await getLeaseOwner(broadcasterId);
+        if (!lease || lease.ownerId === INSTANCE_ID) return false;
+        await forwardToInbox(broadcasterId, {
+            messageId,
+            payload: rawBody.toString('utf8'),
+            isChat,
+            timing: snapshotTiming(),
+            targetOwner: lease.ownerId,
+        });
+        logger.debug({ broadcasterId, messageId, ownerId: lease.ownerId }, '[EventSub] Forwarded to channel owner');
+        return true;
+    } catch (err) {
+        logger.warn({ err, broadcasterId, messageId }, '[EventSub] Channel routing failed, handling locally');
+        return false;
+    }
+}
+
+/**
+ * Inbox handler for a notification another instance forwarded here. It was
+ * already claimed against processedEventSubMessages by the instance Twitch
+ * delivered it to, so a retry reaching this instance directly is refused by
+ * that claim. The timing record resumes where the forwarder left it.
+ * @param {object} notification - Parsed EventSub notification body.
+ * @param {object|null} timing - Record snapshotted by the forwarder.
+ */
+export async function handleForwardedNotification(notification, timing) {
+    await runWithTiming(
+        { ...(timing || {}), route: 'inbox', inboxReceivedMs: Date.now() },
+        () => processNotification(notification)
+    );
+}
+
+/**
  * Route one EventSub notification to its handler. Split out of eventSubHandler so
  * the whole of it runs inside the timing context established there.
  */
-async function routeNotification(req, notification) {
+async function routeNotification(req, notification, rawBody) {
     // Check for duplicate/replay (with global Firestore-based deduplication)
     if (!(await shouldProcessEvent(req))) {
         return;
     }
     markTiming('claimedMs');
 
+    const broadcasterId = resolveEventChannel(notification);
+    const isChat = notification?.subscription?.type === 'channel.chat.message';
+    if (await forwardIfNotOwner(broadcasterId, req.headers['twitch-eventsub-message-id'], rawBody, isChat)) {
+        return;
+    }
+
+    await processNotification(notification);
+}
+
+/**
+ * Acts on a verified, de-duplicated EventSub notification: one Twitch delivered
+ * here, or one forwarded through the channel inbox by an instance that does not
+ * own the channel.
+ * @param {object} notification - Parsed EventSub notification body.
+ */
+async function processNotification(notification) {
     const { subscription, event } = notification;
     const type = subscription.type;
 
@@ -243,10 +322,15 @@ async function routeNotification(req, notification) {
     // channel? Approval alone is not enough — a channel that deactivated the
     // bot stays on the allow-list but must not be spoken in, and a stale
     // EventSub subscription can outlive the deactivation that unsubscribed it.
-    const broadcasterUserId = event?.broadcaster_user_id;
+    //
+    // A raid carries no broadcaster_user_id, only from_/to_broadcaster_user_id,
+    // so reading that field alone dropped every raid here as "inactive".
+    const broadcasterUserId = resolveEventChannel(notification);
+    // The login first: a display name can differ from it by more than case.
     const channelName = (
-        event?.broadcaster_user_name ||
         event?.broadcaster_user_login ||
+        event?.broadcaster_user_name ||
+        event?.to_broadcaster_user_login ||
         event?.to_broadcaster_user_name
     )?.toLowerCase();
 

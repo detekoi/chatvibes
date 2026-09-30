@@ -14,11 +14,14 @@
 //   claimedMs         when the cross-instance dedup claim came back
 //   publishedMs       when the event went out over Pub/Sub (Pub/Sub route only)
 //   pubsubReceivedMs  when the serving instance got it back (Pub/Sub route only)
+//   forwardedMs       when a webhook for a channel owned elsewhere was written to
+//                     that channel's inbox (inbox route only)
+//   inboxReceivedMs   when the owning instance picked it up (inbox route only)
 //   firstChunkSentMs  when the first audio slice went out to a chunked player
 //                     (set by ttsQueue on the queue item's copy, not in the context)
 // Labels:
 //   source            'eventsub' | 'youtube'
-//   route             'local' | 'pubsub'
+//   route             'local' | 'pubsub' | 'inbox'
 //
 // A message that arrives outside any context (a queue restored from Firestore,
 // a test that calls enqueue directly) simply carries no record and logs nothing.

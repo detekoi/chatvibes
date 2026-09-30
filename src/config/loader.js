@@ -81,6 +81,17 @@ function loadConfig() {
             prettyLog: process.env.PINO_PRETTY_LOGGING === 'true',
             nodeEnv: process.env.NODE_ENV || 'development',
         },
+        // Multi-instance coordination. Each channel is leased to the instance
+        // holding its browser source, which owns the channel's queue and
+        // receives the channel's webhooks from the other instances through a
+        // Firestore inbox (src/lib/channelOwnership.js). On by default on Cloud
+        // Run, off locally so a dev process sharing the production Firestore
+        // never takes a channel away from production.
+        cluster: {
+            channelOwnershipEnabled: process.env.CHANNEL_OWNERSHIP_ENABLED
+                ? process.env.CHANNEL_OWNERSHIP_ENABLED === 'true'
+                : !!(process.env.K_SERVICE || process.env.K_REVISION || process.env.K_CONFIGURATION),
+        },
         secrets: {
             twitchBotRefreshTokenName: process.env.TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME,
             jwtSecret: process.env.JWT_SECRET || process.env.JWT_SECRET_KEY, // Support both env var names
