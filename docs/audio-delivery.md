@@ -21,7 +21,8 @@
   the buffers server-side needs nothing.
 - **`TTS_TIMING` is the latency log**, one info line per clip from `ttsQueue.logTiming`, with
   each stage in milliseconds (Twitch-to-webhook, dedup claim, handler, Pub/Sub hop, enqueue,
-  queue wait, provider round trip, first slice sent, total) plus `route` (`local`/`pubsub`),
+  queue wait, provider round trip, first slice sent, total) plus `route` (`local`/`pubsub`/`inbox`,
+  the last for a webhook forwarded to the channel's owner, see `docs/multi-instance.md`),
   `prefetched` and `chunked`. The record rides the async context (`src/lib/ttsTiming.js`)
   from the webhook to the queue item, so handlers do not carry it. The existing
   "Received from Pub/Sub" line over-counts — every instance logs it, not only the one that

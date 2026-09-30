@@ -82,7 +82,8 @@ by broadcaster ID, the ignore list by `<platform>:<accountId>` (`ignore-list.md`
   miss, cache defaults under the login, and keep serving them for the life of the process. Now an
   unmapped login resolves to null: `getTtsState` serves defaults without caching them,
   `getStoredLanguageBoost` throws, and every writer returns false. For the same reason
-  `restoreAllQueues` runs after the channel load in `bot.js`.
+  `restoreAllQueues` runs after the channel load in `bot.js` (with channel ownership on, each
+  queue is restored by the instance that takes its channel instead).
 - **Viewer preferences used to fall back from the ID key to the login key** on read, and wrote
   to the login when no ID was passed. Both paths are gone, here and in the web UI
   (`functions/src/services/preferences.ts`, `/api/tts/user-voice`). An event without a user ID

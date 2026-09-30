@@ -22,7 +22,8 @@ npm run translate         # regenerate i18n catalogs; by hand, never in CI
 ## Flow
 
 1. The elected leader subscribes each active channel to EventSub (`src/components/twitch/`).
-2. `eventsub.js` receives the webhook, dedups it and hands chat to `chatHandler.js`.
+2. `eventsub.js` receives the webhook, dedups it, forwards it to the instance that owns the
+   channel if that is another one, and hands chat to `chatHandler.js`.
 3. `commandProcessor` runs `!tts` commands; otherwise the channel's mode decides if it is speech.
 4. `ttsQueue.enqueue` resolves per-viewer settings, rewrites the text (pronunciation, profanity)
    and queues it; `ttsService.js` synthesises.
@@ -133,6 +134,15 @@ preferences. Details: `docs/channel-config.md`.
 - **Set `PUBLIC_URL` in `.env` to the deployed value before running any subscribe script.** The
   service answers on two hostnames and Twitch treats the callbacks as distinct, so every message
   is spoken twice. Check with `scripts/verify-channel-subscriptions.js`.
+
+**Several instances** — `docs/multi-instance.md`
+- A channel is leased to the instance holding its browser source (`channelOwnership.js`), and
+  webhooks landing elsewhere are forwarded to it through `channelInbox.js`. State fed by a
+  channel's events (the queue, held redemptions, shared-chat sessions) is only whole on the
+  owner; a new loop or cache of that kind must act only where `ownsBroadcaster()` is true.
+- Anything that must survive a change of owner goes in the queue handoff or in Firestore, not
+  in memory. Ownership is off outside Cloud Run (`CHANNEL_OWNERSHIP_ENABLED` overrides), and
+  then every check is true.
 
 **Audio** — `docs/audio-delivery.md`
 - Synthesis is streamed and forwarded slice by slice to players that announced `chunkedAudio`.

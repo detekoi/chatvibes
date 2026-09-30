@@ -27,6 +27,12 @@ import { initializeChannelManager, getActiveManagedChannels, syncManagedChannels
 // Pub/Sub for cross-instance TTS communication
 import { initializePubSub, subscribeTtsEvents, closePubSub } from './lib/pubsub.js';
 
+// Channel ownership: each channel is served by the instance holding its browser source
+import { isOwnershipEnabled, notePlayer, startChannelOwnership, stopChannelOwnership } from './lib/channelOwnership.js';
+import { wireChannelHandover, handOffRemainingQueues } from './lib/channelHandover.js';
+import { getChannelIdFromName } from './lib/allowList.js';
+import { getChannelsWithClients } from './components/web/server.js';
+
 // YouTube Chat via yt-chat-proxy
 import { initializeYouTubeChat, disconnectAllYouTubeChat } from './components/youtube/ytChatClient.js';
 
@@ -190,12 +196,23 @@ async function gracefulShutdown(signal) {
         logger.info('WildcatTTS: No active Firestore channel change listener to clean up.');
     }
 
-    // Persist TTS queues before shutdown to prevent message loss
-    logger.info('WildcatTTS: Persisting TTS queues to Firestore...');
+    // Persist TTS queues before shutdown to prevent message loss. With channel
+    // ownership on, the leases are handed back first, and each channel's pending
+    // clips go to its inbox for the instance its browser source reconnects to.
+    logger.info('WildcatTTS: Handing over TTS queues...');
     shutdownTasks.push(
-        ttsQueue.persistAllQueues()
-            .then(() => { logger.info('WildcatTTS: TTS queues persisted successfully.'); })
-            .catch(err => { logger.error({ err }, 'WildcatTTS: Error persisting TTS queues.'); })
+        (async () => {
+            if (isOwnershipEnabled()) {
+                await stopChannelOwnership();
+                await handOffRemainingQueues();
+                // Only what a handoff failed to write is still here.
+                await ttsQueue.persistAllQueues({ deleteEmpty: false });
+            } else {
+                await ttsQueue.persistAllQueues();
+            }
+        })()
+            .then(() => { logger.info('WildcatTTS: TTS queues handed over.'); })
+            .catch(err => { logger.error({ err }, 'WildcatTTS: Error handing over TTS queues.'); })
     );
 
     // Close Pub/Sub subscription and client
@@ -275,9 +292,13 @@ async function main() {
         if (!config.twitch.channels) config.twitch.channels = [];
 
         // After the channel load: persisted queues are keyed by broadcaster ID, and
-        // mapping them back to a channel name needs the allow-list populated.
-        logger.info('WildcatTTS: Restoring TTS queues from previous session...');
-        await ttsQueue.restoreAllQueues();
+        // mapping them back to a channel name needs the allow-list populated. With
+        // channel ownership on, a queue is restored by the instance that takes its
+        // channel instead, which is the one holding the browser source.
+        if (!isOwnershipEnabled()) {
+            logger.info('WildcatTTS: Restoring TTS queues from previous session...');
+            await ttsQueue.restoreAllQueues();
+        }
 
         logger.info('WildcatTTS: Initializing Twitch Helix Client...');
         await initializeHelixClient();
@@ -300,9 +321,27 @@ async function main() {
         logger.info('WildcatTTS: Initializing Chat Sender queue...');
         initializeChatSender();
 
+        // Registered before the web server starts: the first browser source to
+        // connect claims its channel, and the handover listener must already be
+        // there to open the channel's inbox.
+        wireChannelHandover({
+            onNotification: async (notification, timing) => {
+                const { handleForwardedNotification } = await import('./components/twitch/eventsub.js');
+                await handleForwardedNotification(notification, timing);
+            },
+        });
+        const notePlayerFor = (channelName, present) =>
+            notePlayer(getChannelIdFromName(channelName), channelName, present);
+
         // Start the Web Server early
         logger.info('WildcatTTS: Initializing Web Server for OBS audio...');
-        const { server: webServerInstance, hasActiveClients } = initializeWebServer({ onClientConnect: ttsQueue.processQueue });
+        const { server: webServerInstance, hasActiveClients } = initializeWebServer({
+            onClientConnect: channelName => {
+                ttsQueue.processQueue(channelName);
+                notePlayerFor(channelName, true);
+            },
+            onChannelEmpty: channelName => notePlayerFor(channelName, false),
+        });
         global.healthServer = webServerInstance;
 
         // Initialize Pub/Sub for cross-instance TTS communication
@@ -360,6 +399,15 @@ async function main() {
             await ttsQueue.enqueue(channelName, eventData, sharedSessionInfo);
         });
         logger.info('WildcatTTS: Pub/Sub subscriber ready');
+
+        // Renews the leases of channels whose browser source is attached here,
+        // and releases them once the source has been gone PLAYER_GRACE_MS.
+        logger.info('WildcatTTS: Starting channel ownership...');
+        await startChannelOwnership({
+            getPlayerChannels: () => getChannelsWithClients()
+                .map(channelName => ({ broadcasterId: getChannelIdFromName(channelName), channelName }))
+                .filter(c => c.broadcasterId),
+        });
 
         // Initialize YouTube Chat connections (connects to yt-chat-proxy for enabled channels)
         logger.info('WildcatTTS: Initializing YouTube Chat client...');

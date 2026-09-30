@@ -53,6 +53,19 @@ beforeEach(async () => {
 });
 
 describe('dispatchTtsEvent', () => {
+    test('keeps the inbox route label on a webhook forwarded from another instance', async () => {
+        const { runWithTiming, currentTiming } = await import('../../src/lib/ttsTiming.js');
+        mockHasActiveClients.mockReturnValue(true);
+        let route;
+        mockEnqueue.mockImplementation(async () => { route = currentTiming().route; });
+
+        await runWithTiming({ route: 'inbox' }, () => dispatchTtsEvent('somechannel', EVENT));
+        expect(route).toBe('inbox');
+
+        await runWithTiming({}, () => dispatchTtsEvent('somechannel', EVENT));
+        expect(route).toBe('local');
+    });
+
     test('enqueues locally and skips Pub/Sub when this instance holds the client', async () => {
         mockHasActiveClients.mockReturnValue(true);
 

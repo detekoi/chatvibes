@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import logger from '../../lib/logger.js';
 
 import { createApiRouter, applyCors } from './apiRoutes.js';
-import { initializeWebSocketServer, sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, STOP_CURRENT_AUDIO, openClipStream } from './webSocket.js';
+import { initializeWebSocketServer, sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, STOP_CURRENT_AUDIO, openClipStream, getChannelsWithClients } from './webSocket.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -78,7 +78,7 @@ httpServer.setTimeout(0);
 
 let initialized = false;
 
-export function initializeWebServer({ onClientConnect } = {}) {
+export function initializeWebServer({ onClientConnect, onChannelEmpty } = {}) {
     if (initialized) {
         logger.warn('WildcatTTS Web Server already initialized.');
         // Return the existing public API so callers don't break
@@ -86,7 +86,7 @@ export function initializeWebServer({ onClientConnect } = {}) {
     }
     initialized = true;
 
-    initializeWebSocketServer(httpServer, { onClientConnect });
+    initializeWebSocketServer(httpServer, { onClientConnect, onChannelEmpty });
 
     httpServer.listen(PORT, () => {
         logger.info(`WildcatTTS Web Server (for TTS OBS Source) listening on http://localhost:${PORT}`);
@@ -96,4 +96,4 @@ export function initializeWebServer({ onClientConnect } = {}) {
 }
 
 // Re-export for any consumers that import these directly from server.js
-export { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, openClipStream, STOP_CURRENT_AUDIO };
+export { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, openClipStream, STOP_CURRENT_AUDIO, getChannelsWithClients };
