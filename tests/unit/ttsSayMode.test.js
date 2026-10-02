@@ -67,6 +67,15 @@ describe('!tts say: TTS mode', () => {
         expect(enqueueMessage).not.toHaveBeenCalled();
     });
 
+    it('stays silent in highlighted_only mode, without a chat reply', async () => {
+        // A highlighted "!tts <text>" never reaches say.js: the chat handler
+        // reads it as a highlight. Everything that does reach it is free speech.
+        getTtsState.mockResolvedValue({ ...baseConfig, mode: 'highlighted_only' });
+        await say.execute(context());
+        expect(dispatchTtsEvent).not.toHaveBeenCalled();
+        expect(enqueueMessage).not.toHaveBeenCalled();
+    });
+
     it('still refuses when the engine is off, whatever the mode', async () => {
         getTtsState.mockResolvedValue({ ...baseConfig, mode: 'bits_points_only', engineEnabled: false });
         await say.execute(context());

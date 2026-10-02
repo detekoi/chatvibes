@@ -31,11 +31,13 @@ export default {
             return;
         }
 
-        // bits_points_only exists so that speech is something a viewer pays for.
-        // Cheers and reward redemptions reach the queue by their own routes, so
-        // the one job this handler has in that mode is to stay silent.
-        if (ttsConfig.mode === 'bits_points_only') {
-            logger.debug({ channel: channelNameNoHash, user: user.username }, 'Skipping !tts say - bits_points_only mode');
+        // bits_points_only and highlighted_only exist so that speech is something
+        // a viewer pays for. Cheers, highlights and reward redemptions reach the
+        // queue by their own routes (a paid "!tts <text>" never gets here: the
+        // chat handler reads it as a cheer or highlight), so the one job this
+        // handler has in those modes is to stay silent.
+        if (ttsConfig.mode === 'bits_points_only' || ttsConfig.mode === 'highlighted_only') {
+            logger.debug({ channel: channelNameNoHash, user: user.username, mode: ttsConfig.mode }, 'Skipping !tts say - paid-only mode');
             return;
         }
 

@@ -117,6 +117,7 @@ The Channel Points to TTS feature works with all TTS modes:
 - **All Messages**: Reads Channel Point redemptions and regular chat messages.
 - **Commands Only**: Reads Channel Point redemptions and `!tts` commands only.
 - **Bits/Points Only**: Reads Bits cheers and Channel Point redemptions only. Ignores regular chat.
+- **Highlighted Messages Only**: Reads Channel Point redemptions, Twitch "Highlight My Message" messages, and Bits cheers (per the cheer settings). Ignores regular chat and `!tts` commands.
 
 ### Management
 
@@ -295,12 +296,13 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
   * **Permission:** Moderator
   * **Usage:** `!tts off`
 
-**`!tts mode [all|command|bits_points_only]`**
+**`!tts mode [all|command|bits_points_only|highlighted_only]`**
 
   * **Description:** Changes the TTS mode.
       * `all`: Reads all chat messages (based on `!tts permission` setting) and enabled events.
       * `command`: Reads only explicit `!tts` commands and enabled events. Ignores regular chat. **(Default)**
       * `bits_points_only`: Reads only Bits cheers and Channel Point redemptions. Ignores regular chat and commands.
+      * `highlighted_only`: Reads only chat messages that a viewer sends with the Twitch "Highlight My Message" channel-point reward. `!tts permission` does not apply to these messages, because the viewer paid for them. Ignores other chat and `!tts <message>`. Cheers (per the cheer settings), the configured TTS reward, redemption announcements, and events work as in `command` mode. YouTube has no highlighted messages, so on YouTube this mode works like `bits_points_only`.
   * **Permission:** Moderator
   * **Usage:**
       * `!tts mode all`
@@ -308,6 +310,8 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
       * `!tts mode bits_points_only`
       * `!tts mode bits` (alias for `bits_points_only`)
       * `!tts mode points` (alias for `bits_points_only`)
+      * `!tts mode highlighted_only`
+      * `!tts mode highlight` (aliases: `highlights`, `highlighted`)
       * `!tts mode` (shows current mode)
 
 **`!tts permission [everyone|all|mods]`**

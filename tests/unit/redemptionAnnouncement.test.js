@@ -696,3 +696,74 @@ describe('handleRedemptionAnnouncement', () => {
         expect(mockFormatTtsText).not.toHaveBeenCalled();
     });
 });
+
+// highlighted_only removes free-text chat speech, nothing else. Neither handler
+// reads mode, and these pin that: the configured TTS reward still speaks, and
+// every other reward is still announced under speakRedemptionEvents and
+// mutedRewardIds.
+describe('redemptions in highlighted_only mode', () => {
+    const highlightedConfig = {
+        engineEnabled: true,
+        mode: 'highlighted_only',
+        speakRedemptionEvents: true,
+        channelPoints: { enabled: true, rewardId: 'tts-reward' },
+        mutedRewardIds: { 'reward-horn': { title: 'Air Horn', by: 'twitch:1', at: null } },
+    };
+    const redemption = (rewardId, title, userInput) => ({
+        id: `redemption-${rewardId}`,
+        broadcaster_user_id: '111',
+        broadcaster_user_login: 'testchannel',
+        user_name: 'TestUser',
+        user_login: 'testuser',
+        user_id: '4242',
+        reward: { id: rewardId, title },
+        user_input: userInput,
+        status: 'fulfilled',
+    });
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockConsumeFragments.mockReturnValue(null);
+        mockGetRedemption.mockReturnValue(null);
+        mockGetTtsState.mockResolvedValue(highlightedConfig);
+    });
+
+    it('still speaks the configured TTS reward', async () => {
+        await handleChannelPointsRedemption(
+            'channel.channel_points_custom_reward_redemption.add',
+            redemption('tts-reward', 'TTS', 'hello from points')
+        );
+        expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
+        expect(mockDispatchTtsEvent.mock.calls[0][1]).toMatchObject({ text: 'hello from points' });
+    });
+
+    it('still announces another reward', async () => {
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add',
+            redemption('reward-123', 'Hydrate', ''),
+            'testchannel',
+            highlightedConfig
+        );
+        expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+            'testchannel',
+            expect.objectContaining({ text: 'TestUser redeemed Hydrate' }),
+            null
+        );
+    });
+
+    it('still honors mutedRewardIds and speakRedemptionEvents', async () => {
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add',
+            redemption('reward-horn', 'Air Horn', ''),
+            'testchannel',
+            highlightedConfig
+        );
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add',
+            redemption('reward-123', 'Hydrate', ''),
+            'testchannel',
+            { ...highlightedConfig, speakRedemptionEvents: false }
+        );
+        expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+    });
+});
