@@ -373,27 +373,15 @@ export async function handleYouTubeChatMessage(channelId, msg) {
         fragmentsToSpeak = stripCommandPrefixFromFragments(fragmentsToSpeak);
     }
 
-    // Resolve emote mode from channel config.
-    // YouTube does not currently support per-user emote mode overrides (unlike Twitch).
-    const emoteMode = ttsConfig.emoteMode || 'describe';
-
-    logger.debug({ channelId, emoteMode, hasEmoteFragments: !!msg.emoteFragments }, 'YouTube Chat: Emote mode resolved');
-
-    // Shared pipeline: emotes → URLs → Unicode emoji → pronunciations.
-    // Only the emote step differs from Twitch, so it is injected rather than
-    // the whole pipeline being duplicated here.
-    let processedText = await formatTtsText(textToSpeak, fragmentsToSpeak, {
-        emoteMode,
-        channelEmoteMode: emoteMode,
-        readFullUrls: ttsConfig.readFullUrls,
-        pronunciationRules: getPronunciationRules(ttsConfig),
-        locale,
-        emoteProcessor: processYouTubeEmotes,
-    });
-
-    // Determine TTS event type
+    // Decide what this event is, and whether it is spoken at all, before
+    // formatting the message. Formatting is not free: in describe mode each
+    // emote is a Gemini call. Running it first meant every YouTube chat message
+    // in command, bits_points_only or highlighted_only mode was formatted and
+    // then dropped, and a Super Sticker's text was formatted and then
+    // overwritten by its announcement.
     let ttsType;
     let announcementPrefix = '';
+    let speaksMessage = true;
 
     switch (eventType) {
         case 'superchat':
@@ -409,11 +397,11 @@ export async function handleYouTubeChatMessage(channelId, msg) {
         case 'supersticker':
             // Super Stickers — announce the sticker purchase
             ttsType = 'cheer_tts';
+            // The announcement is the whole utterance; the message body is not read.
             announcementPrefix = msg.amount
                 ? t('announce.yt.supersticker.amount', { user: username, amount: msg.amount })
                 : t('announce.yt.supersticker', { user: username });
-            processedText = announcementPrefix;
-            announcementPrefix = '';
+            speaksMessage = false;
             break;
 
         case 'membership':
@@ -464,6 +452,24 @@ export async function handleYouTubeChatMessage(channelId, msg) {
             }
             break;
     }
+
+    // Resolve emote mode from channel config.
+    // YouTube does not currently support per-user emote mode overrides (unlike Twitch).
+    const emoteMode = ttsConfig.emoteMode || 'describe';
+
+    logger.debug({ channelId, emoteMode, hasEmoteFragments: !!msg.emoteFragments }, 'YouTube Chat: Emote mode resolved');
+
+    // Shared pipeline: emotes → URLs → Unicode emoji → pronunciations.
+    // Only the emote step differs from Twitch, so it is injected rather than
+    // the whole pipeline being duplicated here.
+    const processedText = speaksMessage ? await formatTtsText(textToSpeak, fragmentsToSpeak, {
+        emoteMode,
+        channelEmoteMode: emoteMode,
+        readFullUrls: ttsConfig.readFullUrls,
+        pronunciationRules: getPronunciationRules(ttsConfig),
+        locale,
+        emoteProcessor: processYouTubeEmotes,
+    }) : '';
 
     // Checked here rather than straight after formatTtsText, because a Super
     // Sticker and a membership with no attached note both arrive with an empty
