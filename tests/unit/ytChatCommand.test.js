@@ -97,6 +97,13 @@ describe('YouTube chat: !tts command', () => {
         expect(spoken()).toEqual([]);
     });
 
+    it('treats highlighted_only like bits_points_only, since YouTube has no highlights', async () => {
+        getTtsState.mockResolvedValue({ ...baseConfig, mode: 'highlighted_only' });
+        await handleYouTubeChatMessage('chan-1', message('!tts hello'));
+        await handleYouTubeChatMessage('chan-1', message('hello there'));
+        expect(spoken()).toEqual([]);
+    });
+
     it('stays silent for a bare !tts', async () => {
         await handleYouTubeChatMessage('chan-1', message('!tts'));
         expect(dispatchYouTubeTtsEvent).not.toHaveBeenCalled();

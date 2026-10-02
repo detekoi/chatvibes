@@ -52,7 +52,7 @@ YouTube chat arrives from `yt-chat-proxy` via `src/components/youtube/ytChatClie
 | Field | Default | Note |
 |---|---|---|
 | `engineEnabled` | on | Suppresses speech, never commands |
-| `mode` | `command` | `all`, `command`, `bits_points_only` |
+| `mode` | `command` | `all`, `command`, `bits_points_only`, `highlighted_only` (Twitch "Highlight My Message" only; cheers keep `readCheerMessages`) |
 | `botRespondsInChat` | `true` | `false` = listen only, configure from the dashboard |
 | `readCheerMessages`, `bitsMinimumAmount` | `true`, 1 | Cheers skip `ttsPermissionLevel`; forced on in `bits_points_only` |
 | `readCommandMessages` | `true` | `all` mode only: read other bots' `!commands`. Never affects `!tts` or cheers |
@@ -69,7 +69,7 @@ preferences. Details: `docs/channel-config.md`.
 
 ## Chat commands
 
-`!tts` + `status`, `on|off`, `mode all|command`, `voices`, `emotion <e>`, `lang <l>`,
+`!tts` + `status`, `on|off`, `mode all|command|bits|highlight`, `voices`, `emotion <e>`, `lang <l>`,
 `pause|resume`, `stop` (own message; mods any), `clear`, `ignore [add] <user>`, `ignore del [user]`,
 `<text>` (speak it). Mod only: `defaultlanguage <l>`, `pronounce <word> = <say>` and
 `pronounce list|remove|off|test|defaults`, `redeems mute|unmute <title>` and `redeems list|all`,

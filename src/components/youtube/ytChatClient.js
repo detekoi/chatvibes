@@ -429,12 +429,13 @@ export async function handleYouTubeChatMessage(channelId, msg) {
         case 'chat':
         default:
             // "!tts <text>" is spoken in all and command mode, exactly as on
-            // Twitch. In bits_points_only mode the Twitch say handler stays
-            // silent, because speech there is something a viewer pays for, and
-            // so does this.
+            // Twitch. In bits_points_only and highlighted_only mode the Twitch
+            // say handler stays silent, because speech there is something a
+            // viewer pays for, and so does this. YouTube has no highlighted
+            // messages, so highlighted_only behaves exactly like bits_points_only.
             if (ttsCommand) {
-                if (ttsConfig.mode === 'bits_points_only') {
-                    logger.debug({ channelId, mode: ttsConfig.mode }, 'YouTube Chat: Skipping !tts in bits_points_only mode');
+                if (ttsConfig.mode === 'bits_points_only' || ttsConfig.mode === 'highlighted_only') {
+                    logger.debug({ channelId, mode: ttsConfig.mode }, 'YouTube Chat: Skipping !tts in paid-only mode');
                     return;
                 }
                 ttsType = 'command_say';
@@ -450,8 +451,8 @@ export async function handleYouTubeChatMessage(channelId, msg) {
                 logger.debug({ channelId, mode: ttsConfig.mode }, 'YouTube Chat: Skipping regular chat in command mode');
                 return;
             }
-            if (ttsConfig.mode === 'bits_points_only') {
-                logger.debug({ channelId, mode: ttsConfig.mode }, 'YouTube Chat: Skipping regular chat in bits_points_only mode');
+            if (ttsConfig.mode === 'bits_points_only' || ttsConfig.mode === 'highlighted_only') {
+                logger.debug({ channelId, mode: ttsConfig.mode }, 'YouTube Chat: Skipping regular chat in paid-only mode');
                 return;
             }
             // mode === 'all'. A message starting with "!" is another bot's

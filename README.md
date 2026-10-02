@@ -295,12 +295,13 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
   * **Permission:** Moderator
   * **Usage:** `!tts off`
 
-**`!tts mode [all|command|bits_points_only]`**
+**`!tts mode [all|command|bits_points_only|highlighted_only]`**
 
   * **Description:** Changes the TTS mode.
       * `all`: Reads all chat messages (based on `!tts permission` setting) and enabled events.
       * `command`: Reads only explicit `!tts` commands and enabled events. Ignores regular chat. **(Default)**
       * `bits_points_only`: Reads only Bits cheers and Channel Point redemptions. Ignores regular chat and commands.
+      * `highlighted_only`: Reads chat messages only when a viewer redeems Twitch's "Highlight My Message" channel-point reward. These are read for any viewer, regardless of `!tts permission`. Ignores other chat and `!tts <message>`. Cheers (per the cheer settings), the configured TTS reward, redemption announcements and events work as in `command` mode. On YouTube, which has no highlighted messages, it behaves like `bits_points_only`.
   * **Permission:** Moderator
   * **Usage:**
       * `!tts mode all`
@@ -308,6 +309,8 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
       * `!tts mode bits_points_only`
       * `!tts mode bits` (alias for `bits_points_only`)
       * `!tts mode points` (alias for `bits_points_only`)
+      * `!tts mode highlighted_only`
+      * `!tts mode highlight` (aliases: `highlights`, `highlighted`)
       * `!tts mode` (shows current mode)
 
 **`!tts permission [everyone|all|mods]`**

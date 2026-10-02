@@ -3,13 +3,35 @@
 Design notes for the fields of `ttsChannelConfigs` whose behavior is not obvious from the
 code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`).
 
-- Mode (`all`, `command`, or `bits_points_only`). **The default for a channel that never chose one
+- Mode (`all`, `command`, `bits_points_only` or `highlighted_only`). **The default for a channel that never chose one
   is `command`**, and the dashboard writes `mode: 'command'` at first sign-in when the field is
   unset so the bot and the dashboard agree. Before 2026-08-31 the bot's in-memory default was
   `all` while the dashboard displayed an unset mode as `command`; the channels that had lived with
   that were backfilled to `mode: 'all'` by `scripts/backfill_mode_all.js` so nothing they heard
   changed. In `bits_points_only` mode `!tts <text>` is silent on both platforms, so speech is only
   ever something a viewer paid for.
+- **`highlighted_only` mode.** Asked for by a streamer who wanted chat read only when a viewer spent
+  channel points on Twitch's built-in "Highlight My Message". Twitch delivers those as ordinary
+  `channel.chat.message` events with `message_type: "channel_points_highlighted"` and **no**
+  `channel_points_custom_reward_id`, so the redemption path never sees them; `chatHandler.js` is the
+  only place they can be caught. It is a fourth mode rather than a toggle, and `bits_points_only`
+  still drops highlights (both were the streamer's choice). The mode is `command` mode minus free-text
+  speech plus highlights:
+  - A highlight is read as type `highlight` and **skips `ttsPermissionLevel`**, because the viewer
+    paid, exactly as a cheer does. `engineEnabled`, the ignore list and banned words still suppress it.
+  - Plain chat and `!tts <text>` are silent (`say.js` returns early, as in `bits_points_only`). A
+    highlight that starts with `!tts <text>` is read as a highlight with the prefix dropped, the same
+    `isPaidSay` route a cheer takes, so it never reaches the silent `say.js`.
+  - Cheers keep their own switch: `readCheerMessages` and `bitsMinimumAmount` apply as in `all` and
+    `command` (unlike `bits_points_only`, which forces cheers on). A highlight that also carries a
+    cheer the cheer rules would skip is still read, as a highlight: the viewer paid for that
+    separately.
+  - Nothing that does not read `mode` changes: the configured TTS reward (`processTtsRedemption`),
+    other reward announcements under `speakRedemptionEvents` and `mutedRewardIds`, and sub, raid and
+    follow events. `!tts` subcommands run as in every mode. Other bots' `!commands` are not read,
+    since `readCommandMessages` only applies in `all`.
+  - YouTube has no highlights, so there the mode behaves exactly like `bits_points_only`.
+  `chatHandlerHighlighted.test.js` pins it.
 - **Cheer messages (`readCheerMessages`, `bitsMinimumAmount`).** The text attached to a cheer is
   read in every mode once it meets `bitsMinimumAmount` (default 1), and **a cheer is never subject
   to `ttsPermissionLevel`**, because it is paid for. `readCheerMessages` (default `true`) switches

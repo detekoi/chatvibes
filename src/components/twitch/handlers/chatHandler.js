@@ -112,6 +112,11 @@ export async function handleChatMessage(event, channelName) {
     const speechSuppressed = !ttsConfig.engineEnabled || isTtsIgnored || containsBannedWord;
     const ttsCommand = parseTtsCommandText(cleanMessage);
     const isSayCommand = !!ttsCommand && ttsCommand.args.length > 0 && !isTtsSubCommand(ttsCommand.args[0]);
+    // "Highlight My Message" arrives as ordinary chat; only message_type marks
+    // it. It carries no custom reward ID, so the redemption path never sees it.
+    // Only highlighted_only mode treats it as paid speech; elsewhere it is chat.
+    const isHighlighted = event.message_type === 'channel_points_highlighted';
+    const readsHighlight = isHighlighted && ttsConfig.mode === 'highlighted_only';
     if (isSayCommand && (isTtsIgnored || containsBannedWord)) {
         logger.debug({ channelName, user: username, ignored: isTtsIgnored, bannedWord: containsBannedWord }, 'Skipping !tts say');
         return;
@@ -162,14 +167,16 @@ export async function handleChatMessage(event, channelName) {
     // A cheer whose message starts with "!tts" is still a cheer: the viewer paid
     // for it, so it must not go through say.js, where ttsPermissionLevel applies
     // and bits_points_only mode is silent. The prefix is dropped and the text
-    // falls through to the cheer branch below. A cheer carrying a real
+    // falls through to the cheer branch below. A highlight read in
+    // highlighted_only mode is paid for the same way and is treated the same,
+    // since say.js is silent in that mode too. A paid message carrying a real
     // subcommand ("!tts status") is rare and still runs as a command.
-    const isPaidSay = isSayCommand && bits > 0;
+    const isPaidSay = isSayCommand && (bits > 0 || readsHighlight);
     let processedCommandName = null;
     if (isPaidSay) {
         cleanMessage = ttsCommand.args.join(' ');
         if (ttsFragments) ttsFragments = commandFragments;
-        logger.debug({ channelName, user: username, bits }, 'Cheer message starts with !tts; reading it as a cheer');
+        logger.debug({ channelName, user: username, bits, highlighted: readsHighlight }, 'Paid message starts with !tts; reading it as a cheer or highlight');
     } else {
         processedCommandName = await processCommand(channelName, tags, cleanMessage, {
             fragments: commandFragments,
@@ -194,6 +201,20 @@ export async function handleChatMessage(event, channelName) {
     const isCommandShaped = cleanMessage.trimStart().startsWith('!');
     const skipCommandMessage = ttsConfig.readCommandMessages === false && isCommandShaped;
 
+    // Format the message and dispatch it as speech of the given type.
+    const speak = async (type) => {
+        const processedMessage = await formatTtsText(cleanMessage, ttsFragments, {
+            emoteMode,
+            channelEmoteMode,
+            readFullUrls: ttsConfig.readFullUrls,
+            pronunciationRules: getPronunciationRules(ttsConfig),
+            locale,
+        });
+        if (!processedMessage) return;
+        await dispatchTtsEvent(channelName, { text: processedMessage, user: username, userId, type, messageId: event.message_id }, sharedSessionInfo);
+        logger.debug({ channel: channelName, user: username, type, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
+    };
+
     // A. If a command was just run, decide if we should READ the command text aloud
     if (processedCommandName) {
         // Read non-tts commands aloud in 'all' mode
@@ -202,12 +223,7 @@ export async function handleChatMessage(event, channelName) {
                 logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Skipping command text - readCommandMessages is off');
                 return;
             }
-            const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls, pronunciationRules: getPronunciationRules(ttsConfig),
-            locale });
-            if (processedMessage) {
-                await dispatchTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'command', messageId: event.message_id }, sharedSessionInfo);
-                logger.debug({ channel: channelName, user: username, command: processedCommandName }, 'Published command text for TTS');
-            }
+            await speak('command');
         } else if (ttsConfig.mode === 'bits_points_only') {
             // In bits/points only mode, do not read commands
             logger.info({ channel: channelName, mode: ttsConfig.mode }, 'Skipping command in bits_points_only mode');
@@ -222,22 +238,31 @@ export async function handleChatMessage(event, channelName) {
         // Handle messages with bits (cheers)
         if (bits > 0) {
             const minimumBits = Math.max(1, Number(ttsConfig.bitsMinimumAmount) || 1);
-            if (bits >= minimumBits) {
-                // A cheer is paid for, so it is not subject to ttsPermissionLevel
-                // in any mode. bits_points_only always reads cheer messages; all
-                // and command mode read them unless readCheerMessages is off.
-                if (ttsConfig.mode === 'bits_points_only' || ttsConfig.readCheerMessages !== false) {
-                    const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls, pronunciationRules: getPronunciationRules(ttsConfig),
-            locale });
-                    if (processedMessage) {
-                        await dispatchTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'cheer_tts', messageId: event.message_id }, sharedSessionInfo);
-                        logger.debug({ channel: channelName, user: username, bits }, 'Published cheer message for TTS');
-                    }
-                } else {
-                    logger.debug({ channel: channelName, bits, mode: ttsConfig.mode }, 'Skipping cheer - readCheerMessages is off');
-                }
-            } else {
+            // A cheer is paid for, so it is not subject to ttsPermissionLevel
+            // in any mode. bits_points_only always reads cheer messages; the
+            // other modes read them unless readCheerMessages is off.
+            const readsCheer = ttsConfig.mode === 'bits_points_only' || ttsConfig.readCheerMessages !== false;
+            if (bits >= minimumBits && readsCheer) {
+                await speak('cheer_tts');
+            } else if (readsHighlight) {
+                // The highlight was paid for separately, so a cheer the cheer
+                // rules would skip is still read, as a highlight.
+                logger.debug({ channel: channelName, bits, minimumBits, readsCheer }, 'Cheer not read as a cheer; reading it as a highlight');
+                await speak('highlight');
+            } else if (bits < minimumBits) {
                 logger.debug({ channel: channelName, bits, minimumBits }, 'Skipping cheer - insufficient bits');
+            } else {
+                logger.debug({ channel: channelName, bits, mode: ttsConfig.mode }, 'Skipping cheer - readCheerMessages is off');
+            }
+        }
+        // A highlight is paid for with channel points, so like a cheer it is
+        // not subject to ttsPermissionLevel. Nothing else in chat is speech in
+        // this mode; !tts <text> is silenced by say.js.
+        else if (ttsConfig.mode === 'highlighted_only') {
+            if (isHighlighted) {
+                await speak('highlight');
+            } else {
+                logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping non-highlighted chat in highlighted_only mode');
             }
         }
         // Handle regular chat messages (no bits)
@@ -253,12 +278,7 @@ export async function handleChatMessage(event, channelName) {
             }
 
             if (hasPermission(requiredPermission, tags, channelName)) {
-                const processedMessage = await formatTtsText(cleanMessage, ttsFragments, { emoteMode, channelEmoteMode, readFullUrls: ttsConfig.readFullUrls, pronunciationRules: getPronunciationRules(ttsConfig),
-            locale });
-                if (processedMessage) {
-                    await dispatchTtsEvent(channelName, { text: processedMessage, user: username, userId, type: 'chat', messageId: event.message_id }, sharedSessionInfo);
-                    logger.debug({ channel: channelName, user: username, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
-                }
+                await speak('chat');
             } else {
                 logger.debug({ channel: channelName, user: username, requiredPermission, hasMod: tags.mod }, 'Skipping chat - insufficient permission');
             }

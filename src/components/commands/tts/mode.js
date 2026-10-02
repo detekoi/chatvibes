@@ -5,8 +5,8 @@ import logger from '../../../lib/logger.js';
 
 export default {
     name: 'mode',
-    description: 'Sets TTS mode: all chat, commands only, or bits/points only.',
-    usage: '!tts mode <all|command|bits|points>',
+    description: 'Sets TTS mode: all chat, commands only, bits/points only, or highlighted messages only.',
+    usage: '!tts mode <all|command|bits|highlight>',
     permission: 'moderator',
     execute: async (context) => {
         const { channel, user, args, replyToId } = context;
@@ -22,6 +22,8 @@ export default {
         let newMode = rawMode;
         if (rawMode === 'bits' || rawMode === 'points' || rawMode === 'bits_points_only') {
             newMode = 'bits_points_only';
+        } else if (rawMode === 'highlight' || rawMode === 'highlights' || rawMode === 'highlighted' || rawMode === 'highlighted_only') {
+            newMode = 'highlighted_only';
         } else if (rawMode !== 'all' && rawMode !== 'command') {
             enqueueMessage(channel, context.t('cmd.mode.invalid'), { replyToId });
             return;
