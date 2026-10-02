@@ -117,6 +117,7 @@ The Channel Points to TTS feature works with all TTS modes:
 - **All Messages**: Reads Channel Point redemptions and regular chat messages.
 - **Commands Only**: Reads Channel Point redemptions and `!tts` commands only.
 - **Bits/Points Only**: Reads Bits cheers and Channel Point redemptions only. Ignores regular chat.
+- **Highlighted Messages Only**: Reads Channel Point redemptions, Twitch "Highlight My Message" messages, and Bits cheers (per the cheer settings). Ignores regular chat and `!tts` commands.
 
 ### Management
 

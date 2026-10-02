@@ -25,7 +25,7 @@ export const DEFAULT_TTS_SETTINGS = {
     languageBoost: config.tts?.defaultLanguageBoost || 'auto',
     speakEvents: true,
     // Speak the message attached to a cheer. bits_points_only always does;
-    // this switch is for all and command mode. A cheer is paid for, so it is
+    // this switch is for every other mode. A cheer is paid for, so it is
     // never subject to ttsPermissionLevel.
     readCheerMessages: true,
     // Read a chat message that starts with "!" in all mode. Off skips other

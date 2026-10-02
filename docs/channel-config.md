@@ -8,8 +8,8 @@ code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`
   unset so the bot and the dashboard agree. Before 2026-08-31 the bot's in-memory default was
   `all` while the dashboard displayed an unset mode as `command`; the channels that had lived with
   that were backfilled to `mode: 'all'` by `scripts/backfill_mode_all.js` so nothing they heard
-  changed. In `bits_points_only` mode `!tts <text>` is silent on both platforms, so speech is only
-  ever something a viewer paid for.
+  changed. In `bits_points_only` and `highlighted_only` mode `!tts <text>` is silent on both
+  platforms, so speech is only ever something a viewer paid for.
 - **`highlighted_only` mode.** A streamer asked for this mode. They wanted TTS to read chat only
   when a viewer spends channel points on the built-in Twitch reward "Highlight My Message". Twitch
   sends these messages as ordinary `channel.chat.message` events with
@@ -42,7 +42,7 @@ code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`
 - **Cheer messages (`readCheerMessages`, `bitsMinimumAmount`).** The text attached to a cheer is
   read in every mode once it meets `bitsMinimumAmount` (default 1), and **a cheer is never subject
   to `ttsPermissionLevel`**, because it is paid for. `readCheerMessages` (default `true`) switches
-  that off in `all` and `command` mode; `bits_points_only` ignores it, since reading cheers is the
+  that off in every mode except `bits_points_only`, which ignores it because reading cheers is the
   point of that mode. This replaced `bitsModeEnabled`, whose dashboard label "Require Bits for
   TTS" implied a gate it never was: it only ever *added* cheer reading to `command` mode and was
   a no-op in `all`. The five command-mode channels that existed at the switch were backfilled to
@@ -60,8 +60,8 @@ code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`
   with `!` is then not speech. Two things are deliberately outside it. `!tts` never reaches either
   branch, because `say.js` enqueues its own speech and returns `'tts'` before the setting is consulted,
   so `!tts <text>` keeps working with it off. A cheer whose text starts with `!` is still read, as
-  cheers are exempt from every other gate. The setting means nothing in `command` and
-  `bits_points_only`, which never read these, so the dashboard shows the switch off and locked there
+  cheers are exempt from every other gate. The setting means nothing in `command`,
+  `bits_points_only` and `highlighted_only`, which never read these, so the dashboard shows the switch off and locked there
   (the mirror of the cheer switch, which locks *on* in `bits_points_only`). The YouTube client applies
   the same test at its `all` fallthrough, after `!tts` has been recognised. `!tts readcommands on|off`
   flips it from chat. `chatHandlerCommandMessages.test.js` and `ytChatCommandMessages.test.js` pin it.

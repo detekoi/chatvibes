@@ -20,7 +20,8 @@ import { isTtsSubCommand } from '../../commands/tts/subcommandNames.js';
 
 /**
  * Handle channel.chat.message events
- * Processes chat messages including commands, regular messages, and cheers
+ * Processes chat messages including commands, regular messages, cheers, and
+ * "Highlight My Message" highlights
  */
 export async function handleChatMessage(event, channelName) {
     const username = (event.chatter_user_login || event.chatter_user_name || 'Someone').toLowerCase();
