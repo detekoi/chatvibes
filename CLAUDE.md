@@ -52,7 +52,7 @@ YouTube chat arrives from `yt-chat-proxy` via `src/components/youtube/ytChatClie
 | Field | Default | Note |
 |---|---|---|
 | `engineEnabled` | on | Suppresses speech, never commands |
-| `mode` | `command` | `all`, `command`, `bits_points_only`, `highlighted_only` (Twitch "Highlight My Message" only; cheers keep `readCheerMessages`) |
+| `mode` | `command` | `all`, `command`, `bits_points_only`, `highlighted_only` (reads only Twitch "Highlight My Message" chat. Cheers keep `readCheerMessages`) |
 | `botRespondsInChat` | `true` | `false` = listen only, configure from the dashboard |
 | `readCheerMessages`, `bitsMinimumAmount` | `true`, 1 | Cheers skip `ttsPermissionLevel`; forced on in `bits_points_only` |
 | `readCommandMessages` | `true` | `all` mode only: read other bots' `!commands`. Never affects `!tts` or cheers |

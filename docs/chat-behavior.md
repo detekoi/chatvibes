@@ -14,8 +14,8 @@ Design notes for `chatHandler.js` and `src/components/youtube/ytChatClient.js`.
   subcommands have nothing to say there. The one exception is `!tts <text>`, which answers in
   audio: the handler recognises it via `src/lib/ttsCommandText.js`, strips the prefix from the
   text and from emote fragments, and speaks it as `command_say` in `all` and `command` mode
-  (in `bits_points_only` it stays silent, as the Twitch `say` handler does). `highlighted_only`
-  behaves exactly like `bits_points_only` on YouTube, which has no highlighted messages: `!tts`
+  (in `bits_points_only` it stays silent, as the Twitch `say` handler does). YouTube has no
+  highlighted messages, so there `highlighted_only` works exactly like `bits_points_only`: `!tts`
   and plain chat are both silent. Without this a
   channel in command mode heard nothing from YouTube but Super Chats. Two boundaries are
   deliberate: a recognised subcommand name (`!tts off`, `!tts status`) stays **silent** rather
