@@ -321,6 +321,21 @@ describe('WebSocket audio delivery', () => {
             ws.close();
         });
 
+        test('keeps a held buffer for the next player when one without binary support says hello', async () => {
+            const payload = bufferPayload();
+            webSocketModule.sendAudioToChannel(CHANNEL, payload);
+
+            const urlOnly = await connect({ announceBinary: false });
+            urlOnly.ws.send(JSON.stringify({ type: 'hello', features: [] }));
+            await tick();
+            const current = await connect();
+
+            expect(binaryFrames(urlOnly.messages)).toHaveLength(0);
+            expect(binaryFrames(current.messages)).toEqual([payload.data]);
+            urlOnly.ws.close();
+            current.ws.close();
+        });
+
         test('a stop drops the held clip', async () => {
             webSocketModule.sendAudioToChannel(CHANNEL, bufferPayload());
             webSocketModule.sendAudioToChannel(CHANNEL, webSocketModule.STOP_CURRENT_AUDIO);

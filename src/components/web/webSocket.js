@@ -307,24 +307,44 @@ function holdClip(channelName, payload) {
     }, HELD_CLIP_TTL_MS + 100).unref();
 }
 
-/** Send a channel's held clips to a player that has just said hello. */
+/**
+ * Send a channel's held clips to a player that has just said hello. A clip this
+ * player cannot take (a buffer, to one without binary support) stays held for the
+ * next one.
+ */
 function replayHeldClips(channelName, ws) {
     const held = heldClips.get(channelName);
     if (!held) return;
-    heldClips.delete(channelName);
 
     const now = Date.now();
     let replayed = 0;
-    for (const { payload, expiresAt } of held) {
-        if (expiresAt <= now || ws.readyState !== WebSocket.OPEN) continue;
-        if (payload.kind === 'url') {
+    let expired = 0;
+    const remaining = [];
+    for (const clip of held) {
+        const { payload, expiresAt } = clip;
+        if (expiresAt <= now) {
+            expired++;
+        } else if (ws.readyState !== WebSocket.OPEN) {
+            remaining.push(clip);
+        } else if (payload.kind === 'url') {
             ws.send(JSON.stringify({ type: 'playAudio', url: payload.url }));
+            replayed++;
         } else if (ws.supportsBinaryAudio) {
             ws.send(payload.data);
+            replayed++;
         } else {
-            continue;
+            remaining.push(clip);
         }
-        replayed++;
+    }
+
+    if (remaining.length > 0) heldClips.set(channelName, remaining);
+    else heldClips.delete(channelName);
+
+    if (expired > 0) {
+        logger.info(
+            { logKey: 'HELD_AUDIO_EXPIRED', channel: channelName, expired },
+            `Held audio for ${channelName} expired without a player to replay it to`
+        );
     }
     if (replayed > 0) {
         logger.info(
