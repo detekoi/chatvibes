@@ -26,6 +26,24 @@ export const STOP_CURRENT_AUDIO = 'STOP_CURRENT_AUDIO';
 // announces binaryAudio on connect and is never counted as stale again.
 const STALE_PLAYER_NOTICE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// A current player sends its hello as soon as the socket opens. Until it does, it
+// cannot be sent a buffer, but it is not an outdated player either: one that
+// reconnected a few ms before a clip landed was nagged as outdated and missed the
+// clip (2026-10-03). Only a client still silent after this long counts as outdated.
+const HELLO_GRACE_MS = 2000;
+
+// A clip that no player takes is held this long for one to (re)connect, then
+// replayed to it. This covers an OBS browser source that reloads mid-clip
+// (2026-10-05: gone 1s before the clip landed, back 0.4s after). It matches the
+// 30s an instance waits before releasing a channel with no player, so a reconnect
+// in that window comes back here; later than that, a replay is more confusing
+// than a missed message.
+const HELD_CLIP_TTL_MS = 30_000;
+const MAX_HELD_CLIPS = 3;
+
+// channelName -> [{ payload, expiresAt }], oldest first
+const heldClips = new Map();
+
 // ---------------------------------------------------------------------------
 // Auth rate limiting
 // ---------------------------------------------------------------------------
@@ -256,6 +274,66 @@ function describePayload(payload) {
     return String(payload?.url ?? payload).substring(0, 80);
 }
 
+/** True if this client has not said hello yet but may still be about to. */
+function awaitingHello(ws) {
+    return !ws.helloReceived && Date.now() - ws.connectedAt < HELLO_GRACE_MS;
+}
+
+/**
+ * Hold a clip that no player took, for the next player to say hello. The queue
+ * stops taking new items while a channel has no player, so only the clip in flight
+ * at the disconnect ends up here; the cap is a backstop.
+ */
+function holdClip(channelName, payload) {
+    const now = Date.now();
+    const held = (heldClips.get(channelName) || []).filter(c => c.expiresAt > now);
+    held.push({ payload, expiresAt: now + HELD_CLIP_TTL_MS });
+    if (held.length > MAX_HELD_CLIPS) held.splice(0, held.length - MAX_HELD_CLIPS);
+    heldClips.set(channelName, held);
+
+    setTimeout(() => {
+        const current = heldClips.get(channelName);
+        if (!current) return;
+        const live = current.filter(c => c.expiresAt > Date.now());
+        const expired = current.length - live.length;
+        if (live.length > 0) heldClips.set(channelName, live);
+        else heldClips.delete(channelName);
+        if (expired > 0) {
+            logger.info(
+                { logKey: 'HELD_AUDIO_EXPIRED', channel: channelName, expired },
+                `Held audio for ${channelName} expired without a player to replay it to`
+            );
+        }
+    }, HELD_CLIP_TTL_MS + 100).unref();
+}
+
+/** Send a channel's held clips to a player that has just said hello. */
+function replayHeldClips(channelName, ws) {
+    const held = heldClips.get(channelName);
+    if (!held) return;
+    heldClips.delete(channelName);
+
+    const now = Date.now();
+    let replayed = 0;
+    for (const { payload, expiresAt } of held) {
+        if (expiresAt <= now || ws.readyState !== WebSocket.OPEN) continue;
+        if (payload.kind === 'url') {
+            ws.send(JSON.stringify({ type: 'playAudio', url: payload.url }));
+        } else if (ws.supportsBinaryAudio) {
+            ws.send(payload.data);
+        } else {
+            continue;
+        }
+        replayed++;
+    }
+    if (replayed > 0) {
+        logger.info(
+            { logKey: 'HELD_AUDIO_REPLAYED', channel: channelName, replayed },
+            `Replayed ${replayed} held clip(s) to a reconnected player for ${channelName}`
+        );
+    }
+}
+
 /**
  * Send audio or a control command to all connected clients for a channel.
  *
@@ -274,19 +352,28 @@ function describePayload(payload) {
  * instance, with no CDN fetch and no instance-affinity problem. Clients that have
  * not announced binary support (an OBS source running a cached older player) fall
  * back to the URL flow so their audio keeps working, and get nudged to refresh.
+ *
+ * A clip that reaches no player (none connected, or only one that has not said
+ * hello yet) is held and replayed when one says hello; see holdClip. A stop drops
+ * whatever is held, since it was meant to silence that clip too.
  */
 export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
     const resolved = resolveToChannelName(channelName);
     const clients = channelClients.get(resolved);
+    const isStop = payload === STOP_CURRENT_AUDIO;
+
+    if (isStop) heldClips.delete(resolved);
 
     if (!clients || clients.size === 0) {
+        if (isStop) return;
+        holdClip(resolved, payload);
         logger.info(
-            `No active TTS WebSocket clients for channel: ${resolved}. Audio not sent: ${describePayload(payload)}`
+            { logKey: 'AUDIO_HELD', channel: resolved },
+            `No active TTS WebSocket clients for channel: ${resolved}. Holding audio for a reconnect: ${describePayload(payload)}`
         );
         return;
     }
 
-    const isStop = payload === STOP_CURRENT_AUDIO;
     const jsonMessage = isStop
         ? JSON.stringify({ type: 'stopAudio' })
         : payload.kind === 'url'
@@ -298,11 +385,15 @@ export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
     );
 
     let staleClients = 0;
+    let delivered = 0;
 
     clients.forEach(ws => {
         // A client that already received this clip chunk by chunk must not get the
         // whole buffer again on top; the stop sentinel still goes to everyone.
-        if (exclude && exclude.has(ws) && !isStop) return;
+        if (exclude && exclude.has(ws) && !isStop) {
+            if (ws.readyState === WebSocket.OPEN) delivered++;
+            return;
+        }
 
         if (ws.readyState !== WebSocket.OPEN) {
             logger.warn(
@@ -313,19 +404,29 @@ export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
 
         if (jsonMessage !== null) {
             ws.send(jsonMessage);
+            delivered++;
             return;
         }
 
         if (ws.supportsBinaryAudio) {
             ws.send(payload.data);
-        } else {
-            // Should be unreachable: channelPrefersUrlAudio makes the queue request a
-            // URL from the provider whenever any client here is stale, so a buffer
-            // never reaches one. Counted rather than assumed, in case a stale client
-            // connects between that check and this send.
+            delivered++;
+        } else if (!awaitingHello(ws)) {
+            // A client past the hello grace period with no binary support is an
+            // outdated player. channelPrefersUrlAudio makes the queue request a URL
+            // whenever one is connected, so this only happens if it connected
+            // between that check and this send.
             staleClients++;
         }
     });
+
+    if (!isStop && delivered === 0) {
+        holdClip(resolved, payload);
+        logger.info(
+            { logKey: 'AUDIO_HELD', channel: resolved },
+            `No TTS client for ${resolved} could take the audio yet. Holding it for a player's hello: ${describePayload(payload)}`
+        );
+    }
 
     if (staleClients > 0) {
         logger.warn(
@@ -466,6 +567,8 @@ export function initializeWebSocketServer(httpServer, { onClientConnect, onChann
         // than the binary-audio change never send a hello, so absence is the signal.
         ws.supportsBinaryAudio = false;
         ws.supportsChunkedAudio = false;
+        ws.helloReceived = false;
+        ws.connectedAt = Date.now();
 
         // Register client
         if (!channelClients.has(channelName)) {
@@ -507,10 +610,12 @@ export function initializeWebSocketServer(httpServer, { onClientConnect, onChann
                     ws.supportsBinaryAudio = features.includes('binaryAudio');
                     // Chunked delivery rides on binary frames, so it implies binary.
                     ws.supportsChunkedAudio = ws.supportsBinaryAudio && features.includes('chunkedAudio');
+                    ws.helloReceived = true;
                     logger.debug(
                         { channel: channelName, features },
                         `Client announced features; binary audio ${ws.supportsBinaryAudio ? 'supported' : 'unsupported'}, chunked ${ws.supportsChunkedAudio ? 'supported' : 'unsupported'}`
                     );
+                    replayHeldClips(channelName, ws);
                 }
             } catch {
                 logger.warn(

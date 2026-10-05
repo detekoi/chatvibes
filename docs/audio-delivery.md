@@ -28,3 +28,14 @@
   "Received from Pub/Sub" line over-counts — every instance logs it, not only the one that
   serves the clip — so `route` is the honest Pub/Sub share. Query:
   `jsonPayload.logKey="TTS_TIMING"`.
+- **A clip that reaches no player is held and replayed** (`holdClip` in `webSocket.js`). On
+  2026-10-05 an OBS source dropped (1006) one second before a clip landed and was back
+  0.4s later; the clip was logged as sent and never played. Now a clip that no socket takes
+  is kept for 30s (at most 3 per channel) and sent to the next player that says hello.
+  30s matches the lease release with no player, so a quick reconnect lands on the same
+  instance; a later one may land elsewhere, and the clip expires (`HELD_AUDIO_EXPIRED`). A
+  stop drops held clips. A client that has not said hello within 2s of connecting
+  (`HELLO_GRACE_MS`) is not an outdated player yet: on 2026-10-03 a source that reconnected
+  18ms before a clip was counted as outdated, missed the clip and could have been nagged in
+  chat. Now that clip is held for its hello. Log keys: `AUDIO_HELD`, `HELD_AUDIO_REPLAYED`,
+  `HELD_AUDIO_EXPIRED`.

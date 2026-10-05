@@ -149,6 +149,8 @@ preferences. Details: `docs/channel-config.md`.
 **Audio** — `docs/audio-delivery.md`
 - Synthesis is streamed and forwarded slice by slice to players that announced `chunkedAudio`.
   Every failure path must send `audioEnd { discard: true }`, or the player holds the clip open.
+- A clip no socket takes is held 30s and replayed on the next hello; a stop drops it. A
+  client gets `HELLO_GRACE_MS` to say hello before it counts as an outdated player.
 - `TTS_TIMING` is the per-clip latency log: `jsonPayload.logKey="TTS_TIMING"`.
 
 ## Operations

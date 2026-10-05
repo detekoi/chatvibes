@@ -59,6 +59,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+    jest.restoreAllMocks();
     wss?.clients?.forEach(c => c.terminate());
     await new Promise(resolve => wss.close(resolve));
     await new Promise(resolve => server.close(resolve));
@@ -86,6 +87,17 @@ async function connect({ announceBinary = true } = {}) {
     await new Promise(resolve => setTimeout(resolve, 50));
     return { ws, messages };
 }
+
+/**
+ * Move the clock forward. A client that has not said hello is only treated as an
+ * outdated player once the hello grace period has passed, and held clips expire.
+ */
+function advanceClock(ms) {
+    const now = Date.now() + ms;
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+}
+
+const PAST_HELLO_GRACE_MS = 5000;
 
 const bufferPayload = (bytes = [0x49, 0x44, 0x33, 0xff, 0xfb]) => ({
     kind: 'buffer',
@@ -226,6 +238,7 @@ describe('WebSocket audio delivery', () => {
     describe('outdated-player chat notice', () => {
         test('nudges the channel when a buffer cannot be delivered', async () => {
             const { ws } = await connect({ announceBinary: false });
+            advanceClock(PAST_HELLO_GRACE_MS);
 
             webSocketModule.sendAudioToChannel(CHANNEL, bufferPayload());
             await new Promise(resolve => setTimeout(resolve, 50));
@@ -240,6 +253,7 @@ describe('WebSocket audio delivery', () => {
         test('does not nudge again while the notice is recent', async () => {
             mockGetTtsState.mockResolvedValue({ obsSocketToken: TOKEN, stalePlayerNoticeAt: Date.now() });
             const { ws } = await connect({ announceBinary: false });
+            advanceClock(PAST_HELLO_GRACE_MS);
 
             webSocketModule.sendAudioToChannel(CHANNEL, bufferPayload());
             await new Promise(resolve => setTimeout(resolve, 50));
@@ -252,6 +266,7 @@ describe('WebSocket audio delivery', () => {
             const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
             mockGetTtsState.mockResolvedValue({ obsSocketToken: TOKEN, stalePlayerNoticeAt: eightDaysAgo });
             const { ws } = await connect({ announceBinary: false });
+            advanceClock(PAST_HELLO_GRACE_MS);
 
             webSocketModule.sendAudioToChannel(CHANNEL, bufferPayload());
             await new Promise(resolve => setTimeout(resolve, 50));
@@ -268,6 +283,91 @@ describe('WebSocket audio delivery', () => {
 
             expect(mockEnqueueMessage).not.toHaveBeenCalled();
             ws.close();
+        });
+    });
+
+    describe('clips that reach no player', () => {
+        const binaryFrames = messages => messages.filter(m => m.isBinary).map(m => Buffer.from(m.data));
+        const tick = (ms = 50) => new Promise(resolve => setTimeout(resolve, ms));
+
+        test('replays a clip sent while no player was connected once one says hello', async () => {
+            const payload = bufferPayload();
+            webSocketModule.sendAudioToChannel(CHANNEL, payload);
+
+            const { ws, messages } = await connect();
+
+            expect(binaryFrames(messages)).toEqual([payload.data]);
+            ws.close();
+        });
+
+        test('replays a held clip only once', async () => {
+            webSocketModule.sendAudioToChannel(CHANNEL, bufferPayload());
+            const first = await connect();
+            const second = await connect();
+
+            expect(binaryFrames(first.messages)).toHaveLength(1);
+            expect(binaryFrames(second.messages)).toHaveLength(0);
+            first.ws.close();
+            second.ws.close();
+        });
+
+        test('replays a held URL clip as JSON', async () => {
+            webSocketModule.sendAudioToChannel(CHANNEL, { kind: 'url', url: 'https://cdn.example/a.mp3' });
+
+            const { ws, messages } = await connect();
+
+            const parsed = messages.filter(m => !m.isBinary).map(m => JSON.parse(m.data.toString()));
+            expect(parsed).toContainEqual({ type: 'playAudio', url: 'https://cdn.example/a.mp3' });
+            ws.close();
+        });
+
+        test('a stop drops the held clip', async () => {
+            webSocketModule.sendAudioToChannel(CHANNEL, bufferPayload());
+            webSocketModule.sendAudioToChannel(CHANNEL, webSocketModule.STOP_CURRENT_AUDIO);
+
+            const { ws, messages } = await connect();
+
+            expect(binaryFrames(messages)).toHaveLength(0);
+            ws.close();
+        });
+
+        test('does not replay a clip held past its expiry', async () => {
+            webSocketModule.sendAudioToChannel(CHANNEL, bufferPayload());
+            advanceClock(60_000);
+
+            const { ws, messages } = await connect();
+
+            expect(binaryFrames(messages)).toHaveLength(0);
+            ws.close();
+        });
+
+        test('holds a buffer for a player that has not said hello yet, without calling it outdated', async () => {
+            const { ws, messages } = await connect({ announceBinary: false });
+            const payload = bufferPayload();
+
+            webSocketModule.sendAudioToChannel(CHANNEL, payload);
+            await tick();
+            expect(binaryFrames(messages)).toHaveLength(0);
+            expect(mockEnqueueMessage).not.toHaveBeenCalled();
+
+            ws.send(JSON.stringify({ type: 'hello', features: ['binaryAudio'] }));
+            await tick();
+
+            expect(binaryFrames(messages)).toEqual([payload.data]);
+            ws.close();
+        });
+
+        test('does not hold a clip a chunked player already received', async () => {
+            const chunked = await connect();
+            const payload = bufferPayload();
+
+            webSocketModule.sendAudioToChannel(CHANNEL, payload, { exclude: new Set(wss.clients) });
+            const later = await connect();
+
+            expect(binaryFrames(chunked.messages)).toHaveLength(0);
+            expect(binaryFrames(later.messages)).toHaveLength(0);
+            chunked.ws.close();
+            later.ws.close();
         });
     });
 });
