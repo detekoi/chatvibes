@@ -39,7 +39,6 @@ export async function pickRewardWithGemini(query, rewards) {
                 systemInstruction: SYSTEM_INSTRUCTION,
                 contents: [{ text: JSON.stringify(payload) }],
                 config: {
-                    temperature: 0,
                     responseMimeType: 'application/json',
                     responseJsonSchema: {
                         type: 'object',
