@@ -9,7 +9,7 @@ export default {
     execute: async (context) => {
         const { channel, replyToId } = context;
         // Point to the new section in your existing documentation URL
-        const docLink = 'https://docs.wildcat.chat/wildcatttsdocs.html#language-boost'; 
+        const docLink = 'https://docs.wildcat.chat/tts-voices.html#language-boost'; 
         enqueueMessage(channel, context.t('cmd.languages.link', { docLink }), { replyToId });
     },
 };

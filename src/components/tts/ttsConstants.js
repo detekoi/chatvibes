@@ -79,6 +79,6 @@ export const VALID_LANGUAGE_BOOSTS = ttsConfig.VALID_LANGUAGE_BOOSTS;
 export const LEGACY_SAFE_LANGUAGE_BOOSTS = ttsConfig.LEGACY_SAFE_LANGUAGE_BOOSTS;
 
 export const DOC_LINKS = {
-    voices: 'https://docs.wildcat.chat/wildcatttsdocs.html#voices',
-    languageBoost: 'https://docs.wildcat.chat/wildcatttsdocs.html#language-boost',
+    voices: 'https://docs.wildcat.chat/tts-voices.html#voices',
+    languageBoost: 'https://docs.wildcat.chat/tts-voices.html#language-boost',
 };

@@ -8,7 +8,7 @@ export default {
     permission: 'everyone',
     execute: async (context) => {
         const { channel, replyToId } = context;
-        const docLink = 'https://docs.wildcat.chat/wildcatttsdocs.html#voices';
+        const docLink = 'https://docs.wildcat.chat/tts-voices.html#voices';
         enqueueMessage(channel, context.t('cmd.voices.link', { docLink }), { replyToId });
     },
 };
