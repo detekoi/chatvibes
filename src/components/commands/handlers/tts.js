@@ -102,7 +102,7 @@ export default {
                 const helpContext = { ...context, command: 'commands', args: [] };
                 await helpHandler.execute(helpContext);
             } else {
-                enqueueMessage(channel, `For command info, see: https://docs.wildcat.chat/wildcatttsdocs.html#commands`, { replyToId });
+                enqueueMessage(channel, `For command info, see: https://docs.wildcat.chat/tts-commands.html#commands`, { replyToId });
             }
             return;
         }

@@ -12,9 +12,9 @@ WildcatTTS is a Twitch bot that reads chat messages and events aloud with Text-t
 
 To read the full list of commands and voices, visit the documentation:
 
-  * [Commands Documentation](https://docs.wildcat.chat/wildcatttsdocs.html#commands)
-  * [Voices Documentation](https://docs.wildcat.chat/wildcatttsdocs.html#voices)
-  * [Language Support Documentation](https://docs.wildcat.chat/wildcatttsdocs.html#language-boost)
+  * [Commands Documentation](https://docs.wildcat.chat/tts-commands.html#commands)
+  * [Voices Documentation](https://docs.wildcat.chat/tts-voices.html#voices)
+  * [Language Support Documentation](https://docs.wildcat.chat/tts-voices.html#language-boost)
 
 ## Features
 
@@ -249,7 +249,7 @@ The Channel Points to TTS feature works with all TTS modes:
 
 ## Command Documentation
 
-All TTS commands start with `!tts` (for example, `!tts status`). You can also read the command documentation online: [Commands Documentation](https://docs.wildcat.chat/wildcatttsdocs.html#commands).
+All TTS commands start with `!tts` (for example, `!tts status`). You can also read the command documentation online: [Commands Documentation](https://docs.wildcat.chat/tts-commands.html#commands).
 
 <details>
 <summary>Select here to expand command documentation.</summary>
