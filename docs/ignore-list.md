@@ -84,7 +84,7 @@ ttsUserPreferences/<twitchUserId>: { globalOptOut: true, globalOptOutAt: "2026-1
   route, the Pub/Sub subscriber in `bot.js` and the YouTube route. A check in `enqueue` therefore
   also covers the routes that pass the handler guards. One example is `!tts voice <not a voice>`,
   which falls back to `say.js` after the chat handler let it through as a command. `say.js` now
-  also does the per-channel ignore check for this reason.
+  also does the per-channel ignore check and the banned-word check for this reason.
 - The read ignores `allowViewerPreferences`. The opt-out is the consent of the viewer, not a
   preference, so a channel cannot turn it off. The voice preferences still apply only where the
   channel allows them.

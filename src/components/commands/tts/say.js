@@ -28,12 +28,18 @@ export default {
         const ttsConfig = await getTtsState(channelNameNoHash);
         const locale = resolveChannelLocale(ttsConfig);
 
-        // The chat handler drops "!tts <text>" from an ignored viewer before any
-        // command runs, but "!tts voice <not a voice>" reaches this handler as a
-        // voice command and falls back to speech here, past that guard. Silent,
-        // like the handler's own check.
+        // The chat handler drops "!tts <text>" from an ignored viewer, or with a
+        // banned word, before any command runs. "!tts voice <not a voice>" reaches
+        // this handler as a voice command and falls back to speech here, past
+        // that guard, so both checks repeat here. Silent, like the handler's own.
         if (isTwitchUserIgnored(ttsConfig, user['user-id'])) {
             logger.debug({ channel: channelNameNoHash, user: user.username }, 'Skipping !tts say - viewer is on the ignore list');
+            return;
+        }
+        const containsBannedWord = ttsConfig.bannedWords?.length > 0 &&
+            ttsConfig.bannedWords.some(w => w && messageToSay.toLowerCase().includes(String(w).toLowerCase()));
+        if (containsBannedWord) {
+            logger.debug({ channel: channelNameNoHash, user: user.username }, 'Skipping !tts say - message contains a banned word');
             return;
         }
 

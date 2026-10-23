@@ -89,6 +89,21 @@ describe('!tts say: TTS mode', () => {
         expect(enqueueMessage).not.toHaveBeenCalled();
     });
 
+    it('stays silent for a banned word, without a chat reply', async () => {
+        // Same route as above: the chat handler's banned-word guard only covers
+        // "!tts <text>", not the voice fallback.
+        getTtsState.mockResolvedValue({ ...baseConfig, mode: 'all', bannedWords: ['There'] });
+        await say.execute(context());
+        expect(dispatchTtsEvent).not.toHaveBeenCalled();
+        expect(enqueueMessage).not.toHaveBeenCalled();
+    });
+
+    it('still speaks when no banned word matches', async () => {
+        getTtsState.mockResolvedValue({ ...baseConfig, mode: 'all', bannedWords: ['', 'goodbye'] });
+        await say.execute(context());
+        expect(dispatchTtsEvent).toHaveBeenCalledTimes(1);
+    });
+
     it('still refuses when the engine is off, whatever the mode', async () => {
         getTtsState.mockResolvedValue({ ...baseConfig, mode: 'bits_points_only', engineEnabled: false });
         await say.execute(context());
