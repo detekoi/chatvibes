@@ -122,6 +122,9 @@ preferences. Details: `docs/channel-config.md`.
 - Title resolution is deterministic first; the model may only narrow within the candidates shown.
 - Reward lookups need the broadcaster's token, so `customRewards.js` bypasses `helixClient.js`.
 - The mute guard sits before the pending-approval stash in `handleRedemptionAnnouncement`.
+- The bot settles each TTS reward redemption (`redemptionStatus.js`). Refuse or approve it on the
+  unfulfilled `.add`, because Twitch refunds only an `UNFULFILLED` redemption. A moderator mute
+  refunds and is never read.
 
 **Keys** — `docs/channel-config.md`
 - Every channel- or viewer-scoped record is keyed by the immutable account ID, never the login:

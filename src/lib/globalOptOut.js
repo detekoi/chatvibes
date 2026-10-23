@@ -13,9 +13,9 @@
 // It stops TTS from speaking the viewer's own words. It does not stop event
 // announcements (subs, cheers, gifts, raids, redemptions): those are spoken
 // without the message the viewer attached to them. The TTS Channel Points reward
-// is still read: redeeming it is a paid request to be read, and Twitch cannot
-// refund it. The per-channel ignore list is stricter and skips the whole
-// announcement. See docs/ignore-list.md.
+// is still read: redeeming it is a paid request to be read. The per-channel
+// ignore list is stricter and skips the whole announcement. See
+// docs/ignore-list.md.
 
 export const GLOBAL_OPT_OUT_FIELD = 'globalOptOut';
 export const GLOBAL_OPT_OUT_AT_FIELD = 'globalOptOutAt';

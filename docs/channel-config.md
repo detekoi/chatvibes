@@ -151,3 +151,31 @@ gcloud logging read 'jsonPayload.channelLogin="<channel>" AND jsonPayload.reward
 In the default mode **every** `.update` is suppressed, rather than relying on the `wasAnnounced`
 guard: that map is per-instance with a 15 minute TTL, so an approval arriving an hour later on
 another Cloud Run instance would announce a second time.
+
+## The TTS reward: who settles a redemption (`redemptionHandler.js`, `redemptionStatus.js`)
+
+Twitch lets an app change a redemption only while it is `UNFULFILLED`, and only for a reward that
+the same app created. `CANCELED` refunds the viewer. A reward that skips the request queue is
+`FULFILLED` at once, so nothing can refund it. The content-policy reject used to run on fulfilled
+redemptions, so it never refunded anything.
+
+- The dashboard creates the TTS reward with Twitch's skip-queue off. The bot settles each
+  redemption itself. The dashboard toggle "Skip the Reward Queue" is stored as
+  `channelPoints.skipQueue` and now means that the bot approves a clean redemption at once.
+- On an unfulfilled `.add`, `ttsRedemptionRefusal` decides. A refusal cancels the redemption, which
+  refunds the points. The refusals are: TTS is off, a moderator muted the viewer in this channel,
+  or the content policy blocks the message (empty, a link, a banned word).
+- A clean redemption with `skipQueue` on is set to `FULFILLED` and then read. If Twitch refuses the
+  change, the message is read anyway, because the viewer paid. With `skipQueue` off, the redemption
+  waits in the cache for the streamer.
+- On approval (`.update` + `fulfilled` for a cached redemption), the checks run again, because a
+  mute or the policy can change while it waits. A refusal at this point cannot be refunded and only
+  keeps the message silent.
+- A moderator mute always refuses the reward, so paying cannot get round it. The reward is a paid
+  request to be read. So a viewer who muted themselves in this channel, or opted out of TTS in
+  every channel, is read.
+- A reward made before this change still skips the queue, so its redemptions arrive `FULFILLED`.
+  The bot does not try a refund that cannot work. It keeps a refused message silent and calls
+  `stopRewardSkippingQueue` once per process, so the next redemption can be refunded.
+- If the bot does not run, redemptions wait in the queue of the streamer, who can approve or refund
+  them by hand. Before this change, they were lost.

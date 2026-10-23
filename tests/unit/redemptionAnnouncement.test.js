@@ -70,6 +70,15 @@ jest.unstable_mockModule('../../src/components/twitch/redemptionFragmentCache.js
     storeFragments: jest.fn()
 }));
 
+// Twitch calls that settle a TTS reward redemption. Replaced so no test reaches
+// the network, and so each test can see what the handler asked Twitch to do.
+const mockSetRedemptionStatus = jest.fn().mockResolvedValue(true);
+const mockStopRewardSkippingQueue = jest.fn().mockResolvedValue(true);
+jest.unstable_mockModule('../../src/components/twitch/redemptionStatus.js', () => ({
+    setRedemptionStatus: mockSetRedemptionStatus,
+    stopRewardSkippingQueue: mockStopRewardSkippingQueue,
+}));
+
 const { handleRedemptionAnnouncement, handleChannelPointsRedemption } = await import('../../src/components/twitch/handlers/redemptionHandler.js');
 
 describe('handleChannelPointsRedemption fragment cache', () => {
@@ -100,6 +109,178 @@ describe('handleChannelPointsRedemption fragment cache', () => {
         // storeFragments keys on (rewardId, userId, channelLogin) — a transposed
         // lookup here silently missed the cache on every manual-approval redemption.
         expect(mockConsumeFragments).toHaveBeenCalledWith('tts-reward', '4242', 'testchannel');
+    });
+});
+
+// The bot settles each TTS reward redemption itself, because Twitch can refund
+// a redemption only while it is UNFULFILLED: one that skips the request queue
+// arrives FULFILLED and can never be refunded.
+describe('handleChannelPointsRedemption settlement', () => {
+    const ADD = 'channel.channel_points_custom_reward_redemption.add';
+    const UPDATE = 'channel.channel_points_custom_reward_redemption.update';
+    const baseConfig = {
+        engineEnabled: true,
+        channelPoints: { enabled: true, rewardId: 'tts-reward', skipQueue: true },
+    };
+    const redemption = (extra = {}) => ({
+        id: 'redemption-1',
+        broadcaster_user_id: '111',
+        broadcaster_user_login: 'testchannel',
+        user_login: 'viewer',
+        user_id: '4242',
+        reward: { id: 'tts-reward' },
+        user_input: 'hello there',
+        status: 'unfulfilled',
+        ...extra,
+    });
+    const statusCalls = () => mockSetRedemptionStatus.mock.calls.map(c => [c[0].status, c[0].reason]);
+    const withConfig = (patch) => mockGetTtsState.mockResolvedValue({ ...baseConfig, ...patch });
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        mockConsumeFragments.mockReturnValue(null);
+        mockGetRedemption.mockReturnValue(null);
+        mockGetTtsState.mockResolvedValue(baseConfig);
+    });
+
+    describe('a redemption that waits in the queue (refund possible)', () => {
+        it('approves and reads a clean message', async () => {
+            await handleChannelPointsRedemption(ADD, redemption());
+
+            expect(statusCalls()).toEqual([['FULFILLED', 'approved automatically']]);
+            expect(mockSetRedemptionStatus.mock.calls[0][0]).toMatchObject({
+                broadcasterId: '111', rewardId: 'tts-reward', redemptionId: 'redemption-1',
+            });
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                expect.objectContaining({ text: 'hello there', userId: '4242', type: 'reward' }),
+                null
+            );
+        });
+
+        it.each([
+            ['a link', { user_input: 'see https://example.com' }, {}, 'Message contains blocked link'],
+            ['a banned word', { user_input: 'a BadWord here' }, { contentPolicy: { bannedWords: ['badword'] } }, 'Message contains banned word'],
+            ['an empty message', { user_input: '   ' }, {}, 'Message is empty'],
+        ])('refunds %s and reads nothing', async (_label, eventPatch, policyPatch, reason) => {
+            withConfig({ channelPoints: { ...baseConfig.channelPoints, ...policyPatch } });
+            await handleChannelPointsRedemption(ADD, redemption(eventPatch));
+
+            expect(statusCalls()).toEqual([['CANCELED', reason]]);
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('refunds a viewer a moderator muted here, and never reads them', async () => {
+            // Paying must not get round a moderator's mute.
+            withConfig({ ignoredUserIds: { 'twitch:4242': { label: 'viewer', source: 'moderator', by: 'twitch:9', at: 'then' } } });
+            await handleChannelPointsRedemption(ADD, redemption());
+
+            expect(statusCalls()).toEqual([['CANCELED', 'Viewer is muted in this channel']]);
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('treats a legacy ignore entry, whose source is unknown, as a moderator mute', async () => {
+            withConfig({ ignoredUserIds: { 'twitch:4242': 'viewer' } });
+            await handleChannelPointsRedemption(ADD, redemption());
+
+            expect(statusCalls()).toEqual([['CANCELED', 'Viewer is muted in this channel']]);
+        });
+
+        it('reads a viewer who muted themselves here: the reward is a paid request to be read', async () => {
+            withConfig({ ignoredUserIds: { 'twitch:4242': { label: 'viewer', source: 'self', by: 'twitch:4242', at: 'then' } } });
+            await handleChannelPointsRedemption(ADD, redemption());
+
+            expect(statusCalls()).toEqual([['FULFILLED', 'approved automatically']]);
+            expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
+        });
+
+        it('refunds while TTS is turned off, since nothing would play', async () => {
+            withConfig({ engineEnabled: false });
+            await handleChannelPointsRedemption(ADD, redemption());
+
+            expect(statusCalls()).toEqual([['CANCELED', 'TTS is turned off']]);
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('still reads the message when Twitch refuses to fulfill it', async () => {
+            // The viewer paid; the streamer can settle it by hand.
+            mockSetRedemptionStatus.mockResolvedValueOnce(false);
+            await handleChannelPointsRedemption(ADD, redemption());
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
+        });
+
+        it('leaves a clean message for the streamer when approval is manual', async () => {
+            withConfig({ channelPoints: { ...baseConfig.channelPoints, skipQueue: false } });
+            await handleChannelPointsRedemption(ADD, redemption());
+
+            expect(mockSetRedemptionStatus).not.toHaveBeenCalled();
+            expect(mockAddRedemption).toHaveBeenCalledWith('redemption-1', 'hello there', 'viewer', 'testchannel', 'tts-reward', '4242', null);
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('refunds a blocked message even when approval is manual', async () => {
+            withConfig({ channelPoints: { ...baseConfig.channelPoints, skipQueue: false } });
+            await handleChannelPointsRedemption(ADD, redemption({ user_input: 'https://example.com' }));
+
+            expect(statusCalls()).toEqual([['CANCELED', 'Message contains blocked link']]);
+            expect(mockAddRedemption).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('a redemption from a reward that still skips the queue (no refund possible)', () => {
+        it('reads a clean message and switches the reward to the queue', async () => {
+            await handleChannelPointsRedemption(ADD, redemption({ status: 'fulfilled' }));
+
+            expect(mockStopRewardSkippingQueue).toHaveBeenCalledWith(expect.objectContaining({ broadcasterId: '111', rewardId: 'tts-reward' }));
+            expect(mockSetRedemptionStatus).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
+        });
+
+        it('keeps a moderator-muted viewer silent without trying a refund that cannot work', async () => {
+            withConfig({ ignoredUserIds: { 'twitch:4242': { label: 'viewer', source: 'moderator', by: 'twitch:9', at: 'then' } } });
+            await handleChannelPointsRedemption(ADD, redemption({ status: 'fulfilled' }));
+
+            expect(mockSetRedemptionStatus).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('keeps a blocked message silent without trying a refund that cannot work', async () => {
+            await handleChannelPointsRedemption(ADD, redemption({ status: 'fulfilled', user_input: 'https://example.com' }));
+
+            expect(mockSetRedemptionStatus).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('approval by the streamer', () => {
+        const cached = {
+            channelName: 'testchannel', userInput: 'hello there', userName: 'viewer',
+            rewardId: 'tts-reward', userId: '4242', fragments: null,
+        };
+
+        it('reads an approved redemption and then drops it from the cache', async () => {
+            mockGetRedemption.mockReturnValue(cached);
+            await handleChannelPointsRedemption(UPDATE, redemption({ status: 'fulfilled' }));
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
+            expect(mockRemoveRedemption).toHaveBeenCalledWith('redemption-1');
+        });
+
+        it('does not read it when a moderator muted the viewer while it waited', async () => {
+            mockGetRedemption.mockReturnValue(cached);
+            withConfig({ ignoredUserIds: { 'twitch:4242': { label: 'viewer', source: 'moderator', by: 'twitch:9', at: 'then' } } });
+            await handleChannelPointsRedemption(UPDATE, redemption({ status: 'fulfilled' }));
+
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+            expect(mockRemoveRedemption).toHaveBeenCalledWith('redemption-1');
+        });
+
+        it('ignores the update for a redemption the bot fulfilled itself', async () => {
+            await handleChannelPointsRedemption(UPDATE, redemption({ status: 'fulfilled' }));
+
+            expect(mockDispatchTtsEvent).not.toHaveBeenCalled();
+        });
     });
 });
 

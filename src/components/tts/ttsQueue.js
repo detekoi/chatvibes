@@ -25,8 +25,8 @@ const channelQueues = new Map();
 const MAX_QUEUE_LENGTH = 50;
 // Speech types an opted-out viewer still gets. An `event` is an announcement
 // about them, spoken without their words. A `reward` is the TTS Channel Points
-// reward: redeeming it is a paid request to be read, and Twitch cannot refund a
-// redemption that skips the reward queue, so dropping it would cost the points.
+// reward: redeeming it is a paid request to be read. A moderator mute refuses
+// it (and refunds it) in redemptionHandler.js, before it gets here.
 const SPOKEN_WHEN_OPTED_OUT = new Set(['event', 'reward']);
 const PREFETCH_AHEAD = 2; // Number of queued items to prefetch concurrently
 

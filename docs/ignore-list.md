@@ -82,9 +82,10 @@ ttsUserPreferences/<twitchUserId>: { globalOptOut: true, globalOptOutAt: "2026-1
   out. If a handler forgets the field, the message is lost for everyone, which a test shows at
   once. The opposite design leaked the words of an opted-out viewer. The per-channel ignore list is
   stricter and skips the whole announcement.
-- The TTS Channel Points reward (`type: 'reward'`) is read for an opted-out viewer. The redemption
-  is a paid request to be read. Twitch refunds only a redemption that is still `UNFULFILLED`. The
-  reward skips the request queue by default, so a dropped redemption cost the points.
+- The TTS Channel Points reward (`type: 'reward'`) is read for an opted-out viewer, because the
+  redemption is a paid request to be read. The same is true for a viewer who muted themselves in
+  one channel. Only a moderator mute refuses the reward, with a refund. See
+  `docs/channel-config.md`.
 - The handlers check first, and `enqueue` checks last. Before they format a message,
   `chatHandler.js`, `say.js` and the resub, watch streak and redemption announcements call
   `isViewerGloballyOptedOut`. Formatting can send the text to the emote describer and the login to
