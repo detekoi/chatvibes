@@ -282,6 +282,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
 
     // Build announcement text
     let ttsText = t('announce.redemption', { user: userName, reward: rewardTitle });
+    let textWithoutViewerMessage;
     if (userInput) {
         // Check banned words against user input
         const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
@@ -304,6 +305,9 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
                 locale,
             });
             if (formattedInput) {
+                // Kept for a viewer who opted out of TTS in every channel: ttsQueue
+                // speaks the announcement without their input.
+                textWithoutViewerMessage = ttsText;
                 ttsText = t('announce.redemption.input', { text: ttsText, input: formattedInput });
             } else {
                 logger.info({ channelLogin, user: userLogin, emoteMode, viewerMessage: userInput },
@@ -325,7 +329,8 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         text: ttsText,
         user: userName,
         userId,
-        type: 'event'
+        type: 'event',
+        ...(textWithoutViewerMessage !== undefined && { textWithoutViewerMessage }),
     }, sharedSessionInfo);
 }
 

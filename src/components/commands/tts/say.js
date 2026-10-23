@@ -6,6 +6,7 @@ import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { resolveChannelLocale } from '../../../i18n/index.js';
 import { hasPermissionLevel, mapPermissionLevel } from '../../../lib/permissions.js';
+import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
 import logger from '../../../lib/logger.js';
 
 export default {
@@ -26,6 +27,16 @@ export default {
 
         const ttsConfig = await getTtsState(channelNameNoHash);
         const locale = resolveChannelLocale(ttsConfig);
+
+        // The chat handler drops "!tts <text>" from an ignored viewer before any
+        // command runs, but "!tts voice <not a voice>" reaches this handler as a
+        // voice command and falls back to speech here, past that guard. Silent,
+        // like the handler's own check.
+        if (isTwitchUserIgnored(ttsConfig, user['user-id'])) {
+            logger.debug({ channel: channelNameNoHash, user: user.username }, 'Skipping !tts say - viewer is on the ignore list');
+            return;
+        }
+
         if (!ttsConfig.engineEnabled) {
             enqueueMessage(channel, context.t('cmd.say.disabled'), { replyToId });
             return;

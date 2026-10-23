@@ -16,6 +16,7 @@ import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
 import { resolveToChannelName, getChannelIdFromName, getChannelNameFromId } from '../../lib/allowList.js';
 import { snapshotTiming, elapsed } from '../../lib/ttsTiming.js';
+import { isGloballyOptedOut } from '../../lib/globalOptOut.js';
 
 let db;
 const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
@@ -79,6 +80,30 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         return;
     }
 
+    // Preferences are keyed by account ID; an event without one (anonymous gift,
+    // system announcement) gets channel defaults.
+    const userId = eventData.userId;
+
+    // Read whatever the channel's allowViewerPreferences says: the global opt-out
+    // is the viewer's consent, not a preference, and a channel cannot turn it off.
+    // Every speech path ends here, so this one check also covers the routes that
+    // pass the per-channel guards in the handlers. A failed read returns {} and
+    // the viewer is read; the error is not cached, so the next message retries.
+    const viewerGlobalPrefs = userId ? await getGlobalUserPreferences(userId) : {};
+    let speechText = text;
+    if (isGloballyOptedOut(viewerGlobalPrefs)) {
+        if (type !== 'event') {
+            logger.debug({ channelName, user, userId, type }, 'Viewer opted out of TTS in every channel - dropping their speech');
+            return;
+        }
+        // An announcement is kept, but without the message the viewer attached.
+        // Handlers that append one also pass the text before the append.
+        if (typeof eventData.textWithoutViewerMessage === 'string') {
+            speechText = eventData.textWithoutViewerMessage;
+            logger.debug({ channelName, user, userId }, 'Viewer opted out of TTS in every channel - announcing without their message');
+        }
+    }
+
     const cq = getOrCreateChannelQueue(channelName);
     if (cq.queue.length >= MAX_QUEUE_LENGTH) {
         logger.warn(`[${channelName}] TTS queue full. Dropping message from ${user}.`);
@@ -91,15 +116,9 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     let globalUserPrefs = {};
     let channelUserPrefs = {};
 
-    // Preferences are keyed by account ID; an event without one (anonymous gift,
-    // system announcement) gets channel defaults.
-    const userId = eventData.userId;
-
     if (userId && allowViewerPrefs) {
-        [globalUserPrefs, channelUserPrefs] = await Promise.all([
-            getGlobalUserPreferences(userId),
-            getChannelUserPreferences(channelName, userId),
-        ]);
+        globalUserPrefs = viewerGlobalPrefs;
+        channelUserPrefs = await getChannelUserPreferences(channelName, userId);
     }
 
     const finalVoiceOptions = {
@@ -130,7 +149,7 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     // for their own messages and that override is only resolved above. When the
     // viewer's language differs from the channel's, both lists apply — filtering
     // on the channel's alone would let a viewer speaking another one through.
-    let finalText = text;
+    let finalText = speechText;
     if (ttsStatus.profanityFilterEnabled) {
         // English is always in the set, whatever the channel's language. The
         // pronunciation dictionary is English-only and runs for every channel,
@@ -142,8 +161,8 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
             'English',
         ]);
         if (rules) {
-            finalText = applyRewrites(text, rules);
-            if (finalText !== text) {
+            finalText = applyRewrites(speechText, rules);
+            if (finalText !== speechText) {
                 logger.debug(`[${channelName}] Profanity filter applied to message from ${user || 'event'}.`);
             }
         }
@@ -155,7 +174,7 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     const timing = timingSnapshot ? { ...timingSnapshot, enqueueStartMs, enqueuedMs: Date.now() } : null;
 
     cq.queue.push({ type, text: finalText, user, userId, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing });
-    logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
+    logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${finalText.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
 }
 

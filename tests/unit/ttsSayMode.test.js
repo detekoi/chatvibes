@@ -76,6 +76,19 @@ describe('!tts say: TTS mode', () => {
         expect(enqueueMessage).not.toHaveBeenCalled();
     });
 
+    it('stays silent for a viewer on the ignore list, without a chat reply', async () => {
+        // "!tts voice <not a voice>" falls back to this handler after the chat
+        // handler's own ignore guard has already let it through as a command.
+        getTtsState.mockResolvedValue({
+            ...baseConfig,
+            mode: 'all',
+            ignoredUserIds: { 'twitch:1': { label: 'viewer', source: 'self', by: 'twitch:1', at: '2026-01-01T00:00:00.000Z' } },
+        });
+        await say.execute(context());
+        expect(dispatchTtsEvent).not.toHaveBeenCalled();
+        expect(enqueueMessage).not.toHaveBeenCalled();
+    });
+
     it('still refuses when the engine is off, whatever the mode', async () => {
         getTtsState.mockResolvedValue({ ...baseConfig, mode: 'bits_points_only', engineEnabled: false });
         await say.execute(context());

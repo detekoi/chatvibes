@@ -61,3 +61,35 @@ ignoredUserIds: {
   three together.
 - Migrated from the old `ignoredUsers` array by `scripts/migrate_ignored_users_to_ids.js`, which
   runs in two phases so the bot and dashboard can deploy in any order.
+
+## Global opt-out (`ttsUserPreferences.globalOptOut`)
+
+A viewer can opt out of TTS in every channel from the web dashboard. `src/lib/globalOptOut.js` owns
+the field names:
+
+```
+ttsUserPreferences/<twitchUserId>: { globalOptOut: true, globalOptOutAt: "2026-10-23T…", … }
+```
+
+- It belongs to the viewer. It is on the viewer's own preferences document, not on a channel
+  config. No moderator can set or clear it, so it has no `source`. Opting back in deletes both
+  fields. The only writer is `PUT /api/viewer/opt-out` in `chatvibes-web-ui`
+  (`functions/src/api/viewer.ts`).
+- It stops the viewer's own words, not the announcements about them. If the `type` of an item from
+  an opted-out viewer is not `event`, `ttsQueue.enqueue` drops it. An `event` item is spoken. If
+  the event carries `textWithoutViewerMessage`, the queue speaks that text instead of `text`. When
+  the resub, watch streak and reward redemption announcements append a message from the viewer,
+  they set it. The per-channel ignore list is stricter and skips the whole announcement.
+- The check is in `enqueue`, not in the handlers. All speech goes through `enqueue`: the local
+  route, the Pub/Sub subscriber in `bot.js` and the YouTube route. A check in `enqueue` therefore
+  also covers the routes that pass the handler guards. One example is `!tts voice <not a voice>`,
+  which falls back to `say.js` after the chat handler let it through as a command. `say.js` now
+  also does the per-channel ignore check for this reason.
+- The read ignores `allowViewerPreferences`. The opt-out is the consent of the viewer, not a
+  preference, so a channel cannot turn it off. The voice preferences still apply only where the
+  channel allows them.
+- A failed read lets the viewer speak. `getGlobalUserPreferences` returns `{}` on a Firestore error
+  and does not cache it, so the next message tries again. A change takes up to 60 seconds to reach
+  each instance, which is the TTL of the cache. No listener exists on this collection.
+- It covers Twitch only. The dashboard signs in with Twitch, and nothing links a YouTube channel ID
+  to a Twitch account.

@@ -366,9 +366,24 @@ describe('notificationHandler', () => {
                 expect.objectContaining({
                     text: 'Resubber resubscribed for 12 months (Tier 1)! They said: Love this stream!',
                     user: 'Resubber',
+                    textWithoutViewerMessage: 'Resubber resubscribed for 12 months (Tier 1)!',
                 }),
                 null
             );
+        });
+
+        it('should not pass textWithoutViewerMessage for a resub without a message', async () => {
+            const event = {
+                user_name: 'Resubber',
+                user_login: 'resubber',
+                tier: '1000',
+                cumulative_months: 12,
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
+            expect(mockDispatchTtsEvent.mock.calls[0][1]).not.toHaveProperty('textWithoutViewerMessage');
         });
 
         it('should rebuild fragments from the payload emote offsets so the emote mode applies', async () => {
@@ -731,7 +746,14 @@ describe('notificationHandler', () => {
             );
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
-                { text: 'turboicehusky is on a 10 stream watch streak! They said: 10!', user: 'turboicehusky', userId: '12345678', type: 'event' },
+                {
+                    text: 'turboicehusky is on a 10 stream watch streak! They said: 10!',
+                    // Spoken instead for a viewer who opted out of TTS in every channel.
+                    textWithoutViewerMessage: 'turboicehusky is on a 10 stream watch streak!',
+                    user: 'turboicehusky',
+                    userId: '12345678',
+                    type: 'event'
+                },
                 null
             );
             expect(mockLogger.info).toHaveBeenCalledWith(

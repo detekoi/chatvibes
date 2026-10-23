@@ -132,6 +132,10 @@ export async function handleNotification(subscriptionType, event, channelName, t
     let ttsText = null;
     let username = 'event_tts'; // Default for events without specific user
     let userId = undefined; // Twitch User ID for voice preference resolution
+    // The announcement before the viewer's attached message, set only where one is
+    // appended. ttsQueue speaks this instead for a viewer who opted out of TTS in
+    // every channel.
+    let textWithoutViewerMessage = undefined;
 
     switch (subscriptionType) {
         case 'channel.subscribe': {
@@ -204,6 +208,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     });
                     if (formattedMessage) {
                         const { subject, g } = await pronounSubject;
+                        textWithoutViewerMessage = ttsText;
                         ttsText += t('announce.saidMessage', { subject, g, message: formattedMessage });
                     } else {
                         logger.info({ channelName, user: resubLogin, emoteMode, viewerMessage: rawResubMessage },
@@ -378,6 +383,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     });
                     if (formattedMessage) {
                         const { subject, g } = await pronounSubject;
+                        textWithoutViewerMessage = ttsText;
                         ttsText += t('announce.saidMessage', { subject, g, message: formattedMessage });
                     } else {
                         logger.info({ channelName, user: streakLogin, emoteMode, viewerMessage: rawStreakMessage },
@@ -409,7 +415,8 @@ export async function handleNotification(subscriptionType, event, channelName, t
             text: ttsText,
             user: username,
             userId,
-            type: 'event'
+            type: 'event',
+            ...(textWithoutViewerMessage !== undefined && { textWithoutViewerMessage }),
         }, sharedSessionInfo);
     }
 }

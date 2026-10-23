@@ -145,6 +145,8 @@ describe('handleRedemptionAnnouncement', () => {
             expect.objectContaining({
                 text: 'TestUser redeemed Hydrate: drink some water!',
                 user: 'TestUser',
+                // Spoken instead for a viewer who opted out of TTS in every channel.
+                textWithoutViewerMessage: 'TestUser redeemed Hydrate',
             }),
             null
         );
