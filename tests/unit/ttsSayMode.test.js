@@ -15,6 +15,7 @@ describe('!tts say: TTS mode', () => {
     let getTtsState;
     let dispatchTtsEvent;
     let enqueueMessage;
+    let isViewerGloballyOptedOut;
 
     const baseConfig = { engineEnabled: true, ttsPermissionLevel: 'everyone' };
 
@@ -31,11 +32,12 @@ describe('!tts say: TTS mode', () => {
         getTtsState = jest.fn();
         dispatchTtsEvent = jest.fn().mockResolvedValue(true);
         enqueueMessage = jest.fn();
+        isViewerGloballyOptedOut = jest.fn().mockResolvedValue(false);
 
         jest.unstable_mockModule('../../src/lib/logger.js', () => ({
             default: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
         }));
-        jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({ getTtsState }));
+        jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({ getTtsState, isViewerGloballyOptedOut }));
         jest.unstable_mockModule('../../src/lib/chatSender.js', () => ({ enqueueMessage }));
         jest.unstable_mockModule('../../src/lib/ttsDispatch.js', () => ({ dispatchTtsEvent }));
         jest.unstable_mockModule('../../src/lib/emotes/index.js', () => ({
@@ -85,6 +87,17 @@ describe('!tts say: TTS mode', () => {
             ignoredUserIds: { 'twitch:1': { label: 'viewer', source: 'self', by: 'twitch:1', at: '2026-01-01T00:00:00.000Z' } },
         });
         await say.execute(context());
+        expect(dispatchTtsEvent).not.toHaveBeenCalled();
+        expect(enqueueMessage).not.toHaveBeenCalled();
+    });
+
+    it('stays silent for a viewer who opted out in every channel, before formatting', async () => {
+        // Same voice-fallback route. The check runs before the text is formatted,
+        // which can send it to the emote describer.
+        getTtsState.mockResolvedValue({ ...baseConfig, mode: 'all' });
+        isViewerGloballyOptedOut.mockResolvedValue(true);
+        await say.execute(context());
+        expect(isViewerGloballyOptedOut).toHaveBeenCalledWith('1');
         expect(dispatchTtsEvent).not.toHaveBeenCalled();
         expect(enqueueMessage).not.toHaveBeenCalled();
     });

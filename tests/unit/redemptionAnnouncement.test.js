@@ -44,9 +44,11 @@ jest.unstable_mockModule('../../src/lib/allowList.js', () => ({
 }));
 
 const mockGetTtsState = jest.fn().mockResolvedValue({});
+const mockIsViewerGloballyOptedOut = jest.fn().mockResolvedValue(false);
 jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
     getTtsState: mockGetTtsState,
-    getUserEmoteModePreference: jest.fn().mockResolvedValue(null)
+    getUserEmoteModePreference: jest.fn().mockResolvedValue(null),
+    isViewerGloballyOptedOut: mockIsViewerGloballyOptedOut,
 }));
 
 jest.unstable_mockModule('../../src/lib/urlProcessor.js', () => ({
@@ -143,13 +145,38 @@ describe('handleRedemptionAnnouncement', () => {
         expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
             expect.objectContaining({
-                text: 'TestUser redeemed Hydrate: drink some water!',
+                text: 'TestUser redeemed Hydrate',
                 user: 'TestUser',
-                // Spoken instead for a viewer who opted out of TTS in every channel.
-                textWithoutViewerMessage: 'TestUser redeemed Hydrate',
+                // Spoken only for a viewer who did not opt out of TTS in every channel.
+                textWithViewerMessage: 'TestUser redeemed Hydrate: drink some water!',
             }),
             null
         );
+    });
+
+    it('should not format the input of a viewer who opted out of TTS everywhere', async () => {
+        // Formatting can send the text to the emote describer.
+        mockIsViewerGloballyOptedOut.mockResolvedValueOnce(true);
+        const event = {
+            user_name: 'TestUser',
+            user_login: 'testuser',
+            user_id: '4242',
+            reward: { id: 'reward-123', title: 'Hydrate' },
+            user_input: 'drink some water!',
+            status: 'fulfilled'
+        };
+
+        await handleRedemptionAnnouncement(
+            'channel.channel_points_custom_reward_redemption.add',
+            event,
+            'testchannel',
+            defaultTtsConfig
+        );
+
+        expect(mockIsViewerGloballyOptedOut).toHaveBeenCalledWith('4242');
+        expect(mockFormatTtsText).not.toHaveBeenCalled();
+        expect(mockDispatchTtsEvent.mock.calls[0][1]).toMatchObject({ text: 'TestUser redeemed Hydrate' });
+        expect(mockDispatchTtsEvent.mock.calls[0][1]).not.toHaveProperty('textWithViewerMessage');
     });
 
     it('should announce reward without user input', async () => {
@@ -249,7 +276,7 @@ describe('handleRedemptionAnnouncement', () => {
 
         expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
-            expect.objectContaining({ text: 'TestUser redeemed Song Request: play despacito' }),
+            expect.objectContaining({ textWithViewerMessage: 'TestUser redeemed Song Request: play despacito' }),
             null
         );
     });
@@ -406,7 +433,7 @@ describe('handleRedemptionAnnouncement', () => {
         expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
             'testchannel',
             expect.objectContaining({
-                text: 'TestUser redeemed Say Something: hello world',
+                textWithViewerMessage: 'TestUser redeemed Say Something: hello world',
                 user: 'TestUser',
             }),
             null

@@ -23,6 +23,11 @@ const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
 
 const channelQueues = new Map();
 const MAX_QUEUE_LENGTH = 50;
+// Speech types an opted-out viewer still gets. An `event` is an announcement
+// about them, spoken without their words. A `reward` is the TTS Channel Points
+// reward: redeeming it is a paid request to be read, and Twitch cannot refund a
+// redemption that skips the reward queue, so dropping it would cost the points.
+const SPOKEN_WHEN_OPTED_OUT = new Set(['event', 'reward']);
 const PREFETCH_AHEAD = 2; // Number of queued items to prefetch concurrently
 
 /**
@@ -80,46 +85,47 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         return;
     }
 
-    // Preferences are keyed by account ID; an event without one (anonymous gift,
-    // system announcement) gets channel defaults.
-    const userId = eventData.userId;
-
-    // Read whatever the channel's allowViewerPreferences says: the global opt-out
-    // is the viewer's consent, not a preference, and a channel cannot turn it off.
-    // Every speech path ends here, so this one check also covers the routes that
-    // pass the per-channel guards in the handlers. A failed read returns {} and
-    // the viewer is read; the error is not cached, so the next message retries.
-    const viewerGlobalPrefs = userId ? await getGlobalUserPreferences(userId) : {};
-    let speechText = text;
-    if (isGloballyOptedOut(viewerGlobalPrefs)) {
-        if (type !== 'event') {
-            logger.debug({ channelName, user, userId, type }, 'Viewer opted out of TTS in every channel - dropping their speech');
-            return;
-        }
-        // An announcement is kept, but without the message the viewer attached.
-        // Handlers that append one also pass the text before the append.
-        if (typeof eventData.textWithoutViewerMessage === 'string') {
-            speechText = eventData.textWithoutViewerMessage;
-            logger.debug({ channelName, user, userId }, 'Viewer opted out of TTS in every channel - announcing without their message');
-        }
-    }
-
     const cq = getOrCreateChannelQueue(channelName);
     if (cq.queue.length >= MAX_QUEUE_LENGTH) {
         logger.warn(`[${channelName}] TTS queue full. Dropping message from ${user}.`);
         return;
     }
 
-    const channelConfig = await getChannelTtsConfig(channelName);
+    // Preferences are keyed by account ID; an event without one (anonymous gift,
+    // system announcement) gets channel defaults.
+    const userId = eventData.userId;
     // Check if viewer preferences are allowed (defaults to true if not set)
     const allowViewerPrefs = ttsStatus && ttsStatus.allowViewerPreferences !== false;
-    let globalUserPrefs = {};
-    let channelUserPrefs = {};
+    // The global opt-out is read whatever allowViewerPreferences says: it is the
+    // viewer's consent, not a preference, and a channel cannot turn it off. Only
+    // the dashboard sets it, keyed by Twitch user ID, so a YouTube item cannot
+    // carry it and skips the read. The channel reads come from the cached config,
+    // so the only Firestore round trip here is the viewer document, which the
+    // 60-second cache in ttsState.js usually already holds.
+    const readsOptOut = Boolean(userId) && eventData.platform !== 'youtube';
+    const [channelConfig, viewerGlobalPrefs, channelUserPrefs] = await Promise.all([
+        getChannelTtsConfig(channelName),
+        userId && (allowViewerPrefs || readsOptOut) ? getGlobalUserPreferences(userId) : {},
+        userId && allowViewerPrefs ? getChannelUserPreferences(channelName, userId) : {},
+    ]);
+    const globalUserPrefs = allowViewerPrefs ? viewerGlobalPrefs : {};
 
-    if (userId && allowViewerPrefs) {
-        globalUserPrefs = viewerGlobalPrefs;
-        channelUserPrefs = await getChannelUserPreferences(channelName, userId);
+    // The handlers already hold back an opted-out viewer's text before formatting
+    // it. This is the backstop for every route into the queue, including ones
+    // that pass the handler guards and an instance whose cache is older. A
+    // failed read returns {} and the viewer is read; the error is not cached, so
+    // the next message retries.
+    const optedOut = readsOptOut && isGloballyOptedOut(viewerGlobalPrefs);
+    if (optedOut && !SPOKEN_WHEN_OPTED_OUT.has(type)) {
+        logger.debug({ channelName, user, userId, type }, 'Viewer opted out of TTS in every channel - dropping their speech');
+        return;
     }
+    // `text` never carries the viewer's own words on an announcement. The full
+    // utterance comes in textWithViewerMessage and is spoken only for a viewer
+    // who did not opt out, so a handler that forgets the field cannot leak them.
+    const speechText = !optedOut && typeof eventData.textWithViewerMessage === 'string'
+        ? eventData.textWithViewerMessage
+        : text;
 
     const finalVoiceOptions = {
         voiceId: globalUserPrefs.voiceId || channelUserPrefs.voiceId || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId,

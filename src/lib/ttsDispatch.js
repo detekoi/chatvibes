@@ -54,7 +54,7 @@ function servesLocally(channelName, sharedSessionInfo) {
  * enqueued once per instance.
  *
  * @param {string} channelName
- * @param {object} eventData - { text, user, userId, type, messageId, textWithoutViewerMessage? }
+ * @param {object} eventData - { text, user, userId, type, messageId, textWithViewerMessage? }
  * @param {object|null} [sharedSessionInfo]
  */
 export async function dispatchTtsEvent(channelName, eventData, sharedSessionInfo = null) {

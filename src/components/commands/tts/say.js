@@ -1,5 +1,5 @@
 // src/components/commands/tts/say.js
-import { getTtsState } from '../../tts/ttsState.js';
+import { getTtsState, isViewerGloballyOptedOut } from '../../tts/ttsState.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
@@ -7,6 +7,7 @@ import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js
 import { resolveChannelLocale } from '../../../i18n/index.js';
 import { hasPermissionLevel, mapPermissionLevel } from '../../../lib/permissions.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { containsBannedWord } from '../../../lib/bannedWords.js';
 import logger from '../../../lib/logger.js';
 
 export default {
@@ -28,17 +29,16 @@ export default {
         const ttsConfig = await getTtsState(channelNameNoHash);
         const locale = resolveChannelLocale(ttsConfig);
 
-        // The chat handler drops "!tts <text>" from an ignored viewer, or with a
-        // banned word, before any command runs. "!tts voice <not a voice>" reaches
-        // this handler as a voice command and falls back to speech here, past
-        // that guard, so both checks repeat here. Silent, like the handler's own.
-        if (isTwitchUserIgnored(ttsConfig, user['user-id'])) {
-            logger.debug({ channel: channelNameNoHash, user: user.username }, 'Skipping !tts say - viewer is on the ignore list');
+        // The chat handler drops "!tts <text>" from an ignored or opted-out viewer,
+        // or with a banned word, before any command runs. "!tts voice <not a
+        // voice>" reaches this handler as a voice command and falls back to speech
+        // here, past that guard, so the checks repeat here, before the text is
+        // formatted. Silent, like the handler's own.
+        if (isTwitchUserIgnored(ttsConfig, user['user-id']) || await isViewerGloballyOptedOut(user['user-id'])) {
+            logger.debug({ channel: channelNameNoHash, user: user.username }, 'Skipping !tts say - viewer is ignored or opted out of TTS');
             return;
         }
-        const containsBannedWord = ttsConfig.bannedWords?.length > 0 &&
-            ttsConfig.bannedWords.some(w => w && messageToSay.toLowerCase().includes(String(w).toLowerCase()));
-        if (containsBannedWord) {
+        if (containsBannedWord(messageToSay, ttsConfig.bannedWords)) {
             logger.debug({ channel: channelNameNoHash, user: user.username }, 'Skipping !tts say - message contains a banned word');
             return;
         }

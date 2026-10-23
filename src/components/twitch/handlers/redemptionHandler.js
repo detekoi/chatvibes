@@ -4,13 +4,14 @@
 import logger from '../../../lib/logger.js';
 import * as redemptionCache from '../redemptionCache.js';
 import { isChannelActive } from '../../../lib/allowList.js';
-import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
+import { getTtsState, getUserEmoteModePreference, isViewerGloballyOptedOut } from '../../tts/ttsState.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { consumeFragments } from '../redemptionFragmentCache.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { containsBannedWord } from '../../../lib/bannedWords.js';
 import { isRewardMuted } from '../../../lib/rewardMuteList.js';
 import { getTranslator, resolveChannelLocale } from '../../../i18n/index.js';
 import { getBroadcasterAccessToken } from '../broadcasterToken.js';
@@ -281,14 +282,19 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     }
 
     // Build announcement text
-    let ttsText = t('announce.redemption', { user: userName, reward: rewardTitle });
-    let textWithoutViewerMessage;
+    // `ttsText` never carries the viewer's input; the full utterance goes in
+    // textWithViewerMessage, which ttsQueue speaks only for a viewer who did not
+    // opt out of TTS in every channel (see notificationHandler.js).
+    const ttsText = t('announce.redemption', { user: userName, reward: rewardTitle });
+    let textWithViewerMessage;
     if (userInput) {
         // Check banned words against user input
-        const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
-            ttsConfig.bannedWords.some(w => w && userInput.toLowerCase().includes(String(w).toLowerCase()));
+        const hasBannedWord = containsBannedWord(userInput, ttsConfig.bannedWords);
         if (hasBannedWord) {
             logger.debug({ channelLogin, user: userLogin }, 'Redemption user_input contains banned word — announcing redemption only');
+        } else if (await isViewerGloballyOptedOut(userId)) {
+            // Not formatted at all: formatting can send it to the emote describer.
+            logger.debug({ channelLogin, user: userLogin }, 'Viewer opted out of TTS in every channel — announcing redemption only');
         } else {
             // Run user_input through formatting pipeline (URLs, emotes, emoji).
             // On the approval path the short-lived fragment cache has long expired, so
@@ -305,10 +311,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
                 locale,
             });
             if (formattedInput) {
-                // Kept for a viewer who opted out of TTS in every channel: ttsQueue
-                // speaks the announcement without their input.
-                textWithoutViewerMessage = ttsText;
-                ttsText = t('announce.redemption.input', { text: ttsText, input: formattedInput });
+                textWithViewerMessage = t('announce.redemption.input', { text: ttsText, input: formattedInput });
             } else {
                 logger.info({ channelLogin, user: userLogin, emoteMode, viewerMessage: userInput },
                     'Redemption user_input formatted to empty (likely all emotes under emoteMode=skip) — announcing redemption only');
@@ -330,7 +333,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         user: userName,
         userId,
         type: 'event',
-        ...(textWithoutViewerMessage !== undefined && { textWithoutViewerMessage }),
+        ...(textWithViewerMessage !== undefined && { textWithViewerMessage }),
     }, sharedSessionInfo);
 }
 
@@ -415,7 +418,6 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
     // Enforce content policy if configured
     const policy = (ttsConfig.channelPoints && ttsConfig.channelPoints.contentPolicy) || {};
     const blockLinks = policy.blockLinks !== false; // default block links
-    const bannedWords = Array.isArray(policy.bannedWords) ? policy.bannedWords : [];
 
     // Note: Twitch enforces 500 character limit on redemption input, so we don't need to validate length here
     // If a message exceeds 500 chars, Twitch won't allow the redemption in the first place
@@ -429,8 +431,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
         return { ok: false, reason };
     }
 
-    const lowered = redeemMessage.toLowerCase();
-    if (bannedWords.some(w => w && lowered.includes(String(w).toLowerCase()))) {
+    if (containsBannedWord(redeemMessage, policy.bannedWords)) {
         const reason = 'Message contains banned word';
         logger.info({ channelLogin, userName, redemptionId }, reason);
         if (redemptionId && rewardId) {

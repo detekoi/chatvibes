@@ -394,20 +394,39 @@ describe('ttsQueue module', () => {
   });
 
   // A viewer who opted out of TTS in every channel: their own words are never
-  // spoken, and an announcement about them is spoken without what they attached.
+  // spoken, an announcement about them is spoken without what they attached,
+  // and the TTS reward they paid for is still read.
   describe('enqueue - global opt-out', () => {
     const optedOut = { globalOptOut: true, globalOptOutAt: '2026-01-01T00:00:00.000Z', voiceId: 'Custom_Voice' };
+    const queue = () => ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue;
+    const resub = {
+      text: 'viewer resubscribed for 5 months.',
+      textWithViewerMessage: 'viewer resubscribed for 5 months. They said: hi chat',
+      user: TEST_USER,
+      userId: '12345',
+      type: 'event'
+    };
 
     beforeEach(async () => {
       await ttsQueue.pauseQueue(TEST_CHANNEL);
     });
 
-    test.each(['chat', 'cheer', 'command_say', 'reward'])('drops %s speech from an opted-out viewer', async (type) => {
+    // Every type the handlers emit for the viewer's own words.
+    test.each(['chat', 'command', 'cheer_tts', 'highlight', 'command_say'])('drops %s speech from an opted-out viewer', async (type) => {
       mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
 
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type });
 
-      expect(ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue).toHaveLength(0);
+      expect(queue()).toHaveLength(0);
+    });
+
+    test('reads the TTS reward of an opted-out viewer, who paid for it', async () => {
+      mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type: 'reward' });
+
+      expect(queue()).toHaveLength(1);
+      expect(queue()[0].text).toBe('hello');
     });
 
     test('drops speech even where the channel disallows viewer preferences', async () => {
@@ -421,46 +440,32 @@ describe('ttsQueue module', () => {
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type: 'chat' });
 
       expect(mockTtsState.getGlobalUserPreferences).toHaveBeenCalledWith('12345');
-      expect(ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue).toHaveLength(0);
+      expect(queue()).toHaveLength(0);
     });
 
     test('speaks an announcement without the attached message', async () => {
       mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
 
-      await ttsQueue.enqueue(TEST_CHANNEL, {
-        text: 'viewer resubscribed for 5 months. They said: hi chat',
-        textWithoutViewerMessage: 'viewer resubscribed for 5 months.',
-        user: TEST_USER,
-        userId: '12345',
-        type: 'event'
-      });
+      await ttsQueue.enqueue(TEST_CHANNEL, resub);
 
-      const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue;
-      expect(queue).toHaveLength(1);
-      expect(queue[0].text).toBe('viewer resubscribed for 5 months.');
+      expect(queue()).toHaveLength(1);
+      expect(queue()[0].text).toBe('viewer resubscribed for 5 months.');
     });
 
-    test('speaks an announcement with no attached message unchanged', async () => {
+    test('speaks the attached message for a viewer who did not opt out', async () => {
+      await ttsQueue.enqueue(TEST_CHANNEL, resub);
+
+      expect(queue()[0].text).toBe('viewer resubscribed for 5 months. They said: hi chat');
+    });
+
+    test('never speaks words that a handler put only in text, for anyone', async () => {
+      // The safe default: an announcement without the field speaks `text`, so a
+      // handler that forgets the field loses the message instead of leaking it.
       mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
 
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'viewer subscribed!', user: TEST_USER, userId: '12345', type: 'event' });
 
-      const queue = ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue;
-      expect(queue).toHaveLength(1);
-      expect(queue[0].text).toBe('viewer subscribed!');
-    });
-
-    test('speaks the full announcement for a viewer who did not opt out', async () => {
-      await ttsQueue.enqueue(TEST_CHANNEL, {
-        text: 'viewer resubscribed for 5 months. They said: hi chat',
-        textWithoutViewerMessage: 'viewer resubscribed for 5 months.',
-        user: TEST_USER,
-        userId: '12345',
-        type: 'event'
-      });
-
-      expect(ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue[0].text)
-        .toBe('viewer resubscribed for 5 months. They said: hi chat');
+      expect(queue()[0].text).toBe('viewer subscribed!');
     });
 
     test('ignores a globalOptOut value that is not true', async () => {
@@ -468,7 +473,21 @@ describe('ttsQueue module', () => {
 
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type: 'chat' });
 
-      expect(ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue).toHaveLength(1);
+      expect(queue()).toHaveLength(1);
+    });
+
+    test('does not read the opt-out for a YouTube item where viewer preferences are off', async () => {
+      // Only the dashboard sets the flag, keyed by Twitch user ID.
+      mockTtsState.getTtsState.mockResolvedValue({
+        ...mockChannelConfig,
+        engineEnabled: true,
+        allowViewerPreferences: false
+      });
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: 'yt', userId: 'UCabc', type: 'chat', platform: 'youtube' });
+
+      expect(mockTtsState.getGlobalUserPreferences).not.toHaveBeenCalled();
+      expect(queue()).toHaveLength(1);
     });
   });
 

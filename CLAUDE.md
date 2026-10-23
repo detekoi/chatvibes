@@ -113,10 +113,10 @@ preferences. Details: `docs/channel-config.md`.
 - The format is mirrored by hand in `chatvibes-web-ui` (`functions/src/services/ignoreEntries.ts`,
   `public/js/common/ignoreEntries.ts`). Change all three together. The same applies to
   `rewardMuteList.js` and `functions/src/services/mutedRewards.ts`.
-- The global opt-out is `ttsUserPreferences.globalOptOut` (`src/lib/globalOptOut.js`).
-  `ttsQueue.enqueue` drops all speech from an opted-out viewer. It speaks an `event` without the
-  message of the viewer (`textWithoutViewerMessage`). Keep the check in `enqueue`, because some
-  routes pass the handler guards.
+- The global opt-out is `ttsUserPreferences.globalOptOut` (`src/lib/globalOptOut.js`). Handlers
+  call `isViewerGloballyOptedOut` before they format the text of a viewer. `ttsQueue.enqueue` drops
+  all speech from an opted-out viewer except an `event` and the TTS reward. An announcement keeps
+  the words of the viewer only in `textWithViewerMessage`, never in `text`.
 
 **Rewards** — `docs/channel-config.md`
 - Title resolution is deterministic first; the model may only narrow within the candidates shown.
