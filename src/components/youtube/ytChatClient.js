@@ -327,7 +327,7 @@ export async function handleYouTubeChatMessage(channelId, msg) {
     // Check banned words
     if (ttsConfig.bannedWords?.length > 0) {
         const lowerMessage = messageText.toLowerCase();
-        if (ttsConfig.bannedWords.some(w => lowerMessage.includes(w))) {
+        if (ttsConfig.bannedWords.some(w => w && lowerMessage.includes(String(w).toLowerCase()))) {
             logger.debug({ channelId, username }, 'YouTube Chat: Message contains banned word, skipping');
             return;
         }
