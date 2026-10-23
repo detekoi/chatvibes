@@ -113,11 +113,18 @@ preferences. Details: `docs/channel-config.md`.
 - The format is mirrored by hand in `chatvibes-web-ui` (`functions/src/services/ignoreEntries.ts`,
   `public/js/common/ignoreEntries.ts`). Change all three together. The same applies to
   `rewardMuteList.js` and `functions/src/services/mutedRewards.ts`.
+- The global opt-out is `ttsUserPreferences.globalOptOut` (`src/lib/globalOptOut.js`). Handlers
+  call `isViewerGloballyOptedOut` before they format the text of a viewer. `ttsQueue.enqueue` drops
+  all speech from an opted-out viewer except an `event` and the TTS reward. An announcement keeps
+  the words of the viewer only in `textWithViewerMessage`, never in `text`.
 
 **Rewards** — `docs/channel-config.md`
 - Title resolution is deterministic first; the model may only narrow within the candidates shown.
 - Reward lookups need the broadcaster's token, so `customRewards.js` bypasses `helixClient.js`.
 - The mute guard sits before the pending-approval stash in `handleRedemptionAnnouncement`.
+- The bot settles each TTS reward redemption (`redemptionStatus.js`). Refuse or approve it on the
+  unfulfilled `.add`, because Twitch refunds only an `UNFULFILLED` redemption. A moderator mute
+  refunds and is never read.
 
 **Keys** — `docs/channel-config.md`
 - Every channel- or viewer-scoped record is keyed by the immutable account ID, never the login:

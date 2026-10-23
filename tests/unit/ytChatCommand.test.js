@@ -174,6 +174,30 @@ describe('YouTube chat: !tts command', () => {
         expect(dispatchYouTubeTtsEvent).not.toHaveBeenCalled();
     });
 
+    describe('banned words', () => {
+        // Same rule as the Twitch paths: case-insensitive, and an empty entry
+        // matches nothing. The message used to be lowercased but the word was
+        // not, so a word with a capital never matched on YouTube, and an empty
+        // entry silenced every message.
+        it('blocks a banned word whatever its case', async () => {
+            getTtsState.mockResolvedValue({ ...baseConfig, mode: 'all', bannedWords: ['Spoiler'] });
+            await handleYouTubeChatMessage('chan-1', message('big spoiler here'));
+            expect(dispatchYouTubeTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('ignores an empty entry', async () => {
+            getTtsState.mockResolvedValue({ ...baseConfig, mode: 'all', bannedWords: ['', 'zzz'] });
+            await handleYouTubeChatMessage('chan-1', message('hello'));
+            expect(spoken()).toHaveLength(1);
+        });
+
+        it('still speaks a message with no banned word', async () => {
+            getTtsState.mockResolvedValue({ ...baseConfig, mode: 'all', bannedWords: ['Spoiler'] });
+            await handleYouTubeChatMessage('chan-1', message('hello there'));
+            expect(spoken()).toHaveLength(1);
+        });
+    });
+
     it('does not intercept a Super Chat whose text happens to start with !tts', async () => {
         await handleYouTubeChatMessage('chan-1', message('!tts hello', { eventType: 'superchat', amount: '$5.00' }));
         expect(spoken()).toHaveLength(1);

@@ -7,7 +7,7 @@ import { convertEventSubToTags } from '../eventSubToTags.js';
 import { processMessage as processCommand, hasPermission } from '../../commands/commandProcessor.js';
 import { mapPermissionLevel } from '../../../lib/permissions.js';
 import { parseTtsCommandText, stripCommandPrefixFromFragments } from '../../../lib/ttsCommandText.js';
-import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
+import { getTtsState, getUserEmoteModePreference, isViewerGloballyOptedOut } from '../../tts/ttsState.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { isGeminiAvailable } from '../../../lib/emotes/index.js';
@@ -16,6 +16,7 @@ import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js
 import { resolveChannelLocale } from '../../../i18n/index.js';
 import { storeFragments } from '../redemptionFragmentCache.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { containsBannedWord } from '../../../lib/bannedWords.js';
 import { isTtsSubCommand } from '../../commands/tts/subcommandNames.js';
 
 /**
@@ -97,11 +98,13 @@ export async function handleChatMessage(event, channelName) {
     const ttsConfig = await getTtsState(channelName);
     const locale = resolveChannelLocale(ttsConfig);
     const userId = event.chatter_user_id || event.user_id; // Extract User ID
-    const isTtsIgnored = isTwitchUserIgnored(ttsConfig, userId);
+    // A viewer who opted out of TTS in every channel is treated like one on this
+    // channel's ignore list: their commands run, their text is never formatted
+    // (formatting can send it to the emote describer) and never spoken.
+    const isTtsIgnored = isTwitchUserIgnored(ttsConfig, userId) || await isViewerGloballyOptedOut(userId);
     // Check against cleanMessage (not raw messageText) so the reply-target
     // @username that Twitch prepends doesn't trigger false banned-word hits.
-    const containsBannedWord = ttsConfig.bannedWords?.length > 0 &&
-        ttsConfig.bannedWords.some(w => w && cleanMessage.toLowerCase().includes(String(w).toLowerCase()));
+    const hasBannedWord = containsBannedWord(cleanMessage, ttsConfig.bannedWords);
 
     // These three suppress *speech*, not commands. Returning here used to skip
     // command processing too, so "!tts off" locked moderators out of "!tts on"
@@ -110,7 +113,7 @@ export async function handleChatMessage(event, channelName) {
     // now run below with their own checks: say.js refuses when the engine is
     // off and replies to say so. The one command that must not run for an
     // ignored viewer or a banned word is "!tts <text>", because it is speech.
-    const speechSuppressed = !ttsConfig.engineEnabled || isTtsIgnored || containsBannedWord;
+    const speechSuppressed = !ttsConfig.engineEnabled || isTtsIgnored || hasBannedWord;
     const ttsCommand = parseTtsCommandText(cleanMessage);
     const isSayCommand = !!ttsCommand && ttsCommand.args.length > 0 && !isTtsSubCommand(ttsCommand.args[0]);
     // "Highlight My Message" arrives as ordinary chat; only message_type marks
@@ -118,8 +121,8 @@ export async function handleChatMessage(event, channelName) {
     // Only highlighted_only mode treats it as paid speech; elsewhere it is chat.
     const isHighlighted = event.message_type === 'channel_points_highlighted';
     const readsHighlight = isHighlighted && ttsConfig.mode === 'highlighted_only';
-    if (isSayCommand && (isTtsIgnored || containsBannedWord)) {
-        logger.debug({ channelName, user: username, ignored: isTtsIgnored, bannedWord: containsBannedWord }, 'Skipping !tts say');
+    if (isSayCommand && (isTtsIgnored || hasBannedWord)) {
+        logger.debug({ channelName, user: username, ignored: isTtsIgnored, bannedWord: hasBannedWord }, 'Skipping !tts say');
         return;
     }
 
@@ -188,7 +191,7 @@ export async function handleChatMessage(event, channelName) {
     }
 
     if (speechSuppressed) {
-        logger.debug({ channelName, user: username, engineEnabled: ttsConfig.engineEnabled, ignored: isTtsIgnored, bannedWord: containsBannedWord }, 'Speech suppressed; command processed only');
+        logger.debug({ channelName, user: username, engineEnabled: ttsConfig.engineEnabled, ignored: isTtsIgnored, bannedWord: hasBannedWord }, 'Speech suppressed; command processed only');
         return;
     }
 

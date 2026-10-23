@@ -15,6 +15,7 @@ describe('handleChatMessage: speech guard vs. commands', () => {
     let processMessage;
     let dispatchTtsEvent;
     let getTtsState;
+    let isViewerGloballyOptedOut;
 
     const baseConfig = { engineEnabled: true, mode: 'all', emoteMode: 'read', ttsPermissionLevel: 'everyone' };
 
@@ -23,6 +24,7 @@ describe('handleChatMessage: speech guard vs. commands', () => {
         processMessage = jest.fn().mockResolvedValue(null);
         dispatchTtsEvent = jest.fn().mockResolvedValue(true);
         getTtsState = jest.fn().mockResolvedValue({ ...baseConfig });
+        isViewerGloballyOptedOut = jest.fn().mockResolvedValue(false);
 
         jest.unstable_mockModule('../../src/lib/logger.js', () => ({
             default: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
@@ -34,6 +36,7 @@ describe('handleChatMessage: speech guard vs. commands', () => {
         jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
             getTtsState,
             getUserEmoteModePreference: jest.fn().mockResolvedValue(null),
+            isViewerGloballyOptedOut,
         }));
         jest.unstable_mockModule('../../src/lib/ttsDispatch.js', () => ({ dispatchTtsEvent }));
         jest.unstable_mockModule('../../src/components/twitch/eventUtils.js', () => ({
@@ -106,6 +109,34 @@ describe('handleChatMessage: speech guard vs. commands', () => {
         it('is not read in all mode', async () => {
             await handleChatMessage(event('hello'), 'testchannel');
             expect(dispatchTtsEvent).not.toHaveBeenCalled();
+        });
+    });
+
+    // Opted out of TTS in every channel from the dashboard: held back like an
+    // ignored viewer, before the text is formatted, while commands still run.
+    describe('viewer opted out in every channel', () => {
+        beforeEach(() => isViewerGloballyOptedOut.mockResolvedValue(true));
+
+        it('is checked by the chatter ID', async () => {
+            await handleChatMessage(event('hello'), 'testchannel');
+            expect(isViewerGloballyOptedOut).toHaveBeenCalledWith('1');
+        });
+
+        it('cannot speak through "!tts <text>"', async () => {
+            await handleChatMessage(event('!tts hello'), 'testchannel');
+            expect(processMessage).not.toHaveBeenCalled();
+            expect(dispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('is not read in all mode', async () => {
+            await handleChatMessage(event('hello'), 'testchannel');
+            expect(dispatchTtsEvent).not.toHaveBeenCalled();
+        });
+
+        it('can still run commands', async () => {
+            processMessage.mockResolvedValue('tts');
+            await handleChatMessage(event('!tts status'), 'testchannel');
+            expect(processMessage).toHaveBeenCalledTimes(1);
         });
     });
 

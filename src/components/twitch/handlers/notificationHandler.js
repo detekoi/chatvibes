@@ -9,6 +9,8 @@ import { emoteOffsetsToFragments } from '../../../lib/emoteOffsetsToFragments.js
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { pronounService } from '../../../lib/pronounService.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { isViewerGloballyOptedOut } from '../../tts/ttsState.js';
+import { containsBannedWord } from '../../../lib/bannedWords.js';
 import { getTranslator, resolveChannelLocale } from '../../../i18n/index.js';
 
 /** Synthetic subscription type used to route watch streak events from channel.chat.notification */
@@ -132,6 +134,12 @@ export async function handleNotification(subscriptionType, event, channelName, t
     let ttsText = null;
     let username = 'event_tts'; // Default for events without specific user
     let userId = undefined; // Twitch User ID for voice preference resolution
+    // `ttsText` never carries the viewer's own words. Where the viewer attached a
+    // message, the full utterance goes here, and ttsQueue speaks it only for a
+    // viewer who did not opt out of TTS in every channel. A handler that forgets
+    // this field loses the message for everyone, which a test sees at once; the
+    // other way round, forgetting would read an opted-out viewer aloud.
+    let textWithViewerMessage = undefined;
 
     switch (subscriptionType) {
         case 'channel.subscribe': {
@@ -179,9 +187,10 @@ export async function handleNotification(subscriptionType, event, channelName, t
 
             // Append the viewer's resub message if present, after moderation + formatting
             const rawResubMessage = event.message?.text?.trim();
-            if (rawResubMessage) {
-                const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
-                    ttsConfig.bannedWords.some(w => w && rawResubMessage.toLowerCase().includes(String(w).toLowerCase()));
+            // An opted-out viewer's message is not formatted at all: formatting can
+            // send it to the emote describer and their login to the pronoun lookup.
+            if (rawResubMessage && !(await isViewerGloballyOptedOut(event.user_id))) {
+                const hasBannedWord = containsBannedWord(rawResubMessage, ttsConfig.bannedWords);
                 if (hasBannedWord) {
                     logger.debug({ channelName, user: resubLogin }, 'Resub message contains banned word — announcing resub only');
                 } else {
@@ -204,7 +213,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     });
                     if (formattedMessage) {
                         const { subject, g } = await pronounSubject;
-                        ttsText += t('announce.saidMessage', { subject, g, message: formattedMessage });
+                        textWithViewerMessage = ttsText + t('announce.saidMessage', { subject, g, message: formattedMessage });
                     } else {
                         logger.info({ channelName, user: resubLogin, emoteMode, viewerMessage: rawResubMessage },
                             'Resub message formatted to empty (likely all emotes under emoteMode=skip) — announcing resub only');
@@ -354,10 +363,10 @@ export async function handleNotification(subscriptionType, event, channelName, t
 
             // Append the viewer's attached chat message if present, after moderation + formatting
             const rawStreakMessage = event.message?.text?.trim();
-            if (rawStreakMessage) {
+            // Not formatted for an opted-out viewer; see the resub case.
+            if (rawStreakMessage && !(await isViewerGloballyOptedOut(event.chatter_user_id))) {
                 // Check banned words against the attached message
-                const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
-                    ttsConfig.bannedWords.some(w => w && rawStreakMessage.toLowerCase().includes(String(w).toLowerCase()));
+                const hasBannedWord = containsBannedWord(rawStreakMessage, ttsConfig.bannedWords);
                 if (hasBannedWord) {
                     logger.debug({ channelName, user: streakLogin }, 'Watch streak message contains banned word — announcing streak only');
                 } else {
@@ -378,7 +387,7 @@ export async function handleNotification(subscriptionType, event, channelName, t
                     });
                     if (formattedMessage) {
                         const { subject, g } = await pronounSubject;
-                        ttsText += t('announce.saidMessage', { subject, g, message: formattedMessage });
+                        textWithViewerMessage = ttsText + t('announce.saidMessage', { subject, g, message: formattedMessage });
                     } else {
                         logger.info({ channelName, user: streakLogin, emoteMode, viewerMessage: rawStreakMessage },
                             'Watch streak message formatted to empty (likely all emotes under emoteMode=skip) — announcing streak only');
@@ -409,7 +418,8 @@ export async function handleNotification(subscriptionType, event, channelName, t
             text: ttsText,
             user: username,
             userId,
-            type: 'event'
+            type: 'event',
+            ...(textWithViewerMessage !== undefined && { textWithViewerMessage }),
         }, sharedSessionInfo);
     }
 }

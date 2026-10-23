@@ -61,3 +61,44 @@ ignoredUserIds: {
   three together.
 - Migrated from the old `ignoredUsers` array by `scripts/migrate_ignored_users_to_ids.js`, which
   runs in two phases so the bot and dashboard can deploy in any order.
+
+## Global opt-out (`ttsUserPreferences.globalOptOut`)
+
+A viewer can opt out of TTS in every channel from the web dashboard. `src/lib/globalOptOut.js` owns
+the field names:
+
+```
+ttsUserPreferences/<twitchUserId>: { globalOptOut: true, globalOptOutAt: "2026-10-23T…", … }
+```
+
+- It belongs to the viewer. It is on the viewer's own preferences document, not on a channel
+  config. No moderator can set or clear it, so it has no `source`. Opting back in deletes both
+  fields. The only writer is `PUT /api/viewer/opt-out` in `chatvibes-web-ui`
+  (`functions/src/api/viewer.ts`).
+- It stops the viewer's own words, not the announcements about them. An announcement (`type:
+  'event'`) puts only the announcement in `text`. When the resub, watch streak or reward redemption
+  announcement has a message from the viewer, the handler puts the full sentence in
+  `textWithViewerMessage`. `ttsQueue.enqueue` speaks that field only for a viewer who did not opt
+  out. If a handler forgets the field, the message is lost for everyone, which a test shows at
+  once. The opposite design leaked the words of an opted-out viewer. The per-channel ignore list is
+  stricter and skips the whole announcement.
+- The TTS Channel Points reward (`type: 'reward'`) is read for an opted-out viewer, because the
+  redemption is a paid request to be read. The same is true for a viewer who muted themselves in
+  one channel. Only a moderator mute refuses the reward, with a refund. See
+  `docs/channel-config.md`.
+- The handlers check first, and `enqueue` checks last. Before they format a message,
+  `chatHandler.js`, `say.js` and the resub, watch streak and redemption announcements call
+  `isViewerGloballyOptedOut`. Formatting can send the text to the emote describer and the login to
+  the pronoun lookup. The text of an opted-out viewer must not get that far. `enqueue` drops every
+  other type from an opted-out viewer, so a route that passes the handler guards stays silent. One
+  example is `!tts voice <not a voice>`, which falls back to `say.js` after the chat handler let it
+  through as a command.
+- The read ignores `allowViewerPreferences`. The opt-out is the consent of the viewer, not a
+  preference, so a channel cannot turn it off. The voice preferences still apply only where the
+  channel allows them. A YouTube item (`platform: 'youtube'`) skips the read, because only the
+  dashboard sets the flag, by Twitch user ID.
+- A failed read lets the viewer speak. `getGlobalUserPreferences` returns `{}` on a Firestore error
+  and does not cache it, so the next message tries again. A change takes up to 60 seconds to reach
+  each instance, which is the TTL of the cache. No listener exists on this collection.
+- It covers Twitch only. The dashboard signs in with Twitch, and nothing links a YouTube channel ID
+  to a Twitch account.

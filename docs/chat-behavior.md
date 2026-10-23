@@ -6,8 +6,10 @@ Design notes for `chatHandler.js` and `src/components/youtube/ytChatClient.js`.
   guard at the top of `chatHandler.js` used to `return` before `processCommand`, so `!tts off`
   locked moderators out of `!tts on` (and everything else) until someone opened the dashboard,
   and an ignored viewer could not `!tts ignore del`. Commands run regardless; the only one held
-  back for an ignored viewer or a banned word is `!tts <text>`, since that *is* speech. With the
-  engine off, `say.js` refuses and replies, which is the better failure than silence.
+  back for an ignored viewer or a banned word is `!tts <text>`, since that *is* speech.
+  `!tts voice <not a voice>` falls back to `say.js` after that guard, so `say.js` repeats the
+  ignore and banned-word checks. With the engine off, `say.js` refuses and replies, which is the
+  better failure than silence.
   `tests/unit/chatHandlerSpeechGuard.test.js` pins all of this.
 - **YouTube chat and `!tts`**: YouTube messages (`src/components/youtube/ytChatClient.js`)
   never go through `commandProcessor` — the bot cannot reply in a YouTube chat, so the

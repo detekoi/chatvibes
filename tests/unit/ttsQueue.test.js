@@ -393,6 +393,102 @@ describe('ttsQueue module', () => {
     });
   });
 
+  // A viewer who opted out of TTS in every channel: their own words are never
+  // spoken, an announcement about them is spoken without what they attached,
+  // and the TTS reward they paid for is still read.
+  describe('enqueue - global opt-out', () => {
+    const optedOut = { globalOptOut: true, globalOptOutAt: '2026-01-01T00:00:00.000Z', voiceId: 'Custom_Voice' };
+    const queue = () => ttsQueue.getOrCreateChannelQueue(TEST_CHANNEL).queue;
+    const resub = {
+      text: 'viewer resubscribed for 5 months.',
+      textWithViewerMessage: 'viewer resubscribed for 5 months. They said: hi chat',
+      user: TEST_USER,
+      userId: '12345',
+      type: 'event'
+    };
+
+    beforeEach(async () => {
+      await ttsQueue.pauseQueue(TEST_CHANNEL);
+    });
+
+    // Every type the handlers emit for the viewer's own words.
+    test.each(['chat', 'command', 'cheer_tts', 'highlight', 'command_say'])('drops %s speech from an opted-out viewer', async (type) => {
+      mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type });
+
+      expect(queue()).toHaveLength(0);
+    });
+
+    test('reads the TTS reward of an opted-out viewer, who paid for it', async () => {
+      mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type: 'reward' });
+
+      expect(queue()).toHaveLength(1);
+      expect(queue()[0].text).toBe('hello');
+    });
+
+    test('drops speech even where the channel disallows viewer preferences', async () => {
+      mockTtsState.getTtsState.mockResolvedValue({
+        ...mockChannelConfig,
+        engineEnabled: true,
+        allowViewerPreferences: false
+      });
+      mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type: 'chat' });
+
+      expect(mockTtsState.getGlobalUserPreferences).toHaveBeenCalledWith('12345');
+      expect(queue()).toHaveLength(0);
+    });
+
+    test('speaks an announcement without the attached message', async () => {
+      mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, resub);
+
+      expect(queue()).toHaveLength(1);
+      expect(queue()[0].text).toBe('viewer resubscribed for 5 months.');
+    });
+
+    test('speaks the attached message for a viewer who did not opt out', async () => {
+      await ttsQueue.enqueue(TEST_CHANNEL, resub);
+
+      expect(queue()[0].text).toBe('viewer resubscribed for 5 months. They said: hi chat');
+    });
+
+    test('never speaks words that a handler put only in text, for anyone', async () => {
+      // The safe default: an announcement without the field speaks `text`, so a
+      // handler that forgets the field loses the message instead of leaking it.
+      mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'viewer subscribed!', user: TEST_USER, userId: '12345', type: 'event' });
+
+      expect(queue()[0].text).toBe('viewer subscribed!');
+    });
+
+    test('ignores a globalOptOut value that is not true', async () => {
+      mockTtsState.getGlobalUserPreferences.mockResolvedValue({ globalOptOut: 'yes' });
+
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type: 'chat' });
+
+      expect(queue()).toHaveLength(1);
+    });
+
+    test('reads no viewer preferences for a YouTube item', async () => {
+      // Both are keyed by Twitch user ID, and only Twitch commands and the
+      // dashboard write them, so a YouTube channel ID never has a document.
+      // Viewer preferences stay at the default (allowed) here.
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: 'yt', userId: 'UCabc', type: 'chat', platform: 'youtube' });
+
+      expect(mockTtsState.getGlobalUserPreferences).not.toHaveBeenCalled();
+      expect(mockTtsState.getChannelUserPreferences).not.toHaveBeenCalled();
+      expect(queue()).toHaveLength(1);
+      expect(queue()[0].voiceConfig.voiceId).toBe(mockChannelConfig.voiceId);
+    });
+  });
+
   describe('pauseQueue', () => {
     test('should pause queue', async () => {
       await ttsQueue.pauseQueue(TEST_CHANNEL);

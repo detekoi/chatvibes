@@ -42,6 +42,7 @@ jest.unstable_mockModule('../../src/lib/channelInbox.js', () => ({ forwardToInbo
 jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
     getTtsState: mockGetTtsState,
     getUserEmoteModePreference: jest.fn().mockResolvedValue(null),
+    isViewerGloballyOptedOut: jest.fn().mockResolvedValue(false),
 }));
 jest.unstable_mockModule('../../src/components/commands/commandProcessor.js', () => ({
     processMessage: mockProcessMessage,

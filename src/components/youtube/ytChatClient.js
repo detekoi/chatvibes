@@ -11,6 +11,7 @@ import { getTranslator, resolveChannelLocale } from '../../i18n/index.js';
 import { getPronunciationRules } from '../../lib/textRewrite/pronunciation.js';
 import { processYouTubeEmotes } from './ytEmoteProcessor.js';
 import { isYouTubeUserIgnored } from '../../lib/ignoreList.js';
+import { containsBannedWord } from '../../lib/bannedWords.js';
 import { hasPermissionLevel, mapPermissionLevel } from '../../lib/permissions.js';
 import { parseTtsCommandText, stripCommandPrefixFromFragments } from '../../lib/ttsCommandText.js';
 import { isTtsSubCommand } from '../commands/tts/subcommandNames.js';
@@ -325,12 +326,9 @@ export async function handleYouTubeChatMessage(channelId, msg) {
     }
 
     // Check banned words
-    if (ttsConfig.bannedWords?.length > 0) {
-        const lowerMessage = messageText.toLowerCase();
-        if (ttsConfig.bannedWords.some(w => lowerMessage.includes(w))) {
-            logger.debug({ channelId, username }, 'YouTube Chat: Message contains banned word, skipping');
-            return;
-        }
+    if (containsBannedWord(messageText, ttsConfig.bannedWords)) {
+        logger.debug({ channelId, username }, 'YouTube Chat: Message contains banned word, skipping');
+        return;
     }
 
     const locale = resolveChannelLocale(ttsConfig);

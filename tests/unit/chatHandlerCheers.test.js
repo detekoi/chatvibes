@@ -34,6 +34,7 @@ describe('handleChatMessage: cheer messages', () => {
         jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
             getTtsState,
             getUserEmoteModePreference: jest.fn().mockResolvedValue(null),
+            isViewerGloballyOptedOut: jest.fn().mockResolvedValue(false),
         }));
         jest.unstable_mockModule('../../src/lib/ttsDispatch.js', () => ({ dispatchTtsEvent }));
         jest.unstable_mockModule('../../src/components/twitch/eventUtils.js', () => ({

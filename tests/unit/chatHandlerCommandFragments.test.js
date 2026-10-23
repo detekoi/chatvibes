@@ -24,6 +24,7 @@ describe('handleChatMessage: !tts fragment trimming', () => {
         jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
             getTtsState: jest.fn().mockResolvedValue({ engineEnabled: true, mode: 'command', emoteMode: 'skip' }),
             getUserEmoteModePreference: jest.fn().mockResolvedValue(null),
+            isViewerGloballyOptedOut: jest.fn().mockResolvedValue(false),
         }));
         jest.unstable_mockModule('../../src/lib/ttsDispatch.js', () => ({ dispatchTtsEvent: jest.fn() }));
         jest.unstable_mockModule('../../src/components/twitch/eventUtils.js', () => ({

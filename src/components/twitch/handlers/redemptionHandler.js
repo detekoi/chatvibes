@@ -4,16 +4,17 @@
 import logger from '../../../lib/logger.js';
 import * as redemptionCache from '../redemptionCache.js';
 import { isChannelActive } from '../../../lib/allowList.js';
-import { getTtsState, getUserEmoteModePreference } from '../../tts/ttsState.js';
+import { getTtsState, getUserEmoteModePreference, isViewerGloballyOptedOut } from '../../tts/ttsState.js';
 import { dispatchTtsEvent } from '../../../lib/ttsDispatch.js';
 import { getSharedSessionInfo } from '../eventUtils.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
 import { consumeFragments } from '../redemptionFragmentCache.js';
-import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
+import { isTwitchUserIgnored, getIgnoreEntry, canSelfUnignore, PLATFORM_TWITCH } from '../../../lib/ignoreList.js';
+import { containsBannedWord } from '../../../lib/bannedWords.js';
 import { isRewardMuted } from '../../../lib/rewardMuteList.js';
 import { getTranslator, resolveChannelLocale } from '../../../i18n/index.js';
-import { getBroadcasterAccessToken } from '../broadcasterToken.js';
+import { setRedemptionStatus, stopRewardSkippingQueue } from '../redemptionStatus.js';
 
 // Redemption IDs already announced, so a redemption can't be announced twice.
 // Twitch's docs don't state whether an auto-fulfilled (skip-queue) redemption also
@@ -91,82 +92,126 @@ export async function handleChannelPointsRedemption(subscriptionType, event) {
 
     // Check if Channel Points TTS is enabled
     const enabledViaNewConfig = ttsConfig.channelPoints ? ttsConfig.channelPoints.enabled === true : true;
-    if (!enabledViaNewConfig || !ttsConfig.engineEnabled) {
+    if (!enabledViaNewConfig) {
         logger.debug({ channelLogin }, 'Channel Points TTS is disabled for this channel - ignoring');
         return;
     }
 
-    // Check if user is ignored
-    if (isTwitchUserIgnored(ttsConfig, userId)) {
-        logger.debug({ channelLogin, userName, userId }, 'User is on ignore list - skipping TTS');
+    const isAdd = subscriptionType === 'channel.channel_points_custom_reward_redemption.add';
+    const isUpdate = subscriptionType === 'channel.channel_points_custom_reward_redemption.update';
+    const settle = { broadcasterId, channelLogin, rewardId, redemptionId };
+    // The dashboard's "Skip the Reward Queue" toggle. On, the bot approves a
+    // redemption that passes the checks at once; off, the streamer approves it.
+    const autoApprove = ttsConfig.channelPoints?.skipQueue !== false;
+
+    // An unfulfilled .add is the one moment a refund is possible: Twitch lets
+    // the bot change a redemption only while it is UNFULFILLED. Everything that
+    // would refuse the message is decided here, and a refusal is a refund.
+    if (isAdd && status === 'unfulfilled') {
+        const refusal = ttsRedemptionRefusal(ttsConfig, userId, userInput);
+        if (refusal) {
+            logger.info({ channelLogin, userName, redemptionId, reason: refusal }, 'Refusing Channel Points TTS redemption - refunding');
+            await setRedemptionStatus({ ...settle, status: 'CANCELED', reason: refusal });
+            return;
+        }
+
+        if (autoApprove) {
+            logger.info({ channelLogin, userName, redemptionId, textPreview: userInput?.substring(0, 30) },
+                'Channel Points TTS redemption approved automatically - playing');
+            // Fulfilled before it plays, so it cannot be refunded after it was
+            // heard. A failure to fulfill (an expired token, say) does not stop
+            // the message: the viewer paid, and the streamer can still settle
+            // the redemption by hand.
+            await setRedemptionStatus({ ...settle, status: 'FULFILLED', reason: 'approved automatically' });
+            await speakTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId, rewardId, userId);
+            return;
+        }
+
+        // Waiting for the streamer. Store rewardId for the approval, and any
+        // fragments the chatHandler may have cached (best-effort, see
+        // redemptionFragmentCache.js for multi-instance caveats).
+        logger.info({ channelLogin, userName, redemptionId, textPreview: userInput?.substring(0, 30) },
+            'Channel Points redemption pending approval - adding to cache');
+        const cachedFragments = consumeFragments(rewardId, userId, channelLogin);
+        redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId, userId, cachedFragments);
         return;
     }
 
-    // Handle redemption.add event
-    if (subscriptionType === 'channel.channel_points_custom_reward_redemption.add') {
-        if (status === 'unfulfilled') {
-            // Redemption is waiting for approval - add to cache
-            logger.info({
-                channelLogin,
-                userName,
-                redemptionId,
-                textPreview: userInput?.substring(0, 30)
-            }, 'Channel Points redemption pending approval - adding to cache');
+    // A fulfilled .add comes from a reward that still skips the request queue,
+    // made before the bot settled redemptions itself. The points are already
+    // spent and cannot be refunded, so a refusal only keeps the message silent.
+    // The reward is switched over so the next redemption can be refunded.
+    if (isAdd && status === 'fulfilled') {
+        void stopRewardSkippingQueue(settle);
+        const refusal = ttsRedemptionRefusal(ttsConfig, userId, userInput);
+        if (refusal) {
+            logger.warn({ channelLogin, userName, redemptionId, reason: refusal },
+                'Refusing Channel Points TTS redemption - the reward skips the request queue, so it cannot be refunded');
+            return;
+        }
+        logger.info({ channelLogin, userName, redemptionId, textPreview: userInput?.substring(0, 30) },
+            'Channel Points redemption auto-approved by Twitch - playing');
+        await speakTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId, rewardId, userId);
+        return;
+    }
 
-            // Store rewardId along with redemption for later rejection if needed.
-            // Also grab any fragments the chatHandler may have cached (best-effort,
-            // see redemptionFragmentCache.js for multi-instance caveats).
-            const cachedFragments = consumeFragments(rewardId, userId, channelLogin);
-            redemptionCache.addRedemption(redemptionId, userInput, userName, channelLogin, rewardId, userId, cachedFragments);
-        } else if (status === 'fulfilled') {
-            // Redemption was auto-approved (Skip Queue enabled) - validate and play immediately
-            logger.info({
-                channelLogin,
-                userName,
-                redemptionId,
-                textPreview: userInput?.substring(0, 30)
-            }, 'Channel Points redemption auto-approved - validating and playing');
+    if (isUpdate && status === 'fulfilled') {
+        // Only a redemption that waited for the streamer is in the cache. One the
+        // bot fulfilled itself also sends this event, and is skipped here.
+        const cachedRedemption = redemptionCache.getRedemption(redemptionId);
+        if (!cachedRedemption) {
+            logger.debug({ redemptionId, channelLogin }, 'Redemption update for fulfilled status but not in cache - already handled on .add');
+            return;
+        }
+        // The checks ran on .add, but a moderator can mute the viewer, or the
+        // streamer can change the policy, while it waits. It is fulfilled now,
+        // so a refusal cannot be refunded; it only keeps the message silent.
+        const approvedUserId = cachedRedemption.userId || userId;
+        const refusal = ttsRedemptionRefusal(ttsConfig, approvedUserId, cachedRedemption.userInput);
+        if (refusal) {
+            logger.warn({ channelLogin, redemptionId, reason: refusal }, 'Approved Channel Points TTS redemption refused - not played');
+            redemptionCache.removeRedemption(redemptionId);
+            return;
+        }
+        logger.info({ channelLogin, userName, redemptionId, textPreview: cachedRedemption.userInput?.substring(0, 30) },
+            'Channel Points redemption approved by streamer - playing TTS');
+        await speakTtsRedemption(
+            cachedRedemption.channelName,
+            cachedRedemption.userInput,
+            cachedRedemption.userName,
+            ttsConfig,
+            redemptionId,
+            cachedRedemption.rewardId || rewardId,
+            approvedUserId
+        );
+        // Removed after playing: speakTtsRedemption reads the fragments stashed on it.
+        redemptionCache.removeRedemption(redemptionId);
+        return;
+    }
 
-            await processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId, rewardId, userId);
+    if (isUpdate && status === 'canceled') {
+        // Redemption was canceled - remove from cache if present
+        const existed = redemptionCache.removeRedemption(redemptionId);
+        if (existed) {
+            logger.info({ channelLogin, userName, redemptionId }, 'Channel Points redemption canceled - removed from cache');
         }
     }
-    // Handle redemption.update event
-    else if (subscriptionType === 'channel.channel_points_custom_reward_redemption.update') {
-        if (status === 'fulfilled') {
-            // Check if this redemption was in our cache (meaning it was waiting for approval)
-            const cachedRedemption = redemptionCache.getRedemption(redemptionId);
+}
 
-            if (cachedRedemption) {
-                logger.info({
-                    channelLogin,
-                    userName,
-                    redemptionId,
-                    textPreview: cachedRedemption.userInput?.substring(0, 30)
-                }, 'Channel Points redemption approved by streamer - validating and playing TTS');
-
-                await processTtsRedemption(
-                    cachedRedemption.channelName,
-                    cachedRedemption.userInput,
-                    cachedRedemption.userName,
-                    ttsConfig,
-                    redemptionId,
-                    cachedRedemption.rewardId || rewardId,
-                    cachedRedemption.userId || userId
-                );
-
-                // Remove from cache after processing
-                redemptionCache.removeRedemption(redemptionId);
-            } else {
-                logger.debug({ redemptionId, channelLogin }, 'Redemption update for fulfilled status but not in cache - likely was auto-approved');
-            }
-        } else if (status === 'canceled') {
-            // Redemption was canceled - remove from cache if present
-            const existed = redemptionCache.removeRedemption(redemptionId);
-            if (existed) {
-                logger.info({ channelLogin, userName, redemptionId }, 'Channel Points redemption canceled - removed from cache');
-            }
-        }
-    }
+/**
+ * Why a TTS reward redemption must not be read, or null when it may be.
+ *
+ * A viewer a moderator muted in this channel is refused: paying must not get
+ * round the mute. A viewer who muted themselves here, or opted out of TTS in
+ * every channel, is read: redeeming the TTS reward is an explicit, paid request
+ * to be read. With the engine off nothing would play, so it is refused too.
+ * @returns {string|null}
+ */
+function ttsRedemptionRefusal(ttsConfig, userId, userInput) {
+    if (!ttsConfig.engineEnabled) return 'TTS is turned off';
+    const ignoreEntry = getIgnoreEntry(ttsConfig, PLATFORM_TWITCH, userId);
+    if (ignoreEntry && !canSelfUnignore(ignoreEntry)) return 'Viewer is muted in this channel';
+    return contentPolicyRefusal(ttsConfig, userInput);
 }
 
 /**
@@ -281,13 +326,19 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
     }
 
     // Build announcement text
-    let ttsText = t('announce.redemption', { user: userName, reward: rewardTitle });
+    // `ttsText` never carries the viewer's input; the full utterance goes in
+    // textWithViewerMessage, which ttsQueue speaks only for a viewer who did not
+    // opt out of TTS in every channel (see notificationHandler.js).
+    const ttsText = t('announce.redemption', { user: userName, reward: rewardTitle });
+    let textWithViewerMessage;
     if (userInput) {
         // Check banned words against user input
-        const hasBannedWord = ttsConfig.bannedWords?.length > 0 &&
-            ttsConfig.bannedWords.some(w => w && userInput.toLowerCase().includes(String(w).toLowerCase()));
+        const hasBannedWord = containsBannedWord(userInput, ttsConfig.bannedWords);
         if (hasBannedWord) {
             logger.debug({ channelLogin, user: userLogin }, 'Redemption user_input contains banned word — announcing redemption only');
+        } else if (await isViewerGloballyOptedOut(userId)) {
+            // Not formatted at all: formatting can send it to the emote describer.
+            logger.debug({ channelLogin, user: userLogin }, 'Viewer opted out of TTS in every channel — announcing redemption only');
         } else {
             // Run user_input through formatting pipeline (URLs, emotes, emoji).
             // On the approval path the short-lived fragment cache has long expired, so
@@ -304,7 +355,7 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
                 locale,
             });
             if (formattedInput) {
-                ttsText = t('announce.redemption.input', { text: ttsText, input: formattedInput });
+                textWithViewerMessage = t('announce.redemption.input', { text: ttsText, input: formattedInput });
             } else {
                 logger.info({ channelLogin, user: userLogin, emoteMode, viewerMessage: userInput },
                     'Redemption user_input formatted to empty (likely all emotes under emoteMode=skip) — announcing redemption only');
@@ -325,114 +376,33 @@ export async function handleRedemptionAnnouncement(subscriptionType, event, chan
         text: ttsText,
         user: userName,
         userId,
-        type: 'event'
+        type: 'event',
+        ...(textWithViewerMessage !== undefined && { textWithViewerMessage }),
     }, sharedSessionInfo);
 }
 
 /**
- * Reject a Channel Points redemption via Twitch API
- * Requires broadcaster's user access token with channel:manage:redemptions scope
+ * Why the content policy refuses a TTS reward message, or null when it passes.
+ * Twitch caps reward input at 500 characters, so there is no length check.
+ * @returns {string|null}
  */
-async function rejectRedemption(channelLogin, redemptionId, rewardId, reason) {
-    try {
-        const { getUsersByLogin } = await import('../helixClient.js');
-        const { getClientId } = await import('../tokenManager.js');
+function contentPolicyRefusal(ttsConfig, userInput) {
+    const redeemMessage = (userInput || '').trim();
+    if (redeemMessage.length === 0) return 'Message is empty';
 
-        const users = await getUsersByLogin([channelLogin]);
-        if (!users || users.length === 0) {
-            logger.warn({ channelLogin }, 'Cannot reject redemption - broadcaster user ID not found');
-            return false;
-        }
-
-        const broadcasterId = users[0].id;
-
-        // Get broadcaster's user access token (not app access token!)
-        const token = await getBroadcasterAccessToken(broadcasterId, channelLogin);
-        if (!token) {
-            logger.warn({
-                channelLogin,
-                redemptionId,
-                reason
-            }, 'Cannot reject redemption - broadcaster access token not available (may need to re-authenticate)');
-            return false;
-        }
-
-        const clientId = await getClientId();
-
-        const axios = (await import('axios')).default;
-        const url = `https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions?broadcaster_id=${encodeURIComponent(broadcasterId)}&reward_id=${encodeURIComponent(rewardId)}&id=${encodeURIComponent(redemptionId)}`;
-
-        await axios.patch(url, {
-            status: 'CANCELED'
-        }, {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Client-ID': clientId,
-                'Content-Type': 'application/json'
-            },
-            timeout: 10000
-        });
-
-        logger.info({
-            channelLogin,
-            redemptionId,
-            reason
-        }, 'Rejected Channel Points redemption and refunded points');
-
-        return true;
-    } catch (error) {
-        logger.error({
-            err: error,
-            channelLogin,
-            redemptionId,
-            status: error.response?.status,
-            data: error.response?.data
-        }, 'Failed to reject Channel Points redemption via Twitch API');
-        return false;
-    }
+    const policy = (ttsConfig.channelPoints && ttsConfig.channelPoints.contentPolicy) || {};
+    const blockLinks = policy.blockLinks !== false; // default block links
+    if (blockLinks && /\bhttps?:\/\//i.test(redeemMessage)) return 'Message contains blocked link';
+    if (containsBannedWord(redeemMessage, policy.bannedWords)) return 'Message contains banned word';
+    return null;
 }
 
 /**
- * Process a TTS redemption (apply content policy and enqueue for playback)
- * Returns validation result: { ok: boolean, reason?: string }
+ * Format a TTS reward message and send it to the queue. The caller has already
+ * decided that it may be read (ttsRedemptionRefusal).
  */
-async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId = null, rewardId = null, userId = null) {
+async function speakTtsRedemption(channelLogin, userInput, userName, ttsConfig, redemptionId = null, rewardId = null, userId = null) {
     const redeemMessage = (userInput || '').trim();
-
-    if (redeemMessage.length === 0) {
-        logger.debug({ channelLogin, userName }, 'Empty redemption message - rejecting');
-        if (redemptionId && rewardId) {
-            await rejectRedemption(channelLogin, redemptionId, rewardId, 'Message is empty');
-        }
-        return { ok: false, reason: 'Message is empty' };
-    }
-
-    // Enforce content policy if configured
-    const policy = (ttsConfig.channelPoints && ttsConfig.channelPoints.contentPolicy) || {};
-    const blockLinks = policy.blockLinks !== false; // default block links
-    const bannedWords = Array.isArray(policy.bannedWords) ? policy.bannedWords : [];
-
-    // Note: Twitch enforces 500 character limit on redemption input, so we don't need to validate length here
-    // If a message exceeds 500 chars, Twitch won't allow the redemption in the first place
-
-    if (blockLinks && /\bhttps?:\/\//i.test(redeemMessage)) {
-        const reason = 'Message contains blocked link';
-        logger.info({ channelLogin, userName, redemptionId }, reason);
-        if (redemptionId && rewardId) {
-            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
-        }
-        return { ok: false, reason };
-    }
-
-    const lowered = redeemMessage.toLowerCase();
-    if (bannedWords.some(w => w && lowered.includes(String(w).toLowerCase()))) {
-        const reason = 'Message contains banned word';
-        logger.info({ channelLogin, userName, redemptionId }, reason);
-        if (redemptionId && rewardId) {
-            await rejectRedemption(channelLogin, redemptionId, rewardId, reason);
-        }
-        return { ok: false, reason };
-    }
 
     // Check if chat event arrived first and stashed fragment data.
     // NOTE: This is best-effort in multi-instance deployments. The fragment cache
@@ -470,7 +440,7 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
     // Guard against empty result (e.g. all-emote message with emoteMode='skip')
     if (!processedMessage) {
         logger.debug({ channelLogin, userName, redemptionId }, 'Processed redemption message is empty after formatting - skipping TTS');
-        return { ok: true };
+        return;
     }
 
     // Get shared session info
@@ -489,6 +459,4 @@ async function processTtsRedemption(channelLogin, userInput, userName, ttsConfig
         userId,
         type: 'reward'
     }, sharedSessionInfo);
-
-    return { ok: true };
 }

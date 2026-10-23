@@ -16,12 +16,18 @@ import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
 import { resolveToChannelName, getChannelIdFromName, getChannelNameFromId } from '../../lib/allowList.js';
 import { snapshotTiming, elapsed } from '../../lib/ttsTiming.js';
+import { isGloballyOptedOut } from '../../lib/globalOptOut.js';
 
 let db;
 const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
 
 const channelQueues = new Map();
 const MAX_QUEUE_LENGTH = 50;
+// Speech types an opted-out viewer still gets. An `event` is an announcement
+// about them, spoken without their words. A `reward` is the TTS Channel Points
+// reward: redeeming it is a paid request to be read. A moderator mute refuses
+// it (and refunds it) in redemptionHandler.js, before it gets here.
+const SPOKEN_WHEN_OPTED_OUT = new Set(['event', 'reward']);
 const PREFETCH_AHEAD = 2; // Number of queued items to prefetch concurrently
 
 /**
@@ -85,22 +91,43 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         return;
     }
 
-    const channelConfig = await getChannelTtsConfig(channelName);
-    // Check if viewer preferences are allowed (defaults to true if not set)
-    const allowViewerPrefs = ttsStatus && ttsStatus.allowViewerPreferences !== false;
-    let globalUserPrefs = {};
-    let channelUserPrefs = {};
-
     // Preferences are keyed by account ID; an event without one (anonymous gift,
     // system announcement) gets channel defaults.
     const userId = eventData.userId;
+    // Check if viewer preferences are allowed (defaults to true if not set)
+    const allowViewerPrefs = ttsStatus && ttsStatus.allowViewerPreferences !== false;
+    // Viewer preferences and the global opt-out are keyed by Twitch user ID, and
+    // only Twitch chat commands and the dashboard write them. A YouTube channel ID
+    // never has a document, so a YouTube item reads neither. For a Twitch viewer
+    // the opt-out is read whatever allowViewerPreferences says: it is the
+    // viewer's consent, not a preference, and a channel cannot turn it off. The
+    // channel reads come from the cached config, so the only Firestore round trip
+    // here is the viewer document, which the 60-second cache in ttsState.js
+    // usually already holds.
+    const isTwitchViewer = Boolean(userId) && eventData.platform !== 'youtube';
+    const [channelConfig, viewerGlobalPrefs, channelUserPrefs] = await Promise.all([
+        getChannelTtsConfig(channelName),
+        isTwitchViewer ? getGlobalUserPreferences(userId) : {},
+        isTwitchViewer && allowViewerPrefs ? getChannelUserPreferences(channelName, userId) : {},
+    ]);
+    const globalUserPrefs = allowViewerPrefs ? viewerGlobalPrefs : {};
 
-    if (userId && allowViewerPrefs) {
-        [globalUserPrefs, channelUserPrefs] = await Promise.all([
-            getGlobalUserPreferences(userId),
-            getChannelUserPreferences(channelName, userId),
-        ]);
+    // The handlers already hold back an opted-out viewer's text before formatting
+    // it. This is the backstop for every route into the queue, including ones
+    // that pass the handler guards and an instance whose cache is older. A
+    // failed read returns {} and the viewer is read; the error is not cached, so
+    // the next message retries.
+    const optedOut = isTwitchViewer && isGloballyOptedOut(viewerGlobalPrefs);
+    if (optedOut && !SPOKEN_WHEN_OPTED_OUT.has(type)) {
+        logger.debug({ channelName, user, userId, type }, 'Viewer opted out of TTS in every channel - dropping their speech');
+        return;
     }
+    // `text` never carries the viewer's own words on an announcement. The full
+    // utterance comes in textWithViewerMessage and is spoken only for a viewer
+    // who did not opt out, so a handler that forgets the field cannot leak them.
+    const speechText = !optedOut && typeof eventData.textWithViewerMessage === 'string'
+        ? eventData.textWithViewerMessage
+        : text;
 
     const finalVoiceOptions = {
         voiceId: globalUserPrefs.voiceId || channelUserPrefs.voiceId || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId,
@@ -130,7 +157,7 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     // for their own messages and that override is only resolved above. When the
     // viewer's language differs from the channel's, both lists apply — filtering
     // on the channel's alone would let a viewer speaking another one through.
-    let finalText = text;
+    let finalText = speechText;
     if (ttsStatus.profanityFilterEnabled) {
         // English is always in the set, whatever the channel's language. The
         // pronunciation dictionary is English-only and runs for every channel,
@@ -142,8 +169,8 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
             'English',
         ]);
         if (rules) {
-            finalText = applyRewrites(text, rules);
-            if (finalText !== text) {
+            finalText = applyRewrites(speechText, rules);
+            if (finalText !== speechText) {
                 logger.debug(`[${channelName}] Profanity filter applied to message from ${user || 'event'}.`);
             }
         }
@@ -155,7 +182,7 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     const timing = timingSnapshot ? { ...timingSnapshot, enqueueStartMs, enqueuedMs: Date.now() } : null;
 
     cq.queue.push({ type, text: finalText, user, userId, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing });
-    logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${text.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
+    logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${finalText.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
 }
 

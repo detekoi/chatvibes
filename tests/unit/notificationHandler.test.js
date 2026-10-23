@@ -50,6 +50,12 @@ jest.unstable_mockModule('../../src/lib/pronounService.js', () => ({
     pronounService: mockPronounService
 }));
 
+// The global opt-out: handlers ask it before they format a viewer's message.
+const mockIsViewerGloballyOptedOut = jest.fn().mockResolvedValue(false);
+jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({
+    isViewerGloballyOptedOut: mockIsViewerGloballyOptedOut
+}));
+
 const { handleNotification, WATCH_STREAK_TYPE, SUB_GIFT_TYPE, COMMUNITY_SUB_GIFT_TYPE } = await import('../../src/components/twitch/handlers/notificationHandler.js');
 
 describe('notificationHandler', () => {
@@ -364,11 +370,51 @@ describe('notificationHandler', () => {
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
-                    text: 'Resubber resubscribed for 12 months (Tier 1)! They said: Love this stream!',
+                    text: 'Resubber resubscribed for 12 months (Tier 1)!',
                     user: 'Resubber',
+                    // Spoken only for a viewer who did not opt out of TTS in every channel.
+                    textWithViewerMessage: 'Resubber resubscribed for 12 months (Tier 1)! They said: Love this stream!',
                 }),
                 null
             );
+        });
+
+        it('should not format the message of a viewer who opted out of TTS everywhere', async () => {
+            // Formatting can send the text to the emote describer, and the login
+            // to the pronoun lookup. Neither may see an opted-out viewer.
+            mockIsViewerGloballyOptedOut.mockResolvedValueOnce(true);
+            const event = {
+                user_name: 'Resubber',
+                user_login: 'resubber',
+                user_id: '4242',
+                tier: '1000',
+                cumulative_months: 12,
+                message: { text: 'Love this stream!' }
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockIsViewerGloballyOptedOut).toHaveBeenCalledWith('4242');
+            expect(mockFormatTtsText).not.toHaveBeenCalled();
+            expect(mockPronounService.getUserPronouns).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent.mock.calls[0][1]).toMatchObject({
+                text: 'Resubber resubscribed for 12 months (Tier 1)!',
+            });
+            expect(mockDispatchTtsEvent.mock.calls[0][1]).not.toHaveProperty('textWithViewerMessage');
+        });
+
+        it('should not pass textWithViewerMessage for a resub without a message', async () => {
+            const event = {
+                user_name: 'Resubber',
+                user_login: 'resubber',
+                tier: '1000',
+                cumulative_months: 12,
+            };
+
+            await handleNotification('channel.subscription.message', event, 'testchannel');
+
+            expect(mockDispatchTtsEvent).toHaveBeenCalledTimes(1);
+            expect(mockDispatchTtsEvent.mock.calls[0][1]).not.toHaveProperty('textWithViewerMessage');
         });
 
         it('should rebuild fragments from the payload emote offsets so the emote mode applies', async () => {
@@ -393,7 +439,7 @@ describe('notificationHandler', () => {
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
-                    text: 'coconutmelonss resubscribed for 3 months (Tier 1)! They said: a dancing green dinosaur emote',
+                    textWithViewerMessage: 'coconutmelonss resubscribed for 3 months (Tier 1)! They said: a dancing green dinosaur emote',
                 }),
                 null
             );
@@ -474,7 +520,7 @@ describe('notificationHandler', () => {
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
-                    text: 'Resubber resubscribed for 30 months, on a 30 month streak (Tier 2)! They said: Love this stream!'
+                    textWithViewerMessage: 'Resubber resubscribed for 30 months, on a 30 month streak (Tier 2)! They said: Love this stream!'
                 }),
                 null
             );
@@ -493,7 +539,7 @@ describe('notificationHandler', () => {
             expect(mockPronounService.getUserPronouns).not.toHaveBeenCalled();
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
-                expect.objectContaining({ text: expect.stringContaining('They said: Still here!') }),
+                expect.objectContaining({ textWithViewerMessage: expect.stringContaining('They said: Still here!') }),
                 null
             );
         });
@@ -515,7 +561,7 @@ describe('notificationHandler', () => {
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
                 expect.objectContaining({
-                    text: 'Resubber resubscribed for 12 months (Tier 1)! She said: Love this stream!'
+                    textWithViewerMessage: 'Resubber resubscribed for 12 months (Tier 1)! She said: Love this stream!'
                 }),
                 null
             );
@@ -711,6 +757,29 @@ describe('notificationHandler', () => {
             );
         });
 
+        it('should not format the attached message of a viewer who opted out of TTS everywhere', async () => {
+            mockIsViewerGloballyOptedOut.mockResolvedValueOnce(true);
+            const event = {
+                chatter_user_name: 'turboicehusky',
+                chatter_user_login: 'turboicehusky',
+                chatter_user_id: '12345678',
+                notice_type: 'watch_streak',
+                watch_streak: { streak_count: 10, channel_points_awarded: 450 },
+                message: { text: '10!', fragments: [{ type: 'text', text: '10!' }] }
+            };
+
+            await handleNotification(WATCH_STREAK_TYPE, event, 'testchannel');
+
+            expect(mockIsViewerGloballyOptedOut).toHaveBeenCalledWith('12345678');
+            expect(mockFormatTtsText).not.toHaveBeenCalled();
+            expect(mockPronounService.getUserPronouns).not.toHaveBeenCalled();
+            expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
+                'testchannel',
+                { text: 'turboicehusky is on a 10 stream watch streak!', user: 'turboicehusky', userId: '12345678', type: 'event' },
+                null
+            );
+        });
+
         it('should include the attached chat message in TTS after formatting', async () => {
             mockFormatTtsText.mockResolvedValueOnce('10!');
             const event = {
@@ -731,7 +800,14 @@ describe('notificationHandler', () => {
             );
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
-                { text: 'turboicehusky is on a 10 stream watch streak! They said: 10!', user: 'turboicehusky', userId: '12345678', type: 'event' },
+                {
+                    text: 'turboicehusky is on a 10 stream watch streak!',
+                    // Spoken only for a viewer who did not opt out of TTS in every channel.
+                    textWithViewerMessage: 'turboicehusky is on a 10 stream watch streak! They said: 10!',
+                    user: 'turboicehusky',
+                    userId: '12345678',
+                    type: 'event'
+                },
                 null
             );
             expect(mockLogger.info).toHaveBeenCalledWith(
@@ -766,7 +842,7 @@ describe('notificationHandler', () => {
                 expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                     'parfaitfair',
                     expect.objectContaining({
-                        text: 'turboicehusky is on a 25 stream watch streak! He said: 25 Streak!'
+                        textWithViewerMessage: 'turboicehusky is on a 25 stream watch streak! He said: 25 Streak!'
                     }),
                     null
                 );
@@ -827,7 +903,7 @@ describe('notificationHandler', () => {
                 expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                     'parfaitfair',
                     expect.objectContaining({
-                        text: 'turboicehusky is on a 25 stream watch streak! They said: 25 Streak!'
+                        textWithViewerMessage: 'turboicehusky is on a 25 stream watch streak! They said: 25 Streak!'
                     }),
                     null
                 );
@@ -906,7 +982,7 @@ describe('notificationHandler', () => {
             );
             expect(mockDispatchTtsEvent).toHaveBeenCalledWith(
                 'testchannel',
-                expect.objectContaining({ text: 'viewer23 is on a 4 stream watch streak! They said: twitch.tv' }),
+                expect.objectContaining({ textWithViewerMessage: 'viewer23 is on a 4 stream watch streak! They said: twitch.tv' }),
                 null
             );
         });

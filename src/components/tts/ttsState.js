@@ -14,6 +14,7 @@ import {
 } from './ttsConstants.js';
 import { getChannelIdFromName } from '../../lib/allowList.js';
 import { buildIgnoreEntry } from '../../lib/ignoreList.js';
+import { isGloballyOptedOut } from '../../lib/globalOptOut.js';
 
 let db;
 const TTS_CONFIG_COLLECTION = 'ttsChannelConfigs';
@@ -288,6 +289,20 @@ export async function getGlobalUserPreferences(userId) {
         logger.error({ err: error, userId }, 'Failed to get user preferences from Firestore.');
         return {};
     }
+}
+
+/**
+ * Whether a Twitch viewer opted out of TTS in every channel. Handlers ask this
+ * before they format the viewer's text, so the words of an opted-out viewer
+ * never reach the emote describer or the pronoun lookup. It shares the cache
+ * of getGlobalUserPreferences, so a later preferences read for the same viewer
+ * costs nothing. A failed read counts as not opted out, as it does in enqueue.
+ * @param {string|null} userId Twitch user ID
+ * @returns {Promise<boolean>}
+ */
+export async function isViewerGloballyOptedOut(userId) {
+    if (!userId) return false;
+    return isGloballyOptedOut(await getGlobalUserPreferences(userId));
 }
 
 /**
