@@ -476,18 +476,16 @@ describe('ttsQueue module', () => {
       expect(queue()).toHaveLength(1);
     });
 
-    test('does not read the opt-out for a YouTube item where viewer preferences are off', async () => {
-      // Only the dashboard sets the flag, keyed by Twitch user ID.
-      mockTtsState.getTtsState.mockResolvedValue({
-        ...mockChannelConfig,
-        engineEnabled: true,
-        allowViewerPreferences: false
-      });
-
+    test('reads no viewer preferences for a YouTube item', async () => {
+      // Both are keyed by Twitch user ID, and only Twitch commands and the
+      // dashboard write them, so a YouTube channel ID never has a document.
+      // Viewer preferences stay at the default (allowed) here.
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: 'yt', userId: 'UCabc', type: 'chat', platform: 'youtube' });
 
       expect(mockTtsState.getGlobalUserPreferences).not.toHaveBeenCalled();
+      expect(mockTtsState.getChannelUserPreferences).not.toHaveBeenCalled();
       expect(queue()).toHaveLength(1);
+      expect(queue()[0].voiceConfig.voiceId).toBe(mockChannelConfig.voiceId);
     });
   });
 

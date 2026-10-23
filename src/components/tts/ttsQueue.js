@@ -96,17 +96,19 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     const userId = eventData.userId;
     // Check if viewer preferences are allowed (defaults to true if not set)
     const allowViewerPrefs = ttsStatus && ttsStatus.allowViewerPreferences !== false;
-    // The global opt-out is read whatever allowViewerPreferences says: it is the
-    // viewer's consent, not a preference, and a channel cannot turn it off. Only
-    // the dashboard sets it, keyed by Twitch user ID, so a YouTube item cannot
-    // carry it and skips the read. The channel reads come from the cached config,
-    // so the only Firestore round trip here is the viewer document, which the
-    // 60-second cache in ttsState.js usually already holds.
-    const readsOptOut = Boolean(userId) && eventData.platform !== 'youtube';
+    // Viewer preferences and the global opt-out are keyed by Twitch user ID, and
+    // only Twitch chat commands and the dashboard write them. A YouTube channel ID
+    // never has a document, so a YouTube item reads neither. For a Twitch viewer
+    // the opt-out is read whatever allowViewerPreferences says: it is the
+    // viewer's consent, not a preference, and a channel cannot turn it off. The
+    // channel reads come from the cached config, so the only Firestore round trip
+    // here is the viewer document, which the 60-second cache in ttsState.js
+    // usually already holds.
+    const isTwitchViewer = Boolean(userId) && eventData.platform !== 'youtube';
     const [channelConfig, viewerGlobalPrefs, channelUserPrefs] = await Promise.all([
         getChannelTtsConfig(channelName),
-        userId && (allowViewerPrefs || readsOptOut) ? getGlobalUserPreferences(userId) : {},
-        userId && allowViewerPrefs ? getChannelUserPreferences(channelName, userId) : {},
+        isTwitchViewer ? getGlobalUserPreferences(userId) : {},
+        isTwitchViewer && allowViewerPrefs ? getChannelUserPreferences(channelName, userId) : {},
     ]);
     const globalUserPrefs = allowViewerPrefs ? viewerGlobalPrefs : {};
 
@@ -115,7 +117,7 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     // that pass the handler guards and an instance whose cache is older. A
     // failed read returns {} and the viewer is read; the error is not cached, so
     // the next message retries.
-    const optedOut = readsOptOut && isGloballyOptedOut(viewerGlobalPrefs);
+    const optedOut = isTwitchViewer && isGloballyOptedOut(viewerGlobalPrefs);
     if (optedOut && !SPOKEN_WHEN_OPTED_OUT.has(type)) {
         logger.debug({ channelName, user, userId, type }, 'Viewer opted out of TTS in every channel - dropping their speech');
         return;
