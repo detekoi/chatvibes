@@ -98,7 +98,8 @@ ttsUserPreferences/<twitchUserId>: { globalOptOut: true, globalOptOutAt: "2026-1
   channel allows them. A YouTube item (`platform: 'youtube'`) skips the read, because only the
   dashboard sets the flag, by Twitch user ID.
 - A failed read lets the viewer speak. `getGlobalUserPreferences` returns `{}` on a Firestore error
-  and does not cache it, so the next message tries again. A change takes up to 60 seconds to reach
-  each instance, which is the TTL of the cache. No listener exists on this collection.
+  and does not cache it, so the next message tries again. Each instance listens for documents with a
+  newer `updatedAt` and drops the cached copy, so a change applies to the next message. If the
+  listener is down, a change takes up to 60 seconds, which is the TTL of the cache.
 - It covers Twitch only. The dashboard signs in with Twitch, and nothing links a YouTube channel ID
   to a Twitch account.

@@ -210,6 +210,35 @@ describe('ttsState module', () => {
     });
   });
 
+  // The web UI writes ttsUserPreferences directly, so the bot cannot drop its cached
+  // copy at the write. A listener does it.
+  describe('viewer preferences changed outside the bot', () => {
+    const userPrefs = () => mockDb.collection('ttsUserPreferences');
+
+    test('a change that the listener reports is read again at once', async () => {
+      await ttsState.initializeTtsState();
+      await userPrefs().doc(TEST_USER_ID).set({ voiceId: 'kore' });
+      expect((await ttsState.getGlobalUserPreferences(TEST_USER_ID)).voiceId).toBe('kore');
+
+      // The web UI clears the voice. The cached copy still has it.
+      await userPrefs().doc(TEST_USER_ID).set({ voiceId: null });
+      expect((await ttsState.getGlobalUserPreferences(TEST_USER_ID)).voiceId).toBe('kore');
+
+      userPrefs().emitSnapshot([{ type: 'modified', doc: { id: TEST_USER_ID } }]);
+
+      expect((await ttsState.getGlobalUserPreferences(TEST_USER_ID)).voiceId).toBeNull();
+    });
+
+    test('the listener asks only for documents written after the start', async () => {
+      const before = Date.now();
+      await ttsState.initializeTtsState();
+
+      const [field, op, since] = userPrefs().filters.at(-1);
+      expect([field, op]).toEqual(['updatedAt', '>']);
+      expect(since.getTime()).toBeGreaterThanOrEqual(before);
+    });
+  });
+
   describe('updateGlobalUserPreferences', () => {
     const userDoc = () => mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
 
