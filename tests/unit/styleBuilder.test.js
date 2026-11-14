@@ -8,6 +8,7 @@ import {
     pitchStep,
     stepByWord,
     sanitizeStyle,
+    styleForEmotion,
     STYLE_MAX_LENGTH,
     STYLE_PRESETS,
     SPEED_STEPS,
@@ -215,5 +216,31 @@ describe('buildStyle', () => {
 
     test('ignores the other fields of a queue item', () => {
         expect(buildStyle({ voiceId: 'puck', languageBoost: 'English', volume: 2, emotion: 'calm' })).toBe(STYLE_PRESETS.calm);
+    });
+});
+
+describe('styleForEmotion', () => {
+    test.each(VALID_EMOTIONS.filter(name => name !== 'neutral'))('%s gives its preset words', (name) => {
+        expect(styleForEmotion(name)).toBe(STYLE_PRESETS[name]);
+        expect(styleForEmotion(name.toUpperCase(), { viewer: true })).toBe(STYLE_PRESETS[name]);
+    });
+
+    test('an alias gives the words of its emotion', () => {
+        expect(styleForEmotion('mad')).toBe(STYLE_PRESETS.angry);
+    });
+
+    // A viewer with no style gets the style of the channel, so neutral needs words there.
+    test('neutral is no style for a channel and a neutral style for a viewer', () => {
+        expect(styleForEmotion('neutral')).toBe('');
+        expect(styleForEmotion('neutral', { viewer: true })).toBe('in a neutral tone');
+    });
+
+    test('auto is no style for both', () => {
+        expect(styleForEmotion('auto')).toBe('');
+        expect(styleForEmotion('auto', { viewer: true })).toBe('');
+    });
+
+    test.each(['constructor', 'pirate', '', null, undefined])('%p is not an emotion', (name) => {
+        expect(styleForEmotion(name)).toBeNull();
     });
 });

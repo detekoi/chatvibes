@@ -23,8 +23,8 @@ To read the full list of commands and voices, visit the documentation:
   * **Interactive or Silent Mode:** Configure the bot to answer chat commands or operate silently in the background.
   * **Cheer messages:** The message attached to a cheer is read aloud in every mode once it meets a minimum you set. Bits/Points Only mode makes cheers and channel point rewards the only way to speak.
   * **Channel Points to TTS:** Create a custom Twitch Channel Point reward that viewers redeem with a message to read it aloud.
-  * More than 2,000 voices through Gemini TTS, with a free-text style, emotion presets, and stepped speed and pitch.
-  * Personal voice, emotion, pitch, and speed preferences for each user.
+  * More than 2,000 voices through Gemini TTS, with a free-text style, and stepped speed and pitch.
+  * Personal voice, style, pitch, and speed preferences for each user.
   * Ignores specified users.
   * Plays audio through an OBS browser source.
   * Runs on Google Cloud Run.
@@ -389,12 +389,12 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
 
 **`!tts emotion <emotion_name|reset|auto>`**
 
-  * **Description:** Sets your preferred TTS emotion. Valid options: `auto`, `neutral`, `happy`, `sad`, `angry`, `fearful`, `disgusted`, `surprised`.
+  * **Description:** The old name of `!tts style`. Sets your style from an emotion name: `neutral`, `happy`, `sad`, `angry`, `fearful`, `disgusted`, `surprised`, `calm`, `fluent`. The bot stores the style words of the emotion, for example "happy and cheerful" for `happy`.
   * **Permission:** Everyone
   * **Usage:**
       * `!tts emotion happy`
       * `!tts emotion reset`
-      * `!tts emotion` (shows current personal emotion)
+      * `!tts emotion` (shows your current style)
 
 **`!tts pitch <value|reset>`**
 
@@ -469,7 +469,7 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
 
 **`!tts defaultemotion <emotion_name|reset>`**
 
-  * **Description:** Sets default TTS emotion for the channel.
+  * **Description:** The old name of `!tts defaultstyle`. Sets the default style for the channel from an emotion name.
   * **Permission:** Moderator
   * **Usage:**
       * `!tts defaultemotion happy`
