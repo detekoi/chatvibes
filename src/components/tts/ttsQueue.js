@@ -147,6 +147,8 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
                 : channelConfig;
     const storedVoiceStyle = voiceSource.voiceStyle;
 
+    const rawVolume = voiceVolumes[resolvedVoice.voice] || voiceVolumes[storedVoiceId]
+        || channelConfig.volume || DEFAULT_TTS_SETTINGS.volume;
     const finalVoiceOptions = {
         speed: (globalUserPrefs.speed ?? channelUserPrefs.speed) ?? channelConfig.speed ?? DEFAULT_TTS_SETTINGS.speed,
         pitch: (globalUserPrefs.pitch ?? channelUserPrefs.pitch) ?? channelConfig.pitch ?? DEFAULT_TTS_SETTINGS.pitch,
@@ -161,8 +163,7 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         // which has no language of its own. An explicit languageBoost wins over it.
         voiceLanguage: voiceSource.voiceLanguage || resolvedVoice.language || null,
         languageBoost: globalUserPrefs.languageBoost || channelUserPrefs.languageBoost || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
-        volume: voiceVolumes[resolvedVoice.voice] || voiceVolumes[storedVoiceId]
-            || channelConfig.volume || DEFAULT_TTS_SETTINGS.volume,
+        volume: Math.min(rawVolume, 2),
         ...voiceOptions, // Allow direct voiceOptions to override
         voiceId: resolvedVoice.voice,
     };
