@@ -81,36 +81,6 @@ const queryParams = new URLSearchParams(window.location.search);
 const channelName = queryParams.get('channel');
 const token = queryParams.get('token');
 
-/**
- * Validate that a given URL string is safe to use as an <audio> source.
- * Only allow http/https URLs (https in production; http may be used for local testing)
- * and reject any other protocol such as javascript:, data:, etc.
- *
- * Returns the sanitized URL string (from the URL constructor) if safe, or null if unsafe.
- */
-function isSafeAudioUrl(url) {
-    if (typeof url !== 'string' || url.trim() === '') {
-        return null;
-    }
-
-    try {
-        // Resolve against the current origin to prevent protocols like
-        // "javascript:" or "data:" from being accepted as relative URLs.
-        const parsed = new URL(url, window.location.origin);
-
-        // Only allow http and https schemes.
-        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-            return null;
-        }
-
-        // Return the parsed href so callers use the sanitized URL, not the raw input.
-        return parsed.href;
-    } catch (e) {
-        // Malformed URL
-        return null;
-    }
-}
-
 let wsUrl;
 if (channelName) {
     if (token) {
@@ -203,15 +173,7 @@ function connectWebSocket() {
             const data = JSON.parse(event.data);
             console.log('TTS WebSocket received data:', data); // Log all received data
 
-            if (data.type === 'playAudio' && data.url) {
-                const safeUrl = isSafeAudioUrl(data.url);
-                if (safeUrl) {
-                    audioQueue.push(safeUrl);
-                    playNextInQueue();
-                } else {
-                    console.warn('TTS WebSocket received unsafe audio URL, ignoring:', data.url);
-                }
-            } else if (data.type === 'audioStart' && data.clipId) {
+            if (data.type === 'audioStart' && data.clipId) {
                 if (openClip && !openClip.ended) {
                     // Should not happen — the server ends one clip before starting the
                     // next — but never leave a clip open forever waiting for frames.
@@ -240,19 +202,10 @@ function connectWebSocket() {
                 // Could update a lastSeen timestamp if desired
             }
         } catch (e) {
-            // This might be a direct URL string if your server doesn't always send JSON
-            if (typeof event.data === 'string') {
-                const safeDirectUrl = isSafeAudioUrl(event.data);
-                if (safeDirectUrl) { // Accept only validated http/https URLs
-                    console.log('TTS WebSocket received direct audio URL:', event.data);
-                    audioQueue.push(safeDirectUrl);
-                    playNextInQueue();
-                } else if (event.data === 'STOP_CURRENT_AUDIO') {
-                    console.log('TTS WebSocket received STOP_CURRENT_AUDIO command');
-                    stopCurrentAudio(); // More specific stop
-                } else {
-                    console.warn('TTS WebSocket received non-JSON or unsafe message:', event.data);
-                }
+            // The server sends JSON. The bare stop word is from an older server.
+            if (event.data === 'STOP_CURRENT_AUDIO') {
+                console.log('TTS WebSocket received STOP_CURRENT_AUDIO command');
+                stopCurrentAudio(); // More specific stop
             } else {
                 console.error('TTS WebSocket received unparseable message:', event.data, e);
             }
@@ -324,16 +277,12 @@ function playNextInQueue() {
 
     // Release the previous clip's bytes now that we are moving on.
     releaseAudioUrl(currentObjectUrl);
+    // The queue holds only object URLs that this page made from binary frames.
+    // The server sends no audio URLs, so anything else is not played.
     currentObjectUrl = ownObjectUrls.has(audioUrl) ? audioUrl : null;
-
-    // As a defensive measure, re-validate the URL before assigning it to the audio element.
-    // isSafeAudioUrl returns the sanitized href or null. Object URLs we minted
-    // ourselves are exempt: they are blob: scheme, which isSafeAudioUrl rejects by
-    // design, and membership in ownObjectUrls is proof of local origin — a URL
-    // string arriving over the socket can never be in that set.
-    const safeSrc = currentObjectUrl || isSafeAudioUrl(audioUrl);
+    const safeSrc = currentObjectUrl;
     if (!safeSrc) {
-        console.warn('Player: Skipping unsafe audio URL from queue:', audioUrl);
+        console.warn('Player: Skipping an audio URL that this page did not make:', audioUrl);
         isPlaying = false;
         // Try the next item in the queue, if any.
         playNextInQueue();

@@ -1,7 +1,7 @@
 // scripts/minimax-voice-ids.js
 // The voice IDs of the MiniMax speech model that the bot used before Gemini TTS.
-// Only the offline scripts read this list: validate-voice-map.js makes sure that the
-// map covers every ID, and measure-voice-samples.js measures the old samples.
+// Only an offline script reads this list: validate-voice-map.js makes sure that the
+// map covers every ID.
 // Last updated: 2025-10-18
 
 export const WAVESPEED_VOICE_IDS = [
