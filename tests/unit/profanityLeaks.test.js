@@ -44,7 +44,6 @@ describe('profanity reaching the TTS API', () => {
 
     describe.each([
         ['wtf', 'what the fuck', 'what the freak'],
-        ['lmao', 'laugh my ass off', 'laugh my butt off'],
         ['ffs', "for fuck's sake", "for freak's sake"],
         ['lfg', "let's fucking go", "let's freaking go"],
         ['stfu', 'shut the fuck up', 'shut the freak up'],
@@ -65,7 +64,7 @@ describe('profanity reaching the TTS API', () => {
 
     it('handles the acronym mid-sentence and at any casing', () => {
         expect(speak('WTF was that', { filter: true })).toBe('what the freak was that');
-        expect(speak('bruh LMAO', { filter: true })).toBe('bruh laugh my butt off');
+        expect(speak('bruh STFU', { filter: true })).toBe('bruh shut the freak up');
     });
 
     it('does not fire inside longer words', () => {
@@ -89,16 +88,23 @@ describe('profanity reaching the TTS API', () => {
     it('longest match wins between overlapping acronyms', () => {
         // "dpmo" must not be read as "d" + "pmo".
         expect(speak('dpmo', { filter: false })).toBe("don't piss me off");
-        // "roflmao" must not be read as "rofl" + "mao".
-        expect(speak('roflmao', { filter: false }))
-            .toBe('rolling on the floor laughing my ass off');
+    });
+
+    it('sends the laugh acronyms as typed', () => {
+        // lmao, lmfao, rofl and roflmao left the dictionary with the Gemini migration.
+        // Nothing here expands them, so the filter has nothing to clean: what is
+        // spoken for them is the model's choice.
+        for (const token of ['lmao', 'lmfao', 'rofl', 'roflmao']) {
+            expect(defaults.some(entry => entry.match === token)).toBe(false);
+            expect(speak(token, { filter: false })).toBe(token);
+            expect(speak(token, { filter: true })).toBe(token);
+        }
     });
 
     it('pins the acronyms the model was reading inconsistently', () => {
         // Each of these was observed being read differently between renders:
-        // lmao phonetically, omg as "oh em gee", ffs as "double F's".
+        // omg as "oh em gee", ffs as "double F's".
         expect(speak('omg', { filter: false })).toBe('oh my god');
-        expect(speak('lmao', { filter: false })).toBe('laugh my ass off');
         expect(speak('ffs', { filter: false })).toBe("for fuck's sake");
     });
 });
@@ -172,7 +178,6 @@ describe('non-English channels', () => {
         ['lfg', "let's freaking go"],
         ['wtf', 'what the freak'],
         ['stfu', 'shut the freak up'],
-        ['lmfao', 'laughing my freaking butt off'],
         ['omfg', 'oh my freaking god'],
     ])('cleans the English expansion of %s on a Spanish channel', (token, expected) => {
         const expanded = applyRewrites(token, pron());

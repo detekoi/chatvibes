@@ -15,7 +15,6 @@ function loadConfig() {
     const requiredEnvVars = [
         'TWITCH_BOT_USERNAME',
         'TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME',
-        'WAVESPEED_API_KEY',
     ];
 
     const missingEnvVars = requiredEnvVars.filter(key => !(key in process.env));
@@ -62,19 +61,18 @@ function loadConfig() {
             allowedBroadcasterIds,
         },
         tts: {
-            defaultVoiceId: process.env.TTS_DEFAULT_VOICE_ID || 'Friendly_Person',
+            // A Gemini voice ID from gemini-voices.json. A stored MiniMax ID still
+            // works: voiceResolver.js maps it.
+            defaultVoiceId: process.env.TTS_DEFAULT_VOICE_ID || 'puck',
             defaultEmotion: process.env.TTS_DEFAULT_EMOTION || 'neutral',
             defaultPitch: parseInt(process.env.TTS_DEFAULT_PITCH, 10) || 0,
             defaultSpeed: parseFloat(process.env.TTS_DEFAULT_SPEED) || 1.0,
-            wavespeedApiKey: process.env.WAVESPEED_API_KEY,
-            wavespeedEndpoint: process.env.WAVESPEED_API_ENDPOINT || 'https://api.wavespeed.ai/api/v3/minimax/speech-02-turbo',
-            defaultEnglishNormalization: false,
             defaultLanguageBoost: process.env.TTS_DEFAULT_LANGUAGE_BOOST || 'auto',
-            t302ApiKey: process.env.T302_API_KEY || process.env['302_KEY'], // Fallback for local dev if needed
-            t302Endpoint: process.env.T302_API_ENDPOINT || 'https://api.302.ai/minimaxi/v1/t2a_v2',
-            // Streamed synthesis is the default; set T302_STREAMING=false to go back to
-            // one whole-clip response per request (see attemptGeneration302).
-            t302Streaming: process.env.T302_STREAMING !== 'false',
+            geminiApiKey: process.env.GEMINI_API_KEY,
+            geminiEndpoint: process.env.GEMINI_TTS_ENDPOINT || 'https://generativelanguage.googleapis.com/v1beta/interactions',
+            geminiModel: process.env.GEMINI_TTS_MODEL || 'gemini-3.8-flash-lite-tts',
+            // Tried once after the main model failed twice. Set it to an empty string to turn it off.
+            geminiFallbackModel: process.env.GEMINI_TTS_FALLBACK_MODEL ?? 'gemini-3.8-flash-tts',
         },
         app: {
             logLevel: process.env.LOG_LEVEL || 'info',
@@ -105,12 +103,8 @@ function loadConfig() {
         },
     };
 
-    if (!config.tts.wavespeedApiKey && config.app.nodeEnv !== 'test') {
-        console.error('[ConfigLoader] WAVESPEED_API_KEY is not set. TTS functionality WILL FAIL.');
-        // Potentially throw new Error('Missing WAVESPEED_API_KEY.');
-    }
-    if (!config.tts.wavespeedEndpoint && config.app.nodeEnv !== 'test') {
-        console.warn('[ConfigLoader] WAVESPEED_API_ENDPOINT is not set. Using default endpoint.');
+    if (!config.tts.geminiApiKey && config.app.nodeEnv !== 'test') {
+        console.error('[ConfigLoader] GEMINI_API_KEY is not set. TTS functionality WILL FAIL.');
     }
     return config;
 }

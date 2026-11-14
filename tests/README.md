@@ -176,7 +176,7 @@ const mockDb = createMockFirestore();
 const channelDoc = mockDb.collection('ttsChannelConfigs').doc('testchannel');
 await channelDoc.set({
   engineEnabled: true,
-  voiceId: 'Friendly_Person'
+  voiceId: 'kore'
 });
 
 // Read data
@@ -228,7 +228,7 @@ start coverage/index.html  # Windows
 ```javascript
 test('should use channel default when viewer preferences disabled', async () => {
   const result = await enqueue(channel, message);
-  expect(result.voiceId).toBe('Friendly_Person');
+  expect(result.voiceId).toBe('kore');
 });
 ```
 

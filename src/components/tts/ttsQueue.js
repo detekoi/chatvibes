@@ -10,13 +10,17 @@ import {
     getGlobalUserPreferences,
     getChannelUserPreferences
 } from './ttsState.js';
-import { sendAudioToChannel, hasActiveClients, channelPrefersUrlAudio, openClipStream, STOP_CURRENT_AUDIO } from '../web/server.js';
+import { sendAudioToChannel, hasActiveClients, openClipStream, STOP_CURRENT_AUDIO } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
+import { stripDisabledSoundTags } from '../../lib/textRewrite/soundTags.js';
 import { resolveToChannelName, getChannelIdFromName, getChannelNameFromId } from '../../lib/allowList.js';
 import { snapshotTiming, elapsed } from '../../lib/ttsTiming.js';
 import { isGloballyOptedOut } from '../../lib/globalOptOut.js';
+import { resolveVoice } from './voiceResolver.js';
+import { buildStyle } from './styleBuilder.js';
+import { localeFromLanguageBoost } from '../../i18n/index.js';
 
 let db;
 const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
@@ -129,26 +133,39 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         ? eventData.textWithViewerMessage
         : text;
 
+    // The stored voice can still be a MiniMax ID (before the backfill). The per-voice
+    // volume map is keyed by whatever ID the dashboard wrote, so both spellings are tried.
+    const storedVoiceId = globalUserPrefs.voiceId || channelUserPrefs.voiceId || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId;
+    const resolvedVoice = resolveVoice(voiceOptions.voiceId || storedVoiceId);
+    const voiceVolumes = channelConfig.voiceVolumes || {};
+    // The manner that the voice mapping adds for a MiniMax voice. The backfill stores
+    // it beside the voice, so it is read from the document that supplied the voice.
+    // Before the backfill it comes from the map, through resolveVoice.
+    const voiceSource = voiceOptions.voiceId ? {}
+        : globalUserPrefs.voiceId ? globalUserPrefs
+            : channelUserPrefs.voiceId ? channelUserPrefs
+                : channelConfig;
+    const storedVoiceStyle = voiceSource.voiceStyle;
+
     const finalVoiceOptions = {
-        voiceId: globalUserPrefs.voiceId || channelUserPrefs.voiceId || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId,
         speed: (globalUserPrefs.speed ?? channelUserPrefs.speed) ?? channelConfig.speed ?? DEFAULT_TTS_SETTINGS.speed,
         pitch: (globalUserPrefs.pitch ?? channelUserPrefs.pitch) ?? channelConfig.pitch ?? DEFAULT_TTS_SETTINGS.pitch,
         emotion: globalUserPrefs.emotion || channelUserPrefs.emotion || channelConfig.emotion || DEFAULT_TTS_SETTINGS.emotion,
+        // A custom style replaces the emotion preset. A viewer who chose an emotion
+        // keeps it: the channel's custom style only applies to a viewer with neither.
+        style: globalUserPrefs.style || channelUserPrefs.style
+            || ((globalUserPrefs.emotion || channelUserPrefs.emotion) ? '' : channelConfig.style) || '',
+        voiceStyle: storedVoiceStyle ?? resolvedVoice.voiceStyle,
+        // The language that the voice brings (a Cantonese voice, a pt-BR voice). The
+        // backfill stores it as voiceLanguage when the new voice is a studio voice,
+        // which has no language of its own. An explicit languageBoost wins over it.
+        voiceLanguage: voiceSource.voiceLanguage || resolvedVoice.language || null,
         languageBoost: globalUserPrefs.languageBoost || channelUserPrefs.languageBoost || channelConfig.languageBoost || DEFAULT_TTS_SETTINGS.languageBoost,
-
-        volume: (channelConfig.voiceVolumes && channelConfig.voiceVolumes[globalUserPrefs.voiceId || channelUserPrefs.voiceId || channelConfig.voiceId || DEFAULT_TTS_SETTINGS.voiceId])
+        volume: voiceVolumes[resolvedVoice.voice] || voiceVolumes[storedVoiceId]
             || channelConfig.volume || DEFAULT_TTS_SETTINGS.volume,
-        englishNormalization: (globalUserPrefs.englishNormalization ?? channelUserPrefs.englishNormalization) ?? (channelConfig.englishNormalization !== undefined
-            ? channelConfig.englishNormalization
-            : DEFAULT_TTS_SETTINGS.englishNormalization),
-        sampleRate: channelConfig.sampleRate || DEFAULT_TTS_SETTINGS.sampleRate,
-        bitrate: channelConfig.bitrate || DEFAULT_TTS_SETTINGS.bitrate,
-        channel: channelConfig.channel || DEFAULT_TTS_SETTINGS.channel,
-        ...voiceOptions // Allow direct voiceOptions to override
+        ...voiceOptions, // Allow direct voiceOptions to override
+        voiceId: resolvedVoice.voice,
     };
-    if (voiceOptions.languageBoost) { // Ensure direct pass-through overrides if specified
-        finalVoiceOptions.languageBoost = voiceOptions.languageBoost;
-    }
 
     logger.debug(`[${channelName}] Final voice options for ${user || 'event'}: VoiceID='${finalVoiceOptions.voiceId}', Emotion='${finalVoiceOptions.emotion}', Speed=${finalVoiceOptions.speed}, Pitch=${finalVoiceOptions.pitch}, LanguageBoost='${finalVoiceOptions.languageBoost}'`);
 
@@ -157,7 +174,10 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     // for their own messages and that override is only resolved above. When the
     // viewer's language differs from the channel's, both lists apply — filtering
     // on the channel's alone would let a viewer speaking another one through.
-    let finalText = speechText;
+    // Sound tags the channel turned off come out first, so that the profanity
+    // filter sees the text as it will be spoken.
+    const taggedText = stripDisabledSoundTags(speechText, ttsStatus.disabledSoundTags);
+    let finalText = taggedText;
     if (ttsStatus.profanityFilterEnabled) {
         // English is always in the set, whatever the channel's language. The
         // pronunciation dictionary is English-only and runs for every channel,
@@ -169,11 +189,17 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
             'English',
         ]);
         if (rules) {
-            finalText = applyRewrites(speechText, rules);
-            if (finalText !== speechText) {
+            finalText = applyRewrites(taggedText, rules);
+            if (finalText !== taggedText) {
                 logger.debug(`[${channelName}] Profanity filter applied to message from ${user || 'event'}.`);
             }
         }
+    }
+
+    // A message that was only a disabled sound tag has nothing left to say.
+    if (!finalText || !finalText.trim()) {
+        logger.debug(`[${channelName}] Nothing left to speak for ${user || 'event'} after the text filters.`);
+        return;
     }
 
     // The timing record travels in the async context up to here and on the queue
@@ -184,6 +210,19 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     cq.queue.push({ type, text: finalText, user, userId, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${finalText.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
+}
+
+/**
+ * What generateSpeech needs from a queue item's settings. The settings are stored on
+ * the item in their own terms (emotion, speed, pitch), because an item can be persisted
+ * and adopted by another instance, and the style is built from them only here.
+ */
+function speechOptions(voiceConfig) {
+    return {
+        style: buildStyle(voiceConfig),
+        language: localeFromLanguageBoost(voiceConfig.languageBoost) ?? (voiceConfig.voiceLanguage || undefined),
+        volume: voiceConfig.volume,
+    };
 }
 
 /**
@@ -263,8 +302,7 @@ function startPrefetch(channelName) {
         if (event.timing) event.timing.prefetchStartMs = Date.now();
         event.clip = createClip();
         const promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
-            ...event.voiceConfig,
-            preferUrlOutput: channelPrefersUrlAudio(channelName),
+            ...speechOptions(event.voiceConfig),
             signal: controller.signal,
             onChunk: event.clip.push,
         }).then(audio => {
@@ -330,6 +368,12 @@ function logTiming(channelName, event, audio, wasPrefetched, chunked) {
         textLength: event.text.length,
         audioKind: audio.kind,
         audioBytes: audio.kind === 'buffer' ? audio.data.length : null,
+        provider: 'gemini',
+        model: audio.model ?? null,
+        usedFallbackModel: audio.usedFallbackModel ?? null,
+        // The provider bills by the length of the audio, so this is the cost figure
+        audioSeconds: audio.audioSeconds ?? null,
+        style: buildStyle(event.voiceConfig) || null,
         // Twitch -> our webhook (network + any Twitch-side delay)
         twitchToWebhookMs: elapsed(t, 'originMs', 'receivedMs'),
         // Firestore dedup claim before any handling starts
@@ -430,8 +474,7 @@ export async function processQueue(channelName) {
             cq.currentSpeechController = controller;
             event.clip = createClip();
             promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
-                ...event.voiceConfig,
-                preferUrlOutput: channelPrefersUrlAudio(channelName),
+                ...speechOptions(event.voiceConfig),
                 signal: controller.signal,
                 onChunk: event.clip.push,
             });
@@ -459,9 +502,8 @@ export async function processQueue(channelName) {
             // currentUserSpeaking is already set for this audio
 
             // A buffer is complete on the chunked players once end() lands, so they
-            // are excluded from the whole-buffer send below. A URL (the Wavespeed
-            // fallback) cannot have been streamed: the player drops whatever slices
-            // it saw and plays the URL like everyone else.
+            // are excluded from the whole-buffer send below, which carries the same
+            // audio as one WAV file to every other player.
             const streamedComplete = delivery && audio.kind === 'buffer';
             if (delivery) delivery.end({ discard: !streamedComplete });
             const sendWhole = target => {

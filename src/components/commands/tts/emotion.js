@@ -17,7 +17,12 @@ export default createTtsSettingCommand({
         return prefs.emotion;
     },
     resetSetting: async (context) => clearGlobalUserPreference(context.user['user-id'], 'emotion'),
-    setSetting: async (context, val) => setGlobalUserPreference(context.user['user-id'], 'emotion', val, context.user.username),
+    // A custom style replaces the emotion preset, so choosing an emotion removes the style.
+    setSetting: async (context, val) => {
+        const saved = await setGlobalUserPreference(context.user['user-id'], 'emotion', val, context.user.username);
+        if (saved) await clearGlobalUserPreference(context.user['user-id'], 'style');
+        return saved;
+    },
     validateFn: (val) => VALID_EMOTIONS.includes(val),
     hintKey: 'cmd.hint.emotions',
     hintParams: { list: VALID_EMOTIONS.join(', ') },

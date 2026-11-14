@@ -1,0 +1,5702 @@
+{
+  "Wise_Woman": {
+    "voice": "en-us-concierge-5",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-csagent-4",
+      "en-us-assistant-15"
+    ],
+    "reason": "Mature, calm, grounded US female voice with matching pitch and composed delivery."
+  },
+  "Friendly_Person": {
+    "voice": "en-us-assistant-2",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-tutor-3",
+      "en-us-csagent-12"
+    ],
+    "reason": "Warm, relaxed, friendly US male voice matching the approachable tone."
+  },
+  "Inspirational_girl": {
+    "voice": "en-us-enya",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pulcherrima",
+      "en-us-csagent-11"
+    ],
+    "reason": "Bright, youthful, energetic US female voice matching pitch and earnest upbeat delivery."
+  },
+  "Deep_Voice_Man": {
+    "voice": "en-us-storyteller-13",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "en-us-storyteller-14"
+    ],
+    "reason": "Deep, rich, resonant US male voice matching pitch and warm baritone texture."
+  },
+  "Calm_Woman": {
+    "voice": "en-us-concierge-6",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-tutor-13",
+      "sulafat"
+    ],
+    "reason": "Calm, warm, lower-pitched US female voice matching pitch and soothing delivery."
+  },
+  "Casual_Guy": {
+    "voice": "en-us-storyteller-13",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-cruz",
+      "en-us-csagent-12"
+    ],
+    "reason": "Chosen by the owner by ear on 2026-11-14."
+  },
+  "Lively_Girl": {
+    "voice": "pulcherrima",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-enya",
+      "autonoe"
+    ],
+    "reason": "Bright, perky, high-energy young US female voice matching the lively delivery."
+  },
+  "Patient_Man": {
+    "voice": "en-us-milo",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-podcaster-12",
+      "en-us-storyteller-13"
+    ],
+    "reason": "Warm, gentle, unhurried US male voice matching the patient delivery."
+  },
+  "Young_Knight": {
+    "voice": "en-us-training-7",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-lora",
+      "en-us-assistant-3"
+    ],
+    "reason": "Confident, earnest youthful voice matching the pitch and bright, determined delivery."
+  },
+  "Determined_Man": {
+    "voice": "en-us-techagent-4",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-tutor-16",
+      "en-us-assistant-2"
+    ],
+    "reason": "Firm, crisp, steady US male voice matching the determined tone."
+  },
+  "Lovely_Girl": {
+    "voice": "en-us-commercial-2",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pulcherrima",
+      "leda"
+    ],
+    "reason": "Sweet, bright, warm young US female voice matching pitch and lovely tone."
+  },
+  "Decent_Boy": {
+    "voice": "en-us-finn",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-commercial-9",
+      "en-us-podcaster-6"
+    ],
+    "reason": "Youthful, friendly, natural US male voice matching pitch and earnest delivery."
+  },
+  "Imposing_Manner": {
+    "voice": "en-us-csagent-14",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "en-us-advisor-11"
+    ],
+    "reason": "Crisp, poised, authoritative General American adult female matching pitch (195Hz) and firm delivery."
+  },
+  "Elegant_Man": {
+    "voice": "en-us-ludo",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-csagent-1",
+      "zubenelgenubi"
+    ],
+    "reason": "Smooth, polished, composed General American adult male matching pitch (~130-134Hz) and refined delivery."
+  },
+  "Abbess": {
+    "voice": "en-us-advisor-1",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-storyteller-11",
+      "en-us-assistant-11"
+    ],
+    "reason": "Calm, serene, mature older General American female matching low energy and composed tone."
+  },
+  "Sweet_Girl_2": {
+    "voice": "en-ca-csagent-5",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-enya",
+      "en-ca-training-7"
+    ],
+    "reason": "Closest high-pitched (356Hz vs 333Hz) bright, sweet female voice in North American English; source is child-like."
+  },
+  "Exuberant_Girl": {
+    "voice": "autonoe",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "leda",
+      "pulcherrima"
+    ],
+    "reason": "Bright, crisp, enthusiastic General American young adult female matching upbeat, high-energy delivery."
+  },
+  "English_expressive_narrator": {
+    "voice": "en-gb-advisor-10",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-storyteller-8",
+      "en-nz-training-2"
+    ],
+    "reason": "Only British English candidate in the top 5, preserving the en-GB accent and adult male pitch."
+  },
+  "English_radiant_girl": {
+    "voice": "en-us-lora",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-nika",
+      "en-us-assistant-3"
+    ],
+    "reason": "Bright, warm, radiant young US female voice matching pitch and cheerful energy."
+  },
+  "English_magnetic_voiced_man": {
+    "voice": "en-us-storyteller-8",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zubenelgenubi",
+      "en-us-csagent-1"
+    ],
+    "reason": "Smooth, rich, resonant General American male voice closely matching pitch and poised delivery."
+  },
+  "English_compelling_lady1": {
+    "voice": "en-gb-concierge-2",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-gb-storyteller-3",
+      "en-gb-podcaster-2"
+    ],
+    "reason": "Poised, articulate RP British adult female matching pitch (262Hz vs 276Hz) and refined delivery."
+  },
+  "English_Aussie_Bloke": {
+    "voice": "en-au-techagent-4",
+    "languageCode": "en-AU",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-au-csagent-1",
+      "en-au-podcaster-2"
+    ],
+    "reason": "Warm, relaxed Australian adult male voice with nearly identical pitch and natural delivery."
+  },
+  "English_captivating_female1": {
+    "voice": "en-us-commercial-7",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "callirrhoe",
+      "en-us-concierge-13"
+    ],
+    "reason": "Polished, engaging, slightly warm US female voice matching pitch and captivating tone."
+  },
+  "English_Upbeat_Woman": {
+    "voice": "autonoe",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-assistant-6",
+      "leda"
+    ],
+    "reason": "Bright, enthusiastic General American female voice matching the upbeat energy."
+  },
+  "English_Trustworth_Man": {
+    "voice": "en-us-csagent-12",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-cruz",
+      "algieba"
+    ],
+    "reason": "Deep, steady, reassuring US male voice matching the sincere, trustworthy delivery."
+  },
+  "English_CalmWoman": {
+    "voice": "en-us-assistant-8",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-assistant-11",
+      "en-us-advisor-10"
+    ],
+    "reason": "Smooth, calm, soothing US female voice matching the even, gentle delivery."
+  },
+  "English_UpsetGirl": {
+    "voice": "en-us-concierge-13",
+    "languageCode": "en-US",
+    "style": "upset, downcast manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "callirrhoe",
+      "en-us-assistant-3"
+    ],
+    "reason": "Soft young US female matching pitch, with style added for the upset, downcast delivery."
+  },
+  "English_Gentle-voiced_man": {
+    "voice": "en-us-varo",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "enceladus",
+      "zubenelgenubi"
+    ],
+    "reason": "Soft, gentle, calm US male voice matching the warmth and pitch closely."
+  },
+  "English_Whispering_girl": {
+    "voice": "en-us-assistant-1",
+    "languageCode": "en-US",
+    "style": "whispering, hushed",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "en-ca-commercial-2",
+      "en-gb-commercial-1"
+    ],
+    "reason": "Closest soft General American young adult female base voice; needs whispering style since no candidate whispers natively."
+  },
+  "English_Whispering_girl_v3": {
+    "voice": "en-us-assistant-1",
+    "languageCode": "en-US",
+    "style": "whispering, hushed",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "en-ca-commercial-2",
+      "en-gb-commercial-1"
+    ],
+    "reason": "Closest soft General American young adult female base voice; needs whispering style since no candidate whispers natively."
+  },
+  "English_Diligent_Man": {
+    "voice": "en-in-storyteller-4",
+    "languageCode": "en-IN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-in-csagent-1",
+      "en-in-concierge-9"
+    ],
+    "reason": "The owner heard a Indian English accent in the old voice on 2026-11-14. This voice is the closest Indian English male by age, pace and pitch in the profiles. Not yet checked by ear."
+  },
+  "English_Graceful_Lady": {
+    "voice": "en-gb-csagent-2",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-gb-podcaster-3",
+      "en-gb-advisor-4"
+    ],
+    "reason": "Calm, poised RP British adult female matching the exact pitch and refined low-energy tone."
+  },
+  "English_Husky_MetalHead": {
+    "voice": "en-us-advisor-8",
+    "languageCode": "en-US",
+    "style": "gravelly, husky, intense manner",
+    "needsStyleRender": true,
+    "confidence": "low",
+    "alternates": [
+      "en-us-training-2",
+      "en-us-storyteller-4"
+    ],
+    "reason": "Chosen by the owner by ear on 2026-11-14. No Gemini voice has the gravelly sound of the old one. The style tries to add it."
+  },
+  "English_ReservedYoungMan": {
+    "voice": "en-us-advisor-6",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-storyteller-14",
+      "en-us-daro"
+    ],
+    "reason": "Calm, understated US male voice matching the reserved, low-key delivery and pitch."
+  },
+  "English_PlayfulGirl": {
+    "voice": "en-us-training-4",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "leda",
+      "autonoe"
+    ],
+    "reason": "Fast-paced, bright, energetic young American female matching the quick playful delivery."
+  },
+  "English_ManWithDeepVoice": {
+    "voice": "algieba",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-cruz",
+      "en-us-csagent-12"
+    ],
+    "reason": "Deep, smooth, resonant US male voice matching the authoritative low register."
+  },
+  "English_GentleTeacher": {
+    "voice": "en-gb-assistant-11",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-gb-concierge-1",
+      "en-gb-podcaster-1"
+    ],
+    "reason": "The owner heard a British accent in the old voice on 2026-11-14. This voice is the closest British male by age, pace and pitch in the profiles. Not yet checked by ear."
+  },
+  "English_MaturePartner": {
+    "voice": "en-us-cruz",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "en-us-csagent-12"
+    ],
+    "reason": "Deep, calm, grounded US male voice matching the warm, reassuring low-energy delivery."
+  },
+  "English_FriendlyPerson": {
+    "voice": "en-us-cruz",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "en-us-csagent-12"
+    ],
+    "reason": "Deep, warm, approachable US male voice matching pitch and friendly steadiness."
+  },
+  "English_MatureBoss": {
+    "voice": "en-us-concierge-6",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-csagent-10",
+      "en-us-tutor-13"
+    ],
+    "reason": "Low-pitched, calm, authoritative General American adult female matching mature boss delivery."
+  },
+  "English_Debator": {
+    "voice": "en-us-tutor-3",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-techagent-9",
+      "algieba"
+    ],
+    "reason": "Articulate, assertive US male voice with identical pitch and measured debating cadence."
+  },
+  "whisper_man": {
+    "voice": "algieba",
+    "languageCode": "en-US",
+    "style": "whispering, hushed",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-cruz",
+      "en-us-csagent-12"
+    ],
+    "reason": "Closest deep (87Hz vs 91Hz), smooth, low-energy US male base voice; needs whispering style."
+  },
+  "English_Abbess": {
+    "voice": "en-us-advisor-1",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-concierge-11",
+      "en-us-assistant-11"
+    ],
+    "reason": "Calm, serene, mature older General American female matching gentle, composed delivery."
+  },
+  "English_LovelyGirl": {
+    "voice": "en-us-commercial-2",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-assistant-6",
+      "autonoe"
+    ],
+    "reason": "Bright, bubbly, high-pitched (254Hz vs 258Hz) youthful General American female."
+  },
+  "whisper_woman_1": {
+    "voice": "en-us-assistant-11",
+    "languageCode": "en-US",
+    "style": "whispering, hushed",
+    "needsStyleRender": true,
+    "confidence": "high",
+    "alternates": [
+      "en-gb-advisor-4",
+      "en-us-tutor-21"
+    ],
+    "reason": "Soft, slightly breathy US female base voice with whispering style for the hushed whisper."
+  },
+  "English_Steadymentor": {
+    "voice": "en-us-cruz",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-storyteller-13",
+      "algieba"
+    ],
+    "reason": "Deep, calm, steady US male voice matching the grounded mentor delivery."
+  },
+  "English_Deep-VoicedGentleman": {
+    "voice": "en-gb-assistant-11",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-gb-storyteller-4",
+      "en-gb-advisor-9"
+    ],
+    "reason": "Deep, rich, composed RP British male matching low pitch (97Hz vs 107Hz) and gentlemanly tone."
+  },
+  "English_DeterminedMan": {
+    "voice": "en-us-tutor-2",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-tutor-3",
+      "en-us-tutor-16"
+    ],
+    "reason": "Crisp, firm, direct General American adult male matching pitch (119Hz vs 114Hz) and resolute delivery."
+  },
+  "English_Wiselady": {
+    "voice": "en-gb-tutor-20",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-ca-storyteller-6",
+      "en-us-sami"
+    ],
+    "reason": "Poised, articulate British female voice with nearly identical pitch and wise delivery."
+  },
+  "English_CaptivatingStoryteller": {
+    "voice": "en-us-storyteller-13",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-podcaster-12",
+      "en-us-tutor-3"
+    ],
+    "reason": "Rich, warm US male storyteller voice matching the exact pitch and engaging cadence."
+  },
+  "English_AttractiveGirl": {
+    "voice": "sulafat",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "achernar",
+      "en-us-tutor-10"
+    ],
+    "reason": "Smooth, warm, relaxed General American female matching pitch (176Hz vs 182Hz) and pleasant tone."
+  },
+  "English_DecentYoungMan": {
+    "voice": "en-us-finn",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-commercial-9",
+      "en-us-commercial-6"
+    ],
+    "reason": "Friendly, clear, natural General American young adult male matching pitch (138Hz vs 140Hz)."
+  },
+  "English_SentimentalLady": {
+    "voice": "en-us-assistant-11",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-assistant-8",
+      "en-us-assistant-4"
+    ],
+    "reason": "Soft, gentle, slightly breathy US female voice matching the tender sentimental tone."
+  },
+  "English_ImposingManner": {
+    "voice": "en-us-csagent-14",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "en-us-advisor-11"
+    ],
+    "reason": "Crisp, poised, commanding General American adult female matching pitch (195Hz vs 198Hz)."
+  },
+  "English_SadTeen": {
+    "voice": "en-us-elio",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "enceladus",
+      "en-us-storyteller-5"
+    ],
+    "reason": "Soft, subdued, slightly breathy youthful General American male closest to low-energy teen delivery."
+  },
+  "English_ThoughtfulMan": {
+    "voice": "en-us-varo",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "enceladus",
+      "zubenelgenubi"
+    ],
+    "reason": "Soft, calm, thoughtful US male voice matching pitch and gentle reflective tone."
+  },
+  "English_PassionateWarrior": {
+    "voice": "en-us-concierge-1",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-commercial-4",
+      "zubenelgenubi"
+    ],
+    "reason": "Direct, earnest US male voice with matching pitch and firm delivery."
+  },
+  "English_DecentBoy": {
+    "voice": "en-gb-assistant-2",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-gb-csagent-13",
+      "en-gb-storyteller-1"
+    ],
+    "reason": "The owner heard a British accent in the old voice on 2026-11-14. This voice is the closest British male by age, pace and pitch in the profiles. Not yet checked by ear."
+  },
+  "English_WiseScholar": {
+    "voice": "en-us-csagent-15",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-storyteller-9",
+      "en-ca-concierge-7"
+    ],
+    "reason": "Mature, measured US male voice capturing the older scholarly gravitas."
+  },
+  "English_Soft-spokenGirl": {
+    "voice": "en-us-tavi",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-csagent-5",
+      "en-gb-commercial-6"
+    ],
+    "reason": "Soft, sweet, high-pitched young US female voice matching the delicate delivery."
+  },
+  "English_SereneWoman": {
+    "voice": "en-us-techagent-2",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-concierge-7",
+      "kore"
+    ],
+    "reason": "Calm, gentle, soft-spoken General American female matching serene low-energy delivery."
+  },
+  "English_ConfidentWoman": {
+    "voice": "gacrux",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-commercial-18",
+      "en-us-assistant-12"
+    ],
+    "reason": "Polished, authoritative, confident General American adult female matching poised delivery."
+  },
+  "English_PatientMan": {
+    "voice": "en-us-advisor-6",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-milo",
+      "en-us-podcaster-12"
+    ],
+    "reason": "Calm, warm, patient General American adult male matching pitch (119Hz vs 115Hz) and low energy."
+  },
+  "English_Comedian": {
+    "voice": "en-us-commercial-4",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "zubenelgenubi",
+      "en-us-concierge-1"
+    ],
+    "reason": "Upbeat, expressive US male voice matching pitch and lively comedic energy."
+  },
+  "English_GorgeousLady": {
+    "voice": "despina",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-fola",
+      "en-us-assistant-7"
+    ],
+    "reason": "Warm, smooth, poised General American adult female matching pitch (235Hz vs 225Hz)."
+  },
+  "English_BossyLeader": {
+    "voice": "en-us-tutor-3",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-commercial-12",
+      "en-us-csagent-12"
+    ],
+    "reason": "Deep, firm, commanding General American adult male matching pitch (105Hz vs 108Hz) and bossy authority."
+  },
+  "English_LovelyLady": {
+    "voice": "en-us-assistant-4",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-jori",
+      "en-us-advisor-10"
+    ],
+    "reason": "Warm, smooth, gentle General American adult female matching exact pitch (198Hz vs 200Hz)."
+  },
+  "English_Strong-WilledBoy": {
+    "voice": "en-us-commercial-12",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-training-6",
+      "en-us-daro"
+    ],
+    "reason": "Confident, firm medium-low US male voice matching the determined tone and pitch."
+  },
+  "English_Deep-tonedMan": {
+    "voice": "en-us-storyteller-13",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-podcaster-12",
+      "en-us-techagent-9"
+    ],
+    "reason": "Deep, resonant US male voice matching the low pitch and steady richness."
+  },
+  "English_StressedLady": {
+    "voice": "erinome",
+    "languageCode": "en-US",
+    "style": "tense, hurried manner",
+    "needsStyleRender": true,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "en-us-advisor-11"
+    ],
+    "reason": "Chosen by the owner by ear on 2026-11-14."
+  },
+  "English_AssertiveQueen": {
+    "voice": "en-us-commercial-14",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "despina",
+      "en-us-commercial-16"
+    ],
+    "reason": "Crisp, direct, assertive General American adult female matching pitch (235Hz vs 246Hz) and commanding tone."
+  },
+  "English_AnimeCharacter": {
+    "voice": "en-us-training-4",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "leda",
+      "autonoe"
+    ],
+    "reason": "Bright, fast-paced, energetic young adult General American female closest to perky anime-like delivery."
+  },
+  "English_Jovialman": {
+    "voice": "en-us-assistant-2",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-tutor-3",
+      "algieba"
+    ],
+    "reason": "Warm, friendly, relaxed US male voice matching the jovial approachable tone."
+  },
+  "English_WhimsicalGirl": {
+    "voice": "en-us-concierge-13",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-nika",
+      "en-us-commercial-7"
+    ],
+    "reason": "Light, gentle, slightly airy young adult General American female matching whimsical tone."
+  },
+  "English_CharmingQueen": {
+    "voice": "despina",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-concierge-9",
+      "en-us-fola"
+    ],
+    "reason": "Smooth, bright, poised US female voice matching the charming, confident tone."
+  },
+  "English_Kind-heartedGirl": {
+    "voice": "en-us-tavi",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-csagent-11",
+      "en-us-enya"
+    ],
+    "reason": "Sweet, gentle, bright young adult General American female matching exact 271Hz pitch."
+  },
+  "English_FriendlyNeighbor": {
+    "voice": "en-us-fola",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "despina",
+      "en-us-assistant-7"
+    ],
+    "reason": "Warm, friendly, approachable General American adult female matching pitch (235Hz vs 232Hz)."
+  },
+  "English_Sweet_Female_4": {
+    "voice": "en-us-assistant-3",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-nika",
+      "callirrhoe"
+    ],
+    "reason": "Warm, sweet, friendly young adult General American female matching pitch (205Hz vs 208Hz)."
+  },
+  "English_Magnetic_Male_2": {
+    "voice": "en-gb-tutor-2",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-gb-advisor-3",
+      "en-gb-training-10"
+    ],
+    "reason": "Clear, confident, engaging RP British adult male matching pitch (167Hz vs 165Hz)."
+  },
+  "English_Lively_Male_11": {
+    "voice": "en-us-concierge-4",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-tutor-20",
+      "en-us-csagent-9"
+    ],
+    "reason": "Bright, energetic, upbeat General American male matching exact 155Hz pitch and announcer energy."
+  },
+  "English_Friendly_Female_3": {
+    "voice": "en-us-jori",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "en-us-assistant-4"
+    ],
+    "reason": "Warm, friendly, clear General American adult female matching exact 188Hz pitch."
+  },
+  "English_Steady_Female_1": {
+    "voice": "en-us-commercial-16",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "despina",
+      "en-us-assistant-7"
+    ],
+    "reason": "Steady, warm, grounded General American adult female matching pitch (225Hz vs 229Hz)."
+  },
+  "English_Lively_Male_10": {
+    "voice": "en-us-csagent-9",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-milo",
+      "en-us-assistant-2"
+    ],
+    "reason": "Crisp, energetic General American male matching lively upbeat delivery (slightly higher pitch at 140Hz vs 119Hz)."
+  },
+  "English_Magnetic_Male_12": {
+    "voice": "en-us-assistant-2",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-ludo",
+      "en-us-csagent-1"
+    ],
+    "reason": "Smooth, warm, relaxed US male voice matching the rich magnetic texture and pitch."
+  },
+  "English_Steady_Female_5": {
+    "voice": "en-gb-advisor-1",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-gb-assistant-12",
+      "en-gb-concierge-4"
+    ],
+    "reason": "Clear, steady, poised RP British adult female matching composed delivery."
+  },
+  "English_Insightful_Speaker": {
+    "voice": "en-us-tutor-16",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-tutor-2",
+      "en-us-assistant-2"
+    ],
+    "reason": "Clear, articulate, thoughtful US male voice matching pitch and insightful cadence."
+  },
+  "English_patient_man_v1": {
+    "voice": "en-us-advisor-6",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-storyteller-14",
+      "en-us-milo"
+    ],
+    "reason": "Calm, warm, steady General American adult male matching exact 119Hz pitch and patient tone."
+  },
+  "English_Persuasive_Man": {
+    "voice": "en-us-csagent-9",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-mako",
+      "algenib"
+    ],
+    "reason": "Energetic, crisp, persuasive General American adult male matching pitch (140Hz vs 138Hz)."
+  },
+  "English_Explanatory_Man": {
+    "voice": "en-us-csagent-12",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "en-us-storyteller-13"
+    ],
+    "reason": "Deep, steady, clear General American male matching pitch (89Hz vs 92Hz) and explanatory delivery."
+  },
+  "English_intellect_female_1": {
+    "voice": "en-us-csagent-14",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-advisor-10",
+      "gacrux"
+    ],
+    "reason": "Clear, articulate, poised US female voice matching pitch and intellectual delivery."
+  },
+  "English_energetic_male_1": {
+    "voice": "en-us-commercial-12",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-commercial-8",
+      "en-us-daro"
+    ],
+    "reason": "Confident, punchy, energetic US male voice matching the upbeat delivery."
+  },
+  "English_witty_female_1": {
+    "voice": "en-us-commercial-7",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-nika",
+      "en-us-csagent-11"
+    ],
+    "reason": "Bright, crisp, expressive General American young adult female matching witty inflection and pitch (225Hz vs 235Hz)."
+  },
+  "English_Lucky_Robot": {
+    "voice": "en-us-csagent-12",
+    "languageCode": "en-US",
+    "style": "robotic, deadpan manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-cruz",
+      "algieba"
+    ],
+    "reason": "Closest deep (89Hz vs 91Hz), flat-toned US male base voice; needs robotic deadpan manner since no candidate has vocoder effect."
+  },
+  "English_Cute_Girl": {
+    "voice": "en-us-podcaster-8",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-nika",
+      "erinome"
+    ],
+    "reason": "Bright, cheerful, youthful General American female matching exact 225Hz pitch."
+  },
+  "English_Sharp_Commentator": {
+    "voice": "en-us-assistant-13",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "autonoe",
+      "en-us-advisor-11"
+    ],
+    "reason": "Crisp, sharp, energetic General American adult female matching commentator delivery."
+  },
+  "English_Honest_Man": {
+    "voice": "en-gb-advisor-8",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-gb-assistant-4",
+      "en-gb-concierge-3"
+    ],
+    "reason": "Articulate, steady RP British male voice matching pitch and sincere tone."
+  },
+  "angry_pirate_1": {
+    "voice": "fenrir",
+    "languageCode": "en-US",
+    "style": "gruff, angry pirate manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "alnilam",
+      "charon"
+    ],
+    "reason": "Energetic, intense US male base voice with style added for the gruff pirate character."
+  },
+  "massive_kind_troll": {
+    "voice": "en-us-cruz",
+    "languageCode": "en-US",
+    "style": "slow, booming, gentle manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-storyteller-13",
+      "en-us-podcaster-12"
+    ],
+    "reason": "Deep, warm US male base voice with style added for the slow, booming troll character."
+  },
+  "movie_trailer_deep": {
+    "voice": "en-us-commercial-13",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "en-us-cruz"
+    ],
+    "reason": "Ultra-deep (81Hz vs 90Hz), dramatic, resonant General American male matching movie trailer narrator."
+  },
+  "peace_and_ease": {
+    "voice": "en-us-assistant-11",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-assistant-8",
+      "en-us-tutor-21"
+    ],
+    "reason": "Slow, very calm, soothing General American adult female matching exact 195Hz pitch and relaxed energy."
+  },
+  "moss_audio_6dc281eb-713c-11f0-a447-9613c873494c": {
+    "voice": "en-us-advisor-10",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "en-us-assistant-12"
+    ],
+    "reason": "Calm, steady, clear US female voice matching pitch and composed delivery."
+  },
+  "moss_audio_c12a59b9-7115-11f0-a447-9613c873494c": {
+    "voice": "en-us-training-7",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-nika",
+      "en-us-lora"
+    ],
+    "reason": "Clear, bright, natural General American young adult female matching pitch (222Hz vs 232Hz)."
+  },
+  "moss_audio_076697ad-7144-11f0-a447-9613c873494c": {
+    "voice": "en-us-training-2",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-assistant-2",
+      "en-us-ludo"
+    ],
+    "reason": "Chosen by the owner by ear on 2026-11-14."
+  },
+  "moss_audio_737a299c-734a-11f0-918f-4e0486034804": {
+    "voice": "en-us-tutor-19",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-storyteller-8",
+      "en-us-tutor-16"
+    ],
+    "reason": "Clean, articulate, measured US male voice matching the clear public-radio cadence."
+  },
+  "moss_audio_19dbb103-7350-11f0-ad20-f2bc95e89150": {
+    "voice": "despina",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-commercial-14",
+      "en-us-advisor-11"
+    ],
+    "reason": "Clear, poised, warm General American adult female matching pitch (235Hz vs 225Hz)."
+  },
+  "moss_audio_7c7e7ae2-7356-11f0-9540-7ef9b4b62566": {
+    "voice": "zephyr",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "laomedeia",
+      "en-us-assistant-3"
+    ],
+    "reason": "Bright, brisk, energetic General American young adult female matching medium-high energy."
+  },
+  "moss_audio_570551b1-735c-11f0-b236-0adeeecad052": {
+    "voice": "en-us-csagent-1",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-ludo",
+      "zubenelgenubi"
+    ],
+    "reason": "Smooth, warm, steady General American adult male matching pitch (132Hz vs 126Hz)."
+  },
+  "moss_audio_ad5baf92-735f-11f0-8263-fe5a2fe98ec8": {
+    "voice": "en-us-tova",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "en-us-assistant-12"
+    ],
+    "reason": "Calm, deliberate, rich General American adult female matching low-medium energy."
+  },
+  "moss_audio_cedfd4d2-736d-11f0-99be-fe40dd2a5fe8": {
+    "voice": "en-us-commercial-9",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-finn",
+      "en-us-commercial-6"
+    ],
+    "reason": "Clear, steady, natural General American young adult male matching exact pitch (136Hz vs 138Hz)."
+  },
+  "moss_audio_a0d611da-737c-11f0-ad20-f2bc95e89150": {
+    "voice": "en-us-ludo",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-storyteller-10",
+      "zubenelgenubi"
+    ],
+    "reason": "Crisp, confident, steady US male voice matching pitch and clear delivery."
+  },
+  "moss_audio_4f4172f4-737b-11f0-9540-7ef9b4b62566": {
+    "voice": "zubenelgenubi",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-ludo",
+      "en-us-csagent-1"
+    ],
+    "reason": "Smooth, casual, laid-back General American adult male matching pitch (138Hz vs 130Hz)."
+  },
+  "moss_audio_62ca20b0-7380-11f0-99be-fe40dd2a5fe8": {
+    "voice": "en-us-tutor-10",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-tutor-11",
+      "en-us-commercial-10"
+    ],
+    "reason": "Smooth, warm, natural General American young adult female matching conversational delivery."
+  },
+  "conversational_female_1_v1": {
+    "voice": "callirrhoe",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-lora",
+      "en-us-nika"
+    ],
+    "reason": "Natural, casual, conversational General American young adult female matching exact 213Hz pitch."
+  },
+  "conversational_female_2_v1": {
+    "voice": "en-us-nika",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "callirrhoe",
+      "en-us-commercial-7"
+    ],
+    "reason": "Bright, friendly, conversational General American young adult female matching pitch (222Hz vs 232Hz)."
+  },
+  "socialmedia_female_1_v1": {
+    "voice": "laomedeia",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "leda",
+      "en-us-csagent-2"
+    ],
+    "reason": "Upbeat, lively, bright General American young adult female matching social-media influencer energy."
+  },
+  "BritishChild_male_1_v1": {
+    "voice": "en-gb-assistant-10",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "low",
+    "alternates": [
+      "en-gb-csagent-12",
+      "en-gb-training-3"
+    ],
+    "reason": "Closest high-pitched (291Hz) British voice in candidate set; candidates are adult females as no British boy voice is available."
+  },
+  "BritishChild_female_1_v1": {
+    "voice": "en-gb-assistant-12",
+    "languageCode": "en-GB",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "en-gb-commercial-5",
+      "en-gb-concierge-6"
+    ],
+    "reason": "Bright, youthful British female matching pitch (239Hz vs 242Hz) and clear tone."
+  },
+  "Chinese (Mandarin)_Reliable_Executive": {
+    "voice": "algieba",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "charon",
+      "zubenelgenubi"
+    ],
+    "reason": "Deep, smooth, authoritative adult male matching algieba's low pitch and polished executive tone."
+  },
+  "Chinese (Mandarin)_News_Anchor": {
+    "voice": "gacrux",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "erinome",
+      "sulafat"
+    ],
+    "reason": "Polished, authoritative adult female news anchor matching gacrux's pitch and studio broadcast poise."
+  },
+  "Chinese (Mandarin)_Unrestrained_Young_Man": {
+    "voice": "algieba",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algenib",
+      "zubenelgenubi"
+    ],
+    "reason": "Very deep, laid-back young male voice matching algieba's low fundamental pitch and relaxed resonance."
+  },
+  "Chinese (Mandarin)_Mature_Woman": {
+    "voice": "despina",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "vindemiatrix",
+      "erinome"
+    ],
+    "reason": "Poised, smooth, gentle mature female matching despina's pitch and calm warmth."
+  },
+  "Arrogant_Miss": {
+    "voice": "en-us-csagent-6",
+    "languageCode": "en-US",
+    "style": "haughty, dismissive manner",
+    "needsStyleRender": true,
+    "confidence": "high",
+    "alternates": [
+      "kore",
+      "pulcherrima"
+    ],
+    "reason": "Chosen by the owner by ear on 2026-11-14."
+  },
+  "Chinese (Mandarin)_Kind-hearted_Antie": {
+    "voice": "despina",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "callirrhoe",
+      "gacrux"
+    ],
+    "reason": "Kind, warm adult female voice matching despina's approachable warmth and medium pitch."
+  },
+  "Robot_Armor": {
+    "voice": "en-us-tutor-3",
+    "languageCode": "en-US",
+    "style": "robotic, steady manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "en-us-commercial-12",
+      "en-us-tutor-2"
+    ],
+    "reason": "Closest deep (105Hz vs 111Hz), firm US male base voice; needs robotic steady manner since no candidate has metallic effect."
+  },
+  "hunyin_6": {
+    "voice": "en-us-tutor-16",
+    "languageCode": "en-US",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "en-us-daro",
+      "en-us-assistant-2"
+    ],
+    "reason": "Smooth, deep, calm General American adult male matching steady natural delivery."
+  },
+  "Chinese (Mandarin)_HK_Flight_Attendant": {
+    "voice": "gacrux",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "achernar"
+    ],
+    "reason": "Polite, composed, medium-low female (HK-accented sample) matching gacrux's smooth announcement poise."
+  },
+  "Chinese (Mandarin)_Humorous_Elder": {
+    "voice": "algenib",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "zubenelgenubi"
+    ],
+    "reason": "Older, expressive, slightly gravelly male matching algenib's textured, characterful low-mid tone."
+  },
+  "Chinese (Mandarin)_Gentleman": {
+    "voice": "algieba",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zubenelgenubi",
+      "schedar"
+    ],
+    "reason": "Refined, smooth, moderately deep male matching algieba's composed and resonant delivery."
+  },
+  "Chinese (Mandarin)_Warm_Bestie": {
+    "voice": "autonoe",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "despina",
+      "zh-cn-techagent-1"
+    ],
+    "reason": "Bright, warm, friendly young adult female matching autonoe's youthful energy and pitch."
+  },
+  "Chinese (Mandarin)_Stubborn_Friend": {
+    "voice": "algenib",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zubenelgenubi",
+      "schedar"
+    ],
+    "reason": "Direct, firm adult male with a slight gruff edge that aligns well with algenib's grounded, textured delivery."
+  },
+  "Chinese (Mandarin)_Sweet_Lady": {
+    "voice": "pulcherrima",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "leda",
+      "autonoe"
+    ],
+    "reason": "Sweet, high-pitched, gentle young female matching pulcherrima's high register and expressive brightness."
+  },
+  "Chinese (Mandarin)_Southern_Young_Man": {
+    "voice": "zubenelgenubi",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "schedar"
+    ],
+    "reason": "Relaxed, smooth, moderately deep young male matching zubenelgenubi's casual conversational tone."
+  },
+  "Chinese (Mandarin)_Wise_Women": {
+    "voice": "gacrux",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "despina"
+    ],
+    "reason": "Calm, composed, thoughtful adult female matching gacrux's steady, authoritative pitch and clarity."
+  },
+  "Chinese (Mandarin)_Gentle_Youth": {
+    "voice": "achird",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zh-cn-concierge-1",
+      "schedar"
+    ],
+    "reason": "Gentle, clear, medium-high young adult male matching achird's friendly pitch and soft delivery."
+  },
+  "Chinese (Mandarin)_Warm_Girl": {
+    "voice": "despina",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "callirrhoe",
+      "autonoe"
+    ],
+    "reason": "Warm, gentle young female matching despina's pitch and smooth, inviting warmth."
+  },
+  "Chinese (Mandarin)_Male_Announcer": {
+    "voice": "algieba",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algenib",
+      "zubenelgenubi"
+    ],
+    "reason": "Clear, smooth, resonant male announcer matching algieba's polished broadcast quality."
+  },
+  "Chinese (Mandarin)_Kind-hearted_Elder": {
+    "voice": "sulafat",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "achernar",
+      "gacrux"
+    ],
+    "reason": "Gentle, warm older female; sulafat is the closest warm, comforting plain voice at a matching pitch."
+  },
+  "Chinese (Mandarin)_Cute_Spirit": {
+    "voice": "pulcherrima",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "kore",
+      "autonoe"
+    ],
+    "reason": "Very high-pitched, cute anime-like sprite voice; pulcherrima is the highest, brightest expressive candidate."
+  },
+  "Chinese (Mandarin)_Radio_Host": {
+    "voice": "zubenelgenubi",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "algenib"
+    ],
+    "reason": "Smooth, conversational male radio host matching zubenelgenubi's pitch and engaging delivery."
+  },
+  "Chinese (Mandarin)_Lyrical_Voice": {
+    "voice": "algieba",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "charon",
+      "enceladus"
+    ],
+    "reason": "Deep, resonant, poetic male narrator matching algieba's low pitch and smooth richness."
+  },
+  "Chinese (Mandarin)_Straightforward_Boy": {
+    "voice": "iapetus",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "achird",
+      "rasalgethi"
+    ],
+    "reason": "Bright, crisp, direct young male matching iapetus's higher pitch and clear, straightforward energy."
+  },
+  "Chinese (Mandarin)_Sincere_Adult": {
+    "voice": "zubenelgenubi",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "zh-cn-concierge-1"
+    ],
+    "reason": "Steady, genuine adult male matching zubenelgenubi's pitch and natural, grounded delivery."
+  },
+  "Chinese (Mandarin)_Gentle_Senior": {
+    "voice": "leda",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pulcherrima",
+      "despina"
+    ],
+    "reason": "Gentle, sweet, high-pitched young adult female matching leda's clear, youthful warmth."
+  },
+  "Chinese (Mandarin)_Crisp_Girl": {
+    "voice": "autonoe",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "erinome",
+      "zh-cn-techagent-1"
+    ],
+    "reason": "Crisp, bright, energetic young female matching autonoe's lively pitch and clarity."
+  },
+  "Chinese (Mandarin)_Pure-hearted_Boy": {
+    "voice": "achird",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "puck",
+      "zh-cn-concierge-1"
+    ],
+    "reason": "Bright, earnest young male matching achird's friendly, youthful tone and pitch."
+  },
+  "Chinese (Mandarin)_Soft_Girl": {
+    "voice": "pulcherrima",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "vindemiatrix",
+      "achernar"
+    ],
+    "reason": "Soft, high-pitched young female; pulcherrima matches the high register and gentle sweetness."
+  },
+  "Chinese (Mandarin)_IntellectualGirl": {
+    "voice": "erinome",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "despina"
+    ],
+    "reason": "Calm, articulate, composed adult female matching erinome's precise and clear delivery."
+  },
+  "Chinese (Mandarin)_Warm_HeartedGirl": {
+    "voice": "leda",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pulcherrima",
+      "autonoe"
+    ],
+    "reason": "Warm, bright, friendly young female matching leda's youthful pitch and cheerful warmth."
+  },
+  "Chinese (Mandarin)_Laid_BackGirl": {
+    "voice": "vindemiatrix",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "callirrhoe",
+      "achernar"
+    ],
+    "reason": "Relaxed, mild, easy-going young female matching vindemiatrix's gentle, calming delivery."
+  },
+  "Chinese (Mandarin)_ExplorativeGirl": {
+    "voice": "pulcherrima",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "kore",
+      "autonoe"
+    ],
+    "reason": "Very high-pitched, curious, child-like girl; pulcherrima is the closest high, expressive match."
+  },
+  "Chinese (Mandarin)_Warm-HeartedAunt": {
+    "voice": "despina",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "callirrhoe"
+    ],
+    "reason": "Warm, approachable adult female matching despina's smooth, mellow, friendly pitch and tone."
+  },
+  "Chinese (Mandarin)_BashfulGirl": {
+    "voice": "pulcherrima",
+    "languageCode": "cmn-CN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "vindemiatrix",
+      "achernar"
+    ],
+    "reason": "High-pitched, soft, shy young female; pulcherrima matches the high pitch and delicate quality."
+  },
+  "Arabic_CalmWoman": {
+    "voice": "ar-001-tutor-1",
+    "languageCode": "ar-001",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ar-eg-advisor-9",
+      "ar-001-assistant-4"
+    ],
+    "reason": "Closest match in pitch, smooth warm texture, calm low-medium energy, and Modern Standard Arabic adult female profile."
+  },
+  "Arabic_FriendlyGuy": {
+    "voice": "ar-001-tutor-2",
+    "languageCode": "ar-001",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ar-001-csagent-4",
+      "ar-001-advisor-3"
+    ],
+    "reason": "Matches the warm, smooth, medium-low baritone register and friendly Modern Standard Arabic adult male delivery."
+  },
+  "Cantonese_ProfessionalHost（F)": {
+    "voice": "gacrux",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "erinome",
+      "despina"
+    ],
+    "reason": "Polished, articulate Cantonese female host matching gacrux's pitch and professional broadcast clarity."
+  },
+  "Cantonese_ProfessionalHost (F)": {
+    "voice": "gacrux",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "low",
+    "alternates": [
+      "erinome",
+      "despina"
+    ],
+    "reason": "Sample file could not be read (file does not exist); matched via identical profile to Cantonese_ProfessionalHost（F)."
+  },
+  "Cantonese_GentleLady": {
+    "voice": "achernar",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "aoede"
+    ],
+    "reason": "Soft, gentle, medium-low Cantonese female matching achernar's smooth, soft-spoken poise."
+  },
+  "Cantonese_ProfessionalHost（M)": {
+    "voice": "algieba",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zubenelgenubi",
+      "algenib"
+    ],
+    "reason": "Polished, resonant Cantonese male host matching algieba's deep, professional announcer tone."
+  },
+  "Cantonese_ProfessionalHost (M)": {
+    "voice": "algieba",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "low",
+    "alternates": [
+      "zubenelgenubi",
+      "algenib"
+    ],
+    "reason": "Sample file could not be read (file does not exist); matched via identical profile to Cantonese_ProfessionalHost（M)."
+  },
+  "Cantonese_PlayfulMan": {
+    "voice": "zubenelgenubi",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "algenib"
+    ],
+    "reason": "Relaxed, playful, conversational Cantonese male matching zubenelgenubi's casual ease."
+  },
+  "Cantonese_CuteGirl": {
+    "voice": "leda",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pulcherrima",
+      "autonoe"
+    ],
+    "reason": "Bright, cute, youthful Cantonese female matching leda's pitch and cheerful clarity."
+  },
+  "Cantonese_KindWoman": {
+    "voice": "sulafat",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "despina",
+      "achernar"
+    ],
+    "reason": "Warm, kind, comforting Cantonese adult female matching sulafat's exact pitch and warmth."
+  },
+  "Cantonese_Narrator": {
+    "voice": "algieba",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "charon",
+      "algenib"
+    ],
+    "reason": "Deep, steady, resonant Cantonese male narrator matching algieba's low pitch and narrator polish."
+  },
+  "Cantonese_WiselProfessor": {
+    "voice": "algieba",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algenib",
+      "schedar"
+    ],
+    "reason": "Deep, calm, scholarly older Cantonese male matching algieba's measured, authoritative tone."
+  },
+  "Cantonese_IndifferentStaff": {
+    "voice": "schedar",
+    "languageCode": "yue-HK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zubenelgenubi",
+      "enceladus"
+    ],
+    "reason": "Flat, matter-of-fact Cantonese male matching schedar's even, neutral delivery."
+  },
+  "Dutch_kindhearted_girl": {
+    "voice": "nl-nl-storyteller-1",
+    "languageCode": "nl-NL",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "nl-nl-tutor-5",
+      "nl-nl-advisor-1"
+    ],
+    "reason": "Chosen by the owner by ear on 2026-11-14."
+  },
+  "Dutch_bossy_leader": {
+    "voice": "nl-nl-training-2",
+    "languageCode": "nl-NL",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "nl-nl-techagent-6",
+      "nl-nl-advisor-2"
+    ],
+    "reason": "Deep, slightly gravelly Dutch male voice matching the stern, commanding timbre."
+  },
+  "French_Male_Speech_New": {
+    "voice": "fr-fr-assistant-7",
+    "languageCode": "fr-FR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "fr-fr-advisor-2",
+      "fr-fr-advisor-4"
+    ],
+    "reason": "Clean, steady, neutral French adult male voice matching pitch and clear delivery."
+  },
+  "French_Female_News Anchor": {
+    "voice": "fr-fr-advisor-1",
+    "languageCode": "fr-FR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "fr-fr-assistant-5",
+      "fr-fr-advisor-5"
+    ],
+    "reason": "Polished, crisp, professional French adult female voice with news-anchor poise."
+  },
+  "French_CasualMan": {
+    "voice": "fr-fr-advisor-2",
+    "languageCode": "fr-FR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "fr-fr-assistant-7",
+      "fr-fr-advisor-4"
+    ],
+    "reason": "Smooth, warm, relaxed Parisian French adult male voice closely matching pitch and casual delivery."
+  },
+  "French_MovieLeadFemale": {
+    "voice": "fr-fr-assistant-8",
+    "languageCode": "fr-FR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "fr-fr-advisor-9",
+      "fr-fr-tutor-12"
+    ],
+    "reason": "Poised, articulate, expressive French female voice matching the engaging lead quality."
+  },
+  "French_FemaleAnchor": {
+    "voice": "fr-fr-tutor-11",
+    "languageCode": "fr-FR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "fr-fr-tutor-4",
+      "fr-fr-assistant-5"
+    ],
+    "reason": "Warm, poised, lower-pitched French adult female voice closest to the anchor's deep register."
+  },
+  "French_MaleNarrator": {
+    "voice": "fr-fr-tutor-10",
+    "languageCode": "fr-FR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "fr-fr-advisor-2",
+      "fr-fr-assistant-7"
+    ],
+    "reason": "Deep, resonant, confident French adult male voice with strong narrator gravitas."
+  },
+  "French_Female Journalist": {
+    "voice": "fr-fr-advisor-7",
+    "languageCode": "fr-FR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "fr-fr-assistant-12",
+      "fr-fr-concierge-1"
+    ],
+    "reason": "Brisk, crisp, confident French female voice with medium-fast journalistic pacing."
+  },
+  "French_Female_Speech_New": {
+    "voice": "fr-fr-podcaster-3",
+    "languageCode": "fr-FR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "fr-fr-tutor-5",
+      "fr-fr-tutor-12"
+    ],
+    "reason": "Bright, clear, pleasant French female voice with very close pitch and natural pacing."
+  },
+  "German_FriendlyMan": {
+    "voice": "de-de-concierge-5",
+    "languageCode": "de-DE",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "de-de-techagent-7",
+      "de-de-assistant-3"
+    ],
+    "reason": "Deep, smooth, warm German adult male voice matching pitch and approachable tone."
+  },
+  "German_SweetLady": {
+    "voice": "de-de-storyteller-1",
+    "languageCode": "de-DE",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "de-de-assistant-12",
+      "de-de-advisor-1"
+    ],
+    "reason": "Sweet, bright, clear young adult German female voice with very close pitch and gentle warmth."
+  },
+  "German_PlayfulMan": {
+    "voice": "de-de-tutor-11",
+    "languageCode": "de-DE",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "de-de-csagent-11",
+      "de-de-concierge-10"
+    ],
+    "reason": "Crisp, energetic, lively German male voice with an exact pitch match and upbeat delivery."
+  },
+  "Indonesian_SweetGirl": {
+    "voice": "leda",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "callirrhoe",
+      "despina"
+    ],
+    "reason": "No Indonesian female in top 5; Leda best matches the bright, sweet, youthful female pitch and texture."
+  },
+  "Indonesian_ReservedYoungMan": {
+    "voice": "id-id-podcaster-3",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "id-id-assistant-1",
+      "algieba"
+    ],
+    "reason": "Low-pitched, calm, reserved male voice with native Indonesian accent matching the source pitch and demeanor."
+  },
+  "Indonesian_CharmingGirl": {
+    "voice": "id-id-tutor-1",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "id-id-storyteller-1",
+      "sulafat"
+    ],
+    "reason": "Warm, smooth female voice with Indonesian accent and nearly identical medium-low pitch."
+  },
+  "Indonesian_CalmWoman": {
+    "voice": "id-id-tutor-1",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "id-id-storyteller-1",
+      "vindemiatrix"
+    ],
+    "reason": "Calm, poised, warm adult female voice with Indonesian accent matching the steady delivery."
+  },
+  "Indonesian_ConfidentWoman": {
+    "voice": "erinome",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "gacrux",
+      "id-id-storyteller-1"
+    ],
+    "reason": "Crisp, articulate, confident adult female voice matching pitch and medium energy better than softer id-ID candidates."
+  },
+  "Indonesian_CaringMan": {
+    "voice": "id-id-assistant-1",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "id-id-podcaster-1",
+      "id-id-podcaster-3"
+    ],
+    "reason": "Warm, smooth adult male voice with native Indonesian accent and matching medium-low pitch."
+  },
+  "Indonesian_BossyLeader": {
+    "voice": "id-id-podcaster-3",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "algenib",
+      "algieba"
+    ],
+    "reason": "Deep male voice with native Indonesian accent matching the low pitch; Algenib is an alternative for gravelly authority."
+  },
+  "Indonesian_DeterminedBoy": {
+    "voice": "algenib",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "id-id-podcaster-3",
+      "algieba"
+    ],
+    "reason": "Deep, gravelly, determined male delivery closely matches the source texture and intensity."
+  },
+  "Indonesian_GentleGirl": {
+    "voice": "id-id-storyteller-1",
+    "languageCode": "id-ID",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "achernar",
+      "vindemiatrix"
+    ],
+    "reason": "Soft, gentle, slightly breathy young female voice with Indonesian accent matching the tender delivery."
+  },
+  "Italian_BraveHeroine": {
+    "voice": "it-it-assistant-8",
+    "languageCode": "it-IT",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "it-it-csagent-6",
+      "it-it-advisor-3"
+    ],
+    "reason": "Confident, composed, determined Italian adult female voice matching the heroine's strong presence."
+  },
+  "Italian_Narrator": {
+    "voice": "it-it-storyteller-1",
+    "languageCode": "it-IT",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "it-it-techagent-6",
+      "it-it-storyteller-5"
+    ],
+    "reason": "Deep, rich, calm Italian male narrator voice with matching low register and storytelling presence."
+  },
+  "Italian_WanderingSorcerer": {
+    "voice": "it-it-storyteller-4",
+    "languageCode": "it-IT",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "it-it-csagent-8",
+      "it-it-tutor-4"
+    ],
+    "reason": "Measured, theatrical Italian male narrator in a mid-high register fitting the expressive sorcerer character."
+  },
+  "Italian_DiligentLeader": {
+    "voice": "it-it-csagent-1",
+    "languageCode": "it-IT",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "it-it-assistant-1",
+      "it-it-csagent-6"
+    ],
+    "reason": "Crisp, clear, composed Italian adult female voice with an exact pitch match and steady authority."
+  },
+  "Italian_ReliableMan": {
+    "voice": "it-it-training-2",
+    "languageCode": "it-IT",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "it-it-assistant-7",
+      "it-it-storyteller-6"
+    ],
+    "reason": "Warm, grounded, steady Italian adult male voice matching pitch and trustworthy tone."
+  },
+  "Italian_AthleticStudent": {
+    "voice": "it-it-training-8",
+    "languageCode": "it-IT",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "it-it-techagent-3",
+      "it-it-assistant-7"
+    ],
+    "reason": "Upbeat, confident, clear young adult Italian male voice with an exact pitch match."
+  },
+  "Italian_ArrogantPrincess": {
+    "voice": "it-it-tutor-7",
+    "languageCode": "it-IT",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "it-it-techagent-4",
+      "it-it-advisor-1"
+    ],
+    "reason": "Bright, confident, poised young adult Italian female voice with matching pitch and assertive tone."
+  },
+  "Japanese_Whisper_Belle": {
+    "voice": "ja-jp-commercial-1",
+    "languageCode": "ja-JP",
+    "style": "whispering, hushed",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "ja-jp-commercial-7",
+      "ja-jp-concierge-1"
+    ],
+    "reason": "Soft, breathy, unhurried young female voice matching the gentle ASMR timbre and pitch; needs whispering style since no candidate is whispered natively."
+  },
+  "Japanese_IntellectualSenior": {
+    "voice": "ja-jp-podcaster-11",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "ja-jp-podcaster-5",
+      "ja-jp-csagent-1"
+    ],
+    "reason": "Measured, dignified adult male voice with warm depth and steady cadence close to the senior's pitch, though less gravelly than MiniMax."
+  },
+  "Japanese_DecisivePrincess": {
+    "voice": "ja-jp-training-6",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-assistant-4",
+      "ja-jp-advisor-5"
+    ],
+    "reason": "Poised, crisp, confident young female voice at virtually the same pitch (219 Hz vs 222 Hz) with clear articulation."
+  },
+  "Japanese_LoyalKnight": {
+    "voice": "ja-jp-assistant-2",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-tutor-2",
+      "ja-jp-concierge-12"
+    ],
+    "reason": "Firm, earnest, confident adult male voice matching the exact pitch (133 Hz) and steady noble delivery."
+  },
+  "Japanese_DominantMan": {
+    "voice": "ja-jp-concierge-4",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-storyteller-4",
+      "ja-jp-assistant-3"
+    ],
+    "reason": "Deep, gravelly, commanding adult male voice at matching pitch (110 Hz vs 113 Hz) with strong low-end resonance."
+  },
+  "Japanese_SeriousCommander": {
+    "voice": "ja-jp-podcaster-11",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-podcaster-5",
+      "ja-jp-csagent-1"
+    ],
+    "reason": "Direct, firm, authoritative adult male voice with disciplined delivery and close pitch (154 Hz vs 163 Hz)."
+  },
+  "Japanese_ColdQueen": {
+    "voice": "ja-jp-concierge-1",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-advisor-12",
+      "ja-jp-concierge-7"
+    ],
+    "reason": "Low-energy, composed, cool adult female voice matching the exact pitch (213 Hz) and aloof poise."
+  },
+  "Japanese_DependableWoman": {
+    "voice": "ja-jp-advisor-12",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-advisor-4",
+      "ja-jp-podcaster-3"
+    ],
+    "reason": "Natural, calm, steady adult female voice at matching pitch (211 Hz vs 213 Hz) with warm, reliable delivery."
+  },
+  "Japanese_GentleButler": {
+    "voice": "ja-jp-assistant-3",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-advisor-3",
+      "ja-jp-assistant-11"
+    ],
+    "reason": "Smooth, calm, polite deep male voice at matching pitch (111 Hz vs 113 Hz) with gentle, refined cadence."
+  },
+  "Japanese_KindLady": {
+    "voice": "ja-jp-storyteller-11",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-tutor-1",
+      "ja-jp-podcaster-6"
+    ],
+    "reason": "Sweet, warm, expressive higher-pitched female voice closely matching the pitch (276 Hz vs 286 Hz) and gentle tone."
+  },
+  "Japanese_CalmLady": {
+    "voice": "ja-jp-concierge-1",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-storyteller-8",
+      "ja-jp-advisor-12"
+    ],
+    "reason": "Soft, serene, low-energy adult female voice close in pitch (213 Hz vs 203 Hz) with smooth, measured delivery."
+  },
+  "Japanese_OptimisticYouth": {
+    "voice": "ja-jp-assistant-12",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-csagent-10",
+      "ja-jp-assistant-10"
+    ],
+    "reason": "Upbeat, eager, high-energy bright male voice with fast pace and close pitch (148 Hz vs 139 Hz)."
+  },
+  "Japanese_GenerousIzakayaOwner": {
+    "voice": "ja-jp-techagent-2",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "ja-jp-csagent-7",
+      "ja-jp-csagent-1"
+    ],
+    "reason": "Resonant, warm, slightly theatrical male voice at matching pitch (180 Hz vs 176 Hz) and unhurried welcoming pace, though smoother than MiniMax."
+  },
+  "Japanese_SportyStudent": {
+    "voice": "ja-jp-assistant-12",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-podcaster-8",
+      "ja-jp-techagent-10"
+    ],
+    "reason": "Crisp, energetic, fast-paced bright male voice matching the pitch (148 Hz vs 152 Hz) and lively athletic energy."
+  },
+  "Japanese_InnocentBoy": {
+    "voice": "ja-jp-podcaster-8",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "ja-jp-techagent-10",
+      "ja-jp-storyteller-2"
+    ],
+    "reason": "Youthful, bright, earnest male voice with a boyish timbre and close pitch (158 Hz vs 145 Hz), though slightly older than the MiniMax child voice."
+  },
+  "Japanese_GracefulMaiden": {
+    "voice": "ja-jp-podcaster-2",
+    "languageCode": "ja-JP",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ja-jp-advisor-5",
+      "ja-jp-commercial-6"
+    ],
+    "reason": "Smooth, clear, refined young female voice at close pitch (246 Hz vs 254 Hz) with gentle, poised delivery."
+  },
+  "Korean_PowerfulGirl": {
+    "voice": "ko-kr-training-7",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-training-6",
+      "ko-kr-concierge-8"
+    ],
+    "reason": "Bright, crisp, high-pitched young Korean female voice matching the punchy energy and pitch."
+  },
+  "Korean_BossyMan": {
+    "voice": "ko-kr-concierge-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-training-7",
+      "ko-kr-concierge-4"
+    ],
+    "reason": "MiniMax sample is a bright, high-pitched, sassy young female voice; ko-kr-concierge-8 matches the rising inflection and youthful tone."
+  },
+  "Korean_SweetGirl": {
+    "voice": "ko-kr-commercial-9",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-6",
+      "ko-kr-csagent-9"
+    ],
+    "reason": "Soft, gentle, sweet young Korean female voice matching the pitch and warm texture."
+  },
+  "Korean_CheerfulBoyfriend": {
+    "voice": "ko-kr-commercial-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-1",
+      "ko-kr-commercial-2"
+    ],
+    "reason": "Warm, upbeat, friendly young Korean male voice matching the cheerful energy."
+  },
+  "Korean_EnchantingSister": {
+    "voice": "ko-kr-storyteller-11",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-storyteller-4",
+      "ko-kr-commercial-9"
+    ],
+    "reason": "Smooth, warm, slightly breathy young adult Korean female voice matching the alluring sister tone."
+  },
+  "Korean_ShyGirl": {
+    "voice": "ko-kr-storyteller-11",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-12",
+      "ko-kr-podcaster-6"
+    ],
+    "reason": "Soft, quiet, gentle young Korean female voice matching the shy delivery."
+  },
+  "Korean_ReliableSister": {
+    "voice": "ko-kr-advisor-4",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-concierge-1",
+      "ko-kr-techagent-10"
+    ],
+    "reason": "Calm, steady, mature adult Korean female voice matching the reliable sister persona."
+  },
+  "Korean_StrictBoss": {
+    "voice": "ko-kr-assistant-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-storyteller-10",
+      "ko-kr-csagent-4"
+    ],
+    "reason": "Deep, firm, authoritative adult Korean male voice matching the strict boss delivery."
+  },
+  "Korean_SassyGirl": {
+    "voice": "ko-kr-concierge-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-training-7",
+      "ko-kr-concierge-4"
+    ],
+    "reason": "Bright, expressive young Korean female voice with lively rising inflection matching the sassy tone."
+  },
+  "Korean_ChildhoodFriendGirl": {
+    "voice": "ko-kr-commercial-12",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-9",
+      "ko-kr-commercial-6"
+    ],
+    "reason": "Friendly, relaxed, natural young Korean female voice matching the approachable friend vibe."
+  },
+  "Korean_PlayboyCharmer": {
+    "voice": "ko-kr-commercial-4",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-1",
+      "ko-kr-assistant-4"
+    ],
+    "reason": "Smooth, confident young adult Korean male voice matching the charming delivery."
+  },
+  "Korean_ElegantPrincess": {
+    "voice": "ko-kr-advisor-9",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-6",
+      "ko-kr-csagent-9"
+    ],
+    "reason": "Clear, poised, refined young adult Korean female voice matching the elegant princess tone."
+  },
+  "Korean_BraveFemaleWarrior": {
+    "voice": "ko-kr-csagent-7",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-7",
+      "ko-kr-advisor-4"
+    ],
+    "reason": "Strong, expressive, energetic adult Korean female voice matching the determined warrior delivery."
+  },
+  "Korean_BraveYouth": {
+    "voice": "ko-kr-commercial-4",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-5",
+      "ko-kr-assistant-4"
+    ],
+    "reason": "Confident, energetic young adult Korean male voice matching the brave youth tone."
+  },
+  "Korean_CalmLady": {
+    "voice": "ko-kr-advisor-2",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-csagent-1",
+      "ko-kr-csagent-5"
+    ],
+    "reason": "Clear, calm, composed adult Korean female voice matching the calm lady delivery."
+  },
+  "Korean_EnthusiasticTeen": {
+    "voice": "ko-kr-commercial-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-concierge-6",
+      "ko-kr-tutor-4"
+    ],
+    "reason": "Upbeat, bright, energetic young Korean male voice matching the enthusiastic teen delivery."
+  },
+  "Korean_SoothingLady": {
+    "voice": "ko-kr-storyteller-7",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-storyteller-11",
+      "ko-kr-storyteller-9"
+    ],
+    "reason": "Soft, gentle, soothing adult Korean female voice matching the relaxed storyteller warmth."
+  },
+  "Korean_IntellectualSenior": {
+    "voice": "ko-kr-podcaster-3",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-training-12",
+      "ko-kr-assistant-12"
+    ],
+    "reason": "Warm, steady, mature Korean male voice matching the measured intellectual senior tone."
+  },
+  "Korean_LonelyWarrior": {
+    "voice": "ko-kr-podcaster-9",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-8",
+      "ko-kr-storyteller-10"
+    ],
+    "reason": "Deep, stoic, low-energy adult Korean male voice matching the brooding warrior delivery."
+  },
+  "Korean_MatureLady": {
+    "voice": "ko-kr-commercial-11",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-4",
+      "ko-kr-commercial-1"
+    ],
+    "reason": "Warm, poised, mature adult Korean female voice matching the refined delivery."
+  },
+  "Korean_InnocentBoy": {
+    "voice": "ko-kr-podcaster-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-1",
+      "ko-kr-assistant-4"
+    ],
+    "reason": "Light, clear, youthful Korean male voice matching the innocent boy tone."
+  },
+  "Korean_CharmingSister": {
+    "voice": "ko-kr-storyteller-2",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-storyteller-4",
+      "ko-kr-advisor-6"
+    ],
+    "reason": "Warm, expressive, smooth young adult Korean female voice matching the charming sister persona."
+  },
+  "Korean_AthleticStudent": {
+    "voice": "ko-kr-storyteller-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-tutor-6",
+      "ko-kr-commercial-4"
+    ],
+    "reason": "Crisp, upbeat, youthful Korean male voice matching the energetic athletic student delivery."
+  },
+  "Korean_BraveAdventurer": {
+    "voice": "ko-kr-advisor-7",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-9",
+      "ko-kr-commercial-6"
+    ],
+    "reason": "Clear, confident, bright young Korean female voice matching the adventurous delivery."
+  },
+  "Korean_CalmGentleman": {
+    "voice": "ko-kr-csagent-11",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-3",
+      "ko-kr-storyteller-10"
+    ],
+    "reason": "Smooth, calm, composed adult Korean male voice matching the gentlemanly tone."
+  },
+  "Korean_WiseElf": {
+    "voice": "ko-kr-csagent-1",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-4",
+      "ko-kr-commercial-11"
+    ],
+    "reason": "Calm, poised, clear adult Korean female voice matching the serene wise elf delivery."
+  },
+  "Korean_CheerfulCoolJunior": {
+    "voice": "ko-kr-commercial-4",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-5",
+      "ko-kr-assistant-4"
+    ],
+    "reason": "Smooth, upbeat, confident young Korean male voice matching the cheerful cool junior persona."
+  },
+  "Korean_DecisiveQueen": {
+    "voice": "ko-kr-podcaster-1",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-7",
+      "ko-kr-advisor-4"
+    ],
+    "reason": "Crisp, decisive, authoritative adult Korean female voice matching the queenly delivery."
+  },
+  "Korean_ColdYoungMan": {
+    "voice": "ko-kr-storyteller-3",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-2",
+      "ko-kr-assistant-1"
+    ],
+    "reason": "Cool, smooth, composed young adult Korean male voice matching the detached delivery."
+  },
+  "Korean_MysteriousGirl": {
+    "voice": "ko-kr-storyteller-11",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-12",
+      "ko-kr-concierge-4"
+    ],
+    "reason": "Soft, slightly breathy, calm young Korean female voice matching the mysterious delivery."
+  },
+  "Korean_QuirkyGirl": {
+    "voice": "ko-kr-concierge-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-training-6",
+      "ko-kr-training-7"
+    ],
+    "reason": "Bright, playful young Korean female voice with lively inflection matching the quirky tone."
+  },
+  "Korean_ConsiderateSenior": {
+    "voice": "ko-kr-csagent-12",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-concierge-7",
+      "ko-kr-commercial-7"
+    ],
+    "reason": "Deep, gentle, slow-paced older Korean male voice matching the warm senior tone."
+  },
+  "Korean_CheerfulLittleSister": {
+    "voice": "ko-kr-csagent-3",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-training-7",
+      "ko-kr-training-6"
+    ],
+    "reason": "High, bright, expressive young Korean female voice matching the bubbly little sister energy."
+  },
+  "Korean_DominantMan": {
+    "voice": "ko-kr-assistant-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-csagent-4",
+      "ko-kr-storyteller-10"
+    ],
+    "reason": "Deep, commanding, firm adult Korean male voice matching the dominant delivery."
+  },
+  "Korean_AirheadedGirl": {
+    "voice": "ko-kr-concierge-4",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-12",
+      "ko-kr-podcaster-6"
+    ],
+    "reason": "Light, bright, airy young Korean female voice matching the breezy delivery."
+  },
+  "Korean_ReliableYouth": {
+    "voice": "ko-kr-advisor-5",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-1",
+      "ko-kr-storyteller-3"
+    ],
+    "reason": "Steady, clear, trustworthy young adult Korean male voice matching the reliable youth tone."
+  },
+  "Korean_FriendlyBigSister": {
+    "voice": "ko-kr-training-9",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-7",
+      "ko-kr-advisor-2"
+    ],
+    "reason": "Warm, gentle, approachable adult Korean female voice matching the friendly big sister persona."
+  },
+  "Korean_GentleBoss": {
+    "voice": "ko-kr-techagent-3",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-csagent-11",
+      "ko-kr-advisor-3"
+    ],
+    "reason": "Deep, calm, steady mature Korean male voice matching the gentle boss delivery."
+  },
+  "Korean_ColdGirl": {
+    "voice": "ko-kr-commercial-12",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-podcaster-6",
+      "ko-kr-storyteller-11"
+    ],
+    "reason": "Calm, relaxed, cool-toned young Korean female voice matching the understated cold girl delivery."
+  },
+  "Korean_HaughtyLady": {
+    "voice": "ko-kr-advisor-7",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-4",
+      "ko-kr-commercial-1"
+    ],
+    "reason": "Crisp, confident, poised adult Korean female voice matching the haughty lady tone."
+  },
+  "Korean_CharmingElderSister": {
+    "voice": "ko-kr-podcaster-5",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-podcaster-7",
+      "ko-kr-techagent-10"
+    ],
+    "reason": "Warm, smooth, expressive adult Korean female voice matching the charming elder sister delivery."
+  },
+  "Korean_IntellectualMan": {
+    "voice": "ko-kr-advisor-3",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-5",
+      "ko-kr-csagent-11"
+    ],
+    "reason": "Articulate, calm, measured adult Korean male voice matching the intellectual tone."
+  },
+  "Korean_CaringWoman": {
+    "voice": "ko-kr-commercial-11",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-techagent-10",
+      "ko-kr-advisor-4"
+    ],
+    "reason": "Warm, gentle, reassuring adult Korean female voice matching the caring woman delivery."
+  },
+  "Korean_WiseTeacher": {
+    "voice": "ko-kr-storyteller-1",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-podcaster-3",
+      "ko-kr-tutor-1"
+    ],
+    "reason": "Warm, steady, authoritative yet approachable mature Korean male voice matching the wise teacher persona."
+  },
+  "Korean_ConfidentBoss": {
+    "voice": "ko-kr-assistant-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-techagent-3",
+      "ko-kr-csagent-11"
+    ],
+    "reason": "Deep, firm, confident adult Korean male voice matching the assured boss delivery."
+  },
+  "Korean_AthleticGirl": {
+    "voice": "ko-kr-csagent-7",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-training-6",
+      "ko-kr-concierge-8"
+    ],
+    "reason": "Energetic, upbeat, bright young Korean female voice matching the athletic girl delivery."
+  },
+  "Korean_PossessiveMan": {
+    "voice": "ko-kr-storyteller-10",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-8",
+      "ko-kr-techagent-11"
+    ],
+    "reason": "Deep, intense, firm adult Korean male voice matching the brooding possessive man tone."
+  },
+  "Korean_GentleWoman": {
+    "voice": "ko-kr-techagent-7",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-advisor-4",
+      "ko-kr-commercial-11"
+    ],
+    "reason": "Soft, gentle, clear adult Korean female voice matching the gentle woman delivery."
+  },
+  "Korean_CockyGuy": {
+    "voice": "ko-kr-concierge-6",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-commercial-8",
+      "ko-kr-tutor-4"
+    ],
+    "reason": "Crisp, brisk, confident young Korean male voice matching the cocky guy delivery."
+  },
+  "Korean_ThoughtfulWoman": {
+    "voice": "ko-kr-advisor-4",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-csagent-3",
+      "ko-kr-podcaster-1"
+    ],
+    "reason": "Calm, poised, reflective adult Korean female voice matching the thoughtful woman tone."
+  },
+  "Korean_OptimisticYouth": {
+    "voice": "ko-kr-storyteller-8",
+    "languageCode": "ko-KR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ko-kr-assistant-1",
+      "ko-kr-tutor-6"
+    ],
+    "reason": "Upbeat, bright, friendly young Korean male voice matching the optimistic youth delivery."
+  },
+  "Portuguese_AnxiousMan": {
+    "voice": "pt-br-advisor-6",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-4",
+      "pt-br-concierge-2"
+    ],
+    "reason": "Exact pitch match with crisp, eager, slightly hurried adult male delivery."
+  },
+  "Portuguese_Matureresearcher": {
+    "voice": "pt-br-concierge-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-3",
+      "pt-br-techagent-7"
+    ],
+    "reason": "Very deep, steady, slow, gravelly older male voice fitting a mature researcher."
+  },
+  "Portuguese_Optimisticyouth": {
+    "voice": "pt-br-training-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-concierge-4",
+      "pt-br-csagent-7"
+    ],
+    "reason": "Bright, fast-paced, energetic young female-leaning voice matching the cheerful youthful delivery."
+  },
+  "Portuguese_CuteElf": {
+    "voice": "pt-br-assistant-5",
+    "languageCode": "pt-BR",
+    "style": "playful, sprightly manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-commercial-3",
+      "pt-br-podcaster-6"
+    ],
+    "reason": "Highest-pitched bright young female candidate; needs playful, sprightly manner to match the cute elf character."
+  },
+  "Portuguese_EnergeticGirl": {
+    "voice": "pt-br-training-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-csagent-8",
+      "pt-br-concierge-4"
+    ],
+    "reason": "Fast-paced, bright, high-energy young female voice."
+  },
+  "Portuguese_FunnyGuy": {
+    "voice": "pt-br-commercial-6",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-techagent-4",
+      "pt-br-csagent-2"
+    ],
+    "reason": "Upbeat, expressive male voice with animated delivery."
+  },
+  "Portuguese_Nuttylady": {
+    "voice": "pt-br-assistant-12",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-assistant-1",
+      "pt-br-concierge-1"
+    ],
+    "reason": "Energetic, expressive adult female voice with lively pitch inflection."
+  },
+  "Portuguese_Deep-tonedMan": {
+    "voice": "pt-br-storyteller-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-training-6",
+      "pt-br-tutor-3"
+    ],
+    "reason": "Deep, smooth, resonant adult male voice matching pitch and calm delivery."
+  },
+  "Portuguese_SentimentalLady": {
+    "voice": "pt-br-csagent-12",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-csagent-9",
+      "pt-br-tutor-4"
+    ],
+    "reason": "Soft, gentle, soothing adult female voice matching the warm sentimental tone."
+  },
+  "Portuguese_BossyLeader": {
+    "voice": "pt-br-storyteller-5",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-csagent-10",
+      "pt-br-assistant-11"
+    ],
+    "reason": "Deep, steady, authoritative adult male voice."
+  },
+  "Portuguese_Wiselady": {
+    "voice": "pt-br-tutor-5",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-storyteller-1",
+      "pt-br-storyteller-3"
+    ],
+    "reason": "Calm, measured, mature female voice matching the wise, composed tone."
+  },
+  "Portuguese_Strong-WilledBoy": {
+    "voice": "pt-br-csagent-10",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-storyteller-11",
+      "pt-br-tutor-3"
+    ],
+    "reason": "Crisp, assertive Brazilian Portuguese male voice (avoiding pt-pt-podcaster-2 due to European accent)."
+  },
+  "Portuguese_Deep-VoicedGentleman": {
+    "voice": "pt-br-assistant-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-storyteller-11",
+      "pt-br-tutor-3"
+    ],
+    "reason": "Deep, velvety, unhurried adult male voice with refined gentlemanly warmth."
+  },
+  "Portuguese_UpsetGirl": {
+    "voice": "pt-br-commercial-2",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-csagent-8",
+      "pt-br-concierge-4"
+    ],
+    "reason": "Clear, expressive young female voice with a slightly tense edge."
+  },
+  "Portuguese_PassionateWarrior": {
+    "voice": "pt-br-advisor-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-advisor-6",
+      "pt-br-advisor-4"
+    ],
+    "reason": "Firm, strong, clear adult male voice matching the passionate intensity."
+  },
+  "Portuguese_AnimeCharacter": {
+    "voice": "pt-br-advisor-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-commercial-2",
+      "pt-br-csagent-7"
+    ],
+    "reason": "Bright, eager, expressive young female voice with lively anime-like inflection."
+  },
+  "Portuguese_ConfidentWoman": {
+    "voice": "pt-br-advisor-3",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-1",
+      "pt-br-assistant-10"
+    ],
+    "reason": "Confident, poised, clear adult female voice."
+  },
+  "Portuguese_AngryMan": {
+    "voice": "pt-br-storyteller-8",
+    "languageCode": "pt-BR",
+    "style": "angry, intense manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-podcaster-1",
+      "pt-br-advisor-11"
+    ],
+    "reason": "Firm, gruff adult male base voice; needs angry, intense style cue to match the aggressive delivery."
+  },
+  "Portuguese_CaptivatingStoryteller": {
+    "voice": "pt-br-storyteller-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-storyteller-5",
+      "pt-br-tutor-3"
+    ],
+    "reason": "Deep, calm, clear adult male narrator voice."
+  },
+  "Portuguese_Godfather": {
+    "voice": "pt-br-concierge-3",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-storyteller-10",
+      "pt-br-podcaster-9"
+    ],
+    "reason": "Deep, gravelly, measured older male voice with Godfather-like gravitas."
+  },
+  "Portuguese_ReservedYoungMan": {
+    "voice": "pt-br-storyteller-6",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-commercial-4",
+      "pt-br-commercial-1"
+    ],
+    "reason": "Laid-back, soft-spoken young adult male voice matching the reserved delivery."
+  },
+  "Portuguese_SmartYoungGirl": {
+    "voice": "pt-br-training-12",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-assistant-5",
+      "pt-br-podcaster-6"
+    ],
+    "reason": "Clear, articulate, bright young female voice."
+  },
+  "Portuguese_Kind-heartedGirl": {
+    "voice": "pt-br-commercial-3",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-11",
+      "pt-br-assistant-5"
+    ],
+    "reason": "Light, gentle, soft-spoken young female voice."
+  },
+  "Portuguese_Pompouslady": {
+    "voice": "pt-br-tutor-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-podcaster-12",
+      "pt-br-csagent-5"
+    ],
+    "reason": "Expressive, slightly theatrical adult female voice matching the pompous inflection."
+  },
+  "Portuguese_Grinch": {
+    "voice": "pt-br-podcaster-1",
+    "languageCode": "pt-BR",
+    "style": "raspy, sneering manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-tutor-7",
+      "pt-br-storyteller-4"
+    ],
+    "reason": "Energetic, slightly raspy male base voice; needs raspy, sneering style cue for the Grinch character."
+  },
+  "Portuguese_Debator": {
+    "voice": "pt-br-training-9",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-csagent-10",
+      "pt-br-storyteller-5"
+    ],
+    "reason": "Clear, energetic, articulate adult male voice suited for debating."
+  },
+  "Portuguese_SweetGirl": {
+    "voice": "pt-br-podcaster-2",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-11",
+      "pt-br-podcaster-4"
+    ],
+    "reason": "Warm, soft, sweet young female voice."
+  },
+  "Portuguese_AttractiveGirl": {
+    "voice": "pt-br-advisor-1",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-storyteller-3",
+      "pt-br-advisor-3"
+    ],
+    "reason": "Warm, smooth, confident adult female voice."
+  },
+  "Portuguese_ThoughtfulMan": {
+    "voice": "pt-br-storyteller-2",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-10",
+      "pt-br-advisor-2"
+    ],
+    "reason": "Warm, calm, engaging adult male voice with thoughtful pacing."
+  },
+  "Portuguese_PlayfulGirl": {
+    "voice": "pt-br-csagent-8",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-training-7",
+      "pt-br-assistant-5"
+    ],
+    "reason": "Energetic, expressive, bubbly young female voice."
+  },
+  "Portuguese_GorgeousLady": {
+    "voice": "pt-br-concierge-5",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-1",
+      "pt-br-training-3"
+    ],
+    "reason": "Smooth, poised, rich adult female voice."
+  },
+  "Portuguese_LovelyLady": {
+    "voice": "pt-br-advisor-12",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-assistant-10",
+      "pt-br-storyteller-9"
+    ],
+    "reason": "Warm, pleasant, conversational adult female voice."
+  },
+  "Portuguese_SereneWoman": {
+    "voice": "pt-br-csagent-12",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-5",
+      "pt-br-commercial-7"
+    ],
+    "reason": "Soft, gentle, soothing adult female voice matching the serene delivery."
+  },
+  "Portuguese_SadTeen": {
+    "voice": "pt-br-training-5",
+    "languageCode": "pt-BR",
+    "style": "sad, subdued manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-training-10",
+      "pt-br-commercial-5"
+    ],
+    "reason": "Soft, low-energy young male base voice; needs sad, subdued style cue to match the downcast teen delivery."
+  },
+  "Portuguese_MaturePartner": {
+    "voice": "pt-br-podcaster-9",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-concierge-10",
+      "pt-br-podcaster-3"
+    ],
+    "reason": "Deep, textured, soothing mature male voice."
+  },
+  "Portuguese_Comedian": {
+    "voice": "pt-br-podcaster-1",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-storyteller-4",
+      "pt-br-advisor-4"
+    ],
+    "reason": "Energetic, expressive adult male voice with lively comedic delivery."
+  },
+  "Portuguese_NaughtySchoolgirl": {
+    "voice": "pt-br-assistant-6",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-csagent-8",
+      "pt-br-training-7"
+    ],
+    "reason": "Bright, youthful, cheeky female voice."
+  },
+  "Portuguese_Narrator": {
+    "voice": "pt-br-storyteller-9",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-concierge-8",
+      "pt-br-advisor-12"
+    ],
+    "reason": "Warm, clear, expressive adult female narrator voice."
+  },
+  "Portuguese_ToughBoss": {
+    "voice": "pt-br-training-1",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-9",
+      "pt-br-concierge-2"
+    ],
+    "reason": "Firm, direct, authoritative adult male voice."
+  },
+  "Portuguese_Fussyhostess": {
+    "voice": "pt-br-csagent-8",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-12",
+      "pt-br-assistant-6"
+    ],
+    "reason": "Bright, crisp, energetic Brazilian adult female matching the brisk pitch and lively delivery."
+  },
+  "Portuguese_Dramatist": {
+    "voice": "pt-br-advisor-4",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-storyteller-2",
+      "pt-br-podcaster-7"
+    ],
+    "reason": "Smooth, expressive Brazilian adult male with matching mid pitch and conversational lift."
+  },
+  "Portuguese_Steadymentor": {
+    "voice": "pt-br-concierge-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-3",
+      "pt-br-techagent-7"
+    ],
+    "reason": "Very deep, gravelly, slow-paced older Brazilian male matching the steady mentor timbre."
+  },
+  "Portuguese_Jovialman": {
+    "voice": "pt-br-assistant-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-storyteller-5",
+      "pt-br-storyteller-11"
+    ],
+    "reason": "Deep, warm, unhurried Brazilian adult male with a friendly resonant tone."
+  },
+  "Portuguese_CharmingQueen": {
+    "voice": "pt-br-assistant-10",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-1",
+      "pt-br-advisor-3"
+    ],
+    "reason": "Warm, poised, smooth Brazilian adult female with an exact pitch match."
+  },
+  "Portuguese_SantaClaus": {
+    "voice": "pt-br-assistant-2",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-tutor-9",
+      "pt-br-podcaster-9"
+    ],
+    "reason": "Warm, resonant older Brazilian male matching the deep, friendly character pitch."
+  },
+  "Portuguese_Rudolph": {
+    "voice": "pt-br-commercial-3",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-training-7",
+      "pt-br-assistant-5"
+    ],
+    "reason": "Bright, upbeat, high-pitched young Brazilian female matching the animated, cheerful timbre."
+  },
+  "Portuguese_Arnold": {
+    "voice": "pt-br-podcaster-3",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-concierge-7",
+      "pt-br-storyteller-11"
+    ],
+    "reason": "Deep, gravelly, resonant Brazilian male matching the strong, gruff masculine tone."
+  },
+  "Portuguese_CharmingSanta": {
+    "voice": "pt-br-podcaster-3",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-concierge-7",
+      "pt-br-techagent-7"
+    ],
+    "reason": "Deep, slow, gravelly older Brazilian Portuguese male voice with warm Santa-like resonance."
+  },
+  "Portuguese_Ghost": {
+    "voice": "pt-br-csagent-6",
+    "languageCode": "pt-BR",
+    "style": "slow, eerie manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-assistant-11",
+      "pt-br-storyteller-11"
+    ],
+    "reason": "Closest breathy/gravelly texture and pitch; needs slow, eerie style cue to capture the spooky ghost character."
+  },
+  "Portuguese_HumorousElder": {
+    "voice": "pt-br-assistant-9",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-tutor-8",
+      "pt-br-concierge-9"
+    ],
+    "reason": "Warm, slightly raspy older Brazilian male with a natural, playful inflection."
+  },
+  "Portuguese_CalmLeader": {
+    "voice": "pt-br-advisor-9",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-assistant-11",
+      "pt-br-csagent-10"
+    ],
+    "reason": "Direct, steady, authoritative Brazilian adult male matching pitch and composed energy."
+  },
+  "Portuguese_GentleTeacher": {
+    "voice": "pt-br-storyteller-2",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-training-9",
+      "pt-br-csagent-10"
+    ],
+    "reason": "Warm, smooth, articulate Brazilian adult male with a gentle, engaging delivery."
+  },
+  "Portuguese_EnergeticBoy": {
+    "voice": "pt-br-commercial-1",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-training-6",
+      "pt-br-tutor-3"
+    ],
+    "reason": "Casual, approachable young adult Brazilian male matching the youthful energy."
+  },
+  "Portuguese_ReliableMan": {
+    "voice": "pt-br-storyteller-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-tutor-3",
+      "pt-br-training-6"
+    ],
+    "reason": "Deep, calm, clear Brazilian adult male matching the steady, trustworthy tone."
+  },
+  "Portuguese_SereneElder": {
+    "voice": "pt-br-concierge-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-3",
+      "pt-br-techagent-7"
+    ],
+    "reason": "Very deep, slow, gravelly older Brazilian male matching the serene, unhurried delivery."
+  },
+  "Portuguese_GrimReaper": {
+    "voice": "pt-br-advisor-6",
+    "languageCode": "pt-BR",
+    "style": "menacing, dark manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-advisor-9",
+      "pt-br-training-1"
+    ],
+    "reason": "Firm, darker Brazilian adult male base; needs dark, menacing style to match the character."
+  },
+  "Portuguese_AssertiveQueen": {
+    "voice": "pt-br-advisor-5",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-3",
+      "pt-br-advisor-1"
+    ],
+    "reason": "Confident, poised, clear Brazilian adult female matching the assertive tone."
+  },
+  "Portuguese_WhimsicalGirl": {
+    "voice": "pt-br-podcaster-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-training-2",
+      "pt-br-commercial-3"
+    ],
+    "reason": "Light, airy, bright young Brazilian female matching the playful, whimsical pitch."
+  },
+  "Portuguese_StressedLady": {
+    "voice": "pt-br-concierge-4",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-csagent-11",
+      "pt-br-csagent-8"
+    ],
+    "reason": "Crisp, bright, brisk Brazilian adult female matching the tense, fast-paced energy."
+  },
+  "Portuguese_FriendlyNeighbor": {
+    "voice": "pt-br-assistant-5",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-commercial-3",
+      "pt-br-training-7"
+    ],
+    "reason": "Bright, warm, cheerful young Brazilian female matching the friendly, approachable delivery."
+  },
+  "Portuguese_CaringGirlfriend": {
+    "voice": "pt-br-tutor-10",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-11",
+      "pt-br-training-2"
+    ],
+    "reason": "Soft, gentle, warm young Brazilian female matching the affectionate tone."
+  },
+  "Portuguese_PowerfulSoldier": {
+    "voice": "pt-br-training-1",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-9",
+      "pt-br-techagent-4"
+    ],
+    "reason": "Clear, confident, firm Brazilian adult male matching the strong, commanding voice."
+  },
+  "Portuguese_FascinatingBoy": {
+    "voice": "pt-br-commercial-1",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-csagent-10",
+      "pt-br-storyteller-6"
+    ],
+    "reason": "Casual, clear, engaging young adult Brazilian male matching pitch and energy."
+  },
+  "Portuguese_RomanticHusband": {
+    "voice": "pt-br-assistant-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-tutor-3",
+      "pt-br-storyteller-5"
+    ],
+    "reason": "Deep, smooth, velvety Brazilian adult male matching the warm, gentle-deep timbre."
+  },
+  "Portuguese_StrictBoss": {
+    "voice": "pt-br-tutor-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-1",
+      "pt-br-storyteller-4"
+    ],
+    "reason": "Firm, clipped, direct Brazilian adult male matching the stern, authoritative tone."
+  },
+  "Portuguese_InspiringLady": {
+    "voice": "pt-br-csagent-5",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-csagent-8",
+      "pt-br-podcaster-6"
+    ],
+    "reason": "Bright, energetic, clear Brazilian adult female matching the uplifting delivery."
+  },
+  "Portuguese_PlayfulSpirit": {
+    "voice": "pt-br-training-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-commercial-3",
+      "pt-br-assistant-5"
+    ],
+    "reason": "Fast-paced, energetic, high-pitched young Brazilian female matching the lively spirit."
+  },
+  "Portuguese_ElegantGirl": {
+    "voice": "pt-br-podcaster-2",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-11",
+      "pt-br-advisor-7"
+    ],
+    "reason": "Smooth, poised, refined Brazilian adult female matching the elegant timbre."
+  },
+  "Portuguese_CompellingGirl": {
+    "voice": "pt-br-advisor-12",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-assistant-12",
+      "pt-br-assistant-10"
+    ],
+    "reason": "Clear, direct, confident Brazilian adult female matching the persuasive delivery."
+  },
+  "Portuguese_PowerfulVeteran": {
+    "voice": "pt-br-concierge-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-3",
+      "pt-br-techagent-7"
+    ],
+    "reason": "Very deep, gravelly, authoritative older Brazilian male matching the veteran timbre."
+  },
+  "Portuguese_SensibleManager": {
+    "voice": "pt-br-concierge-2",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-7",
+      "pt-br-advisor-6"
+    ],
+    "reason": "Smooth, confident, brisk Brazilian adult male matching the professional manager tone."
+  },
+  "Portuguese_ThoughtfulLady": {
+    "voice": "pt-br-concierge-5",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-commercial-7",
+      "pt-br-advisor-5"
+    ],
+    "reason": "Soft, calm, reflective Brazilian adult female matching the thoughtful delivery."
+  },
+  "Portuguese_TheatricalActor": {
+    "voice": "pt-br-storyteller-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-assistant-11",
+      "pt-br-podcaster-3"
+    ],
+    "reason": "Deep, resonant, clear Brazilian adult male narrator matching the theatrical vocal weight."
+  },
+  "Portuguese_FragileBoy": {
+    "voice": "pt-br-storyteller-6",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-commercial-4",
+      "pt-br-techagent-4"
+    ],
+    "reason": "Soft, calm young adult Brazilian male matching the gentler, lighter timbre."
+  },
+  "Portuguese_ChattyGirl": {
+    "voice": "pt-br-training-7",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-commercial-3",
+      "pt-br-podcaster-11"
+    ],
+    "reason": "Fast-paced, bright, bubbly young Brazilian female matching the chatty energy."
+  },
+  "Portuguese_Conscientiousinstructor": {
+    "voice": "pt-br-advisor-3",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-5",
+      "pt-br-advisor-1"
+    ],
+    "reason": "Clear, confident, articulate Brazilian adult female matching the instructor tone."
+  },
+  "Portuguese_RationalMan": {
+    "voice": "pt-br-storyteller-11",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-storyteller-5",
+      "pt-br-tutor-3"
+    ],
+    "reason": "Deep, calm, measured Brazilian adult male matching the rational, steady delivery."
+  },
+  "Portuguese_WiseScholar": {
+    "voice": "pt-br-tutor-8",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-podcaster-5",
+      "pt-br-assistant-8"
+    ],
+    "reason": "Calm, articulate older Brazilian male matching the scholarly, composed voice."
+  },
+  "Portuguese_FrankLady": {
+    "voice": "pt-br-assistant-12",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-12",
+      "pt-br-advisor-3"
+    ],
+    "reason": "Objective, direct, clear Brazilian adult female matching the frank delivery."
+  },
+  "Portuguese_DeterminedManager": {
+    "voice": "pt-br-assistant-4",
+    "languageCode": "pt-BR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pt-br-advisor-12",
+      "pt-br-concierge-6"
+    ],
+    "reason": "Crisp, firm, confident Brazilian adult female matching the determined tone."
+  },
+  "Portuguese_CharmingLady": {
+    "voice": "pt-br-csagent-9",
+    "languageCode": "pt-BR",
+    "style": "breathy, soft manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "pt-br-techagent-3",
+      "pt-br-tutor-1"
+    ],
+    "reason": "Soft, smooth Brazilian adult female base; needs breathy, soft style to match the intimate delivery."
+  },
+  "Russian_HandsomeChildhoodFriend": {
+    "voice": "algieba",
+    "languageCode": "ru-RU",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "ru-ru-concierge-1",
+      "enceladus"
+    ],
+    "reason": "Closest match to the very deep pitch and smooth, resonant baritone texture."
+  },
+  "Russian_BrightHeroine": {
+    "voice": "leda",
+    "languageCode": "ru-RU",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ru-ru-podcaster-1",
+      "laomedeia"
+    ],
+    "reason": "Matches the bright, youthful, high-energy heroine pitch and vibrant delivery natively."
+  },
+  "Russian_AmbitiousWoman": {
+    "voice": "gacrux",
+    "languageCode": "ru-RU",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ru-ru-podcaster-1",
+      "erinome"
+    ],
+    "reason": "Matches the confident, assertive adult female pitch and smooth, authoritative delivery."
+  },
+  "Russian_ReliableMan": {
+    "voice": "ru-ru-concierge-1",
+    "languageCode": "ru-RU",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "charon"
+    ],
+    "reason": "Native Russian male voice with matching calm, steady, medium-low baritone delivery and smooth texture."
+  },
+  "Russian_CrazyQueen": {
+    "voice": "autonoe",
+    "languageCode": "ru-RU",
+    "style": "dramatic, intense",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "kore",
+      "despina"
+    ],
+    "reason": "Autonoe matches the high pitch, crisp texture, and high energy; short style cue bridges the theatrical villain character gap."
+  },
+  "Russian_PessimisticGirl": {
+    "voice": "ru-ru-podcaster-1",
+    "languageCode": "ru-RU",
+    "style": "deadpan, low energy",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "callirrhoe",
+      "despina"
+    ],
+    "reason": "Native Russian young female base voice; short style cue bridges the flat, resigned character delivery."
+  },
+  "Russian_AttractiveGuy": {
+    "voice": "ru-ru-concierge-1",
+    "languageCode": "ru-RU",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "algieba",
+      "zubenelgenubi"
+    ],
+    "reason": "Native Russian male voice with smooth, calm, medium-deep baritone timbre."
+  },
+  "Russian_Bad-temperedBoy": {
+    "voice": "fenrir",
+    "languageCode": "ru-RU",
+    "style": "irritable, brusque",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "rasalgethi",
+      "orus"
+    ],
+    "reason": "Matches the young male pitch and energetic, edgy tone; short style cue bridges the grumpy character manner."
+  },
+  "Spanish_FriendlyNeighbor": {
+    "voice": "es-419-csagent-7",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-assistant-11",
+      "es-419-concierge-9"
+    ],
+    "reason": "Bright, upbeat, high-energy young female matching the friendly neighbor vibe."
+  },
+  "Spanish_FragileBoy": {
+    "voice": "es-419-commercial-4",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-tutor-5",
+      "es-419-commercial-11"
+    ],
+    "reason": "Soft, gentle, slightly breathy young male matching the fragile tone."
+  },
+  "Spanish_UpsetGirl": {
+    "voice": "es-419-podcaster-10",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "es-419-training-1",
+      "es-419-commercial-8"
+    ],
+    "reason": "Direct, blunt young adult female tone closest to the upset delivery."
+  },
+  "Spanish_Soft-spokenGirl": {
+    "voice": "es-419-commercial-6",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-podcaster-2",
+      "es-419-training-7"
+    ],
+    "reason": "Very soft, breathy, gentle young female matching the soft-spoken delivery."
+  },
+  "Spanish_CharmingQueen": {
+    "voice": "es-419-tutor-8",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-assistant-5",
+      "es-419-tutor-10"
+    ],
+    "reason": "Warm, poised, confident adult female matching the charming queen tone."
+  },
+  "Spanish_Nuttylady": {
+    "voice": "es-419-csagent-2",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-training-8",
+      "es-419-csagent-7"
+    ],
+    "reason": "Animated, expressive, quirky adult female inflection matching the nutty delivery."
+  },
+  "Spanish_ElegantGirl": {
+    "voice": "es-419-tutor-9",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-9",
+      "es-419-assistant-12"
+    ],
+    "reason": "Clear, poised, refined young adult female matching the elegant tone."
+  },
+  "Spanish_FascinatingBoy": {
+    "voice": "es-419-commercial-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-tutor-5",
+      "es-419-commercial-4"
+    ],
+    "reason": "Smooth, clear, youthful male voice matching pitch and tone."
+  },
+  "Spanish_FunnyGuy": {
+    "voice": "es-419-podcaster-12",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-podcaster-1",
+      "es-419-assistant-7"
+    ],
+    "reason": "Lively, animated, playful male inflection matching the comedic energy."
+  },
+  "Spanish_PlayfulSpirit": {
+    "voice": "es-419-commercial-8",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-csagent-7",
+      "es-419-concierge-9"
+    ],
+    "reason": "Bright, youthful, playful female voice matching pitch and energy."
+  },
+  "Spanish_TheatricalActor": {
+    "voice": "es-419-advisor-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-2",
+      "es-419-podcaster-4"
+    ],
+    "reason": "Deep, warm, resonant baritone that fits the theatrical male delivery."
+  },
+  "Spanish_SereneWoman": {
+    "voice": "es-419-concierge-1",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-1",
+      "es-419-assistant-8"
+    ],
+    "reason": "Calm, smooth, serene adult female matching the gentle tone."
+  },
+  "Spanish_MaturePartner": {
+    "voice": "es-419-concierge-2",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-7",
+      "es-419-advisor-11"
+    ],
+    "reason": "Deep, gravelly, mature adult male matching the warm, seasoned tone."
+  },
+  "Spanish_CaptivatingStoryteller": {
+    "voice": "es-419-concierge-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-11",
+      "es-419-podcaster-4"
+    ],
+    "reason": "Warm, low-pitched, resonant male voice suited for engaging storytelling."
+  },
+  "Spanish_Narrator": {
+    "voice": "es-419-concierge-6",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-assistant-12",
+      "es-419-concierge-9"
+    ],
+    "reason": "Warm, clear, engaging adult female matching the narrator sample."
+  },
+  "Spanish_WiseScholar": {
+    "voice": "es-419-concierge-7",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-csagent-10",
+      "es-419-csagent-9"
+    ],
+    "reason": "Deep, calm, older adult male matching the wise scholar tone."
+  },
+  "Spanish_Kind-heartedGirl": {
+    "voice": "es-419-concierge-9",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-commercial-8",
+      "es-419-tutor-9"
+    ],
+    "reason": "Natural, warm, sweet young adult female voice matching the kind-hearted tone."
+  },
+  "Spanish_DeterminedManager": {
+    "voice": "es-419-advisor-4",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-6",
+      "es-419-concierge-5"
+    ],
+    "reason": "Crisp, confident, professional adult female matching the determined manager tone."
+  },
+  "Spanish_BossyLeader": {
+    "voice": "es-419-concierge-8",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-podcaster-4",
+      "es-419-concierge-11"
+    ],
+    "reason": "Firm, brisk, authoritative male voice matching the bossy leader delivery."
+  },
+  "Spanish_ReservedYoungMan": {
+    "voice": "es-419-tutor-5",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-commercial-4",
+      "es-419-podcaster-4"
+    ],
+    "reason": "Relaxed, low-key young adult male matching the reserved delivery."
+  },
+  "Spanish_ConfidentWoman": {
+    "voice": "es-419-advisor-4",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-6",
+      "es-419-csagent-12"
+    ],
+    "reason": "Crisp, assured, professional adult female matching the confident woman tone."
+  },
+  "Spanish_ThoughtfulMan": {
+    "voice": "es-419-techagent-9",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-tutor-2",
+      "es-419-assistant-7"
+    ],
+    "reason": "Calm, measured, medium-pitched adult male matching the thoughtful delivery."
+  },
+  "Spanish_Strong-WilledBoy": {
+    "voice": "es-419-concierge-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-podcaster-4",
+      "es-419-tutor-5"
+    ],
+    "reason": "Firm, resonant male voice matching the determined, strong-willed tone."
+  },
+  "Spanish_SophisticatedLady": {
+    "voice": "es-419-advisor-6",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-techagent-3",
+      "es-419-advisor-4"
+    ],
+    "reason": "Cool, poised, refined adult female matching the sophisticated delivery."
+  },
+  "Spanish_RationalMan": {
+    "voice": "es-419-podcaster-4",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-11",
+      "es-419-concierge-11"
+    ],
+    "reason": "Calm, clear, objective adult male matching the rational delivery."
+  },
+  "Spanish_AnimeCharacter": {
+    "voice": "es-419-assistant-1",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-commercial-9",
+      "es-419-techagent-11"
+    ],
+    "reason": "High, bright, youthful expressive female matching the anime character tone."
+  },
+  "Spanish_Deep-tonedMan": {
+    "voice": "es-419-podcaster-4",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-11",
+      "es-419-concierge-11"
+    ],
+    "reason": "Chosen by the owner by ear on 2026-11-14."
+  },
+  "Spanish_Fussyhostess": {
+    "voice": "es-419-assistant-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-csagent-7",
+      "es-419-training-8"
+    ],
+    "reason": "Bright, expressive, animated adult female matching the fussy hostess energy."
+  },
+  "Spanish_SincereTeen": {
+    "voice": "es-419-commercial-12",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-tutor-6",
+      "es-419-commercial-1"
+    ],
+    "reason": "Youthful, earnest, clear male voice matching the sincere teen delivery."
+  },
+  "Spanish_FrankLady": {
+    "voice": "es-419-assistant-12",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-6",
+      "es-419-csagent-7"
+    ],
+    "reason": "Clear, direct, confident adult female matching the frank delivery."
+  },
+  "Spanish_Comedian": {
+    "voice": "es-419-techagent-12",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-commercial-10",
+      "es-419-techagent-6"
+    ],
+    "reason": "Upbeat, animated, expressive adult male matching the comedic energy."
+  },
+  "Spanish_Debator": {
+    "voice": "es-419-concierge-2",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-podcaster-4",
+      "es-419-concierge-11"
+    ],
+    "reason": "Deep, gravelly, assertive adult male matching the persuasive debator tone."
+  },
+  "Spanish_ToughBoss": {
+    "voice": "es-419-training-4",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-12",
+      "es-419-concierge-5"
+    ],
+    "reason": "Firm, direct, low-pitched adult female matching the tough boss authority."
+  },
+  "Spanish_Wiselady": {
+    "voice": "es-419-advisor-1",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-assistant-6",
+      "es-419-advisor-12"
+    ],
+    "reason": "Calm, warm, reassuring adult female alto matching the wise mentor delivery."
+  },
+  "Spanish_Steadymentor": {
+    "voice": "es-419-advisor-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-podcaster-4",
+      "es-419-concierge-11"
+    ],
+    "reason": "Deep, calm, steady adult male matching the reassuring mentor tone."
+  },
+  "Spanish_Jovialman": {
+    "voice": "es-419-concierge-2",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-11",
+      "es-419-advisor-11"
+    ],
+    "reason": "Deep, warm, slightly gravelly adult male matching the jovial character."
+  },
+  "Spanish_SantaClaus": {
+    "voice": "es-419-concierge-7",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-csagent-10",
+      "es-419-csagent-9"
+    ],
+    "reason": "Deep, warm older adult male matching the Santa voice pitch and weight."
+  },
+  "Spanish_Rudolph": {
+    "voice": "es-419-commercial-8",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-assistant-11",
+      "es-419-concierge-9"
+    ],
+    "reason": "Bright, youthful, cheerful voice matching the Rudolph sample."
+  },
+  "Spanish_Intonategirl": {
+    "voice": "es-419-concierge-9",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-tutor-9",
+      "es-419-commercial-8"
+    ],
+    "reason": "Natural, expressive young adult female matching pitch and intonation."
+  },
+  "Spanish_Arnold": {
+    "voice": "es-419-concierge-2",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-8",
+      "es-419-concierge-11"
+    ],
+    "reason": "Very deep, gravelly, tough male matching the Arnold character texture."
+  },
+  "Spanish_Ghost": {
+    "voice": "es-419-concierge-11",
+    "languageCode": "es-419",
+    "style": "eerie, slow, hushed manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "es-419-advisor-11",
+      "es-419-podcaster-4"
+    ],
+    "reason": "Deep base voice with eerie slow hushed style to match the ghostly character."
+  },
+  "Spanish_HumorousElder": {
+    "voice": "es-419-training-10",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-tutor-11",
+      "es-419-techagent-2"
+    ],
+    "reason": "Older, slightly raspy, animated male matching the humorous elder character."
+  },
+  "Spanish_EnergeticBoy": {
+    "voice": "es-419-assistant-9",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-tutor-5",
+      "es-419-commercial-4"
+    ],
+    "reason": "Bright, energetic, upbeat young male matching the lively delivery."
+  },
+  "Spanish_WhimsicalGirl": {
+    "voice": "es-419-podcaster-2",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-techagent-8",
+      "es-419-techagent-11"
+    ],
+    "reason": "Soft, gentle, slightly dreamy young female matching the whimsical tone."
+  },
+  "Spanish_StrictBoss": {
+    "voice": "es-419-advisor-7",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-tutor-10",
+      "es-419-csagent-2"
+    ],
+    "reason": "Crisp, firm, authoritative adult female matching the strict boss tone."
+  },
+  "Spanish_ReliableMan": {
+    "voice": "es-419-podcaster-4",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-11",
+      "es-419-concierge-11"
+    ],
+    "reason": "Deep, steady, trustworthy adult male matching the reliable man delivery."
+  },
+  "Spanish_SereneElder": {
+    "voice": "es-419-concierge-2",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-7",
+      "es-419-csagent-9"
+    ],
+    "reason": "Deep, gravelly older male matching the calm, seasoned elder texture."
+  },
+  "Spanish_AngryMan": {
+    "voice": "es-419-concierge-8",
+    "languageCode": "es-419",
+    "style": "intense, stern manner",
+    "needsStyleRender": true,
+    "confidence": "medium",
+    "alternates": [
+      "es-419-csagent-4",
+      "es-419-assistant-9"
+    ],
+    "reason": "Firm, forceful male base voice with intense stern style for the angry delivery."
+  },
+  "Spanish_AssertiveQueen": {
+    "voice": "es-419-advisor-6",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-training-5",
+      "es-419-advisor-4"
+    ],
+    "reason": "Cool, poised, assertive adult female alto matching the regal delivery."
+  },
+  "Spanish_CaringGirlfriend": {
+    "voice": "es-419-training-7",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-commercial-6",
+      "es-419-podcaster-2"
+    ],
+    "reason": "Warm, gentle, affectionate young adult female matching the caring tone."
+  },
+  "Spanish_PowerfulSoldier": {
+    "voice": "es-419-concierge-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-advisor-11",
+      "es-419-podcaster-4"
+    ],
+    "reason": "Deep, strong, commanding adult male matching the soldier delivery."
+  },
+  "Spanish_PassionateWarrior": {
+    "voice": "es-419-advisor-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-11",
+      "es-419-tutor-4"
+    ],
+    "reason": "Deep, rich, expressive baritone matching the passionate warrior tone."
+  },
+  "Spanish_ChattyGirl": {
+    "voice": "es-419-csagent-7",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-commercial-8",
+      "es-419-assistant-11"
+    ],
+    "reason": "Fast, bright, breezy young female matching the chatty delivery."
+  },
+  "Spanish_RomanticHusband": {
+    "voice": "es-419-advisor-11",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-11",
+      "es-419-tutor-4"
+    ],
+    "reason": "Deep, warm, smooth baritone matching the romantic husband tone."
+  },
+  "Spanish_CompellingGirl": {
+    "voice": "es-419-commercial-9",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-podcaster-9",
+      "es-419-assistant-1"
+    ],
+    "reason": "Bright, clear, engaging young adult female matching the compelling delivery."
+  },
+  "Spanish_PowerfulVeteran": {
+    "voice": "es-419-concierge-2",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-7",
+      "es-419-csagent-10"
+    ],
+    "reason": "Deep, gravelly, seasoned older male matching the veteran voice."
+  },
+  "Spanish_SensibleManager": {
+    "voice": "es-419-tutor-4",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-concierge-11",
+      "es-419-advisor-11"
+    ],
+    "reason": "Warm, steady, approachable adult male matching the sensible manager tone."
+  },
+  "Spanish_ThoughtfulLady": {
+    "voice": "es-419-concierge-1",
+    "languageCode": "es-419",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "es-419-csagent-12",
+      "es-419-advisor-4"
+    ],
+    "reason": "Calm, gentle, warm adult female matching the thoughtful lady delivery."
+  },
+  "Turkish_CalmWoman": {
+    "voice": "sulafat",
+    "languageCode": "tr-TR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "achernar",
+      "gacrux"
+    ],
+    "reason": "Matches pitch, smooth warm texture, and calm adult female delivery much closer than the brighter, higher-pitched Turkish candidate."
+  },
+  "Turkish_Trustworthyman": {
+    "voice": "algieba",
+    "languageCode": "tr-TR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "tr-tr-storyteller-1",
+      "schedar"
+    ],
+    "reason": "Closest match to the deep, smooth, resonant baritone pitch and calm trustworthy narrator delivery."
+  },
+  "Ukrainian_CalmWoman": {
+    "voice": "sulafat",
+    "languageCode": "uk-UA",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "achernar"
+    ],
+    "reason": "Matches the warm, smooth, calm adult female pitch and comforting delivery."
+  },
+  "Ukrainian_WiseScholar": {
+    "voice": "schedar",
+    "languageCode": "uk-UA",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zubenelgenubi",
+      "enceladus"
+    ],
+    "reason": "Matches the steady, balanced, medium-pitched scholarly male delivery."
+  },
+  "Vietnamese_Serene_Man": {
+    "voice": "vi-vn-assistant-5",
+    "languageCode": "vi-VN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "vi-vn-csagent-1",
+      "vi-vn-assistant-1"
+    ],
+    "reason": "Calm, smooth, serene adult male voice with native Vietnamese accent and matching pitch."
+  },
+  "Vietnamese_female_4_v1": {
+    "voice": "vi-vn-advisor-1",
+    "languageCode": "vi-VN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "vi-vn-csagent-5",
+      "vi-vn-training-7"
+    ],
+    "reason": "Clear, natural, slightly warm adult female voice with native Vietnamese accent."
+  },
+  "Vietnamese_male_1_v2": {
+    "voice": "vi-vn-csagent-1",
+    "languageCode": "vi-VN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "vi-vn-assistant-7",
+      "vi-vn-tutor-6"
+    ],
+    "reason": "Crisp, natural, medium-pitch adult male voice with native Vietnamese accent."
+  },
+  "Vietnamese_kindhearted_girl": {
+    "voice": "vi-vn-tutor-5",
+    "languageCode": "vi-VN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "vi-vn-tutor-8",
+      "vi-vn-csagent-4"
+    ],
+    "reason": "Warm, bright, gentle young female voice with native Vietnamese accent."
+  },
+  "Thai_Optimistic_girl": {
+    "voice": "leda",
+    "languageCode": "th-TH",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "pulcherrima",
+      "laomedeia"
+    ],
+    "reason": "Bright, vibrant, upbeat youthful female voice matching the optimistic tone and pitch."
+  },
+  "Thai_male_1_sample8": {
+    "voice": "algieba",
+    "languageCode": "th-TH",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "charon",
+      "zubenelgenubi"
+    ],
+    "reason": "Deep, smooth, resonant adult male voice matching the low pitch and calm delivery."
+  },
+  "Thai_Tender_Woman": {
+    "voice": "achernar",
+    "languageCode": "th-TH",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "despina",
+      "callirrhoe"
+    ],
+    "reason": "Soft, gentle, slightly breathy adult female voice matching the tender texture and low-medium energy."
+  },
+  "Thai_male_2_sample2": {
+    "voice": "zubenelgenubi",
+    "languageCode": "th-TH",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "schedar",
+      "enceladus"
+    ],
+    "reason": "Smooth, natural, medium-low conversational male voice matching the pitch and steady tone."
+  },
+  "Thai_female_1_sample1": {
+    "voice": "gacrux",
+    "languageCode": "th-TH",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "sulafat",
+      "despina"
+    ],
+    "reason": "Smooth, calm, polished adult female voice matching the medium-low pitch."
+  },
+  "Thai_female_2_sample2": {
+    "voice": "laomedeia",
+    "languageCode": "th-TH",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "zephyr",
+      "leda"
+    ],
+    "reason": "Bright, upbeat, energetic young female voice matching the higher pitch and brisk pace."
+  },
+  "Polish_male_1_sample4": {
+    "voice": "pl-pl-advisor-4",
+    "languageCode": "pl-PL",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pl-pl-assistant-5",
+      "pl-pl-training-3"
+    ],
+    "reason": "Native Polish male voice matching the medium-low pitch and clear, steady delivery."
+  },
+  "Polish_male_2_sample3": {
+    "voice": "pl-pl-techagent-7",
+    "languageCode": "pl-PL",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pl-pl-advisor-3",
+      "pl-pl-concierge-6"
+    ],
+    "reason": "Native Polish male voice matching the medium pitch, crisp texture, and brisk energy."
+  },
+  "Polish_female_1_sample1": {
+    "voice": "pl-pl-assistant-6",
+    "languageCode": "pl-PL",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pl-pl-advisor-8",
+      "pl-pl-podcaster-3"
+    ],
+    "reason": "Native Polish female voice matching the smooth, warm, calm medium-low pitch."
+  },
+  "Polish_female_2_sample3": {
+    "voice": "pl-pl-advisor-7",
+    "languageCode": "pl-PL",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "pl-pl-techagent-6",
+      "pl-pl-concierge-2"
+    ],
+    "reason": "Native Polish female voice matching the clear, crisp, brisk adult female delivery."
+  },
+  "Romanian_male_1_sample2": {
+    "voice": "algieba",
+    "languageCode": "ro-RO",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "zubenelgenubi"
+    ],
+    "reason": "Matches the deep, resonant, steady adult male baritone pitch and smooth texture."
+  },
+  "Romanian_male_2_sample1": {
+    "voice": "zubenelgenubi",
+    "languageCode": "ro-RO",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "algieba"
+    ],
+    "reason": "Matches the casual, conversational, medium-low adult male tone and smooth delivery."
+  },
+  "Romanian_female_1_sample4": {
+    "voice": "zephyr",
+    "languageCode": "ro-RO",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "leda",
+      "callirrhoe"
+    ],
+    "reason": "Matches the bright, clear, natural young adult female pitch and upbeat energy."
+  },
+  "Romanian_female_2_sample1": {
+    "voice": "sulafat",
+    "languageCode": "ro-RO",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "erinome"
+    ],
+    "reason": "Matches the smooth, calm, warm, slightly lower-pitched adult female delivery."
+  },
+  "Greek_female_1_sample1": {
+    "voice": "el-gr-advisor-5",
+    "languageCode": "el-GR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "el-gr-tutor-5",
+      "el-gr-concierge-5"
+    ],
+    "reason": "Native Greek female voice matching the crisp, articulate, medium-pitched adult delivery."
+  },
+  "greek_male_1a_v1": {
+    "voice": "el-gr-techagent-1",
+    "languageCode": "el-GR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "el-gr-tutor-4",
+      "el-gr-tutor-7"
+    ],
+    "reason": "Native Greek male voice matching the deep, smooth, steady baritone delivery."
+  },
+  "Greek_female_2_sample3": {
+    "voice": "el-gr-concierge-5",
+    "languageCode": "el-GR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "el-gr-tutor-5",
+      "el-gr-assistant-3"
+    ],
+    "reason": "Native Greek female voice matching the warm, smooth, slightly softer and lower-pitched tone."
+  },
+  "czech_male_1_v1": {
+    "voice": "cs-cz-tutor-5",
+    "languageCode": "cs-CZ",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "cs-cz-training-1",
+      "cs-cz-tutor-7"
+    ],
+    "reason": "Native Czech male voice matching the medium-low pitch, smooth texture, and calm, clear baritone delivery."
+  },
+  "czech_female_5_v7": {
+    "voice": "cs-cz-tutor-8",
+    "languageCode": "cs-CZ",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "cs-cz-advisor-2",
+      "cs-cz-tutor-1"
+    ],
+    "reason": "Native Czech female voice matching the warm, smooth, natural medium pitch."
+  },
+  "czech_female_2_v2": {
+    "voice": "cs-cz-tutor-1",
+    "languageCode": "cs-CZ",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "cs-cz-advisor-2",
+      "cs-cz-tutor-8"
+    ],
+    "reason": "Native Czech female voice matching the calmer, slightly lower-pitched, steady adult delivery."
+  },
+  "finnish_male_3_v1": {
+    "voice": "zubenelgenubi",
+    "languageCode": "fi-FI",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "iapetus",
+      "algenib"
+    ],
+    "reason": "Direct, medium-low baritone with a natural, medium-fast conversational delivery."
+  },
+  "finnish_female_4_v1": {
+    "voice": "erinome",
+    "languageCode": "fi-FI",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "despina"
+    ],
+    "reason": "Clear, steady, articulate adult female voice matching pitch and polite tone."
+  },
+  "finnish_male_1_v2": {
+    "voice": "algieba",
+    "languageCode": "fi-FI",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "enceladus",
+      "schedar"
+    ],
+    "reason": "Deep, smooth baritone matching the low pitch and relaxed vocal weight."
+  },
+  "hindi_male_1_v2": {
+    "voice": "hi-in-concierge-2",
+    "languageCode": "hi-IN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "hi-in-techagent-3",
+      "hi-in-commercial-4"
+    ],
+    "reason": "Warm, smooth, medium-low adult male voice with native Hindi accent."
+  },
+  "hindi_female_2_v1": {
+    "voice": "hi-in-advisor-8",
+    "languageCode": "hi-IN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "hi-in-training-9",
+      "hi-in-podcaster-1"
+    ],
+    "reason": "Calm, smooth, mature adult female voice with native Hindi accent and matching lower pitch."
+  },
+  "hindi_female_1_v2": {
+    "voice": "hi-in-assistant-9",
+    "languageCode": "hi-IN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "hi-in-csagent-1",
+      "hi-in-commercial-5"
+    ],
+    "reason": "Clear, bright, natural adult female voice with native Hindi accent."
+  },
+  "Bulgarian_male_2_v1": {
+    "voice": "zubenelgenubi",
+    "languageCode": "bg-BG",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "algieba"
+    ],
+    "reason": "Matches the medium-low, smooth, natural conversational male tone."
+  },
+  "Bulgarian_female_1_v1": {
+    "voice": "sulafat",
+    "languageCode": "bg-BG",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "aoede"
+    ],
+    "reason": "Matches the smooth, warm, calm adult female pitch and gentle delivery."
+  },
+  "Danish_male_1_v1": {
+    "voice": "iapetus",
+    "languageCode": "da-DK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zubenelgenubi",
+      "schedar"
+    ],
+    "reason": "Crisp, clear, medium-high baritone with a brisk conversational pace."
+  },
+  "Danish_female_1_v1": {
+    "voice": "callirrhoe",
+    "languageCode": "da-DK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "laomedeia",
+      "gacrux"
+    ],
+    "reason": "Natural, smooth young adult mezzo with matching pitch and relaxed medium energy."
+  },
+  "Hebrew_male_1_v1": {
+    "voice": "zubenelgenubi",
+    "languageCode": "he-IL",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "puck"
+    ],
+    "reason": "Matches the adult male baritone-tenor pitch, direct conversational delivery, and medium-fast pace."
+  },
+  "Hebrew_female_1_v1": {
+    "voice": "gacrux",
+    "languageCode": "he-IL",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "erinome"
+    ],
+    "reason": "Matches the poised, clear alto-mezzo adult female pitch, smooth texture, and medium energy."
+  },
+  "Malay_male_1_v1": {
+    "voice": "zubenelgenubi",
+    "languageCode": "ms-MY",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "algieba",
+      "enceladus"
+    ],
+    "reason": "Smooth, relaxed medium-low male voice matching the steady conversational tone."
+  },
+  "Malay_female_1_v1": {
+    "voice": "callirrhoe",
+    "languageCode": "ms-MY",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "erinome",
+      "gacrux"
+    ],
+    "reason": "Clear, natural, friendly adult female voice matching the medium pitch and conversational flow."
+  },
+  "Malay_female_2_v1": {
+    "voice": "despina",
+    "languageCode": "ms-MY",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "vindemiatrix",
+      "pulcherrima"
+    ],
+    "reason": "Smooth, warm, gentle adult female voice matching the soft-bright pitch and texture."
+  },
+  "Persian_male_1_v1": {
+    "voice": "algieba",
+    "languageCode": "fa-IR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "zubenelgenubi"
+    ],
+    "reason": "Closest match to the deep, calm, resonant baritone pitch and smooth adult male delivery."
+  },
+  "Persian_female_1_v1": {
+    "voice": "sulafat",
+    "languageCode": "fa-IR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "aoede"
+    ],
+    "reason": "Matches the warm, poised alto-mezzo pitch, smooth texture, and natural medium energy."
+  },
+  "Slovak_male_1_v1": {
+    "voice": "schedar",
+    "languageCode": "sk-SK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "zubenelgenubi",
+      "algieba"
+    ],
+    "reason": "Matches the balanced, steady, medium-pitched male delivery."
+  },
+  "Slovak_female_1_v1": {
+    "voice": "sulafat",
+    "languageCode": "sk-SK",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "aoede"
+    ],
+    "reason": "Matches the warm, smooth, calm adult female tone and medium-low pitch."
+  },
+  "Swedish_male_1_v1": {
+    "voice": "algieba",
+    "languageCode": "sv-SE",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "enceladus"
+    ],
+    "reason": "Deep, calm, smooth baritone matching the low pitch and measured delivery."
+  },
+  "Swedish_female_1_v1": {
+    "voice": "despina",
+    "languageCode": "sv-SE",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "erinome",
+      "gacrux"
+    ],
+    "reason": "Poised, smooth, pleasant adult female mezzo with balanced medium energy."
+  },
+  "Croatian_male_1_v1": {
+    "voice": "algieba",
+    "languageCode": "hr-HR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "zubenelgenubi"
+    ],
+    "reason": "Matches the deep, resonant, steady adult male baritone voice."
+  },
+  "Croatian_female_1_v1": {
+    "voice": "gacrux",
+    "languageCode": "hr-HR",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "despina"
+    ],
+    "reason": "Matches the smooth, clear, poised adult female pitch and delivery."
+  },
+  "Filipino_male_1_v1": {
+    "voice": "zubenelgenubi",
+    "languageCode": "fil-PH",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "schedar",
+      "enceladus"
+    ],
+    "reason": "Smooth, laid-back medium-low male voice matching the relaxed conversational delivery."
+  },
+  "Filipino_female_1_v1": {
+    "voice": "leda",
+    "languageCode": "fil-PH",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "autonoe",
+      "pulcherrima"
+    ],
+    "reason": "Bright, youthful, clear female voice matching the upbeat energy and pitch."
+  },
+  "Hungarian_male_1_v1": {
+    "voice": "algieba",
+    "languageCode": "hu-HU",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "zubenelgenubi"
+    ],
+    "reason": "Matches the deep, smooth, steady adult male baritone pitch and timbre."
+  },
+  "Hungarian_female_1_v1": {
+    "voice": "sulafat",
+    "languageCode": "hu-HU",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "aoede"
+    ],
+    "reason": "Matches the warm, smooth, calm, slightly lower-pitched adult female voice."
+  },
+  "Norwegian_male_1_v1": {
+    "voice": "algieba",
+    "languageCode": "nb-NO",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "zubenelgenubi"
+    ],
+    "reason": "Calm, steady deep baritone matching the resonant low register."
+  },
+  "Norwegian_female_1_v1": {
+    "voice": "callirrhoe",
+    "languageCode": "nb-NO",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "laomedeia",
+      "autonoe"
+    ],
+    "reason": "Clear, natural young adult mezzo with matching pitch and medium-fast pace."
+  },
+  "Slovenian_male_1_v1": {
+    "voice": "iapetus",
+    "languageCode": "sl-SI",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "achird",
+      "schedar"
+    ],
+    "reason": "Matches the clear, medium-pitched, conversational male voice and friendly tone."
+  },
+  "Slovenian_female_1_v2": {
+    "voice": "sulafat",
+    "languageCode": "sl-SI",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "gacrux",
+      "despina"
+    ],
+    "reason": "Matches the smooth, calm, warm adult female pitch and steady delivery."
+  },
+  "Catalan_male_1_v1": {
+    "voice": "algieba",
+    "languageCode": "ca-ES",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "schedar",
+      "zubenelgenubi"
+    ],
+    "reason": "Smooth, resonant, warm baritone studio voice matching the calm, rich Catalan male timbre."
+  },
+  "Catalan_female_1_v1": {
+    "voice": "sulafat",
+    "languageCode": "ca-ES",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "medium",
+    "alternates": [
+      "gacrux",
+      "aoede"
+    ],
+    "reason": "Warm, smooth, poised alto-mezzo studio voice with a very close pitch match to the Catalan female sample."
+  },
+  "Nynorsk_male_1_v1": {
+    "voice": "zubenelgenubi",
+    "languageCode": "nn-NO",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "achird"
+    ],
+    "reason": "Clear, natural medium-pitch baritone with even conversational delivery."
+  },
+  "Nynorsk_female_1_v1": {
+    "voice": "gacrux",
+    "languageCode": "nn-NO",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "sulafat",
+      "aoede"
+    ],
+    "reason": "Smooth, clear lower alto-mezzo matching the polite, grounded adult tone."
+  },
+  "Tamil_male_1_v1": {
+    "voice": "ta-in-training-2",
+    "languageCode": "ta-IN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ta-in-concierge-6",
+      "ta-in-tutor-2"
+    ],
+    "reason": "Clear, warm, medium-low adult male voice with native Tamil accent."
+  },
+  "Tamil_female_1_v1": {
+    "voice": "ta-in-assistant-1",
+    "languageCode": "ta-IN",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "ta-in-csagent-6",
+      "ta-in-advisor-5"
+    ],
+    "reason": "Smooth, clear, medium-pitch adult female voice with native Tamil accent."
+  },
+  "Afrikaans_male_1_v1": {
+    "voice": "zubenelgenubi",
+    "languageCode": "af-ZA",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "schedar",
+      "achird"
+    ],
+    "reason": "Matches the steady, natural adult baritone pitch, smooth texture, and medium conversational energy."
+  },
+  "Afrikaans_female_1_v1": {
+    "voice": "gacrux",
+    "languageCode": "af-ZA",
+    "style": "",
+    "needsStyleRender": false,
+    "confidence": "high",
+    "alternates": [
+      "erinome",
+      "zephyr"
+    ],
+    "reason": "Matches the clear, articulate adult mezzo pitch, smooth delivery, and medium energy."
+  }
+}

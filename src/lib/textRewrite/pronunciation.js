@@ -82,9 +82,8 @@ function entryAppliesTo(entry, locale) {
 // on it, and a key containing one would silently write to the wrong nesting.
 const MATCH_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}'\- ]*$/u;
 
-// C0 and C1 control characters. These reach the TTS API as invalid input and
-// come back as error 1042, which the retry loop turns into a Wavespeed
-// fallback on every message.
+// C0 and C1 control characters. They are invalid input for a speech model and
+// have no sound, so they are removed.
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u001F\u007F-\u009F]/g;
 

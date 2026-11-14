@@ -37,6 +37,299 @@
     "MAX": 2.0,
     "DEFAULT": 1.0
   },
+  "STYLE": {
+    "MAX_LENGTH": 120
+  },
+  "STYLE_PRESETS": {
+    "neutral": "",
+    "happy": "happy and cheerful",
+    "sad": "sad and downcast",
+    "angry": "angry",
+    "fearful": "fearful and scared",
+    "disgusted": "disgusted",
+    "surprised": "surprised and astonished",
+    "calm": "calm and relaxed",
+    "fluent": "smooth and fluent"
+  },
+  "SPEED_STEPS": [
+    {
+      "key": "very_slow",
+      "value": 0.5,
+      "upTo": 0.65,
+      "style": "speaking very slowly"
+    },
+    {
+      "key": "slow",
+      "value": 0.75,
+      "upTo": 0.9,
+      "style": "speaking slowly"
+    },
+    {
+      "key": "normal",
+      "value": 1.0,
+      "upTo": 1.15,
+      "style": ""
+    },
+    {
+      "key": "fast",
+      "value": 1.5,
+      "upTo": 1.7,
+      "style": "speaking quickly"
+    },
+    {
+      "key": "very_fast",
+      "value": 2.0,
+      "upTo": null,
+      "style": "speaking very rapidly"
+    }
+  ],
+  "PITCH_STEPS": [
+    {
+      "key": "very_low",
+      "value": -12,
+      "upTo": -7,
+      "style": "very low pitch, deep voice"
+    },
+    {
+      "key": "low",
+      "value": -5,
+      "upTo": -2,
+      "style": "low pitch"
+    },
+    {
+      "key": "normal",
+      "value": 0,
+      "upTo": 1,
+      "style": ""
+    },
+    {
+      "key": "high",
+      "value": 5,
+      "upTo": 6,
+      "style": "high pitch"
+    },
+    {
+      "key": "very_high",
+      "value": 12,
+      "upTo": null,
+      "style": "very high pitch"
+    }
+  ],
+  "SOUND_TAGS": [
+    {
+      "tag": "argh",
+      "variants": []
+    },
+    {
+      "tag": "breath",
+      "variants": [
+        "breaths",
+        "breathing"
+      ]
+    },
+    {
+      "tag": "heavy breath",
+      "variants": [
+        "heavy breathing"
+      ]
+    },
+    {
+      "tag": "exhales",
+      "variants": [
+        "exhale"
+      ]
+    },
+    {
+      "tag": "cackle",
+      "variants": [
+        "cackles"
+      ]
+    },
+    {
+      "tag": "cheer",
+      "variants": [
+        "cheers"
+      ]
+    },
+    {
+      "tag": "chuckle",
+      "variants": [
+        "chuckles"
+      ]
+    },
+    {
+      "tag": "cough",
+      "variants": [
+        "coughs"
+      ]
+    },
+    {
+      "tag": "cry",
+      "variants": [
+        "cries",
+        "crying"
+      ]
+    },
+    {
+      "tag": "gasp",
+      "variants": [
+        "gasps"
+      ]
+    },
+    {
+      "tag": "giggle",
+      "variants": [
+        "giggles"
+      ]
+    },
+    {
+      "tag": "groan",
+      "variants": [
+        "groans"
+      ]
+    },
+    {
+      "tag": "growl",
+      "variants": [
+        "growls"
+      ]
+    },
+    {
+      "tag": "grunt",
+      "variants": [
+        "grunts"
+      ]
+    },
+    {
+      "tag": "grr",
+      "variants": []
+    },
+    {
+      "tag": "hiss",
+      "variants": [
+        "hisses"
+      ]
+    },
+    {
+      "tag": "laugh",
+      "variants": [
+        "laughs",
+        "laughter",
+        "laughing"
+      ]
+    },
+    {
+      "tag": "moan",
+      "variants": [
+        "moans",
+        "moaning"
+      ]
+    },
+    {
+      "tag": "pant",
+      "variants": [
+        "pants",
+        "panting"
+      ]
+    },
+    {
+      "tag": "pff",
+      "variants": []
+    },
+    {
+      "tag": "phew",
+      "variants": []
+    },
+    {
+      "tag": "scream",
+      "variants": [
+        "screams",
+        "screaming"
+      ]
+    },
+    {
+      "tag": "shout",
+      "variants": [
+        "shouts",
+        "shouting"
+      ]
+    },
+    {
+      "tag": "shriek",
+      "variants": [
+        "shrieks"
+      ]
+    },
+    {
+      "tag": "sigh",
+      "variants": [
+        "sighs"
+      ]
+    },
+    {
+      "tag": "sneeze",
+      "variants": [
+        "sneezes"
+      ]
+    },
+    {
+      "tag": "snicker",
+      "variants": [
+        "snickers"
+      ]
+    },
+    {
+      "tag": "snort",
+      "variants": [
+        "snorts"
+      ]
+    },
+    {
+      "tag": "sob",
+      "variants": [
+        "sobs",
+        "sobbing"
+      ]
+    },
+    {
+      "tag": "throat-clearing",
+      "variants": [
+        "clears throat",
+        "throat clearing"
+      ]
+    },
+    {
+      "tag": "tsk",
+      "variants": []
+    },
+    {
+      "tag": "whimper",
+      "variants": [
+        "whimpers"
+      ]
+    },
+    {
+      "tag": "whisper",
+      "variants": [
+        "whispers",
+        "whispering"
+      ]
+    },
+    {
+      "tag": "yawn",
+      "variants": [
+        "yawns"
+      ]
+    },
+    {
+      "tag": "short pause",
+      "variants": []
+    },
+    {
+      "tag": "long pause",
+      "variants": []
+    }
+  ],
   "VALID_LANGUAGE_BOOSTS": [
     "auto",
     "Chinese",
@@ -361,10 +654,6 @@
       "say": "what the fuck"
     },
     {
-      "match": "lmao",
-      "say": "laugh my ass off"
-    },
-    {
       "match": "ffs",
       "say": "for fuck's sake"
     },
@@ -403,18 +692,6 @@
     {
       "match": "1v1",
       "say": "one v one"
-    },
-    {
-      "match": "rofl",
-      "say": "rolling on the floor laughing"
-    },
-    {
-      "match": "roflmao",
-      "say": "rolling on the floor laughing my ass off"
-    },
-    {
-      "match": "lmfao",
-      "say": "laughing my fucking ass off"
     }
   ]
 }

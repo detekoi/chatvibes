@@ -23,7 +23,7 @@ To read the full list of commands and voices, visit the documentation:
   * **Interactive or Silent Mode:** Configure the bot to answer chat commands or operate silently in the background.
   * **Cheer messages:** The message attached to a cheer is read aloud in every mode once it meets a minimum you set. Bits/Points Only mode makes cheers and channel point rewards the only way to speak.
   * **Channel Points to TTS:** Create a custom Twitch Channel Point reward that viewers redeem with a message to read it aloud.
-  * Customizable voices and speech parameters through the Wavespeed AI API (`minimax/speech-02-turbo` model).
+  * More than 2,000 voices through Gemini TTS, with a free-text style, emotion presets, and stepped speed and pitch.
   * Personal voice, emotion, pitch, and speed preferences for each user.
   * Ignores specified users.
   * Plays audio through an OBS browser source.
@@ -146,9 +146,9 @@ The Channel Points to TTS feature works with all TTS modes:
    * Register a new application on the [Twitch Developer Console](https://dev.twitch.tv/console/apps).
    * Set the OAuth Redirect URL to `http://localhost:3000/auth/twitch/callback`.
    * Record the **Client ID** and generate a **Client Secret**.
-5. **Wavespeed AI API Key:**
-   * Create an account at [Wavespeed AI](https://wavespeed.ai/).
-   * Copy your API key from the settings page.
+5. **Gemini API Key:**
+   * Create a key in [Google AI Studio](https://aistudio.google.com/) for a project on the paid tier.
+   * The same key serves speech, the emote descriptions and the reward matcher.
 6. **Google Cloud Project:**
    * Create a Google Cloud Platform project.
    * Enable the Cloud Firestore API, Secret Manager API, Cloud Run API, and Cloud Build API.
@@ -177,7 +177,7 @@ The Channel Points to TTS feature works with all TTS modes:
    * `TWITCH_CHANNELS`: Comma-separated list of Twitch channels to join initially during local development.
    * `TWITCH_CLIENT_ID`: Client ID for your Twitch application.
    * `TWITCH_CLIENT_SECRET`: Client Secret for your Twitch application.
-   * `WAVESPEED_API_KEY`: API key for Wavespeed AI.
+   * `GEMINI_API_KEY`: API key for the Gemini API.
    * `GOOGLE_CLOUD_PROJECT`: Google Cloud Project ID.
    * `TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME`: Full resource name of the secret in Google Secret Manager holding the Twitch refresh token for the bot account.
    * `PUBLIC_URL`: Deployed service URL (for example, `https://chatvibes-tts-service-906125386407.us-central1.run.app`).
@@ -229,7 +229,7 @@ The Channel Points to TTS feature works with all TTS modes:
      --region YOUR_REGION \
      --allow-unauthenticated \
      --service-account YOUR_CHATVIBES_SERVICE_ACCOUNT_EMAIL \
-     --set-secrets=TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REFRESH_TOKEN_SECRET/versions/latest,WAVESPEED_API_KEY=projects/YOUR_GCP_PROJECT_ID/secrets/WAVESPEED_API_KEY/versions/latest \
+     --set-secrets=TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME=projects/YOUR_GCP_PROJECT_ID/secrets/YOUR_REFRESH_TOKEN_SECRET/versions/latest,GEMINI_API_KEY=projects/YOUR_GCP_PROJECT_ID/secrets/GEMINI_API_KEY/versions/latest \
      --set-env-vars=NODE_ENV=production,LOG_LEVEL=info,PINO_PRETTY_LOGGING=false,GOOGLE_CLOUD_PROJECT=YOUR_GCP_PROJECT_ID,TWITCH_BOT_USERNAME=YourBotName
    ```
 

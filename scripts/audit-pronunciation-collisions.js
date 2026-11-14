@@ -12,7 +12,7 @@
 // 72 entries x 40 languages is 2,880 pairs, which is not reviewable by eye. This
 // narrows it to a shortlist. It does NOT edit tts-config.json: the output is a
 // proposal for a human to check against the language they actually speak, in the
-// same spirit as scripts/probe-pronunciation.js, which is how this list was
+// same spirit as the pronunciation probe (now the slang group of probe-gemini-tts.js), which is how this list was
 // seeded in the first place.
 //
 // Hits a paid API and is non-deterministic. Never wire this into CI.

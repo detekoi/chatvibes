@@ -2,7 +2,7 @@
 // Chunked delivery from the queue: slices are forwarded to chunk-capable players in
 // order as the provider renders them, a prefetched clip's buffered slices are
 // replayed when its turn comes, the whole buffer is not sent twice, and every
-// opened clip is closed — with discard when the audio arrives another way or not at all.
+// opened clip is closed — with discard when synthesis failed.
 
 import { jest } from '@jest/globals';
 import { createMockFirestore, FieldValue } from '../helpers/mockFirestore.js';
@@ -16,7 +16,8 @@ describe('ttsQueue chunked delivery', () => {
     let streams;
 
     const flush = () => new Promise(r => setImmediate(() => setImmediate(r)));
-    const clip = hex => ({ kind: 'buffer', data: Buffer.from(hex, 'hex'), mime: 'audio/mpeg' });
+    // The queue does not look inside the audio, so any bytes stand in for PCM and WAV.
+    const clip = hex => ({ kind: 'buffer', data: Buffer.from(hex, 'hex'), mime: 'audio/wav', sampleRate: 24000 });
 
     beforeEach(async () => {
         jest.resetModules();
@@ -28,7 +29,6 @@ describe('ttsQueue chunked delivery', () => {
         mockWebServer = {
             sendAudioToChannel: jest.fn(),
             hasActiveClients: jest.fn().mockReturnValue(true),
-            channelPrefersUrlAudio: jest.fn().mockReturnValue(false),
             openClipStream: jest.fn((channel, clipId) => {
                 const stream = { channel, clipId, recipients: new Set(['ws-1']), chunk: jest.fn(), end: jest.fn() };
                 streams.push(stream);
@@ -88,19 +88,22 @@ describe('ttsQueue chunked delivery', () => {
         expect(mockWebServer.sendAudioToChannel.mock.calls[0]).toHaveLength(2);
     });
 
-    test('discards the streamed clip when the audio comes back as a URL, then sends the URL to everyone', async () => {
+    test('discards the clip when generation fails after a slice went out', async () => {
+        // The provider does not retry once a slice was forwarded, so the player holds
+        // the start of a clip that will never finish.
         mockTtsService.generateSpeech.mockImplementation(async (text, voiceId, options) => {
-            options.onChunk(Buffer.from('ff', 'hex')); // a slice from a 302 attempt that then failed over
-            return { kind: 'url', url: 'https://cdn.example/a.mp3' };
+            options.onChunk(Buffer.from('ff', 'hex'));
+            throw new Error('Gemini TTS request timed out (the stream went silent)');
         });
 
         await enqueue('hello');
         await flush();
 
         const [stream] = streams;
+        expect(stream.chunk).toHaveBeenCalledTimes(1);
+        expect(stream.end).toHaveBeenCalledTimes(1);
         expect(stream.end).toHaveBeenCalledWith({ discard: true });
-        expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith(TEST_CHANNEL, { kind: 'url', url: 'https://cdn.example/a.mp3' });
-        expect(mockWebServer.sendAudioToChannel.mock.calls[0]).toHaveLength(2);
+        expect(mockWebServer.sendAudioToChannel).not.toHaveBeenCalled();
     });
 
     test('discards the clip when generation fails, so the player does not wait forever', async () => {

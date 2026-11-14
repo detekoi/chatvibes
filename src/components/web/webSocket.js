@@ -178,7 +178,7 @@ export function getChannelsWithClients() {
  * Guarded by a timestamp on the channel config rather than an in-memory flag, so a
  * reconnect, an instance swap or a redeploy does not re-nag. enqueueMessage already
  * returns silently when botRespondsInChat is false, so silent-mode channels are left
- * alone — they keep working via the URL path regardless.
+ * alone.
  */
 async function notifyStalePlayer(channelName) {
     const state = await getTtsState(channelName);
@@ -193,43 +193,23 @@ async function notifyStalePlayer(channelName) {
 }
 
 /**
- * True if any client currently connected for this channel is running a player that
- * cannot accept binary audio frames.
- *
- * The queue calls this *before* generating, so it can ask the provider for a URL
- * instead of inline bytes. That keeps an OBS source on a cached old player working
- * — just without the latency win — rather than going silent. Once every client for
- * the channel has refreshed, the channel returns to the fast inline-bytes path.
- */
-export function channelPrefersUrlAudio(channelName) {
-    const resolved = resolveToChannelName(channelName);
-    const clients = channelClients.get(resolved);
-    if (!clients || clients.size === 0) return false;
-
-    for (const ws of clients) {
-        if (ws.readyState === WebSocket.OPEN && !ws.supportsBinaryAudio) return true;
-    }
-    return false;
-}
-
-/**
  * Start delivering one clip chunk by chunk to the clients that can play it that way.
  *
- * Returns null when no client for the channel announced `chunkedAudio`, in which
- * case the caller sends the finished buffer through sendAudioToChannel as before.
+ * Returns null when no client for the channel announced `pcmAudio`, in which
+ * case the caller sends the finished clip (a WAV file) through sendAudioToChannel.
+ * The slices are raw 16-bit mono PCM, and `audioStart` names the sample rate.
  * Otherwise the recipients are fixed at this moment: a client that connects
  * mid-clip is not sent a tail of frames it never saw the start of, and one that
  * disconnects is skipped. Frames go out in order on the same socket, which is the
  * only ordering the player relies on — an `audioStart` control message, the binary
  * slices, then `audioEnd`. `end({ discard: true })` tells the player to drop the
- * clip, streamed slices and all, because the finished audio is arriving another
- * way (the Wavespeed URL fallback) or not at all.
+ * clip, streamed slices and all, because synthesis failed or was stopped.
  *
  * @param {string} channelName
  * @param {string} clipId
  * @returns {null | { recipients: Set<WebSocket>, chunk(buf: Buffer): void, end(opts?: { discard?: boolean }): void }}
  */
-export function openClipStream(channelName, clipId) {
+export function openClipStream(channelName, clipId, { sampleRate = 24000 } = {}) {
     const resolved = resolveToChannelName(channelName);
     const clients = channelClients.get(resolved);
     if (!clients || clients.size === 0) return null;
@@ -249,7 +229,7 @@ export function openClipStream(channelName, clipId) {
         }
     };
 
-    const start = JSON.stringify({ type: 'audioStart', clipId });
+    const start = JSON.stringify({ type: 'audioStart', clipId, format: 'pcm_s16le', sampleRate });
     for (const ws of recipients) sendTo(ws, start);
     logger.debug({ channel: resolved, clipId, recipients: recipients.size }, 'Chunked clip delivery started');
 
@@ -433,9 +413,8 @@ export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
             delivered++;
         } else if (!awaitingHello(ws)) {
             // A client past the hello grace period with no binary support is an
-            // outdated player. channelPrefersUrlAudio makes the queue request a URL
-            // whenever one is connected, so this only happens if it connected
-            // between that check and this send.
+            // outdated player. The provider has no URL output to fall back to, so
+            // it hears nothing until the browser source is refreshed.
             staleClients++;
         }
     });
@@ -628,8 +607,10 @@ export function initializeWebSocketServer(httpServer, { onClientConnect, onChann
                 } else if (parsedMessage?.type === 'hello') {
                     const features = Array.isArray(parsedMessage.features) ? parsedMessage.features : [];
                     ws.supportsBinaryAudio = features.includes('binaryAudio');
-                    // Chunked delivery rides on binary frames, so it implies binary.
-                    ws.supportsChunkedAudio = ws.supportsBinaryAudio && features.includes('chunkedAudio');
+                    // Slices are raw PCM, played with Web Audio. A player from before the
+                    // Gemini migration announces 'chunkedAudio' (MP3 slices) and not
+                    // 'pcmAudio': it gets each clip whole, as one WAV frame.
+                    ws.supportsChunkedAudio = ws.supportsBinaryAudio && features.includes('pcmAudio');
                     ws.helloReceived = true;
                     logger.debug(
                         { channel: channelName, features },

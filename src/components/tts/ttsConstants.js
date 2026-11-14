@@ -11,17 +11,13 @@ export const DEFAULT_TTS_SETTINGS = {
     engineEnabled: true,
     mode: 'command', // A channel that never chose one starts in command mode; the dashboard writes this at first sign-in
     ttsPermissionLevel: 'everyone',
-    voiceId: config.tts?.defaultVoiceId || 'Friendly_Person',
+    voiceId: config.tts?.defaultVoiceId || 'puck', // A Gemini voice ID; see voiceResolver.js
     speed: config.tts?.defaultSpeed || ttsConfig.SPEED.DEFAULT,
     volume: 1.0,
     pitch: config.tts?.defaultPitch || ttsConfig.PITCH.DEFAULT,
     emotion: config.tts?.defaultEmotion || 'neutral',
-    englishNormalization: false,
     allowViewerPreferences: true,
     readFullUrls: false, // Default to reading only domain names for better listening experience
-    sampleRate: 32000,
-    bitrate: 128000,
-    channel: 'mono',
     languageBoost: config.tts?.defaultLanguageBoost || 'auto',
     speakEvents: true,
     // Speak the message attached to a cheer. bits_points_only always does;
@@ -48,6 +44,9 @@ export const DEFAULT_TTS_SETTINGS = {
     pronunciations: {},
     pronunciationEnabled: true,
     profanityFilterEnabled: false, // Opt-in: off unless a channel turns it on
+    // Sound tags (<laugh>, <scream>, ...) that the channel turned off, by canonical
+    // name. Every tag works unless it is listed here. See src/lib/textRewrite/soundTags.js.
+    disabledSoundTags: [],
     // TTS ignore list, keyed by immutable platform account ID. See src/lib/ignoreList.js
     // for the key format and why login names are not used.
     ignoredUserIds: {},
@@ -61,9 +60,6 @@ export const DEFAULT_TTS_SETTINGS = {
 // All valid emotions (speech-2.8-turbo full set + "neutral" as user-facing auto-detect alias)
 export const VALID_EMOTIONS = ttsConfig.VALID_EMOTIONS;
 
-// Emotions safe for the Wavespeed/speech-02-turbo fallback path (no calm/fluent)
-export const LEGACY_SAFE_EMOTIONS = ttsConfig.LEGACY_SAFE_EMOTIONS;
-
 export const TTS_PITCH_MIN = ttsConfig.PITCH.MIN;
 export const TTS_PITCH_MAX = ttsConfig.PITCH.MAX;
 export const TTS_PITCH_DEFAULT = ttsConfig.PITCH.DEFAULT;
@@ -72,11 +68,9 @@ export const TTS_SPEED_MIN = ttsConfig.SPEED.MIN;
 export const TTS_SPEED_MAX = ttsConfig.SPEED.MAX;
 export const TTS_SPEED_DEFAULT = ttsConfig.SPEED.DEFAULT;
 
-// Full language boost list (speech-2.8-turbo, 40 languages)
+// The languages a channel or viewer can choose (40). The value gives the speech model a
+// hint, sets the default announcement language and selects the profanity list.
 export const VALID_LANGUAGE_BOOSTS = ttsConfig.VALID_LANGUAGE_BOOSTS;
-
-// Languages safe for the Wavespeed/speech-02-turbo fallback path (25 languages)
-export const LEGACY_SAFE_LANGUAGE_BOOSTS = ttsConfig.LEGACY_SAFE_LANGUAGE_BOOSTS;
 
 export const DOC_LINKS = {
     voices: 'https://docs.wildcat.chat/tts-voices.html#voices',

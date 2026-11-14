@@ -9,9 +9,8 @@ process.env.NODE_ENV = 'test';
 const testEnvDefaults = {
     TWITCH_BOT_USERNAME: 'test_bot',
     TWITCH_BOT_REFRESH_TOKEN_SECRET_NAME: 'test-refresh-token-secret',
-    WAVESPEED_API_KEY: 'test_wavespeed_key',
-    // ttsService routes to 302.ai only when a key is present at config-load time
-    T302_API_KEY: 'test_302_key',
+    // generateSpeech refuses to run without a key
+    GEMINI_API_KEY: 'test_gemini_key',
     TWITCH_CHANNELS: 'testchannel',
 };
 

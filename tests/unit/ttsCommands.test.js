@@ -325,7 +325,7 @@ describe('TTS Command Handlers', () => {
 
     test('should display current voice when no args provided', async () => {
       mockTtsState.getGlobalUserPreferences.mockResolvedValue({
-        voiceId: 'Friendly_Person'
+        voiceId: 'kore'
       });
 
       const context = {
@@ -340,7 +340,7 @@ describe('TTS Command Handlers', () => {
 
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
-        expect.stringContaining('Friendly_Person'),
+        expect.stringContaining('kore'),
         { replyToId: '123' }
       );
     });
@@ -382,6 +382,8 @@ describe('TTS Command Handlers', () => {
         '999',
         'voiceId'
       );
+      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'voiceStyle');
+      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'voiceLanguage');
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('reset'),
@@ -429,8 +431,8 @@ describe('TTS Command Handlers', () => {
 
     test('should set voice with valid voice ID (case insensitive)', async () => {
       mockTtsService.getAvailableVoices.mockResolvedValue([
-        { id: 'Friendly_Person', name: 'Friendly Person' },
-        { id: 'Wise_Woman', name: 'Wise Woman' }
+        { id: 'kore', name: 'Kore' },
+        { id: 'en-gb-storyteller-3', name: 'Kore' }
       ]);
 
       mockTtsState.setGlobalUserPreference.mockResolvedValue(true);
@@ -438,7 +440,7 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'testuser', 'user-id': '999' },
-        args: ['friendly_person'],
+        args: ['KORE'],
         replyToId: '123',
         t: getTranslator('en')
       };
@@ -448,12 +450,15 @@ describe('TTS Command Handlers', () => {
       expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith(
         '999',
         'voiceId',
-        'Friendly_Person',
+        'kore',
         'testuser'
       );
+      // The manner and the language that came with a mapped MiniMax voice belong to the old voice.
+      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'voiceStyle');
+      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'voiceLanguage');
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
-        expect.stringContaining('Friendly_Person'),
+        'Your TTS voice has been set to: kore.',
         { replyToId: '123' }
       );
     });
@@ -485,7 +490,7 @@ describe('TTS Command Handlers', () => {
 
     test('should fallback to say command for invalid voice', async () => {
       mockTtsService.getAvailableVoices.mockResolvedValue([
-        { id: 'Friendly_Person', name: 'Friendly Person' }
+        { id: 'kore', name: 'Kore' }
       ]);
 
       const context = {
@@ -508,7 +513,7 @@ describe('TTS Command Handlers', () => {
 
     test('should handle voice preference set failure', async () => {
       mockTtsService.getAvailableVoices.mockResolvedValue([
-        { id: 'Friendly_Person', name: 'Friendly Person' }
+        { id: 'kore', name: 'Kore' }
       ]);
 
       mockTtsState.setGlobalUserPreference.mockResolvedValue(false);
@@ -516,7 +521,7 @@ describe('TTS Command Handlers', () => {
       const context = {
         channel: '#testchannel',
         user: { username: 'testuser', 'user-id': '999' },
-        args: ['Friendly_Person'],
+        args: ['kore'],
         replyToId: '123',
         t: getTranslator('en')
       };
@@ -528,6 +533,7 @@ describe('TTS Command Handlers', () => {
         expect.stringContaining('Could not set'),
         { replyToId: '123' }
       );
+      expect(mockTtsState.clearGlobalUserPreference).not.toHaveBeenCalled();
     });
 
     test('should handle reset failure', async () => {

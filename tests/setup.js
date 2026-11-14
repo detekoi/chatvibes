@@ -8,6 +8,6 @@ process.env.LOG_LEVEL = 'silent'; // Suppress logs during tests
 // Mock environment setup
 global.mockEnv = {
   TWITCH_CHANNELS: 'testchannel',
-  WAVESPEED_API_KEY: 'test_wavespeed_key',
+  GEMINI_API_KEY: 'test_gemini_key',
   GOOGLE_APPLICATION_CREDENTIALS: './test-credentials.json'
 };

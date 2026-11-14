@@ -240,8 +240,8 @@ export async function getStoredLanguageBoost(channelName) {
 export async function getChannelTtsConfig(channelName) {
     const fullState = await getTtsState(channelName);
     // Extract only TTS parameters
-    const { voiceId, speed, volume, pitch, emotion, englishNormalization, sampleRate, bitrate, channel, languageBoost, voiceVolumes } = fullState;
-    return { voiceId, speed, volume, pitch, emotion, languageBoost, englishNormalization, sampleRate, bitrate, channel, voiceVolumes: voiceVolumes || {} };
+    const { voiceId, voiceStyle, voiceLanguage, speed, volume, pitch, emotion, style, languageBoost, voiceVolumes } = fullState;
+    return { voiceId, voiceStyle, voiceLanguage, speed, volume, pitch, emotion, style, languageBoost, voiceVolumes: voiceVolumes || {} };
 }
 
 export async function setTtsState(channelName, key, value) {
