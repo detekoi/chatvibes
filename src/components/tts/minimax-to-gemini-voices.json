@@ -204,16 +204,16 @@
     "reason": "Bright, crisp, enthusiastic General American young adult female matching upbeat, high-energy delivery."
   },
   "English_expressive_narrator": {
-    "voice": "en-gb-advisor-10",
+    "voice": "en-gb-podcaster-1",
     "languageCode": "en-GB",
     "style": "",
     "needsStyleRender": false,
-    "confidence": "medium",
+    "confidence": "high",
     "alternates": [
-      "en-us-storyteller-8",
-      "en-nz-training-2"
+      "en-gb-advisor-8",
+      "en-gb-training-1"
     ],
-    "reason": "Only British English candidate in the top 5, preserving the en-GB accent and adult male pitch."
+    "reason": "Chosen by the owner by ear on 2026-11-14."
   },
   "English_radiant_girl": {
     "voice": "en-us-lora",
