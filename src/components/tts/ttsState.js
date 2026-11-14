@@ -3,7 +3,6 @@ import { Firestore, FieldValue, FieldPath } from '@google-cloud/firestore';
 import logger from '../../lib/logger.js';
 import {
     DEFAULT_TTS_SETTINGS,
-    VALID_EMOTIONS,
     VALID_LANGUAGE_BOOSTS,
     TTS_PITCH_MIN,
     TTS_PITCH_MAX,
@@ -719,22 +718,6 @@ export async function setChannelDefaultSpeed(channelName, speed) {
 
 export async function resetChannelDefaultSpeed(channelName) {
     return setTtsState(channelName, 'speed', TTS_SPEED_DEFAULT);
-}
-
-// --- Functions for Channel-wide Default Emotion ---
-// A custom style replaces the emotion preset, so both writes remove the style. The two
-// fields go out in one request: an emotion saved beside a style that stayed is not heard.
-export async function setChannelDefaultEmotion(channelName, emotion) {
-    if (!VALID_EMOTIONS.includes(emotion.toLowerCase())) {
-        logger.warn(`[${channelName}] Attempt to set invalid default emotion: ${emotion}.`);
-        return false;
-    }
-    return setTtsStateFields(channelName, { emotion: emotion.toLowerCase(), style: '' });
-}
-
-export async function resetChannelDefaultEmotion(channelName) {
-    const systemDefaultEmotion = DEFAULT_TTS_SETTINGS.emotion || 'auto';
-    return setTtsStateFields(channelName, { emotion: systemDefaultEmotion, style: '' });
 }
 
 // --- Functions for Channel-wide Default Language ---

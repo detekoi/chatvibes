@@ -12,6 +12,8 @@ const ttsConfig = require('./tts-config.json');
 
 export const STYLE_MAX_LENGTH = ttsConfig.STYLE.MAX_LENGTH;
 export const STYLE_PRESETS = ttsConfig.STYLE_PRESETS;
+/** The style of a viewer who wants a plain voice in a channel that has a style. */
+export const NEUTRAL_STYLE = ttsConfig.STYLE.NEUTRAL;
 export const SPEED_STEPS = ttsConfig.SPEED_STEPS;
 export const PITCH_STEPS = ttsConfig.PITCH_STEPS;
 
@@ -56,6 +58,29 @@ export function sanitizeStyle(text) {
         .trim()
         .slice(0, STYLE_MAX_LENGTH)
         .trim();
+}
+
+/**
+ * The style words for an emotion name. The emotion is a setting of the old provider.
+ * Nothing writes it now: a chat command with an emotion name writes these words as the
+ * style, and scripts/backfill_emotion_to_style.js converts the stored values.
+ *
+ * `neutral` has no words for a channel. For a viewer it is NEUTRAL_STYLE, because a
+ * viewer with no style gets the style of the channel.
+ *
+ * @param {string} emotion A name from VALID_EMOTIONS or EMOTION_ALIASES, in any case
+ * @param {{viewer?: boolean}} [options]
+ * @returns {string|null} The words, '' for no style, or null for a name that is not an emotion
+ */
+export function styleForEmotion(emotion, { viewer = false } = {}) {
+    const typed = String(emotion ?? '').trim().toLowerCase();
+    // `auto` was the word for "no choice", for a viewer too.
+    if (typed === 'auto') return '';
+    const name = Object.hasOwn(ttsConfig.EMOTION_ALIASES, typed) ? ttsConfig.EMOTION_ALIASES[typed] : typed;
+    // An own-property test: `constructor` is not an emotion.
+    if (!Object.hasOwn(STYLE_PRESETS, name)) return null;
+    if (name === 'neutral') return viewer ? NEUTRAL_STYLE : '';
+    return STYLE_PRESETS[name];
 }
 
 /**

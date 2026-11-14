@@ -99,8 +99,8 @@ code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`
 ## Voice, style, speed and pitch
 
 Gemini TTS takes a voice, the text and one free-text style. It has no numbers for speed,
-pitch, emotion or volume. The stored fields did not change in the migration from MiniMax,
-so only voice IDs needed a backfill.
+pitch, emotion or volume. The stored speed and pitch did not change in the migration from
+MiniMax. The voice IDs and the emotion each have a backfill.
 
 - Voices: `src/components/tts/gemini-voices.json` is the catalog (2,114 voices: 30 studio
   voices that speak every language, and a library with a language, gender, pitch and
@@ -127,16 +127,25 @@ so only voice IDs needed a backfill.
   The `styleInjection` group of `scripts/probe-gemini-tts.js` tested this on 2026-11-14: a
   style cannot add, replace or remove spoken words. It can change the manner a lot (singing,
   screaming), and a slow manner makes a longer clip, which costs more.
-- `emotion`: Still a preset key. `STYLE_PRESETS` in `tts-config.json` maps each key to
-  style words. A custom style replaces the preset, so a command or an API call that sets an
-  emotion clears the style of the same document.
+- `emotion`: A setting of the old provider. Nothing writes it now. `!tts emotion` and
+  `!tts defaultemotion` are old names of the style commands: `styleBuilder.styleForEmotion`
+  turns an emotion name into the style words of `STYLE_PRESETS`, and the command stores
+  those words as the `style`. The web UI does the same for a request that sends an emotion.
+  Each write of a style removes the stored emotion of the same record.
+  `scripts/backfill_emotion_to_style.js` converts the stored values and keeps the old one
+  in `legacyEmotion`. Until it ran, `buildStyle` and `ttsQueue.enqueue` still read a stored
+  emotion. After it ran, that read can be removed.
+- A viewer with no style gets the style of the channel. A viewer who wants a plain voice
+  in a channel that has a style uses the style "in a neutral tone" (`STYLE.NEUTRAL`). The
+  old viewer emotion `neutral` had that effect, so the commands and the backfill map it
+  to that style. For a channel, `neutral` means no style.
 - `speed` and `pitch`: Still numbers (0.5 to 2.0, and -12 to 12). `styleBuilder.js`
   converts a number to one of five steps each time it is read (`SPEED_STEPS`, `PITCH_STEPS`)
   and adds words such as "speaking slowly". The commands accept a step word or a number.
   The result is approximate.
 - Order of precedence: A viewer value replaces the channel value, field by field. For
-  the manner: the viewer's style, then the viewer's emotion, then the channel's style, then
-  the channel's emotion. `buildStyle` joins the voice style, the manner, the pace words and
+  the manner: the viewer's style, then the channel's style. A stored emotion that the
+  backfill did not convert yet still counts at its level, below the style. `buildStyle` joins the voice style, the manner, the pace words and
   the pitch words.
 - Volume: `voiceVolumes[<voice ID>]`, then `volume`, then 1, capped at 2. `ttsService.applyGain`
   applies it to the samples, so it is exact.

@@ -197,17 +197,6 @@ describe('ttsState module', () => {
     test('setTtsStateFields refuses to write for a channel with no known ID', async () => {
       expect(await ttsState.setTtsStateFields('unregistered', { voiceId: 'kore' })).toBe(false);
     });
-
-    // A custom style replaces the emotion preset, so an emotion that is saved beside it is not heard.
-    test('setChannelDefaultEmotion removes the custom style', async () => {
-      expect(await ttsState.setChannelDefaultEmotion(TEST_CHANNEL, 'Happy')).toBe(true);
-      expect(await stored()).toMatchObject({ emotion: 'happy', style: '' });
-    });
-
-    test('resetChannelDefaultEmotion removes the custom style', async () => {
-      expect(await ttsState.resetChannelDefaultEmotion(TEST_CHANNEL)).toBe(true);
-      expect((await stored()).style).toBe('');
-    });
   });
 
   describe('updateGlobalUserPreferences', () => {

@@ -30,7 +30,8 @@
     "DEFAULT": 1.0
   },
   "STYLE": {
-    "MAX_LENGTH": 120
+    "MAX_LENGTH": 120,
+    "NEUTRAL": "in a neutral tone"
   },
   "STYLE_PRESETS": {
     "neutral": "",

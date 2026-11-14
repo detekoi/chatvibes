@@ -3,12 +3,15 @@
 //
 // The style is free text that tells the voice how to speak: "whispering", "like a
 // pirate", "bored and slow". It is an instruction to the speech model and is never
-// spoken, and the model reads the message word for word whatever the style says. It
-// replaces the emotion preset, which is why setting an emotion clears it.
+// spoken, and the model reads the message word for word whatever the style says.
+//
+// The speech model has no emotion setting. "!tts emotion" and "!tts defaultemotion" stay
+// as old names: createEmotionAlias turns an emotion name into its style words.
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
 import { getTtsState } from '../../tts/ttsState.js';
-import { sanitizeStyle, STYLE_MAX_LENGTH } from '../../tts/styleBuilder.js';
+import { sanitizeStyle, styleForEmotion, STYLE_MAX_LENGTH } from '../../tts/styleBuilder.js';
+import { VALID_EMOTIONS } from '../../tts/ttsConstants.js';
 import { containsBannedWord } from '../../../lib/bannedWords.js';
 
 const CLEAR_WORDS = new Set(['off', 'reset', 'none', 'clear']);
@@ -67,6 +70,40 @@ export function createStyleCommand({ name, description, usage, permission, keys,
             } else {
                 reply(t(keys.failed));
             }
+        },
+    };
+}
+
+/**
+ * A command that takes an emotion name and runs a style command with the words of that
+ * emotion. The replies are the replies of the style command, so they show its usage.
+ *
+ * @param {object} options
+ * @param {string} options.name
+ * @param {string} options.description
+ * @param {string} options.usage Shown untranslated: it is the literal command to type
+ * @param {object} options.target The style command that does the work
+ * @param {boolean} options.viewer True for a viewer's own setting, false for the channel's
+ * @param {string} options.hintKey Catalog key of the reply to a name that is not an emotion
+ * @param {string[]} options.resetWords Words that remove the style
+ */
+export function createEmotionAlias({ name, description, usage, target, viewer, hintKey, resetWords }) {
+    return {
+        name,
+        description,
+        usage,
+        permission: target.permission,
+        execute: async (context) => {
+            const { channel, args, replyToId, t } = context;
+            if (args.length === 0) return target.execute(context);
+
+            const typed = args[0].toLowerCase();
+            const style = resetWords.includes(typed) ? '' : styleForEmotion(typed, { viewer });
+            if (style === null) {
+                enqueueMessage(channel, t(hintKey, { list: VALID_EMOTIONS.join(', ') }), { replyToId });
+                return;
+            }
+            return target.execute({ ...context, args: style ? style.split(' ') : ['off'] });
         },
     };
 }

@@ -64,17 +64,17 @@ YouTube chat arrives from `yt-chat-proxy` via `src/components/youtube/ytChatClie
 | `announcementLocale` | unset | Overrides the locale derived from `languageBoost` |
 | `pronunciations` | — | Channel overrides; an empty value disables the built-in |
 | `readFullUrls` | `false` | Off reads only the domain |
-| `style` | unset | Free text that tells the voice how to speak. Replaces the `emotion` preset |
+| `style` | unset | Free text that tells the voice how to speak. `emotion` is its retired predecessor: read only, never written |
 | `voiceStyle`, `voiceLanguage` | unset | The manner and the language of a mapped MiniMax voice, written by the backfill. A change of voice clears both |
 | `speed`, `pitch` | 1.0, 0 | Stored as numbers, sent as one of five steps in words. Approximate |
 | `disabledSoundTags` | `[]` | Tags such as `moan` that are removed from text. Every other tag makes its sound |
 
-Also: voice ID, per-voice volume, emotion, profanity filter (off by default), per-user
+Also: voice ID, per-voice volume, profanity filter (off by default), per-user
 preferences. Details: `docs/channel-config.md`.
 
 ## Chat commands
 
-`!tts` + `status`, `on|off`, `mode all|command|bits|highlight`, `voices`, `voice <id>`, `emotion <e>`,
+`!tts` + `status`, `on|off`, `mode all|command|bits|highlight`, `voices`, `voice <id>`, `emotion <e>` (old name: writes the style words of the emotion),
 `style <text|off>`, `speed <number|word>`, `pitch <number|word>`, `lang <l>`,
 `pause|resume`, `stop` (own message; mods any), `clear`, `ignore [add] <user>`, `ignore del [user]`,
 `<text>` (speak it). Mod only: `defaultlanguage <l>`, `defaultstyle <text|off>`, `tags off|on <tag|all>`,

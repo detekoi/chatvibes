@@ -29,10 +29,9 @@ describe('style commands', () => {
         logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
         ttsState = {
             getTtsState: jest.fn().mockResolvedValue({}),
-            setTtsState: jest.fn().mockResolvedValue(true),
+            setTtsStateFields: jest.fn().mockResolvedValue(true),
             getGlobalUserPreferences: jest.fn().mockResolvedValue({}),
-            setGlobalUserPreference: jest.fn().mockResolvedValue(true),
-            clearGlobalUserPreference: jest.fn().mockResolvedValue(true),
+            updateGlobalUserPreferences: jest.fn().mockResolvedValue(true),
         };
 
         jest.unstable_mockModule('../../src/lib/logger.js', () => ({ default: logger }));
@@ -58,7 +57,16 @@ describe('style commands', () => {
             expect(ttsState.getGlobalUserPreferences).toHaveBeenCalledWith('777');
             expect(reply()).toBe('Your current TTS style: like a pirate. Usage: !tts style <text|off>');
             expect(enqueueMessage).toHaveBeenCalledWith('#testchannel', expect.any(String), { replyToId: 'msg-1' });
-            expect(ttsState.setGlobalUserPreference).not.toHaveBeenCalled();
+            expect(ttsState.updateGlobalUserPreferences).not.toHaveBeenCalled();
+        });
+
+        // An old record can still hold an emotion until the backfill ran.
+        it('shows the emotion of an old record as its style words', async () => {
+            ttsState.getGlobalUserPreferences.mockResolvedValue({ emotion: 'happy' });
+
+            await style.execute(context([]));
+
+            expect(reply()).toBe('Your current TTS style: happy and cheerful. Usage: !tts style <text|off>');
         });
 
         it('says so when the viewer has no style', async () => {
@@ -70,37 +78,35 @@ describe('style commands', () => {
         it('joins the words and stores them on the viewer', async () => {
             await style.execute(context(['like', 'a', 'pirate']));
 
-            expect(ttsState.setGlobalUserPreference).toHaveBeenCalledWith('777', 'style', 'like a pirate', 'someviewer');
+            expect(ttsState.updateGlobalUserPreferences).toHaveBeenCalledWith('777', { set: { style: 'like a pirate' }, clear: ['emotion'] }, 'someviewer');
             expect(reply()).toBe('Your TTS style is now: like a pirate.');
-            expect(ttsState.setTtsState).not.toHaveBeenCalled();
+            expect(ttsState.setTtsStateFields).not.toHaveBeenCalled();
         });
 
         it('stores the cleaned text, not what was typed', async () => {
             await style.execute(context(['<whispering>', '', '{softly}']));
 
-            expect(ttsState.setGlobalUserPreference).toHaveBeenCalledWith('777', 'style', 'whispering softly', 'someviewer');
+            expect(ttsState.updateGlobalUserPreferences).toHaveBeenCalledWith('777', { set: { style: 'whispering softly' }, clear: ['emotion'] }, 'someviewer');
             expect(reply()).toBe('Your TTS style is now: whispering softly.');
         });
 
         it.each(['off', 'reset', 'none', 'clear', 'OFF'])('removes the style for "%s"', async word => {
             await style.execute(context([word]));
 
-            expect(ttsState.clearGlobalUserPreference).toHaveBeenCalledWith('777', 'style');
-            expect(ttsState.setGlobalUserPreference).not.toHaveBeenCalled();
+            expect(ttsState.updateGlobalUserPreferences.mock.calls).toEqual([['777', { clear: ['style', 'emotion'] }]]);
             expect(reply()).toBe('Your TTS style was removed. The bot uses the channel default.');
         });
 
         it('treats a clear word inside a longer style as text', async () => {
             await style.execute(context(['off', 'key']));
 
-            expect(ttsState.clearGlobalUserPreference).not.toHaveBeenCalled();
-            expect(ttsState.setGlobalUserPreference).toHaveBeenCalledWith('777', 'style', 'off key', 'someviewer');
+                        expect(ttsState.updateGlobalUserPreferences).toHaveBeenCalledWith('777', { set: { style: 'off key' }, clear: ['emotion'] }, 'someviewer');
         });
 
         it('refuses a style over the maximum length', async () => {
             await style.execute(context(['x'.repeat(STYLE_MAX_LENGTH + 1)]));
 
-            expect(ttsState.setGlobalUserPreference).not.toHaveBeenCalled();
+            expect(ttsState.updateGlobalUserPreferences).not.toHaveBeenCalled();
             expect(reply()).toBe(`That style is too long. Use ${STYLE_MAX_LENGTH} characters or fewer.`);
         });
 
@@ -109,13 +115,13 @@ describe('style commands', () => {
 
             await style.execute(context([text]));
 
-            expect(ttsState.setGlobalUserPreference).toHaveBeenCalledWith('777', 'style', text, 'someviewer');
+            expect(ttsState.updateGlobalUserPreferences).toHaveBeenCalledWith('777', { set: { style: text }, clear: ['emotion'] }, 'someviewer');
         });
 
         it('writes nothing for text with nothing usable in it', async () => {
             await style.execute(context(['<>', '{}']));
 
-            expect(ttsState.setGlobalUserPreference).not.toHaveBeenCalled();
+            expect(ttsState.updateGlobalUserPreferences).not.toHaveBeenCalled();
             expect(reply()).toMatch(/You did not set a TTS style/);
         });
 
@@ -125,12 +131,12 @@ describe('style commands', () => {
             await style.execute(context(['like', 'a', 'pirate']));
 
             expect(ttsState.getTtsState).toHaveBeenCalledWith('testchannel');
-            expect(ttsState.setGlobalUserPreference).not.toHaveBeenCalled();
+            expect(ttsState.updateGlobalUserPreferences).not.toHaveBeenCalled();
             expect(reply()).toBe('The bot cannot use that style, because it contains a banned word.');
         });
 
         it('reports a failed write', async () => {
-            ttsState.setGlobalUserPreference.mockResolvedValue(false);
+            ttsState.updateGlobalUserPreferences.mockResolvedValue(false);
 
             await style.execute(context(['whispering']));
 
@@ -138,7 +144,7 @@ describe('style commands', () => {
         });
 
         it('reports a failed removal', async () => {
-            ttsState.clearGlobalUserPreference.mockResolvedValue(false);
+            ttsState.updateGlobalUserPreferences.mockResolvedValue(false);
 
             await style.execute(context(['off']));
 
@@ -180,15 +186,15 @@ describe('style commands', () => {
         it('stores the style on the channel, not on the moderator', async () => {
             await defaultStyle.execute(context(['bored', 'and', 'slow']));
 
-            expect(ttsState.setTtsState).toHaveBeenCalledWith('testchannel', 'style', 'bored and slow');
-            expect(ttsState.setGlobalUserPreference).not.toHaveBeenCalled();
+            expect(ttsState.setTtsStateFields).toHaveBeenCalledWith('testchannel', { style: 'bored and slow', emotion: 'neutral' });
+            expect(ttsState.updateGlobalUserPreferences).not.toHaveBeenCalled();
             expect(reply()).toBe('The default TTS style of the channel is now: bored and slow.');
         });
 
         it('removes the style by writing an empty one', async () => {
             await defaultStyle.execute(context(['off']));
 
-            expect(ttsState.setTtsState).toHaveBeenCalledWith('testchannel', 'style', '');
+            expect(ttsState.setTtsStateFields).toHaveBeenCalledWith('testchannel', { style: '', emotion: 'neutral' });
             expect(reply()).toBe('The default TTS style of the channel was removed.');
         });
 
@@ -197,19 +203,19 @@ describe('style commands', () => {
 
             await defaultStyle.execute(context(['bored', 'and', 'SLOW']));
 
-            expect(ttsState.setTtsState).not.toHaveBeenCalled();
+            expect(ttsState.setTtsStateFields).not.toHaveBeenCalled();
             expect(reply()).toBe('The bot cannot use that style, because it contains a banned word.');
         });
 
         it('refuses a style over the maximum length', async () => {
             await defaultStyle.execute(context(['x'.repeat(STYLE_MAX_LENGTH), 'y']));
 
-            expect(ttsState.setTtsState).not.toHaveBeenCalled();
+            expect(ttsState.setTtsStateFields).not.toHaveBeenCalled();
             expect(reply()).toMatch(/too long/);
         });
 
         it('reports a failed write', async () => {
-            ttsState.setTtsState.mockResolvedValue(false);
+            ttsState.setTtsStateFields.mockResolvedValue(false);
 
             await defaultStyle.execute(context(['whispering']));
 

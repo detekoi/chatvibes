@@ -1,32 +1,14 @@
-import { createTtsSettingCommand } from './createTtsSettingCommand.js';
-import {
-    setChannelDefaultEmotion,
-    resetChannelDefaultEmotion,
-    getTtsState
-} from '../../tts/ttsState.js';
-import {
-    VALID_EMOTIONS,
-    DEFAULT_TTS_SETTINGS
-} from '../../tts/ttsConstants.js';
+// "!tts defaultemotion <name>": the old name of "!tts defaultstyle". See createEmotionAlias
+// in styleCommand.js.
+import { createEmotionAlias } from './styleCommand.js';
+import defaultStyleCommand from './defaultStyle.js';
 
-export default createTtsSettingCommand({
+export default createEmotionAlias({
     name: 'defaultemotion',
-    scope: 'channel',
-    propertyKey: 'cmd.property.emotion',
-    description: `Sets the channel's default TTS emotion. Valid: ${VALID_EMOTIONS.join(', ')}. Use 'reset' for system default.`,
+    description: 'The old name of !tts defaultstyle. An emotion name sets the matching style.',
     usage: '!tts defaultemotion <emotion|reset>',
-    permission: 'moderator',
-    readCurrent: async (context) => {
-        const config = await getTtsState(context.channel.substring(1));
-        return config.emotion ?? DEFAULT_TTS_SETTINGS.emotion;
-    },
-    // Both writes also remove the channel's custom style, in the same request.
-    resetSetting: async (context) => resetChannelDefaultEmotion(context.channel.substring(1)),
-    setSetting: async (context, val) => setChannelDefaultEmotion(context.channel.substring(1), val),
-    validateFn: (val) => VALID_EMOTIONS.includes(val),
+    target: defaultStyleCommand,
+    viewer: false,
     hintKey: 'cmd.hint.emotionsDefault',
-    hintParams: { list: VALID_EMOTIONS.join(', ') },
-    resetValue: DEFAULT_TTS_SETTINGS.emotion,
-    logSet: (context, val) => `[${context.channel.substring(1)}] Channel default emotion set to ${val}.`,
-    logReset: (context) => `[${context.channel.substring(1)}] Channel default emotion reset to ${DEFAULT_TTS_SETTINGS.emotion}.`
+    resetWords: ['reset'],
 });
