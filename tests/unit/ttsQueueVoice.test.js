@@ -473,6 +473,12 @@ describe('ttsQueue voice, style and volume', () => {
 
             expect(mockTtsService.generateSpeech).toHaveBeenCalledWith('hello', 'kore', expect.objectContaining({ volume: 1.4 }));
         });
+
+        test('caps stored volumes above 2 at 2', async () => {
+            channelConfig.voiceVolumes = { kore: 5 };
+
+            expect((await voiceConfigFor()).volume).toBe(2);
+        });
     });
 
     test('the item keeps no field of the old provider', async () => {

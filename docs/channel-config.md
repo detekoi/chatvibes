@@ -138,7 +138,7 @@ so only voice IDs needed a backfill.
   the manner: the viewer's style, then the viewer's emotion, then the channel's style, then
   the channel's emotion. `buildStyle` joins the voice style, the manner, the pace words and
   the pitch words.
-- Volume: `voiceVolumes[<voice ID>]`, then `volume`, then 1. `ttsService.applyGain`
+- Volume: `voiceVolumes[<voice ID>]`, then `volume`, then 1, capped at 2. `ttsService.applyGain`
   applies it to the samples, so it is exact.
 - Language hint: An explicit `languageBoost` is sent as the hint (see `docs/i18n.md`).
   With `auto`, the hint is the language of the voice: `voiceLanguage`, or the language of a
