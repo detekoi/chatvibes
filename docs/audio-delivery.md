@@ -102,9 +102,9 @@ now held for its hello.
 
 Log keys: `AUDIO_HELD`, `HELD_AUDIO_REPLAYED`, `HELD_AUDIO_EXPIRED`.
 
-## Live check
+## Live test
 
-`scripts/probe-audio-delivery.js` calls the real API. It checks the clip format, the
+`scripts/probe-audio-delivery.js` calls the real API. It tests the clip format, the
 slices, the fallback model and the refusal error, and it writes each clip as a WAV file.
-The unit tests mock `fetch`, so this script is the only check of the request body against
+The unit tests mock `fetch`, so this script is the only test of the request body against
 the real service.

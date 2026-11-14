@@ -34,8 +34,8 @@
     The dictionary is thus still necessary.
   - The laugh acronyms are not in the list: `lol`, `lmao`, `lmfao`, `rofl` and `roflmao`.
     Gemini turns them into a real laugh, which sounds better than the words.
-  - **Pin an acronym if its expansion carries profanity, even when the model expands it
-    correctly.** The profanity filter runs on the text that the bot sends. When the model does
+  - Pin an acronym if its expansion carries profanity, even when the model expands it
+    correctly. The profanity filter runs on the text that the bot sends. When the model does
     the expansion, the profane words exist only in the audio, after the filter. Gemini reads
     `wtf` in full. The expansion by the model also changes between renders, so do not rely
     on it.
@@ -52,7 +52,7 @@
     the index inside its own placeholder, and both the URL and the restore were lost, leaving
     private-use characters in the audio. Splitting has no in-band encoding to corrupt.
   - Gemini has no pronunciation parameter. The dictionary is the only control.
-- **Sound tags** (`src/lib/textRewrite/soundTags.js`): Gemini turns a tag such as `<laugh>`
+- Sound tags (`src/lib/textRewrite/soundTags.js`): Gemini turns a tag such as `<laugh>`
   or `<scream>` into the real sound. It also acts on the older `(laughs)` spelling. Viewers
   can type these tags, and every tag works by default. A channel can turn single tags off
   (`disabledSoundTags`, `!tts tags off <tag>`, or the dashboard). `ttsQueue.enqueue` removes

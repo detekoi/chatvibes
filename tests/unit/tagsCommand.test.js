@@ -162,7 +162,7 @@ describe('!tts tags', () => {
 
         await tags.execute(context(['off', 'laugh']));
 
-        expect(reply()).toBe('The bot could not save that setting. Try again in a moment.');
+        expect(reply()).toBe('The bot did not save that setting. Try again in a moment.');
     });
 
     it('treats a stored value that is not a list as nothing off', async () => {

@@ -134,7 +134,7 @@ describe('style commands', () => {
 
             await style.execute(context(['whispering']));
 
-            expect(reply()).toBe('The bot could not save your TTS style. Try again in a moment.');
+            expect(reply()).toBe('The bot did not save your TTS style. Try again in a moment.');
         });
 
         it('reports a failed removal', async () => {
@@ -142,7 +142,7 @@ describe('style commands', () => {
 
             await style.execute(context(['off']));
 
-            expect(reply()).toBe('The bot could not save your TTS style. Try again in a moment.');
+            expect(reply()).toBe('The bot did not save your TTS style. Try again in a moment.');
         });
 
         it('logs the style it set', async () => {
@@ -213,7 +213,7 @@ describe('style commands', () => {
 
             await defaultStyle.execute(context(['whispering']));
 
-            expect(reply()).toBe('The bot could not save the default TTS style. Try again in a moment.');
+            expect(reply()).toBe('The bot did not save the default TTS style. Try again in a moment.');
         });
     });
 });
