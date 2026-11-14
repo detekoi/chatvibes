@@ -150,6 +150,8 @@ export class MockCollectionReference {
   constructor(collectionId) {
     this.collectionId = collectionId;
     this.documents = new Map();
+    this.snapshotListeners = [];
+    this.filters = [];
   }
 
   doc(id) {
@@ -178,7 +180,21 @@ export class MockCollectionReference {
       forEach: () => { }
     };
     callback(snapshot);
+    // A test sends a later snapshot through emitSnapshot.
+    this.snapshotListeners.push(callback);
     return () => { }; // Unsubscribe function
+  }
+
+  /** Deliver a snapshot with these changes to every listener, as Firestore does after a write. */
+  emitSnapshot(changes) {
+    const snapshot = { docChanges: () => changes, forEach: () => { } };
+    this.snapshotListeners.forEach(listener => listener(snapshot));
+  }
+
+  /** The filter is recorded and not applied: the mock delivers only what a test emits. */
+  where(...filter) {
+    this.filters.push(filter);
+    return this;
   }
 
   limit(_n) {

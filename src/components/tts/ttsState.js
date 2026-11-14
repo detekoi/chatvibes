@@ -31,10 +31,11 @@ const youtubeConfigChangeListeners = [];
 const globalUserPrefsCache = new Map();
 const GLOBAL_PREFS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
-// The 60s TTL is the staleness bound for dashboard edits and cannot simply be
-// raised: the web UI is a separate Firebase Functions app that writes this
-// collection directly, so it has no way to invalidate this cache. Bot-side writes
-// go through setGlobalUserPreference, which deletes the entry outright.
+// The web UI is a separate Firebase Functions app that writes this collection
+// directly. A listener (_setupUserPrefsListener) drops the entry of a document the
+// web UI changed, so a new voice or an opt-out applies to the next message. The 60s
+// TTL is the staleness bound when the listener is down, so do not raise it. Bot-side
+// writes go through setGlobalUserPreference, which deletes the entry outright.
 //
 // This cache is keyed by chatter, so on a busy channel it would otherwise grow for
 // the lifetime of the process — entries expire on read but a chatter who never
@@ -109,6 +110,7 @@ export async function initializeTtsState() {
         });
         logger.info(`Loaded TTS configs for ${channelConfigsCache.size} channels.`);
         _setupFirestoreListener(); // Ensure this is called
+        _setupUserPrefsListener();
     } catch (error) {
         logger.error({ err: error }, 'Failed to initialize TTS state from Firestore.');
     }
@@ -163,6 +165,31 @@ function _setupFirestoreListener() {
             });
         }, err => {
             logger.error({ err }, 'TTS config Firestore listener error.');
+        });
+}
+
+let userPrefsListenerUnsubscribe = null;
+
+/**
+ * Drop the cached preferences of a viewer when their document changes.
+ *
+ * The query matches only documents written after this instance started, so the
+ * listener reads nothing at start and one document for each later change. Every
+ * writer sets `updatedAt` (the web UI and the functions below). A document that
+ * matched once stays in the result, and each later write to it arrives as "modified".
+ */
+function _setupUserPrefsListener() {
+    if (userPrefsListenerUnsubscribe) userPrefsListenerUnsubscribe();
+    userPrefsListenerUnsubscribe = db.collection(USER_PREFS_COLLECTION)
+        .where('updatedAt', '>', new Date())
+        .onSnapshot(snapshot => {
+            snapshot.docChanges().forEach(change => {
+                globalUserPrefsCache.delete(change.doc.id);
+                logger.debug({ userId: change.doc.id, type: change.type }, 'Viewer preferences changed - dropped the cached copy');
+            });
+        }, err => {
+            // The cache TTL still bounds how old an entry can be.
+            logger.error({ err }, 'Viewer preferences Firestore listener error.');
         });
 }
 
