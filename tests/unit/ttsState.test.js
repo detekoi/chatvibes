@@ -179,6 +179,71 @@ describe('ttsState module', () => {
     });
   });
 
+  describe('fields that are written together', () => {
+    beforeEach(async () => {
+      await mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL_ID).set({ ...mockChannelConfig, style: 'like a pirate', voiceStyle: 'warm' });
+      await ttsState.initializeTtsState();
+    });
+
+    const stored = async () => (await mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL_ID).get()).data();
+
+    test('setTtsStateFields writes every field and updates the cache', async () => {
+      expect(await ttsState.setTtsStateFields(TEST_CHANNEL, { voiceId: 'kore', voiceStyle: '', voiceLanguage: '' })).toBe(true);
+
+      expect(await stored()).toMatchObject({ voiceId: 'kore', voiceStyle: '', voiceLanguage: '' });
+      expect(await ttsState.getTtsState(TEST_CHANNEL)).toMatchObject({ voiceId: 'kore', voiceStyle: '' });
+    });
+
+    test('setTtsStateFields refuses to write for a channel with no known ID', async () => {
+      expect(await ttsState.setTtsStateFields('unregistered', { voiceId: 'kore' })).toBe(false);
+    });
+
+    // A custom style replaces the emotion preset, so an emotion that is saved beside it is not heard.
+    test('setChannelDefaultEmotion removes the custom style', async () => {
+      expect(await ttsState.setChannelDefaultEmotion(TEST_CHANNEL, 'Happy')).toBe(true);
+      expect(await stored()).toMatchObject({ emotion: 'happy', style: '' });
+    });
+
+    test('resetChannelDefaultEmotion removes the custom style', async () => {
+      expect(await ttsState.resetChannelDefaultEmotion(TEST_CHANNEL)).toBe(true);
+      expect((await stored()).style).toBe('');
+    });
+  });
+
+  describe('updateGlobalUserPreferences', () => {
+    const userDoc = () => mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID);
+
+    test('sets and removes fields in one write', async () => {
+      await userDoc().set({ voiceId: 'aoede', voiceStyle: 'warm', voiceLanguage: 'th-TH', speed: 1.5 });
+
+      expect(await ttsState.updateGlobalUserPreferences(
+        TEST_USER_ID, { set: { voiceId: 'kore' }, clear: ['voiceStyle', 'voiceLanguage'] }, 'SomeViewer')).toBe(true);
+
+      const data = (await userDoc().get()).data();
+      expect(data).toMatchObject({ voiceId: 'kore', speed: 1.5, username: 'someviewer' });
+      expect(data).not.toHaveProperty('voiceStyle');
+      expect(data).not.toHaveProperty('voiceLanguage');
+    });
+
+    test('removes fields without a value to set', async () => {
+      await userDoc().set({ emotion: 'happy', style: 'like a pirate', speed: 1.5 });
+
+      expect(await ttsState.updateGlobalUserPreferences(TEST_USER_ID, { clear: ['emotion', 'style'] })).toBe(true);
+
+      expect((await userDoc().get()).data()).toMatchObject({ speed: 1.5 });
+      expect((await userDoc().get()).data()).not.toHaveProperty('style');
+    });
+
+    test('a removal for a viewer with no document succeeds and creates none', async () => {
+      expect(await ttsState.updateGlobalUserPreferences('no-such-viewer', { clear: ['emotion', 'style'] })).toBe(true);
+      expect((await mockDb.collection('ttsUserPreferences').doc('no-such-viewer').get()).exists).toBe(false);
+    });
+
+    test('refuses to write without a user ID', async () => {
+      expect(await ttsState.updateGlobalUserPreferences(null, { set: { voiceId: 'kore' } })).toBe(false);
+    });
+  });
+
   describe('getGlobalUserPreferences', () => {
     test('should return user preferences when they exist', async () => {
       await mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID).set({

@@ -82,8 +82,8 @@ describe('profanityLists.json', () => {
         });
 
         test('no control characters', () => {
-            // These come back from the TTS API as error 1042, which the retry
-            // loop converts into a Wavespeed fallback on every message.
+            // A control character in a spoken replacement is never intended, and
+            // the old provider refused such text (error 1042).
             // eslint-disable-next-line no-control-regex
             const bad = /[\u0000-\u001F\u007F-\u009F]/;
             const hits = entries.filter(e => bad.test(e.term) || bad.test(e.replacement));

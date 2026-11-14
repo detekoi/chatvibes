@@ -1,5 +1,7 @@
 // tests/integration/allowViewerPreferences.test.js
-// Integration tests for the allowViewerPreferences feature
+// Integration tests for the allowViewerPreferences feature: real ttsState and ttsQueue
+// over a mock Firestore. The queue hands the provider a resolved voice and the style,
+// language and volume built from the settings, so those are what is asserted.
 
 import { jest } from '@jest/globals';
 import {
@@ -45,16 +47,16 @@ describe('allowViewerPreferences Feature', () => {
     // Mock TTS service
     mockGenerateSpeech = jest.fn().mockResolvedValue({
       kind: 'buffer',
-      data: Buffer.from([0xff, 0xfb, 0x90, 0x00]),
-      mime: 'audio/mpeg'
+      data: Buffer.from([0x52, 0x49, 0x46, 0x46]),
+      mime: 'audio/wav'
     });
     jest.unstable_mockModule('../../src/components/tts/ttsService.js', () => ({
       generateSpeech: mockGenerateSpeech,
       getAvailableVoices: jest.fn().mockResolvedValue([
-        { id: 'Friendly_Person', name: 'Friendly Person' },
-        { id: 'Wise_Woman', name: 'Wise Woman' },
-        { id: 'Calm_Man', name: 'Calm Man' },
-        { id: 'Global_Voice', name: 'Global Voice' }
+        { id: 'kore', name: 'Kore' },
+        { id: 'aoede', name: 'Aoede' },
+        { id: 'charon', name: 'Charon' },
+        { id: 'zephyr', name: 'Zephyr' }
       ])
     }));
 
@@ -62,7 +64,6 @@ describe('allowViewerPreferences Feature', () => {
     jest.unstable_mockModule('../../src/components/web/server.js', () => ({
       sendAudioToChannel: jest.fn(),
       hasActiveClients: jest.fn(() => true),
-      channelPrefersUrlAudio: jest.fn(() => false),
       openClipStream: jest.fn(() => null),
       STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
     }));
@@ -104,13 +105,12 @@ describe('allowViewerPreferences Feature', () => {
 
       expect(mockGenerateSpeech).toHaveBeenCalledWith(
         mockChatMessage.text,
-        'Wise_Woman', // User's preferred voice
+        'aoede', // User's preferred voice
         expect.objectContaining({
-          voiceId: 'Wise_Woman',
-          emotion: 'happy',
-          speed: 1.2,
-          pitch: 2,
-          languageBoost: 'English'
+          // emotion happy, speed 1.2, pitch 2
+          style: 'happy and cheerful, speaking quickly, high pitch',
+          language: 'en',
+          volume: 1
         })
       );
     });
@@ -132,14 +132,11 @@ describe('allowViewerPreferences Feature', () => {
       // Global preferences should take precedence
       expect(mockGenerateSpeech).toHaveBeenCalledWith(
         mockChatMessage.text,
-        'Global_Voice',
+        'zephyr',
         expect.objectContaining({
-          voiceId: 'Global_Voice',
-          emotion: 'surprised',
-          speed: 1.5,
-          pitch: -2,
-          languageBoost: 'Spanish',
-          englishNormalization: true
+          // emotion surprised, speed 1.5, pitch -2: none of the channel-level values
+          style: 'surprised and astonished, speaking quickly, low pitch',
+          language: 'es'
         })
       );
     });
@@ -156,12 +153,10 @@ describe('allowViewerPreferences Feature', () => {
 
       expect(mockGenerateSpeech).toHaveBeenCalledWith(
         mockChatMessage.text,
-        'Friendly_Person', // Channel default
+        'kore', // Channel default
         expect.objectContaining({
-          voiceId: 'Friendly_Person',
-          emotion: 'auto',
-          speed: 1.0,
-          pitch: 0
+          style: '',
+          language: undefined
         })
       );
     });
@@ -178,12 +173,11 @@ describe('allowViewerPreferences Feature', () => {
 
       expect(mockGenerateSpeech).toHaveBeenCalledWith(
         mockChatMessage.text,
-        'Calm_Man',
+        'charon', // User preference
         expect.objectContaining({
-          voiceId: 'Calm_Man', // User preference
-          emotion: 'neutral',  // User preference
-          speed: 1.0,          // Channel default
-          pitch: 0             // Channel default
+          // emotion neutral (user), speed 1.0 and pitch 0 (channel): no words needed
+          style: '',
+          language: undefined
         })
       );
     });
@@ -214,13 +208,10 @@ describe('allowViewerPreferences Feature', () => {
       // Should use channel default voice, not user preference
       expect(mockGenerateSpeech).toHaveBeenCalledWith(
         mockChatMessage.text,
-        'Friendly_Person', // Channel default, not 'Wise_Woman'
+        'kore', // Channel default, not the user's 'aoede'
         expect.objectContaining({
-          voiceId: 'Friendly_Person',
-          emotion: 'auto',
-          speed: 1.0,
-          pitch: 0,
-          languageBoost: 'Automatic'
+          style: '',
+          language: undefined
         })
       );
     });
@@ -242,12 +233,10 @@ describe('allowViewerPreferences Feature', () => {
       // Should still use channel defaults
       expect(mockGenerateSpeech).toHaveBeenCalledWith(
         mockChatMessage.text,
-        'Friendly_Person',
+        'kore',
         expect.objectContaining({
-          voiceId: 'Friendly_Person',
-          emotion: 'auto',
-          speed: 1.0,
-          pitch: 0
+          style: '',
+          language: undefined
         })
       );
     });
@@ -274,15 +263,15 @@ describe('allowViewerPreferences Feature', () => {
       expect(mockGenerateSpeech).toHaveBeenNthCalledWith(
         1,
         'First message',
-        'Friendly_Person',
-        expect.objectContaining({ voiceId: 'Friendly_Person' })
+        'kore',
+        expect.objectContaining({ style: '' })
       );
 
       expect(mockGenerateSpeech).toHaveBeenNthCalledWith(
         2,
         'Second message',
-        'Friendly_Person',
-        expect.objectContaining({ voiceId: 'Friendly_Person' })
+        'kore',
+        expect.objectContaining({ style: '' })
       );
     });
   });
@@ -314,9 +303,9 @@ describe('allowViewerPreferences Feature', () => {
       // Should use user preferences (default behavior)
       expect(mockGenerateSpeech).toHaveBeenCalledWith(
         mockChatMessage.text,
-        'Wise_Woman', // User preference
+        'aoede', // User preference
         expect.objectContaining({
-          voiceId: 'Wise_Woman'
+          style: 'happy and cheerful, speaking quickly, high pitch'
         })
       );
     });
@@ -340,8 +329,8 @@ describe('allowViewerPreferences Feature', () => {
         userId: TEST_USER_ID,
         type: 'chat',
         voiceOptions: {
-          voiceId: 'Calm_Man',
-          emotion: 'excited'
+          voiceId: 'charon',
+          emotion: 'angry'
         }
       });
 
@@ -350,12 +339,88 @@ describe('allowViewerPreferences Feature', () => {
       // Direct voiceOptions should override everything
       expect(mockGenerateSpeech).toHaveBeenCalledWith(
         mockChatMessage.text,
-        'Calm_Man',
+        'charon',
         expect.objectContaining({
-          voiceId: 'Calm_Man',
-          emotion: 'excited'
+          style: 'angry'
         })
       );
+    });
+  });
+
+  // Through the real getChannelTtsConfig: the stored voiceLanguage reaches the provider.
+  describe('voice language', () => {
+    const spokenLanguage = async (user, userId) => {
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: mockChatMessage.text, user, userId, type: 'chat' });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return mockGenerateSpeech.mock.calls.at(-1)[2].language;
+    };
+
+    beforeEach(async () => {
+      await mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL_ID).set({
+        ...mockChannelConfig,
+        voiceLanguage: 'th-TH',
+        userPreferences: mockUserPreferences
+      });
+      await ttsState.initializeTtsState();
+    });
+
+    test('the language stored beside the channel voice is the hint for a viewer with no voice', async () => {
+      expect(await spokenLanguage('unknownuser', '999999999')).toBe('th-TH');
+    });
+
+    test('a viewer with a voice and a languageBoost of their own does not get it', async () => {
+      // TEST_USER: voice aoede, languageBoost English.
+      expect(await spokenLanguage(TEST_USER, TEST_USER_ID)).toBe('en');
+    });
+
+    test('a viewer with a voice of their own and no languageBoost gets no hint from the channel voice', async () => {
+      // TEST_USER2: voice charon, a studio voice with no language.
+      expect(await spokenLanguage(TEST_USER2, TEST_USER2_ID)).toBeUndefined();
+    });
+  });
+
+  describe('custom style', () => {
+    const say = async (user, userId) => {
+      await ttsQueue.enqueue(TEST_CHANNEL, { text: mockChatMessage.text, user, userId, type: 'chat' });
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return mockGenerateSpeech.mock.calls.at(-1)[2].style;
+    };
+
+    const setChannel = (config) => mockDb.collection('ttsChannelConfigs').doc(TEST_CHANNEL_ID).set({
+      ...config,
+      style: 'like a robot',
+      userPreferences: mockUserPreferences
+    });
+
+    test('the channel style is used for a viewer with neither a style nor an emotion', async () => {
+      await setChannel(mockChannelConfig);
+      await ttsState.initializeTtsState();
+
+      expect(await say('unknownuser', '999999999')).toBe('like a robot');
+    });
+
+    test('a viewer who chose an emotion keeps it over the channel style', async () => {
+      await setChannel(mockChannelConfig);
+      await ttsState.initializeTtsState();
+
+      expect(await say(TEST_USER, TEST_USER_ID)).toBe('happy and cheerful, speaking quickly, high pitch');
+    });
+
+    test('a viewer style replaces the viewer emotion and the channel style', async () => {
+      await setChannel(mockChannelConfig);
+      await mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID).set({ style: 'like a pirate' });
+      await ttsState.initializeTtsState();
+
+      // Speed 1.2 and pitch 2 still come from the viewer's per-channel preferences.
+      expect(await say(TEST_USER, TEST_USER_ID)).toBe('like a pirate, speaking quickly, high pitch');
+    });
+
+    test('the channel style is used for everyone when viewer preferences are disabled', async () => {
+      await setChannel(mockChannelConfigNoViewerPrefs);
+      await mockDb.collection('ttsUserPreferences').doc(TEST_USER_ID).set({ style: 'like a pirate' });
+      await ttsState.initializeTtsState();
+
+      expect(await say(TEST_USER, TEST_USER_ID)).toBe('like a robot');
     });
   });
 });

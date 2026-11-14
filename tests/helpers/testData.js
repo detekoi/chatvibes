@@ -1,5 +1,6 @@
 // tests/helpers/testData.js
-// Test data fixtures for TTS tests
+// Test data fixtures for TTS tests. Voice IDs are Gemini IDs from gemini-voices.json,
+// so they resolve to themselves in voiceResolver.js.
 
 import { DEFAULT_TTS_SETTINGS } from '../../src/components/tts/ttsConstants.js';
 
@@ -13,7 +14,7 @@ export const mockChannelConfig = {
   ...DEFAULT_TTS_SETTINGS,
   engineEnabled: true,
   mode: 'all',
-  voiceId: 'Friendly_Person',
+  voiceId: 'kore',
   emotion: 'auto',
   speed: 1.0,
   pitch: 0,
@@ -31,25 +32,24 @@ export const mockChannelConfigNoViewerPrefs = {
 // Per-channel viewer preferences, keyed by account ID like the real data.
 export const mockUserPreferences = {
   [TEST_USER_ID]: {
-    voiceId: 'Wise_Woman',
+    voiceId: 'aoede',
     emotion: 'happy',
     speed: 1.2,
     pitch: 2,
     languageBoost: 'English'
   },
   [TEST_USER2_ID]: {
-    voiceId: 'Calm_Man',
+    voiceId: 'charon',
     emotion: 'neutral'
   }
 };
 
 export const mockGlobalUserPreferences = {
-  voiceId: 'Global_Voice',
+  voiceId: 'zephyr',
   emotion: 'surprised',
   speed: 1.5,
   pitch: -2,
-  languageBoost: 'Spanish',
-  englishNormalization: true
+  languageBoost: 'Spanish'
 };
 
 export const mockChatMessage = {

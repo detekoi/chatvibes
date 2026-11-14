@@ -26,14 +26,19 @@
   (`PRONUNCIATION_DEFAULTS` in `tts-config.json`) merged with per-channel overrides stored in the
   `pronunciations` map on the channel config. A channel entry with an empty value switches off the
   built-in of the same name; deleting the key restores it.
-  - The built-in list was seeded from a live-API probe — see
-    `docs/pronunciation-probe-results.md` and `scripts/probe-pronunciation.js`. Notably `lol` is
-    deliberately absent: MiniMax already reads it as "el oh el", which is the natural result.
-  - **An acronym is pinned if its expansion carries profanity, even when MiniMax expands it
-    unaided.** The profanity filter runs on the text we send, so when the model does the expanding
-    the profane words exist only in the audio, downstream of the filter — `wtf` was spoken in full
-    on a channel with filtering on. Model-side expansion is also unstable between renders (`lmao`
-    heard phonetically, `omg` as "oh em gee"), so it is not relied on for anything.
+  - The list was first made from a probe of MiniMax (`docs/pronunciation-probe-results.md`).
+    It was checked against Gemini on 2026-11-14 with the `slang` group of
+    `scripts/probe-gemini-tts.js`. Without the dictionary, Gemini spells most acronyms as
+    letters ("T B H", "N G L") and misreads some (`hmu` as "harm you", `smh` as "smash",
+    `wb` as "Duby"). It expands only a few correctly (`idk`, `wdym`, `nvm`, `omg`, `wtf`).
+    The dictionary is thus still necessary.
+  - The laugh acronyms are not in the list: `lol`, `lmao`, `lmfao`, `rofl` and `roflmao`.
+    Gemini turns them into a real laugh, which sounds better than the words.
+  - Pin an acronym if its expansion carries profanity, even when the model expands it
+    correctly. The profanity filter runs on the text that the bot sends. When the model does
+    the expansion, the profane words exist only in the audio, after the filter. Gemini reads
+    `wtf` in full. The expansion by the model also changes between renders, so do not rely
+    on it.
   - Matching is case-insensitive and single-pass, so an expansion is never re-scanned by another
     rule. Word boundaries use `\p{L}\p{N}` lookarounds rather than `\b`, which is ASCII-only.
     **A change of script is a boundary too**: Kana and Kanji are `\p{L}`, so without that a
@@ -46,8 +51,13 @@
     (`!tts pronounce 1 = one` is accepted, since a match key may start with `\p{N}`) rewrote
     the index inside its own placeholder, and both the URL and the restore were lost, leaving
     private-use characters in the audio. Splitting has no in-band encoding to corrupt.
-  - MiniMax's own `pronunciation_dict` API parameter is deliberately **not** used: the probe showed
-    it matches case-sensitively, so `LFG` would not match a `lfg` entry.
+  - Gemini has no pronunciation parameter. The dictionary is the only control.
+- Sound tags (`src/lib/textRewrite/soundTags.js`): Gemini turns a tag such as `<laugh>`
+  or `<scream>` into the real sound. It also acts on the older `(laughs)` spelling. Viewers
+  can type these tags, and every tag works by default. A channel can turn single tags off
+  (`disabledSoundTags`, `!tts tags off <tag>`, or the dashboard). `ttsQueue.enqueue` removes
+  a disabled tag in both spellings before the profanity filter runs. The tag list is
+  `SOUND_TAGS` in `tts-config.json`.
 - **Profanity filter** (`src/lib/profanity/`): off by default, per channel. Word lists for all 40
   `languageBoost` values are hand-authored in `profanityLists.json` and validated by
   `tests/unit/profanityLists.test.js`. Substitution, not bleeping — an empty replacement would let

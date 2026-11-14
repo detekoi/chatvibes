@@ -3,50 +3,54 @@ const audioPlayer = document.getElementById('ttsAudioPlayer');
 // that arrived as one binary frame) or a clip object from the chunked path below.
 const audioQueue = [];
 let isPlaying = false;
+// True while the <audio> element is the output of the entry being played. A clip
+// that plays through Web Audio leaves the element idle, and a late event from the
+// element (an error for an emptied src, for example) must not end that clip.
+let audioElementActive = false;
 
 // ---------------------------------------------------------------------------
 // Chunked clips
 //
-// A player that announces 'chunkedAudio' is sent each clip as it is rendered:
-// an `audioStart` message, then binary frames carrying slices of the MP3, then
-// `audioEnd`. Slices are fed to a MediaSource so playback can begin on the first
-// one, which is 0.5-1.3s before the whole clip would have arrived. A clip whose
-// end has already landed by the time its turn comes (the usual case for anything
-// queued behind another clip) is played as one Blob instead — simpler, and
-// nothing is gained by streaming bytes that are all here already.
+// A player that announces 'pcmAudio' is sent each clip as it is rendered: an
+// `audioStart` message with the sample rate, then binary frames carrying slices
+// of raw 16-bit mono PCM, then `audioEnd`. Each slice is scheduled on a Web Audio
+// context right behind the one before it, so playback begins on the first slice,
+// about 0.4 s after the request and long before the whole clip exists.
 //
-// MediaSource for 'audio/mpeg' is supported by Chromium, so by OBS's browser
-// source. If it is not, the feature is simply not announced and the server sends
-// whole clips as before.
+// A clip that was not streamed arrives as one binary frame holding a WAV file and
+// plays through the <audio> element.
 // ---------------------------------------------------------------------------
-const CHUNKED_MIME = 'audio/mpeg';
-const supportsChunkedAudio = (() => {
-    try {
-        return typeof MediaSource !== 'undefined'
-            && typeof MediaSource.isTypeSupported === 'function'
-            && MediaSource.isTypeSupported(CHUNKED_MIME);
-    } catch (e) {
-        return false;
-    }
-})();
+const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+const supportsPcmAudio = typeof AudioContextClass === 'function';
+let audioContext = null;
+
+function getAudioContext() {
+    if (!audioContext) audioContext = new AudioContextClass();
+    // A browser tab starts suspended until the page gets a click. OBS does not.
+    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    return audioContext;
+}
+if (supportsPcmAudio) {
+    document.addEventListener('click', () => getAudioContext(), { once: true });
+}
 
 // The clip currently receiving slices from the socket, if any. Frames arrive in
 // order on one socket, so a binary frame between audioStart and audioEnd belongs
 // to this clip; outside that window it is a whole clip in one frame.
 let openClip = null;
-// The clip being played through a MediaSource, if any.
+// The clip being played through Web Audio, if any.
 let currentClip = null;
 
-function newClip(id) {
+function newClip(id, sampleRate) {
     return {
         id,
-        chunks: [],          // ArrayBuffers in arrival order
+        sampleRate: sampleRate > 0 ? sampleRate : 24000,
+        chunks: [],          // ArrayBuffers of PCM in arrival order
         ended: false,        // audioEnd received
         discard: false,      // dropped: stopped, or the server said so
-        mediaSource: null,
-        sourceBuffer: null,
-        appendIndex: 0,      // next chunk to append to the SourceBuffer
-        objectUrl: null,
+        appendIndex: 0,      // next chunk to schedule
+        sources: new Set(),  // scheduled buffer sources that did not finish yet
+        nextTime: 0,         // context time at which the next slice starts
     };
 }
 
@@ -138,8 +142,8 @@ function connectWebSocket() {
     }
 
     ws = new WebSocket(wsUrl);
-    // Slices go into a SourceBuffer, which takes ArrayBuffers; a whole clip in one
-    // frame is wrapped in a Blob below, as it always was.
+    // Slices are read as 16-bit samples, which needs ArrayBuffers; a whole clip in
+    // one frame is wrapped in a Blob below.
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
@@ -149,13 +153,12 @@ function connectWebSocket() {
         // success would zero the counter on every rejected attempt and reconnect
         // forever at the shortest delay. It is reset on 'registered' instead, which
         // only arrives after the server has authenticated this client.
-        // Announce what this player understands. The server sends audio as raw
-        // binary frames only to clients that declare 'binaryAudio'; without this
-        // it asks the TTS provider for a URL instead, which still works but is
-        // roughly a second slower per clip.
+        // Announce what this player understands. 'binaryAudio' means a whole clip
+        // can arrive as one binary frame. 'pcmAudio' means the clip can arrive
+        // slice by slice as raw PCM.
         try {
             const features = ['binaryAudio'];
-            if (supportsChunkedAudio) features.push('chunkedAudio');
+            if (supportsPcmAudio) features.push('pcmAudio');
             ws.send(JSON.stringify({ type: 'hello', features }));
         } catch (e) {
             console.warn('TTS WebSocket: error sending hello', e);
@@ -188,7 +191,7 @@ function connectWebSocket() {
                 receiveChunk(openClip, event.data);
                 return;
             }
-            const blob = event.data instanceof Blob ? event.data : new Blob([event.data], { type: 'audio/mpeg' });
+            const blob = event.data instanceof Blob ? event.data : new Blob([event.data], { type: 'audio/wav' });
             const objectUrl = URL.createObjectURL(blob);
             ownObjectUrls.add(objectUrl);
             audioQueue.push(objectUrl);
@@ -215,7 +218,7 @@ function connectWebSocket() {
                     console.warn('Player: audioStart while a clip was still open; closing it', openClip.id);
                     finishClip(openClip, true);
                 }
-                openClip = newClip(data.clipId);
+                openClip = newClip(data.clipId, data.sampleRate);
                 audioQueue.push(openClip);
                 playNextInQueue();
             } else if (data.type === 'audioEnd') {
@@ -263,6 +266,14 @@ function connectWebSocket() {
             clearInterval(keepaliveTimer);
             keepaliveTimer = null;
         }
+        // No audioEnd can arrive for a clip that was open on this socket. Left open,
+        // it holds the queue forever, and the next binary frame (a held clip that the
+        // server replays as one WAV file) would be read as its raw PCM.
+        if (openClip) {
+            const clip = openClip;
+            openClip = null;
+            finishClip(clip, true);
+        }
         // 1008 is a policy rejection (channel not allowed, bad token). Retrying
         // cannot change the answer, so stop rather than hammer the server until
         // the attempt cap runs out.
@@ -302,17 +313,8 @@ function playNextInQueue() {
         }
         isPlaying = true;
         releaseAudioUrl(currentObjectUrl);
-        if (next.ended) {
-            // Everything is here already: one Blob, no MediaSource needed.
-            const blob = new Blob(next.chunks, { type: CHUNKED_MIME });
-            next.chunks = [];
-            const objectUrl = URL.createObjectURL(blob);
-            ownObjectUrls.add(objectUrl);
-            currentObjectUrl = objectUrl;
-            startPlayback(objectUrl, `clip ${next.id}`);
-        } else {
-            playClipStreaming(next);
-        }
+        currentObjectUrl = null;
+        playClipPcm(next);
         return;
     }
 
@@ -342,23 +344,17 @@ function playNextInQueue() {
 }
 
 function startPlayback(src, label) {
-    // Set volume based on content type (music vs TTS)
-    // Music files are typically .wav format, TTS is typically .mp3
-    if (src.includes('.wav')) {
-        // Likely music content - may need volume adjustment
-        audioPlayer.volume = 0.8;
-    } else {
-        // TTS content
-        audioPlayer.volume = 1.0;
-    }
+    // The server applies the channel's volume to the samples.
+    audioPlayer.volume = 1.0;
 
+    audioElementActive = true;
     audioPlayer.src = src;
     audioPlayer.play()
         .then(() => console.log('Player: Playback started for:', label))
         .catch(e => {
             console.error('Player: Error playing audio:', label, e);
-            if (currentClip) currentClip.discard = true;
-            currentClip = null;
+            if (!audioElementActive) return; // stopped or replaced while play() was pending
+            audioElementActive = false;
             releaseAudioUrl(currentObjectUrl);
             currentObjectUrl = null;
             isPlaying = false;
@@ -366,13 +362,13 @@ function startPlayback(src, label) {
         });
 }
 
-// A slice arrived for the open clip. If it is the clip playing, the SourceBuffer
-// pump picks it up; if it is still queued, it waits with the others.
+// A slice arrived for the open clip. If it is the clip playing, it is scheduled
+// now; if it is still queued, it waits with the others.
 function receiveChunk(clip, data) {
     if (clip.discard) return;
     if (data instanceof ArrayBuffer) {
         clip.chunks.push(data);
-        if (clip === currentClip) pumpAppends(clip);
+        if (clip === currentClip) pumpPcm(clip);
         return;
     }
     // A Blob only shows up if binaryType did not take; read it into an ArrayBuffer,
@@ -382,7 +378,7 @@ function receiveChunk(clip, data) {
         .then(buf => {
             if (clip.discard) return;
             clip.chunks.push(buf);
-            if (clip === currentClip) pumpAppends(clip);
+            if (clip === currentClip) pumpPcm(clip);
         });
 }
 
@@ -394,76 +390,114 @@ function finishClip(clip, discard) {
             clip.discard = true;
             clip.chunks = [];
             if (clip === currentClip) {
-                // Playing right now: stop and advance. The server is sending the
-                // finished audio another way, or gave up on it.
+                // Playing right now: stop and advance. The server gave up on it.
                 console.log('Player: server discarded the clip being played', clip.id);
                 stopCurrentAudio();
             }
             return;
         }
-        if (clip === currentClip) pumpAppends(clip);
+        if (clip === currentClip) pumpPcm(clip);
     };
     if (clip.pendingBlob) clip.pendingBlob.then(settle);
     else settle();
 }
 
-function playClipStreaming(clip) {
+function playClipPcm(clip) {
     currentClip = clip;
-    const mediaSource = new MediaSource();
-    clip.mediaSource = mediaSource;
-    clip.objectUrl = URL.createObjectURL(mediaSource);
-    ownObjectUrls.add(clip.objectUrl);
-    currentObjectUrl = clip.objectUrl;
+    const ctx = getAudioContext();
+    if (ctx.state === 'running') {
+        console.log('Player: Playback started for: clip', clip.id);
+        pumpPcm(clip);
+        return;
+    }
+    // A browser tab keeps the context suspended until the page gets a click, and
+    // resume() then stays pending. Do not hold the queue for it: drop the clip, as
+    // a refused play() does on the <audio> path. OBS never comes here.
+    const giveUp = setTimeout(() => {
+        if (clip !== currentClip || ctx.state === 'running') return;
+        console.warn('Player: audio is blocked until the page gets a click; skipping clip', clip.id);
+        clip.discard = true;
+        clip.chunks = [];
+        currentClip = null;
+        isPlaying = false;
+        playNextInQueue();
+    }, 400);
+    ctx.resume().then(() => {
+        if (clip !== currentClip || clip.discard) return;
+        clearTimeout(giveUp);
+        console.log('Player: Playback started for: clip', clip.id);
+        pumpPcm(clip);
+    }).catch(() => {});
+}
 
-    mediaSource.addEventListener('sourceopen', () => {
-        if (currentClip !== clip) return; // stopped before the source opened
+// Schedule every slice that has arrived, and finish the clip once the last one
+// has played. Called on every event that can move the clip on: a new slice,
+// audioEnd, and the end of a scheduled slice.
+function pumpPcm(clip) {
+    if (clip.discard || clip !== currentClip) return;
+    const ctx = getAudioContext();
+    if (ctx.state !== 'running') return; // playClipPcm is still waiting for the context
+    while (clip.appendIndex < clip.chunks.length) {
+        const chunk = clip.chunks[clip.appendIndex];
+        clip.chunks[clip.appendIndex] = null; // let the bytes go once scheduled
+        clip.appendIndex++;
         try {
-            clip.sourceBuffer = mediaSource.addSourceBuffer(CHUNKED_MIME);
+            schedulePcm(clip, ctx, chunk);
         } catch (e) {
-            console.error('Player: could not open a SourceBuffer; skipping clip', clip.id, e);
+            console.error('Player: could not schedule a slice; abandoning clip', clip.id, e);
             clip.discard = true;
             stopCurrentAudio();
             return;
         }
-        clip.sourceBuffer.addEventListener('updateend', () => pumpAppends(clip));
-        clip.sourceBuffer.addEventListener('error', e => console.error('Player: SourceBuffer error', clip.id, e));
-        pumpAppends(clip);
-    }, { once: true });
-
-    // play() on an empty MediaSource simply waits for data, so it can be issued
-    // now; the promise resolves once the first slice has been decoded.
-    startPlayback(clip.objectUrl, `clip ${clip.id}`);
+    }
+    if (clip.ended && clip.sources.size === 0) finishPcmClip(clip);
 }
 
-// Append the next slice, or close the stream once the last one is in. Called on
-// every event that could unblock the SourceBuffer: a new slice, updateend, audioEnd.
-function pumpAppends(clip) {
-    const sb = clip.sourceBuffer;
-    const ms = clip.mediaSource;
-    if (!sb || !ms || ms.readyState !== 'open' || sb.updating || clip.discard) return;
-    if (clip.appendIndex < clip.chunks.length) {
-        const chunk = clip.chunks[clip.appendIndex];
-        clip.chunks[clip.appendIndex] = null; // let the bytes go once appended
-        clip.appendIndex++;
-        try {
-            sb.appendBuffer(chunk);
-        } catch (e) {
-            console.error('Player: appendBuffer failed; abandoning clip', clip.id, e);
-            clip.discard = true;
-            stopCurrentAudio();
-        }
-        return;
+function schedulePcm(clip, ctx, arrayBuffer) {
+    // The server sends whole samples. Ignore a stray last byte and do not shift the rest.
+    const samples = new Int16Array(arrayBuffer, 0, Math.floor(arrayBuffer.byteLength / 2));
+    if (samples.length === 0) return;
+    const buffer = ctx.createBuffer(1, samples.length, clip.sampleRate);
+    const channel = buffer.getChannelData(0);
+    for (let i = 0; i < samples.length; i++) channel[i] = samples[i] / 32768;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    // Right behind the previous slice. If the stream fell behind, start a moment
+    // from now: a short gap is better than audio scheduled in the past.
+    const startAt = Math.max(clip.nextTime, ctx.currentTime + 0.03);
+    source.start(startAt);
+    clip.nextTime = startAt + buffer.duration;
+    clip.sources.add(source);
+    source.onended = () => {
+        clip.sources.delete(source);
+        pumpPcm(clip);
+    };
+}
+
+function finishPcmClip(clip) {
+    if (clip !== currentClip) return;
+    console.log('TTS Player: Clip finished playing.', clip.id);
+    currentClip = null;
+    isPlaying = false;
+    playNextInQueue();
+}
+
+// Silence a clip that is playing through Web Audio. The slices are already
+// scheduled, so each source is stopped; its onended must not advance the queue.
+function stopPcmSources(clip) {
+    if (!clip || !clip.sources) return;
+    for (const source of clip.sources) {
+        source.onended = null;
+        try { source.stop(); } catch (e) { /* not started yet, or already over */ }
     }
-    if (clip.ended) {
-        try {
-            ms.endOfStream();
-        } catch (e) {
-            console.warn('Player: endOfStream failed', clip.id, e);
-        }
-    }
+    clip.sources.clear();
 }
 
 audioPlayer.onended = () => {
+    if (!audioElementActive) return;
+    audioElementActive = false;
     console.log('TTS Player: Audio finished playing.');
     // Release here rather than only on the next clip, so the last message of a quiet
     // period does not sit in memory until somebody speaks again.
@@ -475,9 +509,9 @@ audioPlayer.onended = () => {
 };
 
 audioPlayer.onerror = (e) => {
+    if (!audioElementActive) return;
+    audioElementActive = false;
     console.error('TTS Player: <audio> element error:', e);
-    if (currentClip) currentClip.discard = true;
-    currentClip = null;
     releaseAudioUrl(currentObjectUrl);
     currentObjectUrl = null;
     isPlaying = false;
@@ -488,10 +522,14 @@ function stopCurrentAudio() {
     console.log('TTS Player: Stopping current audio.');
     // Slices still arriving for a stopped clip are dropped on receipt.
     if (currentClip) currentClip.discard = true;
+    stopPcmSources(currentClip);
     currentClip = null;
-    audioPlayer.pause();
-    audioPlayer.currentTime = 0; // Reset time
-    audioPlayer.src = ""; // Clear source
+    if (audioElementActive) {
+        audioElementActive = false;
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+        audioPlayer.src = "";
+    }
     releaseAudioUrl(currentObjectUrl);
     currentObjectUrl = null;
     isPlaying = false;
@@ -505,10 +543,14 @@ function stopCurrentAudio() {
 function stopAllAudio() { // For !tts clear or full stop
     console.log('TTS Player: Stopping all audio and clearing queue.');
     if (currentClip) currentClip.discard = true;
+    stopPcmSources(currentClip);
     currentClip = null;
-    audioPlayer.pause();
-    audioPlayer.currentTime = 0;
-    audioPlayer.src = "";
+    if (audioElementActive) {
+        audioElementActive = false;
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+        audioPlayer.src = "";
+    }
     releaseAudioUrl(currentObjectUrl);
     currentObjectUrl = null;
     isPlaying = false;

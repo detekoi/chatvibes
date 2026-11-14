@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 WildcatTTS: a Twitch (and YouTube) text-to-speech bot. It receives chat over EventSub webhooks,
-synthesises speech (302.ai streamed, Wavespeed as fallback) and pushes the audio over a WebSocket
+synthesises speech (Gemini TTS, streamed as raw PCM) and pushes the audio over a WebSocket
 to a browser player, usually an OBS browser source. Configuration lives in Firestore and is
 edited from chat (`!tts …`) or the web dashboard (`../chatvibes-web-ui`).
 
@@ -34,9 +34,10 @@ YouTube chat arrives from `yt-chat-proxy` via `src/components/youtube/ytChatClie
 
 ## Key files
 
-- `src/components/tts/` — `ttsService.js` (providers), `ttsQueue.js`, `ttsState.js` (config
-  reads and writes), `ttsConstants.js` (`DEFAULT_TTS_SETTINGS`), `tts-config.json`,
-  `wavespeedVoices.js`
+- `src/components/tts/` — `ttsService.js` (the Gemini provider), `ttsQueue.js`, `ttsState.js`
+  (config reads and writes), `ttsConstants.js` (`DEFAULT_TTS_SETTINGS`), `tts-config.json`,
+  `styleBuilder.js` (settings to style text), `voiceResolver.js` and `gemini-voices.json`
+  (the voice catalog, and the map from old MiniMax IDs)
 - `src/components/commands/` — `commandProcessor.js`, `handlers/tts.js` (dispatch map), one file
   per `!tts` subcommand under `tts/`
 - `src/lib/textRewrite/`, `src/lib/profanity/` — pronunciation dictionary, profanity filter
@@ -59,19 +60,25 @@ YouTube chat arrives from `yt-chat-proxy` via `src/components/youtube/ytChatClie
 | `speakRedemptionEvents`, `mutedRewardIds` | — | Exclusion map keyed by reward ID; title is display only |
 | `announceUnfulfilledRedemptions` | `true` | Read as `!== false`. In this mode every `.update` is suppressed |
 | `ignoredUserIds` | — | Map of `"<platform>:<accountId>"` to a provenance record |
-| `languageBoost` | `auto` | A synthesis hint, **not** a locale |
+| `languageBoost` | `auto` | A language hint for the speech model, **not** a locale |
 | `announcementLocale` | unset | Overrides the locale derived from `languageBoost` |
 | `pronunciations` | — | Channel overrides; an empty value disables the built-in |
 | `readFullUrls` | `false` | Off reads only the domain |
+| `style` | unset | Free text that tells the voice how to speak. Replaces the `emotion` preset |
+| `voiceStyle`, `voiceLanguage` | unset | The manner and the language of a mapped MiniMax voice, written by the backfill. A change of voice clears both |
+| `speed`, `pitch` | 1.0, 0 | Stored as numbers, sent as one of five steps in words. Approximate |
+| `disabledSoundTags` | `[]` | Tags such as `moan` that are removed from text. Every other tag makes its sound |
 
-Also: voice (ID, speed, volume, pitch), emotion, profanity filter (off by default), per-user
+Also: voice ID, per-voice volume, emotion, profanity filter (off by default), per-user
 preferences. Details: `docs/channel-config.md`.
 
 ## Chat commands
 
-`!tts` + `status`, `on|off`, `mode all|command|bits|highlight`, `voices`, `emotion <e>`, `lang <l>`,
+`!tts` + `status`, `on|off`, `mode all|command|bits|highlight`, `voices`, `voice <id>`, `emotion <e>`,
+`style <text|off>`, `speed <number|word>`, `pitch <number|word>`, `lang <l>`,
 `pause|resume`, `stop` (own message; mods any), `clear`, `ignore [add] <user>`, `ignore del [user]`,
-`<text>` (speak it). Mod only: `defaultlanguage <l>`, `pronounce <word> = <say>` and
+`<text>` (speak it). Mod only: `defaultlanguage <l>`, `defaultstyle <text|off>`, `tags off|on <tag|all>`,
+`pronounce <word> = <say>` and
 `pronounce list|remove|off|test|defaults`, `redeems mute|unmute <title>` and `redeems list|all`,
 `readcommands on|off`, `profanity block|allow|status`.
 
@@ -88,12 +95,14 @@ preferences. Details: `docs/channel-config.md`.
 **Text rewriting** — `docs/pronunciation-and-profanity.md`
 - The profanity filter runs in `ttsQueue.enqueue`, not `formatTtsText`: the viewer's language is
   only resolved there. English is always in the active rule set.
-- Pin an acronym in the dictionary if its expansion is profane, even when MiniMax expands it
+- Pin an acronym in the dictionary if its expansion is profane, even when the model expands it
   unaided; model-side expansion happens downstream of the filter.
 - Rule caches key on locale as well as on the source object. Keep it that way.
 - Rules run on the gaps between URLs. Do not reintroduce placeholder substitution.
 - Scope a pronunciation entry by language (`except`) only where the local meaning differs.
-- Do not use MiniMax's `pronunciation_dict` parameter; it matches case-sensitively.
+- Gemini spells most acronyms as letters, so the dictionary stays. The laugh acronyms (`lol`,
+  `lmao`, `rofl`) are left out on purpose: the model turns them into a real laugh.
+- A disabled sound tag is removed in `ttsQueue.enqueue`, before the profanity filter.
 
 **i18n** — `docs/i18n.md`
 - Everything the bot says resolves at the channel locale, never per viewer. Commands use
@@ -154,8 +163,21 @@ preferences. Details: `docs/channel-config.md`.
   then every check is true.
 
 **Audio** — `docs/audio-delivery.md`
-- Synthesis is streamed and forwarded slice by slice to players that announced `chunkedAudio`.
+- Synthesis is streamed and forwarded slice by slice, as raw PCM, to players that announced
+  `pcmAudio`. Every other player gets the clip as one WAV frame.
   Every failure path must send `audioEnd { discard: true }`, or the player holds the clip open.
+- There is one provider. On a failure the bot tries the main model a second time, then the
+  fallback model one time. It does not try again after a refusal (`TtsBlockedError`) or after
+  a slice reached a player.
+- Every request sends `store: false`. Do not remove it: the API keeps interactions by default.
+- A setting reaches the model only through `styleBuilder.buildStyle`. Do not add words to the
+  style in other places, because long style text makes the voice drift.
+
+**Voices** — `docs/channel-config.md`
+- Voice IDs come from `gemini-voices.json` (`scripts/sync-gemini-voices.js`). Do not type them
+  by hand. Read a stored voice through `voiceResolver.resolveVoice`: it can still be a MiniMax ID.
+- The catalog and `tts-config.json` are copied to the web UI by `npm run sync-constants`. The
+  style tables are mirrored there (`functions/src/services/style.ts`). Change both together.
 - A clip no socket takes is held 30s and replayed on the next hello; a stop drops it. A
   client gets `HELLO_GRACE_MS` to say hello before it counts as an outdated player.
 - `TTS_TIMING` is the per-clip latency log: `jsonPayload.logKey="TTS_TIMING"`.

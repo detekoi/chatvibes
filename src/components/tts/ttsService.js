@@ -1,809 +1,295 @@
 // src/components/tts/ttsService.js
-import axios from 'axios';
+// Speech synthesis through Gemini TTS (the Interactions API, streamed).
+//
+// The provider takes a voice, the text and one free-text style. It has no speed, pitch,
+// emotion or volume numbers: styleBuilder.js turns the stored settings into the style,
+// and the volume is applied to the samples here. Audio comes back as raw 16-bit mono
+// PCM, slice by slice. See docs/audio-delivery.md.
 import logger from '../../lib/logger.js';
 import config from '../../config/index.js';
-import { TTS_SPEED_DEFAULT, TTS_PITCH_DEFAULT, LEGACY_SAFE_EMOTIONS, LEGACY_SAFE_LANGUAGE_BOOSTS } from './ttsConstants.js';
-import { getAllVoices, getVoicesByLanguage } from './wavespeedVoices.js';
-import { getProviderForVoice } from './voiceMigration.js';
+import { getVoiceCatalog, resolveVoice } from './voiceResolver.js';
 
-const WAVESPEED_API_KEY = config.tts.wavespeedApiKey;
-const WAVESPEED_ENDPOINT = config.tts.wavespeedEndpoint;
+const DEFAULT_SAMPLE_RATE = 24000;
 
-const T302_API_KEY = config.tts.t302ApiKey;
-const T302_ENDPOINT = config.tts.t302Endpoint;
+// Measured against the live API on 2026-11-13 (us-west client): the first slice lands
+// after 0.3-0.7 s, whatever the length of the text, and slices then arrive faster than
+// they play. A request that has sent nothing after FIRST_CHUNK_TIMEOUT_MS is not coming.
+const FIRST_CHUNK_TIMEOUT_MS = 4000;
+// The longest silence allowed between two slices of a clip that has started.
+const IDLE_TIMEOUT_MS = 4000;
 
-let cachedVoiceList = null;
-let lastVoiceListFetchTime = 0;
-const VOICE_LIST_CACHE_DURATION = 60 * 60 * 1000; // 1 hour
+/** The request was refused by the provider's content filter. A retry cannot help. */
+export class TtsBlockedError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'TtsBlockedError';
+    }
+}
 
-/**
- * Map emotion for the MiniMax API.
- * "neutral" is a user-facing alias meaning "auto-detect" — we omit it from the API call.
- * For the Wavespeed/speech-02-turbo fallback, calm and fluent are not supported.
- * @param {string} emotion - The emotion value
- * @param {'302'|'wavespeed'} provider - The target provider
- * @returns {string|undefined} - Mapped emotion value, or undefined to omit
- */
-function mapEmotionForApi(emotion, provider = '302') {
-  if (!emotion || emotion === 'auto' || emotion === 'neutral') {
-    return undefined; // Omit from API call → auto-detect
-  }
-  // For Wavespeed fallback (speech-02-turbo), strip emotions it doesn't support
-  if (provider === 'wavespeed' && !LEGACY_SAFE_EMOTIONS.includes(emotion)) {
-    logger.debug({ emotion, provider }, 'Emotion not supported by legacy provider, omitting');
-    return undefined;
-  }
-  return emotion;
+/** A 44-byte RIFF header in front of 16-bit mono PCM. */
+export function wavFromPcm(pcm, sampleRate = DEFAULT_SAMPLE_RATE) {
+    const header = Buffer.alloc(44);
+    header.write('RIFF', 0);
+    header.writeUInt32LE(36 + pcm.length, 4);
+    header.write('WAVEfmt ', 8);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20);  // PCM
+    header.writeUInt16LE(1, 22);  // mono
+    header.writeUInt32LE(sampleRate, 24);
+    header.writeUInt32LE(sampleRate * 2, 28);
+    header.writeUInt16LE(2, 32);
+    header.writeUInt16LE(16, 34);
+    header.write('data', 36);
+    header.writeUInt32LE(pcm.length, 40);
+    return Buffer.concat([header, pcm]);
 }
 
 /**
- * Map legacy language boost values to API-compatible values
- * @param {string} languageBoost - The language boost value
- * @returns {string} - Mapped language boost value
+ * Multiply 16-bit samples by a volume, in place, and clip at full scale.
+ * Gemini has no volume field, so the channel's volume is applied here.
  */
-function mapLanguageBoost(languageBoost) {
-  // Map legacy values to MiniMax format
-  if (languageBoost === 'None' || languageBoost === 'Automatic') {
-    return 'auto';
-  }
-  return languageBoost;
+export function applyGain(pcm, volume) {
+    if (!(volume > 0) || volume === 1) return pcm;
+    for (let i = 0; i + 1 < pcm.length; i += 2) {
+        const sample = Math.round(pcm.readInt16LE(i) * volume);
+        pcm.writeInt16LE(Math.max(-32768, Math.min(32767, sample)), i);
+    }
+    return pcm;
 }
 
 /**
- * Internal function to attempt TTS generation (used by retry logic)
+ * Cuts a byte stream into slices that always hold whole 16-bit samples. A network
+ * chunk can end in the middle of a sample, and a player that gets half of one plays
+ * noise from there on.
  */
-async function attemptGeneration(text, voiceId, input, options) {
-  // Add timeout to prevent hanging indefinitely
-  // Most requests complete in 2-5 seconds
-  const WAVESPEED_TIMEOUT_MS = 10000; // 10 seconds
-  let timeoutId;
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error('Wavespeed AI API request timed out')), WAVESPEED_TIMEOUT_MS);
-  });
+export function createSampleAligner() {
+    let carry = null;
+    return {
+        push(buf) {
+            const joined = carry ? Buffer.concat([carry, buf]) : buf;
+            const even = joined.length - (joined.length % 2);
+            carry = even < joined.length ? joined.subarray(even) : null;
+            return joined.subarray(0, even);
+        },
+    };
+}
 
-  // Sanitize language_boost for Wavespeed (speech-02-turbo supports fewer languages)
-  if (input.language_boost && !LEGACY_SAFE_LANGUAGE_BOOSTS.includes(input.language_boost)) {
-    logger.warn({
-      original: input.language_boost,
-      voiceId
-    }, 'Language boost not supported by Wavespeed, falling back to auto');
-    input.language_boost = 'auto';
-  }
+/**
+ * Read the audio of one Gemini TTS response.
+ *
+ * The body is server-sent events. A `step.delta` event with an audio delta carries a
+ * base64 slice of PCM. An `error` event, or a stream that closes with no audio, fails
+ * the clip. Each slice is passed on with whole samples and the volume applied.
+ *
+ * @param {ReadableStream} body
+ * @param {{ onSlice: (buf: Buffer) => void, onActivity: () => void, volume?: number }} hooks
+ * @returns {Promise<{ pcm: Buffer, sampleRate: number, usage: object|null }>}
+ */
+export async function readGeminiAudio(body, { onSlice, onActivity, volume = 1 }) {
+    const decoder = new TextDecoder();
+    const aligner = createSampleAligner();
+    const slices = [];
+    let buffered = '';
+    let sampleRate = DEFAULT_SAMPLE_RATE;
+    let usage = null;
 
-  // Sanitize emotion for Wavespeed (speech-02-turbo doesn't support calm/fluent)
-  if (input.emotion) {
-    input.emotion = mapEmotionForApi(input.emotion, 'wavespeed');
-  }
+    const handle = event => {
+        if (event.error) {
+            const detail = event.error.message || JSON.stringify(event.error);
+            if (isBlocked(event.error.code, detail)) throw new TtsBlockedError(`Gemini TTS blocked the text: ${detail}`);
+            throw new Error(`Gemini TTS stream error: ${detail}`);
+        }
+        if (event.interaction?.usage) usage = event.interaction.usage;
+        const delta = event.delta;
+        if (delta?.type !== 'audio' || !delta.data) return;
+        if (delta.sample_rate && delta.sample_rate !== sampleRate) {
+            // The player is told 24 kHz when the clip starts (openClipStream). The
+            // request does not ask for another rate, so this is a change at the provider.
+            logger.warn({ sampleRate: delta.sample_rate }, 'Gemini TTS sent an unexpected sample rate; streamed playback will be at the wrong speed');
+            sampleRate = delta.sample_rate;
+        }
+        const slice = aligner.push(Buffer.from(delta.data, 'base64'));
+        if (slice.length === 0) return;
+        // A copy: applyGain writes in place, and the slice can share memory with the carry.
+        const out = applyGain(Buffer.from(slice), volume);
+        slices.push(out);
+        onSlice(out);
+    };
 
-  const requestConfig = {
-    method: 'POST',
-    url: WAVESPEED_ENDPOINT,
-    headers: {
-      'Authorization': `Bearer ${WAVESPEED_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    data: input
-  };
-
-  // Add abort signal support if provided
-  if (options.signal) {
-    requestConfig.signal = options.signal;
-  }
-
-  let response;
-  try {
-    response = await Promise.race([
-      axios(requestConfig),
-      timeoutPromise
-    ]);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  // Check if the request was aborted during the API call
-  if (options.signal && options.signal.aborted) {
-    logger.info({ endpoint: WAVESPEED_ENDPOINT, text }, 'Wavespeed AI request was aborted while awaiting.');
-    throw new DOMException('Aborted by user', 'AbortError');
-  }
-
-  const result = response.data;
-
-  // Wavespeed API wraps the response in a data object
-  const data = result.data || result;
-
-  // Handle sync mode response - the output should be available immediately
-  if (data.status === 'completed' && data.outputs && data.outputs.length > 0) {
-    const audioUrl = data.outputs[0];
-    logger.info({ outputUrl: audioUrl, predictionId: data.id }, 'TTS audio generated successfully via Wavespeed AI');
-    // Wavespeed only ever hands back a URL — it has no inline-bytes mode. Its CDN
-    // is CloudFront (~200ms), not the China bucket 302.ai uses, so this stays on
-    // the URL path rather than being downloaded server-side onto the hot path.
-    return { kind: 'url', url: audioUrl };
-  } else if (data.status === 'failed') {
-    logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned failed status.');
-
-    // Provide specific error messages based on the failure reason
-    if (data.error?.includes("you don't have access to this voice_id")) {
-      throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
+    for await (const chunk of body) {
+        onActivity();
+        buffered += decoder.decode(chunk, { stream: true });
+        let newline;
+        while ((newline = buffered.indexOf('\n')) >= 0) {
+            const line = buffered.slice(0, newline).trim();
+            buffered = buffered.slice(newline + 1);
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (payload === '[DONE]') continue; // the closing line of the stream
+            let event;
+            try {
+                event = JSON.parse(payload);
+            } catch {
+                logger.warn({ raw: line.substring(0, 120) }, 'Gemini TTS stream carried an unparseable event; skipping it');
+                continue;
+            }
+            handle(event);
+        }
     }
 
-    if (data.error?.includes("voice_id")) {
-      throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
-    }
-
-    throw new Error(`TTS generation failed: ${data.error || 'Unknown error'}`);
-  } else {
-    // In sync mode, we should always get completed or failed status
-    logger.error({ result, endpoint: WAVESPEED_ENDPOINT }, 'Wavespeed AI returned unexpected status or missing outputs.');
-    throw new Error(`Wavespeed AI API returned unexpected response format. Status: ${data.status || 'unknown'}`);
-  }
+    if (slices.length === 0) throw new Error('Gemini TTS returned no audio (empty stream)');
+    return { pcm: Buffer.concat(slices), sampleRate, usage };
 }
 
-// Interjections MiniMax renders as non-verbal sound rather than speech. Only
-// speech-2.8-hd and speech-2.8-turbo support them; we send speech-2.8-turbo.
-// NOTE: the Wavespeed fallback runs speech-02-turbo, which does not — a message that
-// falls back will not produce these sounds.
-const INTERJECTION_TAGS = [
-  'laughs', 'chuckle', 'coughs', 'clear-throat', 'groans', 'breath', 'pant',
-  'inhale', 'exhale', 'gasps', 'sniffs', 'sighs', 'snorts', 'burps',
-  'lip-smacking', 'humming', 'hissing', 'emm', 'sneezes',
-];
-const INTERJECTION_RE = new RegExp(`\\((?:${INTERJECTION_TAGS.join('|')})\\)`, 'gi');
-
-// Measured against the live API (3 samples per case, speech-2.8-turbo, 128kbps mono):
-//
-//   input            audio out   duration
-//   plain 10ch        1.31s      1991-2494ms
-//   plain 50ch        4.86s      2190-2344ms
-//   plain 150ch       9.06s      2346-2944ms
-//   plain 400ch      26.34s      3626-4082ms
-//   (groans) x1       1.04s      1694-2355ms
-//   (groans) x6       3.76s      1723-1960ms
-//   (groans) x12     12.00s      2625-3599ms
-//
-// Two things fall out. Audio length is predictable from the text — ~0.064s per plain
-// character, and ~1.0s per interjection, which is why tags broke a character-count
-// model: a tag is 8 characters that speak for a second, roughly double the audio
-// density of prose. But duration is only weakly driven by it: ~1900ms of fixed
-// overhead plus ~70ms per second of audio, so a 25x range in audio output produces
-// less than a 3x range in duration.
-//
-// So the budget is mostly floor. The floor is set above the slowest legitimate call
-// seen in production (3297ms, itself censored since slower ones were being killed),
-// because under-shooting it fails healthy requests — the bug this replaces. The
-// scaling only earns its keep at the long end, where it grants more than a flat
-// budget could afford to give everyone.
-const T302_AUDIO_SEC_BASE = 0.67;          // fixed audio overhead per utterance
-const T302_AUDIO_SEC_PER_CHAR = 0.064;     // seconds of speech per plain character
-const T302_AUDIO_SEC_PER_TAG = 1.0;        // seconds of sound per interjection
-// Fitted to the *slowest* sample at each size, then given a wide margin on top —
-// roughly 2.4s at the short end and 0.7s at the long end. The margin is not padding:
-// run-to-run variance dwarfs the content signal. The same 500-character message
-// measured 4478ms median and 6241ms worst across sessions, and identical payloads in
-// production came back 450ms apart. A budget fitted tightly to the mean would fail
-// healthy requests every time the provider had a bad minute, which is the failure this
-// whole model exists to stop happening again.
-const T302_TIMEOUT_FIXED_MS = 4200;        // network + queue + model start-up + margin
-const T302_TIMEOUT_PER_AUDIO_SEC_MS = 85;  // synthesis cost per second produced
-const T302_TIMEOUT_MIN_MS = 4500;
-const T302_TIMEOUT_MAX_MS = 8000;
+function isBlocked(code, message) {
+    return code === 'prohibited_content' || /\b(input|output|response|request) (was )?blocked\b/i.test(message || '');
+}
 
 /**
- * Per-request timeout, predicted from how much audio the text will produce.
+ * One request to one model. Rejects with TtsBlockedError for a refusal, with an
+ * AbortError when the caller's signal fired, and with a plain Error for anything else.
+ */
+async function attemptGeneration(model, text, voice, { style, language, volume, signal, onSlice }) {
+    const content = { type: 'text', text };
+    if (style) content.annotations = [{ type: 'speech_metadata', style }];
+    const speech = { voice };
+    if (language) speech.language = language;
+
+    // One controller for the caller's stop and for our own timeouts.
+    const controller = new AbortController();
+    let timedOut = null;
+    const onCallerAbort = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener('abort', onCallerAbort, { once: true });
+
+    let timer = null;
+    const arm = (ms, reason) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { timedOut = reason; controller.abort(); }, ms);
+    };
+    arm(FIRST_CHUNK_TIMEOUT_MS, 'no audio before the first-chunk timeout');
+
+    try {
+        const res = await fetch(config.tts.geminiEndpoint, {
+            method: 'POST',
+            headers: { 'x-goog-api-key': config.tts.geminiApiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model,
+                input: [{ type: 'user_input', content: [content] }],
+                response_format: { type: 'audio' },
+                generation_config: { speech_config: [speech] },
+                stream: true,
+                // Interactions are stored for weeks unless this is off. Chat text is not ours to keep there.
+                store: false,
+            }),
+            signal: controller.signal,
+        });
+
+        if (!res.ok) {
+            const raw = await res.text();
+            let code, message = raw.replace(/\s+/g, ' ').slice(0, 300);
+            try {
+                const parsed = JSON.parse(raw);
+                code = parsed.error?.code;
+                message = parsed.error?.message || message;
+            } catch { /* not JSON, keep the text */ }
+            if (isBlocked(code, message)) throw new TtsBlockedError(`Gemini TTS blocked the text: ${message}`);
+            const err = new Error(`Gemini TTS HTTP ${res.status}: ${message}`);
+            err.status = res.status;
+            throw err;
+        }
+
+        return await readGeminiAudio(res.body, {
+            volume,
+            onSlice,
+            onActivity: () => arm(IDLE_TIMEOUT_MS, 'the stream went silent'),
+        });
+    } catch (err) {
+        if (timedOut) throw new Error(`Gemini TTS request timed out (${timedOut})`);
+        throw err;
+    } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onCallerAbort);
+    }
+}
+
+/**
+ * Generate speech audio.
+ *
  * @param {string} text
- * @returns {number} milliseconds
+ * @param {string} [voiceId] A Gemini voice ID. A stored MiniMax ID is mapped.
+ * @param {object} [options]
+ * @param {string} [options.style] The finished style text from styleBuilder.buildStyle
+ * @param {string} [options.language] A BCP-47 hint for short or ambiguous text
+ * @param {number} [options.volume] Gain applied to the samples, 1 = unchanged
+ * @param {AbortSignal} [options.signal]
+ * @param {(slice: Buffer) => void} [options.onChunk] Called with each PCM slice (whole
+ *   16-bit samples, volume applied), in order, as the provider renders it. After a
+ *   slice has gone out the request is not retried, so slices never repeat.
+ * @returns {Promise<{kind: 'buffer', data: Buffer, mime: 'audio/wav', sampleRate: number,
+ *   audioSeconds: number, model: string, usedFallbackModel: boolean}>}
+ *   `data` is the whole clip as a WAV file.
  */
-export function t302TimeoutFor(text) {
-  if (typeof text !== 'string') return T302_TIMEOUT_MIN_MS;
+export async function generateSpeech(text, voiceId, options = {}) {
+    if (!config.tts.geminiApiKey) throw new Error('GEMINI_API_KEY is missing');
 
-  const tagCount = (text.match(INTERJECTION_RE) || []).length;
-  // Tags are counted as sounds, so their characters must not also be counted as speech.
-  const plainChars = text.replace(INTERJECTION_RE, '').length;
+    const { voice } = resolveVoice(voiceId);
+    const { style, language, volume = 1, signal, onChunk } = options;
+    const primary = config.tts.geminiModel;
+    const fallback = config.tts.geminiFallbackModel;
+    // The main model twice, then the larger model once. It shares the API, the voices
+    // and the style format, so it covers an outage of one model with no mapping.
+    const attempts = [primary, primary, ...(fallback && fallback !== primary ? [fallback] : [])];
 
-  const audioSec = T302_AUDIO_SEC_BASE
-    + T302_AUDIO_SEC_PER_CHAR * plainChars
-    + T302_AUDIO_SEC_PER_TAG * tagCount;
+    const startTime = Date.now();
+    let slicesSent = 0;
+    let lastError = null;
 
-  const predicted = T302_TIMEOUT_FIXED_MS + T302_TIMEOUT_PER_AUDIO_SEC_MS * audioSec;
-  return Math.min(T302_TIMEOUT_MAX_MS, Math.max(T302_TIMEOUT_MIN_MS, Math.round(predicted)));
-}
-
-// A generous timeout is right for one slow request and wrong for a provider outage:
-// during one, every message would burn the full 8s before failing over to a Wavespeed
-// call that was always going to be needed. Observed live — 302.ai answering HTTP 500
-// after 10.7s on every request while Wavespeed stayed healthy — so the breaker is what
-// makes the timeout above safe to raise.
-//
-// After enough consecutive failures 302 is skipped outright for a cooldown, turning an
-// outage from "every message pays the timeout" into "one message does, then we route
-// around it". When the cooldown lapses the next request tries 302 again: if it works
-// the breaker resets, if not the cooldown restarts.
-const T302_CIRCUIT_FAILURE_THRESHOLD = 3;
-const T302_CIRCUIT_COOLDOWN_MS = 60 * 1000;
-
-let t302ConsecutiveFailures = 0;
-let t302CircuitOpenUntil = 0;
-
-function is302CircuitOpen() {
-  return Date.now() < t302CircuitOpenUntil;
-}
-
-function record302Success() {
-  if (t302ConsecutiveFailures > 0 || t302CircuitOpenUntil > 0) {
-    logger.info({ afterFailures: t302ConsecutiveFailures }, '302.ai recovered; resuming normal routing');
-  }
-  t302ConsecutiveFailures = 0;
-  t302CircuitOpenUntil = 0;
-}
-
-function record302Failure() {
-  t302ConsecutiveFailures++;
-  if (t302ConsecutiveFailures >= T302_CIRCUIT_FAILURE_THRESHOLD) {
-    t302CircuitOpenUntil = Date.now() + T302_CIRCUIT_COOLDOWN_MS;
-    logger.error({
-      consecutiveFailures: t302ConsecutiveFailures,
-      cooldownMs: T302_CIRCUIT_COOLDOWN_MS,
-    }, '302.ai circuit opened — routing straight to Wavespeed until the cooldown lapses');
-  }
-}
-
-/** Test seam: reset breaker state between cases. */
-export function _resetT302Circuit() {
-  t302ConsecutiveFailures = 0;
-  t302CircuitOpenUntil = 0;
-}
-
-/**
- * Collect the audio from a MiniMax t2a_v2 streaming response.
- *
- * The body is server-sent events, one JSON object per `data:` line. Events with
- * `data.status` 1 carry a hex slice of MP3 in `data.audio`; the event with status 2
- * closes the stream (and repeats the whole clip unless exclude_aggregated_audio was
- * honoured — so its audio is ignored whenever slices were already received). An
- * API-level failure arrives the same way it does unstreamed: as a non-zero
- * `base_resp.status_code` inside an event.
- *
- * The slices concatenate to a valid MP3 — the boundaries are not frame-aligned,
- * which matters to nobody who joins them, and MSE on the player side keeps a byte
- * queue across appends for exactly this reason.
- *
- * @param {import('stream').Readable} stream
- * @param {object} opts
- * @param {AbortSignal} [opts.signal]
- * @param {(chunk: Buffer) => void} [opts.onChunk] - Called with each slice as it lands, in order.
- * @param {number} opts.idleTimeoutMs - Longest gap tolerated between events.
- * @returns {Promise<Buffer>} the whole clip
- */
-export function readSseAudio(stream, { signal, onChunk, idleTimeoutMs }) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let pending = '';
-    let settled = false;
-    let idleTimer = null;
-
-    const finish = (fn, value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(idleTimer);
-      if (signal) signal.removeEventListener('abort', onAbort);
-      // Release the socket now rather than when the provider gets round to closing
-      // it: on success there is nothing left to read, and on failure the rest of a
-      // clip nobody will use should not keep arriving.
-      try { stream.destroy(); } catch { /* already gone */ }
-      fn(value);
-    };
-    const fail = err => finish(reject, err);
-    const armIdleTimer = () => {
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        const err = new Error('302.ai API request timed out (no stream data)');
-        err.code = 'ECONNABORTED';
-        fail(err);
-      }, idleTimeoutMs);
-    };
-    const onAbort = () => fail(new DOMException('Aborted by user', 'AbortError'));
-
-    if (signal) {
-      if (signal.aborted) { onAbort(); return; }
-      signal.addEventListener('abort', onAbort, { once: true });
-    }
-    armIdleTimer();
-
-    const handleEvent = raw => {
-      let event;
-      try {
-        event = JSON.parse(raw);
-      } catch {
-        logger.warn({ raw: raw.substring(0, 120) }, '302.ai stream carried an unparseable event; skipping it');
-        return;
-      }
-      if (event.base_resp?.status_code !== undefined && event.base_resp.status_code !== 0) {
-        const { status_code: code, status_msg: msg } = event.base_resp;
-        fail(new Error(`302.ai API error ${code}: ${msg}`));
-        return;
-      }
-      const hex = event.data?.audio;
-      const isFinal = event.data?.status === 2;
-      if (typeof hex === 'string' && hex.length > 0 && !(isFinal && chunks.length > 0)) {
-        const buf = Buffer.from(hex, 'hex');
-        if (buf.length > 0) {
-          chunks.push(buf);
-          if (onChunk) {
-            try { onChunk(buf); } catch (err) { logger.warn({ err }, 'onChunk handler threw; continuing'); }
-          }
+    for (let i = 0; i < attempts.length; i++) {
+        const model = attempts[i];
+        try {
+            const { pcm, sampleRate, usage } = await attemptGeneration(model, text, voice, {
+                style, language, volume, signal,
+                onSlice: slice => { slicesSent++; onChunk?.(slice); },
+            });
+            const audioSeconds = +(pcm.length / 2 / sampleRate).toFixed(2);
+            logger.info({
+                logKey: 'GEMINI_TTS_OK', model, voice, attempt: i + 1, bytes: pcm.length, audioSeconds,
+                durationMs: Date.now() - startTime, inputTokens: usage?.total_input_tokens,
+            }, 'TTS audio generated successfully via Gemini');
+            return {
+                kind: 'buffer',
+                data: wavFromPcm(pcm, sampleRate),
+                mime: 'audio/wav',
+                sampleRate,
+                audioSeconds,
+                model,
+                usedFallbackModel: model !== primary,
+            };
+        } catch (err) {
+            if (signal?.aborted) {
+                const abort = new Error('Speech generation was aborted');
+                abort.name = 'AbortError';
+                throw abort;
+            }
+            lastError = err;
+            const blocked = err instanceof TtsBlockedError;
+            logger[blocked ? 'info' : 'warn']({
+                logKey: blocked ? 'GEMINI_TTS_BLOCKED' : 'GEMINI_TTS_ERROR',
+                model, voice, attempt: i + 1, status: err.status, durationMs: Date.now() - startTime,
+            }, err.message);
+            // A refusal stays a refusal. And once a slice reached a player, a second
+            // request would repeat the start of the clip.
+            if (blocked || slicesSent > 0) break;
         }
-      }
-      if (isFinal) {
-        finish(resolve, Buffer.concat(chunks));
-      }
-    };
-
-    stream.on('data', data => {
-      if (settled) return;
-      armIdleTimer();
-      pending += data.toString('utf8');
-      let nl;
-      while ((nl = pending.indexOf('\n')) >= 0) {
-        const line = pending.slice(0, nl).replace(/\r$/, '');
-        pending = pending.slice(nl + 1);
-        if (!line.startsWith('data:')) continue;
-        const body = line.slice(5).trim();
-        if (body && body !== '[DONE]') handleEvent(body);
-        if (settled) return;
-      }
-    });
-    stream.on('end', () => {
-      // A stream that closes without a status-2 event still counts if it carried
-      // audio; the provider has been seen to end abruptly after the last slice.
-      if (chunks.length > 0) finish(resolve, Buffer.concat(chunks));
-      else fail(new Error('302.ai API returned no audio payload (empty stream)'));
-    });
-    stream.on('error', err => {
-      if (signal?.aborted) onAbort();
-      else fail(err);
-    });
-  });
+    }
+    throw lastError;
 }
 
 /**
- * Internal function to attempt TTS generation via 302.ai
+ * Every voice a user can choose, from the synced catalog.
+ * @returns {Promise<Array<{id: string, name: string, language: string|null, gender: string|null, pitch: string|null, description: string}>>}
  */
-async function attemptGeneration302(text, voiceId, options = {}) {
-  const apiKey = config.tts.t302ApiKey;
-  if (!apiKey) {
-    throw new Error('302.ai API key is missing');
-  }
-
-  const startTime = Date.now();
-
-  const input = {
-    model: 'speech-2.8-turbo',
-    text,
-    stream: false,
-    voice_setting: {
-      voice_id: voiceId,
-      speed: options.speed ?? TTS_SPEED_DEFAULT,
-      vol: options.volume ?? 1.0,
-      pitch: options.pitch ?? TTS_PITCH_DEFAULT,
-      emotion: mapEmotionForApi(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral', '302'),
-      // t2a_v2 spells this text_normalization and expects it inside voice_setting.
-      // The flat english_normalization the Wavespeed wrapper takes is accepted
-      // here but silently ignored — this API ignores unknown keys rather than
-      // erroring — so it has to be sent under this name to have any effect.
-      text_normalization: options.englishNormalization ?? false,
-    },
-    audio_setting: {
-      sample_rate: options.sampleRate ?? 32000,
-      bitrate: options.bitrate ?? 128000,
-      format: options.format ?? 'mp3',
-      channel: options.channel === 'mono' ? 1 : options.channel === 'stereo' ? 2 : 1,
-    },
-    language_boost: mapLanguageBoost(options.languageBoost ?? config.tts?.defaultLanguageBoost ?? 'auto'),
-    // 'hex' returns the audio inline in this same response. 'url' hands back an
-    // Alibaba OSS link in Wulanchabu, China, which the OBS browser source then had
-    // to fetch itself — measured at 866-1090ms on every single clip. Taking the
-    // bytes here and pushing them down the already-open WebSocket deletes that hop.
-    // Only a channel with an outdated player still connected asks for 'url'.
-    output_format: options.preferUrlOutput ? 'url' : 'hex'
-  };
-
-  // Inline bytes are streamed. With stream: true the API answers with server-sent
-  // events, each carrying a hex slice of the MP3 as it is rendered, and the first
-  // slice arrives well before the whole clip would have. Measured against the live
-  // API on 2026-09-04 (speech-2.8-turbo, us-west client):
-  //
-  //   text        whole clip     first chunk   stream complete
-  //   36 chars    1790-2223ms    1216-1261ms   1374-1418ms
-  //   180 chars   2650-2761ms    1384-1426ms   1864-1910ms
-  //   400 chars   2898ms         2305ms        2946ms
-  //
-  // Two things fall out. Even the *complete* streamed clip lands sooner than the
-  // whole-clip request, so streaming pays off before anyone plays a chunk early;
-  // and the first chunk lands 0.5-1.3s before that, which is what `onChunk` is for —
-  // ttsQueue forwards each slice to a player that can start on it. The URL path
-  // cannot stream, and T302_STREAMING=false is the escape hatch if the provider's
-  // event format changes.
-  const streaming = input.output_format === 'hex' && config.tts.t302Streaming !== false;
-  if (streaming) {
-    input.stream = true;
-    // Without this the final event repeats the whole clip; readSseAudio guards
-    // against it anyway in case a proxy ignores the option.
-    input.stream_options = { exclude_aggregated_audio: true };
-  }
-
-  // Log request details for debugging
-  logger.info({
-    logKey: '302_API_REQUEST',
-    endpoint: T302_ENDPOINT,
-    voiceId,
-    textLength: text.length,
-    textPreview: text.substring(0, 50),
-    requestParams: {
-      model: input.model,
-      voice_setting: input.voice_setting,
-      audio_setting: input.audio_setting,
-      language_boost: input.language_boost
-    }
-  }, `302.ai API request starting for voice ${voiceId}`);
-
-  const requestConfig = {
-    method: 'POST',
-    url: T302_ENDPOINT,
-    headers: {
-      'Authorization': `Bearer ${T302_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    data: input,
-    timeout: t302TimeoutFor(text),
-    ...(streaming ? { responseType: 'stream' } : {}),
-  };
-
-  if (options.signal) {
-    requestConfig.signal = options.signal;
-  }
-
-  try {
-    const response = await axios(requestConfig);
-
-    if (streaming) {
-      // axios's timeout stops applying once the headers are in, so the body has
-      // its own idle budget: the same per-request figure, but reset by every chunk.
-      const data = await readSseAudio(response.data, {
-        signal: options.signal,
-        onChunk: options.onChunk,
-        idleTimeoutMs: t302TimeoutFor(text),
-      });
-      const durationMs = Date.now() - startTime;
-      logger.info({ bytes: data.length, durationMs, voiceId, streamed: true }, 'TTS audio generated successfully via 302.ai');
-      return { kind: 'buffer', data, mime: 'audio/mpeg' };
-    }
-
-    const durationMs = Date.now() - startTime;
-
-    if (options.signal && options.signal.aborted) {
-      logger.info({ endpoint: T302_ENDPOINT, text, durationMs }, '302.ai request was aborted while awaiting.');
-      throw new DOMException('Aborted by user', 'AbortError');
-    }
-
-    const result = response.data;
-
-    // MiniMax reports failures as HTTP 200 with a non-zero base_resp code
-    // (1002 rate limit, 1004 auth, 1039 TPM, 1042 invalid characters, 2013 bad
-    // params), so the status has to be read out of the body.
-    if (result.base_resp?.status_code !== undefined && result.base_resp.status_code !== 0) {
-      const { status_code: code, status_msg: msg } = result.base_resp;
-      logger.error({ code, msg, endpoint: T302_ENDPOINT, voiceId, durationMs }, '302.ai returned an API-level error');
-      throw new Error(`302.ai API error ${code}: ${msg}`);
-    }
-
-    // MiniMax returns the payload in data.audio for BOTH output formats — a URL
-    // string under output_format 'url', hex-encoded bytes under 'hex'. There is no
-    // data.url field; the branch that used to test for one never matched, and every
-    // request had been falling through to a branch commented as a fallback. Since
-    // the two formats are indistinguishable by shape, dispatch on what we asked for.
-    const audio = result.data?.audio;
-    if (typeof audio !== 'string' || audio.length === 0) {
-      logger.error({ result, endpoint: T302_ENDPOINT, durationMs }, '302.ai returned no audio payload.');
-      throw new Error(`302.ai API returned unexpected response format: ${JSON.stringify(result)}`);
-    }
-
-    if (input.output_format === 'url') {
-      logger.info({ outputUrl: audio, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai (url output)');
-      return { kind: 'url', url: audio };
-    }
-
-    const data = Buffer.from(audio, 'hex');
-    if (data.length === 0) {
-      logger.error({ endpoint: T302_ENDPOINT, durationMs, hexLength: audio.length }, '302.ai audio payload did not decode as hex.');
-      throw new Error('302.ai API returned an undecodable audio payload');
-    }
-
-    logger.info({ bytes: data.length, durationMs, voiceId }, 'TTS audio generated successfully via 302.ai');
-    return { kind: 'buffer', data, mime: 'audio/mpeg' };
-  } catch (error) {
-    const durationMs = Date.now() - startTime;
-    const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.includes('timeout'));
-
-    // On an HTTP error status axios hands back the body as an unread stream, and an
-    // unread response holds its socket until the far end times it out. Under a
-    // provider outage that is one leaked socket per failed request.
-    const errorBody = error.response?.data;
-    if (streaming && errorBody && typeof errorBody.destroy === 'function') {
-      try { errorBody.destroy(); } catch { /* already gone */ }
-    }
-
-    logger.error({
-      logKey: '302_API_ERROR',
-      endpoint: T302_ENDPOINT,
-      voiceId,
-      textLength: text.length,
-      durationMs,
-      isTimeout,
-      errorCode: error.code,
-      errorMessage: error.message,
-      responseStatus: error.response?.status,
-      responseData: streaming ? '[stream]' : error.response?.data
-    }, `302.ai API error after ${durationMs}ms: ${error.message}`);
-
-    if (isTimeout) {
-      throw new Error('302.ai API request timed out');
-    }
-    throw error;
-  }
-}
-
-/**
- * Generate speech audio for a piece of text.
- *
- * Returns a discriminated payload rather than a bare URL, because the two providers
- * deliver audio differently: 302.ai hands back the bytes inline, Wavespeed a CDN link.
- * Callers must branch on `kind` — see sendAudioToChannel in components/web/webSocket.js.
- *
- * `options.onChunk(Buffer)` is called with each slice of the clip as the provider
- * renders it, in order, on the streaming path (302.ai inline bytes). It is never
- * called on the URL path or the Wavespeed fallback, and a slice may have been
- * delivered for an attempt that then failed — the returned payload is the truth.
- *
- * @returns {Promise<{kind: 'buffer', data: Buffer, mime: string} | {kind: 'url', url: string}>}
- */
-export async function generateSpeech(text, voiceId = config.tts?.defaultVoiceId || 'Friendly_Person', options = {}) {
-  logger.info({
-    logKey: "TTS_GENERATE_SPEECH_CALLED",
-    textToGenerate: text,
-    voiceIdForTTS: voiceId,
-    optionsSummary: {
-      speed: options.speed,
-      pitch: options.pitch,
-      emotion: options.emotion,
-      languageBoost: options.languageBoost
-    },
-    timestamp_ms: Date.now()
-  }, `TTS_GENERATE_SPEECH_CALLED for text: "${text.substring(0, 30)}...", Voice: ${voiceId}`);
-
-  const input = {
-    text,
-    voice_id: voiceId,
-    speed: options.speed ?? TTS_SPEED_DEFAULT,
-    vol: options.volume ?? 1.0,
-    volume: options.volume ?? 1.0,
-    pitch: options.pitch ?? TTS_PITCH_DEFAULT,
-    emotion: mapEmotionForApi(options.emotion ?? config.tts?.defaultEmotion ?? 'neutral', '302'),
-    language_boost: mapLanguageBoost(options.languageBoost ?? config.tts?.defaultLanguageBoost ?? 'auto'),
-    english_normalization: options.englishNormalization !== undefined
-      ? options.englishNormalization
-      : false,
-    sample_rate: options.sampleRate ?? 32000,
-    bitrate: options.bitrate ?? 128000,
-    channel: options.channel === 'mono' ? '1' : options.channel === 'stereo' ? '2' : '1',
-    format: options.format ?? 'mp3',
-    enable_sync_mode: true, // Enable sync mode for lowest latency
-  };
-
-  const provider = getProviderForVoice(voiceId);
-  const is302 = provider === '302';
-  const endpoint = is302 ? T302_ENDPOINT : WAVESPEED_ENDPOINT;
-
-  logger.debug({ input: is302 ? '302.ai input hidden' : input, endpoint, provider }, `Sending TTS request to ${provider}`);
-
-  // Retry logic: try once, retry on timeout or fallback to Wavespeed
-  const MAX_RETRIES = 1;
-  let lastError = null;
-
-  // Whether 302 was actually reached on any attempt. Not the same as is302, which only
-  // says the *voice* routes there: with the breaker open, attempt 0 is already Wavespeed.
-  let triedT302 = false;
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    let calledT302 = false;
-    try {
-      let audio;
-      if (is302) {
-        // If this is a retry and the provider is 302, we might want to fallback to Wavespeed
-        // But only if the voice is actually supported by Wavespeed (which they all are currently)
-        if (attempt > 0) {
-          logger.warn({ text: text.substring(0, 30) }, triedT302
-            ? 'Falling back to Wavespeed API after 302.ai failure'
-            : 'Retrying Wavespeed after a timeout (302.ai circuit open)');
-          audio = await attemptGeneration(text, voiceId, input, options);
-        } else if (is302CircuitOpen()) {
-          // 302 is known-bad right now; skip it rather than paying the timeout again.
-          logger.debug({ text: text.substring(0, 30) }, '302.ai circuit open — using Wavespeed directly');
-          audio = await attemptGeneration(text, voiceId, input, options);
-        } else {
-          calledT302 = true;
-          triedT302 = true;
-          audio = await attemptGeneration302(text, voiceId, options);
-          record302Success();
-        }
-      } else {
-        audio = await attemptGeneration(text, voiceId, input, options);
-      }
-
-      // Log successful retry
-      if (attempt > 0) {
-        logger.info({ attempt, text: text.substring(0, 30), provider: is302 && attempt > 0 ? 'wavespeed (fallback)' : provider }, 'TTS generation succeeded after retry');
-      }
-
-      return audio;
-    } catch (error) {
-      lastError = error;
-
-      // Don't retry on abort. Nor count it against the breaker: a stop command or a
-      // cleared queue says nothing about whether the provider is healthy, and letting
-      // those trip it would route a channel to the slower provider for a minute every
-      // time a moderator used !tts stop a few times.
-      if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        logger.info({ text, endpoint }, `${provider} API call aborted in generateSpeech.`);
-        throw error;
-      }
-
-      if (calledT302) {
-        record302Failure();
-      }
-
-      // Determine if we should retry/fallback
-      // A 302 failure is worth a second attempt because that attempt is a *different*
-      // provider. Keying this on is302 rather than what actually ran meant that with
-      // the breaker open, a non-retryable Wavespeed error — a bad voice id, say — was
-      // re-sent to Wavespeed unchanged, to fail again the same way. Wavespeed itself is
-      // only retried on timeout, which is the one error where trying again can differ.
-      const isTimeout = error.message && error.message.includes('timed out');
-      const shouldRetry = (calledT302 || isTimeout) && attempt < MAX_RETRIES;
-
-      if (shouldRetry) {
-        logger.warn({
-          attempt: attempt + 1,
-          maxRetries: MAX_RETRIES + 1,
-          text: text.substring(0, 30),
-          error: error.message
-        }, `${provider} API error/timeout - retrying/falling back (attempt ${attempt + 1}/${MAX_RETRIES + 1})`);
-        continue;
-      }
-
-      // No more retries or non-retryable error - handle the error
-      const logError = {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-        response: error.response?.data
-      };
-      logger.error({ err: logError, text, endpoint, attempts: attempt + 1 }, `${provider} API error in generateSpeech`);
-
-      // Provide specific error messages based on Wavespeed API response
-      if (error.response?.data) {
-        const apiError = error.response.data;
-
-        // Check for specific Wavespeed error messages
-        if (apiError.message && apiError.message.includes("you don't have access to this voice_id")) {
-          throw new Error(`Voice access denied: The voice "${voiceId}" requires special access permissions. Please try a different voice.`);
-        }
-
-        if (apiError.message && apiError.message.includes("voice_id")) {
-          throw new Error(`Invalid voice: "${voiceId}" is not available. Please check the voice ID and try again.`);
-        }
-
-        if (apiError.message) {
-          throw new Error(`TTS generation failed: ${apiError.message}`);
-        }
-      }
-
-      // Fallback to generic error
-      throw new Error(`Failed to generate speech via ${provider} API: ${error.message}`);
-    }
-  }
-
-  // This should never be reached, but just in case
-  throw lastError || new Error('TTS generation failed for unknown reason');
-}
-
-/**
- * Get available voices from the hardcoded voice list
- * @param {boolean} forceRefresh - If true, forces a refresh from the schema API
- * @returns {Array} - Array of voice objects
- */
-export async function getAvailableVoices(forceRefresh = false) {
-  const now = Date.now();
-
-  // If force refresh is requested and cache is stale, try to fetch from schema API
-  if (forceRefresh && (now - lastVoiceListFetchTime > VOICE_LIST_CACHE_DURATION)) {
-    logger.info('Forcing voice list refresh from Wavespeed schema API.');
-    try {
-      const freshVoices = await _fetchVoiceListFromSchema();
-      if (freshVoices && freshVoices.length > 0) {
-        cachedVoiceList = freshVoices;
-        lastVoiceListFetchTime = now;
-        logger.info(`Successfully refreshed ${cachedVoiceList.length} voices from schema API.`);
-        return cachedVoiceList;
-      }
-    } catch (error) {
-      logger.warn({ err: error }, 'Failed to refresh voice list from schema API, falling back to hardcoded list.');
-    }
-  }
-
-  // Return cached list if available and fresh
-  if (cachedVoiceList && (now - lastVoiceListFetchTime < VOICE_LIST_CACHE_DURATION)) {
-    logger.debug('Returning cached voice list.');
-    return cachedVoiceList;
-  }
-
-  // Otherwise, use hardcoded voice list
-  logger.info('Loading voices from hardcoded list.');
-  cachedVoiceList = getAllVoices();
-  lastVoiceListFetchTime = now;
-  return cachedVoiceList;
-}
-
-/**
- * Fetch voice list dynamically from Wavespeed schema API (optional, for future updates)
- * @returns {Array} - Array of voice objects
- * @private
- */
-async function _fetchVoiceListFromSchema() {
-  const schemaUrl = 'https://wavespeed.ai/center/default/api/v1/model_schema/minimax/speech-02-turbo';
-  logger.info(`Attempting to fetch voice list from schema: ${schemaUrl}`);
-
-  try {
-    const response = await axios.get(schemaUrl, {
-      timeout: 10000 // 10 second timeout
-    });
-
-    // The schema is a JSON object - we need to extract voice IDs from the voice_id field's x-enum
-    const schema = response.data;
-
-    // Navigate to the voice_id parameter in the schema
-    if (schema.input_schema &&
-      schema.input_schema.properties &&
-      schema.input_schema.properties.voice_id &&
-      schema.input_schema.properties.voice_id['x-enum']) {
-
-      const voiceIds = schema.input_schema.properties.voice_id['x-enum'];
-
-      logger.info(`Fetched ${voiceIds.length} voice IDs from schema.`);
-
-      // Convert to voice objects with metadata
-      return voiceIds.map(id => {
-        const voice = getAllVoices().find(v => v.id === id);
-        return voice || {
-          id,
-          name: id.replace(/[_-]/g, ' ').replace(/\b\w/g, chr => chr.toUpperCase()),
-          language: 'Unknown',
-          type: 'Pre-trained'
-        };
-      });
-    } else {
-      logger.warn('Schema API response missing expected voice_id x-enum field.');
-      return [];
-    }
-  } catch (error) {
-    logger.error({ err: error }, 'Failed to fetch voice list from Wavespeed schema API.');
-    throw error;
-  }
-}
-
-/**
- * Get voices grouped by language for better UX
- * @returns {Object} - Object with languages as keys and voice arrays as values
- */
-export function getVoicesGroupedByLanguage() {
-  return getVoicesByLanguage();
+export async function getAvailableVoices() {
+    return getVoiceCatalog();
 }

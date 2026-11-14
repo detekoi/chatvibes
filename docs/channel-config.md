@@ -96,6 +96,54 @@ code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`
   what each channel was actually getting (three `true`, six `false`) so nothing changed for them,
   and deleted `botMode`.
 
+## Voice, style, speed and pitch
+
+Gemini TTS takes a voice, the text and one free-text style. It has no numbers for speed,
+pitch, emotion or volume. The stored fields did not change in the migration from MiniMax,
+so only voice IDs needed a backfill.
+
+- Voices: `src/components/tts/gemini-voices.json` is the catalog (2,114 voices: 30 studio
+  voices that speak every language, and a library with a language, gender, pitch and
+  description for each voice). `scripts/sync-gemini-voices.js` downloads it, and
+  `npm run sync-constants` copies it to the web UI. Do not type voice IDs by hand.
+- Old voice IDs: `minimax-to-gemini-voices.json` maps each of the 475 MiniMax voices to a
+  Gemini voice. `voiceResolver.resolveVoice` applies it each time a voice is read, so a
+  document or a persisted queue item with an old ID continues to work.
+  `scripts/migrate-voices-to-gemini.js` rewrites the stored IDs and keeps the old value in
+  `legacyVoiceId`. `scripts/validate-voice-map.js` makes sure that the map is complete.
+- `voiceStyle`: A few MiniMax voices have a manner that no Gemini voice has by itself
+  (a whisper, for example). The map gives those a short style, and the backfill stores it as
+  `voiceStyle` beside the voice. A change of voice clears it.
+- `voiceLanguage`: The voice library has native speakers of 26 languages only. The
+  model itself speaks more than 100, and the 30 studio voices speak all of them. A MiniMax
+  voice for a language with no native library voice (Cantonese, Thai, Romanian and 17
+  more) maps to a studio voice. A studio voice has no language, so the map row carries one
+  (`languageCode`), and the backfill stores it as `voiceLanguage`. Without it, the model
+  reads Chinese characters as Mandarin for a viewer who chose a Cantonese voice. A library
+  voice brings its language from the catalog, so nothing is stored for it. A change of
+  voice clears the field.
+- `style`: Free text, at most 120 characters, for a channel (`!tts defaultstyle`) or a
+  viewer (`!tts style`). The model reads the message word for word whatever the style says.
+  The `styleInjection` group of `scripts/probe-gemini-tts.js` tested this on 2026-11-14: a
+  style cannot add, replace or remove spoken words. It can change the manner a lot (singing,
+  screaming), and a slow manner makes a longer clip, which costs more.
+- `emotion`: Still a preset key. `STYLE_PRESETS` in `tts-config.json` maps each key to
+  style words. A custom style replaces the preset, so a command or an API call that sets an
+  emotion clears the style of the same document.
+- `speed` and `pitch`: Still numbers (0.5 to 2.0, and -12 to 12). `styleBuilder.js`
+  converts a number to one of five steps each time it is read (`SPEED_STEPS`, `PITCH_STEPS`)
+  and adds words such as "speaking slowly". The commands accept a step word or a number.
+  The result is approximate.
+- Order of precedence: A viewer value replaces the channel value, field by field. For
+  the manner: the viewer's style, then the viewer's emotion, then the channel's style, then
+  the channel's emotion. `buildStyle` joins the voice style, the manner, the pace words and
+  the pitch words.
+- Volume: `voiceVolumes[<voice ID>]`, then `volume`, then 1. `ttsService.applyGain`
+  applies it to the samples, so it is exact.
+- Language hint: An explicit `languageBoost` is sent as the hint (see `docs/i18n.md`).
+  With `auto`, the hint is the language of the voice: `voiceLanguage`, or the language of a
+  library voice that is not English. An English voice and a studio voice send no hint.
+
 ## Keys: account IDs, never logins
 
 Twitch logins can be renamed and then claimed by someone else; the user ID never changes. A

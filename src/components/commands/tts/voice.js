@@ -1,5 +1,5 @@
 // src/components/commands/tts/voice.js
-import { setGlobalUserPreference, clearGlobalUserPreference, getGlobalUserPreferences } from '../../tts/ttsState.js';
+import { updateGlobalUserPreferences, getGlobalUserPreferences } from '../../tts/ttsState.js';
 import { getAvailableVoices } from '../../tts/ttsService.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
@@ -28,7 +28,9 @@ export default {
 
         // Check for 'reset' first, as it's a single keyword
         if (args.length === 1 && (args[0].toLowerCase() === 'reset' || args[0].toLowerCase() === 'default' || args[0].toLowerCase() === 'auto')) {
-            const success = await clearGlobalUserPreference(userId, 'voiceId');
+            // The manner and the language that came with a mapped MiniMax voice belong
+            // to that voice, so one request removes all three.
+            const success = await updateGlobalUserPreferences(userId, { clear: ['voiceId', 'voiceStyle', 'voiceLanguage'] });
             if (success) {
                 enqueueMessage(channel, context.t('cmd.voice.reset'), { replyToId });
             } else {
@@ -37,13 +39,12 @@ export default {
             return;
         }
 
-        // If not 'reset', join all arguments to form the voice_id
-        // This allows for voice IDs containing spaces, which are then compared against the fetched voice list.
-        // The Wavespeed model's voice_id values sometimes contain spaces or are underscore_separated.
-        // The getAvailableVoices() function in ttsService.js should provide IDs in the exact format required by the API.
-        const requestedVoiceIdInput = args.join(' '); // User's input, e.g., "friendly_person"
+        // If not 'reset', the arguments are a voice ID from the catalog, such as
+        // "puck" or "en-gb-storyteller-3". Display names repeat across languages, so
+        // only the ID is matched here. The dashboard is the place to browse voices.
+        const requestedVoiceIdInput = args.join(' ').trim();
 
-        const availableVoices = await getAvailableVoices(); // This returns [{ id: 'Friendly_Person', name: 'Friendly Person', ... }, ... ]
+        const availableVoices = await getAvailableVoices();
 
         // Find the voice with a case-insensitive match
         const matchedVoice = availableVoices.find(v => v.id.toLowerCase() === requestedVoiceIdInput.toLowerCase());
@@ -64,7 +65,8 @@ export default {
         // Use the correctly cased ID from the available voices list for storing
         const validVoiceIdToStore = matchedVoice.id;
 
-        const success = await setGlobalUserPreference(userId, 'voiceId', validVoiceIdToStore, username);
+        const success = await updateGlobalUserPreferences(
+            userId, { set: { voiceId: validVoiceIdToStore }, clear: ['voiceStyle', 'voiceLanguage'] }, username);
         if (success) {
             enqueueMessage(channel, context.t('cmd.voice.set', { value: validVoiceIdToStore }), { replyToId });
         } else {

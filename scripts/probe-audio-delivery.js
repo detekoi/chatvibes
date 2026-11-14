@@ -1,93 +1,83 @@
 // scripts/probe-audio-delivery.js
-// Live check that generateSpeech returns playable audio from the real providers.
-// Unit tests mock axios, so nothing else verifies that our request body is one the
-// MiniMax API actually accepts, or that what comes back decodes as MP3.
-//
-// Follows the precedent of scripts/probe-pronunciation.js — see
-// docs/pronunciation-probe-results.md.
+// Live check that generateSpeech returns playable audio from the real provider.
+// Unit tests mock fetch, so nothing else verifies that our request body is one the
+// Gemini API accepts, or that what comes back is the PCM the player expects.
 //
 // Usage:  node --env-file=.env scripts/probe-audio-delivery.js [outdir]
-//         Writes the decoded clips so they can be played back by ear.
+//         Writes each clip as a WAV file so that it can be played back by ear.
 
 import fs from 'fs';
 import path from 'path';
 import config from '../src/config/index.js';
-import { generateSpeech } from '../src/components/tts/ttsService.js';
+import { generateSpeech, TtsBlockedError } from '../src/components/tts/ttsService.js';
+import { buildStyle } from '../src/components/tts/styleBuilder.js';
 
-const OUT_DIR = process.argv[2] || '/tmp/tts-probe';
-
-// The two MP3 signatures observed from this API: an ID3v2 tag, or a bare frame sync.
-function looksLikeMp3(buf) {
-    if (buf.length < 3) return false;
-    if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) return true; // "ID3"
-    return buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0;                     // frame sync
-}
+const OUT_DIR = path.resolve(process.argv[2] || 'build/audio-probe');
 
 const CASES = [
     { name: 'tiny', text: 'lol' },
     { name: 'short', text: 'hey chat how is everyone doing today' },
-    { name: 'max', text: ('okay so anyway that is basically what happened last night and honestly ').repeat(8).slice(0, 500) },
+    { name: 'styled', text: 'hey chat how is everyone doing today', options: { style: buildStyle({ emotion: 'happy', speed: 1.5 }), language: 'en', volume: 0.5 } },
+    { name: 'long', text: 'Okay so I was watching the stream yesterday and I have to say that boss fight was the best thing I have seen all year. You dodged every single attack in the second phase, then you forgot to heal and died with the boss at one percent health. I laughed so hard my cat ran out of the room. Anyway, are you going to try the no hit run again tonight, or are we finally moving on to the DLC?' },
 ];
 
 let failures = 0;
-
 function check(label, condition, detail) {
     if (condition) {
-        console.log(`  ok   ${label}${detail ? ` — ${detail}` : ''}`);
+        console.log(`  ok   ${label}${detail ? ` (${detail})` : ''}`);
     } else {
-        console.error(`  FAIL ${label}${detail ? ` — ${detail}` : ''}`);
+        console.error(`  FAIL ${label}${detail ? ` (${detail})` : ''}`);
         failures++;
     }
 }
 
-async function main() {
-    fs.mkdirSync(OUT_DIR, { recursive: true });
-
-    console.log('302.ai — inline bytes (the default path)');
-    for (const { name, text } of CASES) {
-        const started = Date.now();
-        const audio = await generateSpeech(text, 'Friendly_Person');
-        const ms = Date.now() - started;
-
-        check(`${name}: kind is 'buffer'`, audio.kind === 'buffer', `got '${audio.kind}'`);
-        if (audio.kind !== 'buffer') continue;
-
-        check(`${name}: decodes as MP3`, looksLikeMp3(audio.data),
-            `${audio.data.length} bytes, head ${audio.data.subarray(0, 3).toString('hex')}`);
-        check(`${name}: mime is audio/mpeg`, audio.mime === 'audio/mpeg', audio.mime);
-
-        const file = path.join(OUT_DIR, `302-${name}.mp3`);
-        fs.writeFileSync(file, audio.data);
-        console.log(`       ${ms}ms, ${audio.data.length} bytes -> ${file}`);
-    }
-
-    console.log('\n302.ai — URL output (the outdated-player fallback)');
-    const urlAudio = await generateSpeech('checking the url path', 'Friendly_Person', { preferUrlOutput: true });
-    check("kind is 'url'", urlAudio.kind === 'url', `got '${urlAudio.kind}'`);
-    check('url is fetchable http(s)', /^https?:\/\//.test(urlAudio.url || ''), urlAudio.url);
-
-    console.log('\nWavespeed — fallback provider, always a URL');
-    // getProviderForVoice sends every voice to 302, so reach the Wavespeed path the
-    // way production does: let the 302 attempt fail and take the retry. The env var
-    // is read into config at module load, so blanking it here would be too late —
-    // attemptGeneration302 re-reads config.tts.t302ApiKey on every call, so mutate that.
-    const realKey = config.tts.t302ApiKey;
-    config.tts.t302ApiKey = '';
-    try {
-        const ws = await generateSpeech('checking the wavespeed fallback', 'Friendly_Person');
-        check("kind is 'url'", ws.kind === 'url', `got '${ws.kind}'`);
-        check('url is fetchable http(s)', /^https?:\/\//.test(ws.url || ''), ws.url);
-    } catch (err) {
-        check('wavespeed fallback reachable', false, err.message);
-    } finally {
-        config.tts.t302ApiKey = realKey;
-    }
-
-    console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`);
-    process.exit(failures === 0 ? 0 : 1);
+async function run(name, text, options = {}) {
+    const started = Date.now();
+    let firstSliceMs = null;
+    let sliceBytes = 0;
+    let oddSlice = false;
+    const audio = await generateSpeech(text, 'puck', {
+        ...options,
+        onChunk: slice => {
+            firstSliceMs ??= Date.now() - started;
+            sliceBytes += slice.length;
+            if (slice.length % 2) oddSlice = true;
+        },
+    });
+    const totalMs = Date.now() - started;
+    fs.writeFileSync(path.join(OUT_DIR, `${name}.wav`), audio.data);
+    console.log(`${name}: ${text.length} chars, first slice ${firstSliceMs} ms, complete ${totalMs} ms, ${audio.audioSeconds} s of audio, model ${audio.model}`);
+    check('the clip is a WAV file', audio.data.subarray(0, 4).toString() === 'RIFF' && audio.mime === 'audio/wav');
+    check('the slices add up to the clip', sliceBytes === audio.data.length - 44, `${sliceBytes} bytes`);
+    check('every slice holds whole samples', !oddSlice);
+    check('the first slice came before the clip was complete', firstSliceMs !== null && firstSliceMs <= totalMs);
+    return audio;
 }
 
-main().catch(err => {
-    console.error('Probe failed:', err);
-    process.exit(1);
-});
+async function main() {
+    fs.mkdirSync(OUT_DIR, { recursive: true });
+    for (const { name, text, options } of CASES) await run(name, text, options);
+
+    console.log('fallback model: the main model name is made invalid for one request');
+    const realModel = config.tts.geminiModel;
+    config.tts.geminiModel = 'no-such-tts-model';
+    try {
+        const audio = await run('fallback', 'This clip comes from the fallback model.');
+        check('the fallback model answered', audio.usedFallbackModel === true, audio.model);
+    } finally {
+        config.tts.geminiModel = realModel;
+    }
+
+    console.log('refusal: text that the content filter blocks');
+    try {
+        await generateSpeech('I am twelve years old and I think you are sexy.', 'puck');
+        check('the request was refused', false, 'audio came back');
+    } catch (err) {
+        check('the request was refused with TtsBlockedError', err instanceof TtsBlockedError, err.message.slice(0, 80));
+    }
+
+    console.log(failures ? `\n${failures} checks failed.` : `\nAll checks passed. Clips are in ${OUT_DIR}`);
+    process.exit(failures ? 1 : 0);
+}
+
+main().catch(err => { console.error(err); process.exit(1); });

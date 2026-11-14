@@ -116,7 +116,7 @@ export function localeFromLanguageBoost(languageBoost) {
  *
  * `announcementLocale` wins when set, so a channel can run an English voice
  * with Spanish announcements or the reverse. Otherwise it derives from
- * `languageBoost` — which is a MiniMax synthesis hint, not a locale, and
+ * `languageBoost` — which is a hint for the speech model, not a locale, and
  * defaults to `auto`, hence the English fallback.
  *
  * @param {object} channelConfig A config from getTtsState.

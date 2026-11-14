@@ -60,7 +60,6 @@ describe('ttsQueue TTS_TIMING log', () => {
         mockWebServer = {
             sendAudioToChannel: jest.fn(),
             hasActiveClients: jest.fn().mockReturnValue(true),
-            channelPrefersUrlAudio: jest.fn().mockReturnValue(false),
             openClipStream: jest.fn().mockReturnValue(null),
             STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
         };
@@ -93,7 +92,10 @@ describe('ttsQueue TTS_TIMING log', () => {
     const flush = () => new Promise(r => setImmediate(() => setImmediate(r)));
 
     test('emits one line per clip with the stages computed from the record', async () => {
-        const buffer = { kind: 'buffer', data: Buffer.from([0xff, 0xfb, 0x90, 0x00]), mime: 'audio/mpeg' };
+        const buffer = {
+            kind: 'buffer', data: Buffer.from([0x52, 0x49, 0x46, 0x46]), mime: 'audio/wav',
+            sampleRate: 24000, audioSeconds: 1.25, model: 'test-tts-model', usedFallbackModel: true,
+        };
         mockTtsService.generateSpeech.mockResolvedValue(buffer);
 
         const originMs = Date.now() - 250;
@@ -117,6 +119,11 @@ describe('ttsQueue TTS_TIMING log', () => {
             textLength: 'hello chat'.length,
             audioKind: 'buffer',
             audioBytes: 4,
+            provider: 'gemini',
+            model: 'test-tts-model',
+            usedFallbackModel: true,
+            audioSeconds: 1.25,
+            style: null,
             twitchToWebhookMs: 200,
             claimMs: null,
             pubsubHopMs: null,
@@ -131,7 +138,7 @@ describe('ttsQueue TTS_TIMING log', () => {
     });
 
     test('a prefetched clip reports generateMs from the prefetch start', async () => {
-        const clip = { kind: 'buffer', data: Buffer.from([1, 2, 3]), mime: 'audio/mpeg' };
+        const clip = { kind: 'buffer', data: Buffer.from([1, 2, 3]), mime: 'audio/wav' };
         const after = ms => new Promise(r => setTimeout(() => r(clip), ms));
         let resolveFirst;
         // Prefetch covers items queued *behind* the one being started, so three
@@ -172,8 +179,25 @@ describe('ttsQueue TTS_TIMING log', () => {
         expect(three.queueWaitMs).toBeGreaterThanOrEqual(10);
     });
 
+    test('logs the style the clip was rendered with', async () => {
+        mockTtsService.generateSpeech.mockResolvedValue({ kind: 'buffer', data: Buffer.from([1, 2]), mime: 'audio/wav' });
+
+        await timing.runWithTiming(
+            { source: 'eventsub', receivedMs: Date.now(), route: 'local' },
+            () => ttsQueue.enqueue(TEST_CHANNEL, {
+                text: 'hello chat', user: TEST_USER, type: 'chat', voiceOptions: { emotion: 'happy', speed: 2 },
+            })
+        );
+        await flush();
+
+        const [line] = timingLogs();
+        expect(line.style).toBe('happy and cheerful, speaking very rapidly');
+        // A payload without the provider's figures logs null for them, not undefined.
+        expect(line).toMatchObject({ provider: 'gemini', model: null, usedFallbackModel: null, audioSeconds: null });
+    });
+
     test('logs nothing for an item enqueued outside a timing context', async () => {
-        mockTtsService.generateSpeech.mockResolvedValue({ kind: 'url', url: 'https://cdn.example/a.mp3' });
+        mockTtsService.generateSpeech.mockResolvedValue({ kind: 'buffer', data: Buffer.from([1, 2]), mime: 'audio/wav' });
         await ttsQueue.enqueue(TEST_CHANNEL, { text: 'restored', user: TEST_USER, type: 'chat' });
         await flush();
         expect(mockWebServer.sendAudioToChannel).toHaveBeenCalled();

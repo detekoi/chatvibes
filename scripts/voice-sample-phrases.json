@@ -1,0 +1,122 @@
+{
+  "_README": "The sentence that each voice says in its dashboard sample, by the language code of the voice in gemini-voices.json. English voices say the English sentence. Translated by gemini-3.8-flash on 2026-11-14. `back` is the literal back-translation, for review. Read by scripts/generate-gemini-voice-samples.js.",
+  "en": {
+    "text": "Chat, is this real?"
+  },
+  "ar-001": {
+    "text": "شات، هل هذا حقيقي؟",
+    "back": "Chat, is this real?"
+  },
+  "ar-EG": {
+    "text": "شات، ده بجد؟",
+    "back": "Chat, is this for real?"
+  },
+  "bn-IN": {
+    "text": "চ্যাট, এটা কি সত্যি?",
+    "back": "Chat, is this real?"
+  },
+  "cs-CZ": {
+    "text": "Chate, je to real?",
+    "back": "Chat, is it real?"
+  },
+  "de-DE": {
+    "text": "Chat, ist das echt?",
+    "back": "Chat, is that real?"
+  },
+  "el-GR": {
+    "text": "Τσατ, είναι αλήθεια αυτό;",
+    "back": "Chat, is this true?"
+  },
+  "es-419": {
+    "text": "Chat, ¿esto es real?",
+    "back": "Chat, is this real?"
+  },
+  "es-ES": {
+    "text": "Chat, ¿pero esto es real?",
+    "back": "Chat, but is this real?"
+  },
+  "fr-CA": {
+    "text": "Chat, c'est-tu pour vrai?",
+    "back": "Chat, is this for real?"
+  },
+  "fr-FR": {
+    "text": "Chat, c'est réel?",
+    "back": "Chat, is this real?"
+  },
+  "gu-IN": {
+    "text": "ચેટ, આ સાચું છે?",
+    "back": "Chat, is this real?"
+  },
+  "hi-IN": {
+    "text": "चैट, क्या ये सच है?",
+    "back": "Chat, is this real?"
+  },
+  "id-ID": {
+    "text": "Chat, ini beneran?",
+    "back": "Chat, is this for real?"
+  },
+  "it-IT": {
+    "text": "Chat, ma è vero?",
+    "back": "Chat, is this really true?"
+  },
+  "ja-JP": {
+    "text": "チャット、これマジ？",
+    "back": "Chat, is this for real?"
+  },
+  "jv-ID": {
+    "text": "Chat, iki tenanan?",
+    "back": "Chat, is this for real?"
+  },
+  "ko-KR": {
+    "text": "챗, 이거 실화냐?",
+    "back": "Chat, is this for real?"
+  },
+  "mr-IN": {
+    "text": "चॅट, हे खरं आहे का?",
+    "back": "Chat, is this real?"
+  },
+  "nl-NL": {
+    "text": "Chat, is dit echt?",
+    "back": "Chat, is this real?"
+  },
+  "pl-PL": {
+    "text": "Czat, to na serio?",
+    "back": "Chat, is this for real?"
+  },
+  "pt-BR": {
+    "text": "Chat, isso é real?",
+    "back": "Chat, is this real?"
+  },
+  "pt-PT": {
+    "text": "Chat, isto é a sério?",
+    "back": "Chat, is this for real?"
+  },
+  "ru-RU": {
+    "text": "Чат, это реально?",
+    "back": "Chat, is this real?"
+  },
+  "sw-KE": {
+    "text": "Chat, hii ni kweli?",
+    "back": "Chat, is this real?"
+  },
+  "ta-IN": {
+    "text": "சாட், இது நிஜமா?",
+    "back": "Chat, is this real?"
+  },
+  "te-IN": {
+    "text": "చాట్, ఇది నిజమా?",
+    "back": "Chat, is this real?"
+  },
+  "tr-TR": {
+    "text": "Chat, bu gerçek mi?",
+    "back": "Chat, is this real?"
+  },
+  "vi-VN": {
+    "text": "Chat, cái này thật á?",
+    "back": "Chat, is this for real?"
+  },
+  "zh-CN": {
+    "text": "弹幕，这是真的吗？",
+    "back": "Chat, is this real?"
+  }
+}

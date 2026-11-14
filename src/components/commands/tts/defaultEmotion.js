@@ -20,6 +20,7 @@ export default createTtsSettingCommand({
         const config = await getTtsState(context.channel.substring(1));
         return config.emotion ?? DEFAULT_TTS_SETTINGS.emotion;
     },
+    // Both writes also remove the channel's custom style, in the same request.
     resetSetting: async (context) => resetChannelDefaultEmotion(context.channel.substring(1)),
     setSetting: async (context, val) => setChannelDefaultEmotion(context.channel.substring(1), val),
     validateFn: (val) => VALID_EMOTIONS.includes(val),

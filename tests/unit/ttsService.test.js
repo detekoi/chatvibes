@@ -1,619 +1,493 @@
 // tests/unit/ttsService.test.js
-// Unit tests for TTS service API integration
+// generateSpeech against the Gemini provider: the request it sends, the clip it
+// returns, and what it does when a request fails. fetch is mocked; nothing here
+// touches the network.
 
 import { jest } from '@jest/globals';
+import { pcmOf, samplesOf, audioEvent, sse, okResponse, errorResponse, hangingFetch } from '../helpers/geminiSse.js';
 
-describe('ttsService module', () => {
-  let ttsService;
-  let mockAxios;
-  let mockLogger;
-  let mockConfig;
-  let mockWavespeedVoices;
+const ENDPOINT = 'https://gemini.test/v1beta/interactions';
+const MAIN_MODEL = 'main-tts-model';
+const FALLBACK_MODEL = 'fallback-tts-model';
 
-  beforeEach(async () => {
-    jest.resetModules();
-    jest.clearAllMocks();
+describe('ttsService generateSpeech', () => {
+    let ttsService;
+    let mockLogger;
+    let mockConfig;
+    let mockFetch;
+    let realFetch;
 
-    // Mock axios
-    mockAxios = jest.fn();
-    mockAxios.get = jest.fn();
+    const requestBody = (call = 0) => JSON.parse(mockFetch.mock.calls[call][1].body);
+    const modelsTried = () => mockFetch.mock.calls.map((_call, i) => requestBody(i).model);
+    const oneSlice = (...samples) => okResponse(sse(audioEvent(pcmOf(...samples)), '[DONE]'));
 
-    mockLogger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn()
-    };
+    beforeEach(async () => {
+        jest.resetModules();
+        jest.clearAllMocks();
 
-    mockConfig = {
-      tts: {
-        wavespeedApiKey: 'test_api_key',
-        wavespeedEndpoint: 'https://api.wavespeed.ai/v1/generate',
-        defaultVoiceId: 'Default_Voice',
-        defaultEmotion: 'neutral',
-        defaultLanguageBoost: 'auto'
-      }
-    };
+        mockLogger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+        mockConfig = {
+            tts: {
+                defaultVoiceId: 'puck',
+                geminiApiKey: 'test_gemini_key',
+                geminiEndpoint: ENDPOINT,
+                geminiModel: MAIN_MODEL,
+                geminiFallbackModel: FALLBACK_MODEL,
+            },
+        };
 
-    mockWavespeedVoices = {
-      getAllVoices: jest.fn().mockReturnValue([
-        { id: 'Voice_1', name: 'Voice 1', language: 'English', type: 'Pre-trained' },
-        { id: 'Voice_2', name: 'Voice 2', language: 'Spanish', type: 'Pre-trained' }
-      ]),
-      getVoicesByLanguage: jest.fn().mockReturnValue({
-        'English': [{ id: 'Voice_1', name: 'Voice 1' }],
-        'Spanish': [{ id: 'Voice_2', name: 'Voice 2' }]
-      })
-    };
+        jest.unstable_mockModule('../../src/lib/logger.js', () => ({ default: mockLogger }));
+        jest.unstable_mockModule('../../src/config/index.js', () => ({ default: mockConfig }));
 
-    // Mock modules
-    jest.unstable_mockModule('axios', () => ({
-      default: mockAxios
-    }));
+        realFetch = global.fetch;
+        mockFetch = jest.fn();
+        global.fetch = mockFetch;
 
-    jest.unstable_mockModule('../../src/lib/logger.js', () => ({
-      default: mockLogger
-    }));
-
-    jest.unstable_mockModule('../../src/config/index.js', () => ({
-      default: mockConfig
-    }));
-
-    jest.unstable_mockModule('../../src/components/tts/ttsConstants.js', () => ({
-      TTS_SPEED_DEFAULT: 1.0,
-      TTS_PITCH_DEFAULT: 0,
-      LEGACY_SAFE_EMOTIONS: ['happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised'],
-      LEGACY_SAFE_LANGUAGE_BOOSTS: [
-        'auto', 'Chinese', 'Chinese,Yue', 'English', 'Arabic',
-        'Russian', 'Spanish', 'French', 'Portuguese', 'German',
-        'Turkish', 'Dutch', 'Ukrainian', 'Vietnamese', 'Indonesian',
-        'Japanese', 'Italian', 'Korean', 'Thai', 'Polish',
-        'Romanian', 'Greek', 'Czech', 'Finnish', 'Hindi'
-      ]
-    }));
-
-    jest.unstable_mockModule('../../src/components/tts/wavespeedVoices.js', () => mockWavespeedVoices);
-
-    ttsService = await import('../../src/components/tts/ttsService.js');
-  });
-
-  describe('generateSpeech', () => {
-    test('should generate speech successfully with default options', async () => {
-      const audioUrl = 'https://wavespeed.ai/audio/test123.mp3';
-
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          id: 'test123',
-          outputs: [audioUrl]
-        }
-      });
-
-      const audio = await ttsService.generateSpeech('Hello world', 'Test_Voice');
-
-      expect(audio).toEqual({ kind: 'url', url: audioUrl });
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          method: 'POST',
-          url: mockConfig.tts.wavespeedEndpoint,
-          headers: expect.objectContaining({
-            'Authorization': 'Bearer test_api_key',
-            'Content-Type': 'application/json'
-          }),
-          data: expect.objectContaining({
-            text: 'Hello world',
-            voice_id: 'Test_Voice'
-          })
-        })
-      );
+        ttsService = await import('../../src/components/tts/ttsService.js');
     });
 
-    test('should use provided options for speech generation', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
-
-      await ttsService.generateSpeech('Test', 'Voice', {
-        speed: 1.5,
-        pitch: 2,
-        emotion: 'happy',
-        volume: 0.8,
-        languageBoost: 'English'
-      });
-
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            speed: 1.5,
-            pitch: 2,
-            emotion: 'happy',
-            volume: 0.8,
-            language_boost: 'English'
-          })
-        })
-      );
+    afterEach(() => {
+        global.fetch = realFetch;
+        jest.useRealTimers();
     });
 
-    test('should omit "auto" emotion from API call (auto-detect)', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
+    describe('request', () => {
+        test('posts to the configured endpoint with the API key header', async () => {
+            mockFetch.mockResolvedValue(oneSlice(1));
 
-      await ttsService.generateSpeech('Test', 'Voice', {
-        emotion: 'auto'
-      });
+            await ttsService.generateSpeech('Hello world', 'kore');
 
-      // "auto" maps to undefined (omitted from API call for auto-detect)
-      const callData = mockAxios.mock.calls[0][0].data;
-      expect(callData.emotion).toBeUndefined();
-    });
-
-    test('should map "Automatic" language boost to "auto"', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
-
-      await ttsService.generateSpeech('Test', 'Voice', {
-        languageBoost: 'Automatic'
-      });
-
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            language_boost: 'auto'
-          })
-        })
-      );
-    });
-
-    test('should map "None" language boost to "auto"', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
-
-      await ttsService.generateSpeech('Test', 'Voice', {
-        languageBoost: 'None'
-      });
-
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            language_boost: 'auto'
-          })
-        })
-      );
-    });
-
-    test('should handle channel option correctly for mono', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
-
-      await ttsService.generateSpeech('Test', 'Voice', {
-        channel: 'mono'
-      });
-
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            channel: '1'
-          })
-        })
-      );
-    });
-
-    test('should handle channel option correctly for stereo', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
-
-      await ttsService.generateSpeech('Test', 'Voice', {
-        channel: 'stereo'
-      });
-
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            channel: '2'
-          })
-        })
-      );
-    });
-
-    test('should enable sync mode for lowest latency', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
-
-      await ttsService.generateSpeech('Test', 'Voice');
-
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            enable_sync_mode: true
-          })
-        })
-      );
-    });
-
-    test('should handle API response with data wrapper', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          data: {
-            status: 'completed',
-            outputs: ['https://audio.url']
-          }
-        }
-      });
-
-      const audio = await ttsService.generateSpeech('Test', 'Voice');
-
-      expect(audio).toEqual({ kind: 'url', url: 'https://audio.url' });
-    });
-
-    test('should throw error when API returns failed status', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'failed',
-          error: 'Voice not found'
-        }
-      });
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Invalid_Voice')
-      ).rejects.toThrow('TTS generation failed: Voice not found');
-    });
-
-    test('should provide specific error for voice access denied', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'failed',
-          error: "you don't have access to this voice_id"
-        }
-      });
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Premium_Voice')
-      ).rejects.toThrow('Voice access denied');
-    });
-
-    test('should provide specific error for invalid voice ID', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'failed',
-          error: 'Invalid voice_id specified'
-        }
-      });
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Bad_Voice')
-      ).rejects.toThrow('Invalid voice');
-    });
-
-    test('should throw error for unexpected response format', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'pending'
-        }
-      });
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Voice')
-      ).rejects.toThrow('unexpected response format');
-    });
-
-    test('should throw error when outputs are missing', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: []
-        }
-      });
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Voice')
-      ).rejects.toThrow('unexpected response format');
-    });
-
-    test('should handle network errors', async () => {
-      mockAxios.mockRejectedValue(new Error('Network error'));
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Voice')
-      ).rejects.toThrow('Failed to generate speech');
-
-      expect(mockLogger.error).toHaveBeenCalled();
-    });
-
-    test('should handle API errors with specific messages', async () => {
-      mockAxios.mockRejectedValue({
-        response: {
-          data: {
-            message: 'Rate limit exceeded'
-          }
-        }
-      });
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Voice')
-      ).rejects.toThrow('TTS generation failed: Rate limit exceeded');
-    });
-
-    test('should handle voice access denied in error response', async () => {
-      mockAxios.mockRejectedValue({
-        response: {
-          data: {
-            message: "you don't have access to this voice_id Premium_Voice"
-          }
-        }
-      });
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Premium_Voice')
-      ).rejects.toThrow('Voice access denied');
-    });
-
-    test('should support abort signal', async () => {
-      const controller = new AbortController();
-
-      mockAxios.mockImplementation(async (_config) => {
-        controller.abort();
-        const error = new Error('Request aborted');
-        error.name = 'AbortError';
-        throw error;
-      });
-
-      await expect(
-        ttsService.generateSpeech('Test', 'Voice', {
-          signal: controller.signal
-        })
-      ).rejects.toMatchObject({
-        name: 'AbortError'
-      });
-    });
-
-    test('should handle abort during API call', async () => {
-      const controller = new AbortController();
-
-      mockAxios.mockImplementation(async (_config) => {
-        // Simulate abort during request
-        setTimeout(() => controller.abort(), 10);
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            resolve({
-              data: {
-                status: 'completed',
-                outputs: ['https://audio.url']
-              }
-            });
-          }, 100);
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            const [url, init] = mockFetch.mock.calls[0];
+            expect(url).toBe(ENDPOINT);
+            expect(init.method).toBe('POST');
+            expect(init.headers).toEqual({ 'x-goog-api-key': 'test_gemini_key', 'Content-Type': 'application/json' });
+            expect(init.signal).toBeInstanceOf(AbortSignal);
         });
-      });
 
-      await expect(
-        ttsService.generateSpeech('Test', 'Voice', {
-          signal: controller.signal
-        })
-      ).rejects.toThrow();
+        test('sends the model, the text and the voice, streamed and not stored', async () => {
+            mockFetch.mockResolvedValue(oneSlice(1));
+
+            await ttsService.generateSpeech('Hello world', 'kore');
+
+            expect(requestBody()).toEqual({
+                model: MAIN_MODEL,
+                input: [{ type: 'user_input', content: [{ type: 'text', text: 'Hello world' }] }],
+                response_format: { type: 'audio' },
+                generation_config: { speech_config: [{ voice: 'kore' }] },
+                stream: true,
+                store: false,
+            });
+        });
+
+        test('adds the style as a speech_metadata annotation only when there is one', async () => {
+            mockFetch.mockImplementation(async () => oneSlice(1));
+
+            await ttsService.generateSpeech('Hello', 'kore', { style: 'happy and cheerful' });
+            await ttsService.generateSpeech('Hello', 'kore', { style: '' });
+
+            expect(requestBody(0).input[0].content[0]).toEqual({
+                type: 'text',
+                text: 'Hello',
+                annotations: [{ type: 'speech_metadata', style: 'happy and cheerful' }],
+            });
+            expect(requestBody(1).input[0].content[0]).toEqual({ type: 'text', text: 'Hello' });
+        });
+
+        test('adds the language to the speech config only when there is one', async () => {
+            mockFetch.mockImplementation(async () => oneSlice(1));
+
+            await ttsService.generateSpeech('Hola', 'kore', { language: 'es' });
+            await ttsService.generateSpeech('Hola', 'kore', { language: undefined });
+
+            expect(requestBody(0).generation_config.speech_config).toEqual([{ voice: 'kore', language: 'es' }]);
+            expect(requestBody(1).generation_config.speech_config).toEqual([{ voice: 'kore' }]);
+        });
+
+        test('sends a catalog voice by its catalog ID whatever the letter case', async () => {
+            mockFetch.mockResolvedValue(oneSlice(1));
+
+            await ttsService.generateSpeech('Hello', 'KORE');
+
+            expect(requestBody().generation_config.speech_config[0].voice).toBe('kore');
+        });
+
+        test.each([undefined, 'No_Such_Voice'])('uses the default voice for %p', async voiceId => {
+            mockFetch.mockResolvedValue(oneSlice(1));
+
+            await ttsService.generateSpeech('Hello', voiceId);
+
+            expect(requestBody().generation_config.speech_config[0].voice).toBe('puck');
+        });
+
+        test('throws when the API key is missing, without a request', async () => {
+            mockConfig.tts.geminiApiKey = undefined;
+
+            await expect(ttsService.generateSpeech('Hello', 'kore')).rejects.toThrow('GEMINI_API_KEY is missing');
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
     });
 
-    test('should handle axios CanceledError', async () => {
-      const error = new Error('Request canceled');
-      error.name = 'CanceledError';
-      mockAxios.mockRejectedValue(error);
+    describe('result', () => {
+        test('returns the whole clip as a WAV buffer', async () => {
+            const pcm = pcmOf(...Array.from({ length: 12000 }, (_v, i) => i)); // half a second at 24 kHz
+            mockFetch.mockResolvedValue(okResponse(sse(audioEvent(pcm.subarray(0, 8000)), audioEvent(pcm.subarray(8000)), '[DONE]')));
 
-      await expect(
-        ttsService.generateSpeech('Test', 'Voice')
-      ).rejects.toMatchObject({
-        name: 'CanceledError'
-      });
+            const audio = await ttsService.generateSpeech('Hello', 'kore');
+
+            expect(audio).toEqual({
+                kind: 'buffer',
+                data: ttsService.wavFromPcm(pcm, 24000),
+                mime: 'audio/wav',
+                sampleRate: 24000,
+                audioSeconds: 0.5,
+                model: MAIN_MODEL,
+                usedFallbackModel: false,
+            });
+            expect(audio.data.subarray(44)).toEqual(pcm);
+        });
+
+        test('uses the sample rate of the stream for the WAV header and the length', async () => {
+            const pcm = pcmOf(...new Array(48000).fill(1));
+            mockFetch.mockResolvedValue(okResponse(sse(audioEvent(pcm, { sample_rate: 48000 }))));
+
+            const audio = await ttsService.generateSpeech('Hello', 'kore');
+
+            expect(audio.sampleRate).toBe(48000);
+            expect(audio.audioSeconds).toBe(1);
+            expect(audio.data.readUInt32LE(24)).toBe(48000);
+        });
+
+        test('forwards each slice to onChunk in order, as whole samples', async () => {
+            const whole = pcmOf(10, 20, 30);
+            const onChunk = jest.fn();
+            // Three network chunks; the first two deltas end in the middle of a sample.
+            mockFetch.mockResolvedValue(okResponse(
+                sse(audioEvent(whole.subarray(0, 1))),
+                sse(audioEvent(whole.subarray(1, 3))),
+                sse(audioEvent(whole.subarray(3))),
+            ));
+
+            const audio = await ttsService.generateSpeech('Hello', 'kore', { onChunk });
+
+            const slices = onChunk.mock.calls.map(([slice]) => slice);
+            expect(slices.every(slice => slice.length % 2 === 0)).toBe(true);
+            expect(samplesOf(Buffer.concat(slices))).toEqual([10, 20, 30]);
+            expect(audio.data.subarray(44)).toEqual(whole);
+        });
+
+        test('applies the volume to the slices and to the returned clip', async () => {
+            const onChunk = jest.fn();
+            mockFetch.mockResolvedValue(oneSlice(1000, -1000, 30000));
+
+            const audio = await ttsService.generateSpeech('Hello', 'kore', { volume: 1.5, onChunk });
+
+            expect(samplesOf(onChunk.mock.calls[0][0])).toEqual([1500, -1500, 32767]);
+            expect(samplesOf(audio.data.subarray(44))).toEqual([1500, -1500, 32767]);
+        });
     });
 
-    test('should use default voice ID from config if not provided', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
+    describe('retries', () => {
+        test('tries the main model twice, then the fallback model once', async () => {
+            mockFetch
+                .mockResolvedValueOnce(errorResponse(503, { error: { message: 'unavailable' } }))
+                .mockRejectedValueOnce(new Error('socket hang up'))
+                .mockResolvedValueOnce(oneSlice(1));
 
-      await ttsService.generateSpeech('Test');
+            const audio = await ttsService.generateSpeech('Hello', 'kore');
 
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            voice_id: 'Default_Voice'
-          })
-        })
-      );
+            expect(modelsTried()).toEqual([MAIN_MODEL, MAIN_MODEL, FALLBACK_MODEL]);
+            expect(audio.model).toBe(FALLBACK_MODEL);
+            expect(audio.usedFallbackModel).toBe(true);
+        });
+
+        test('a second attempt on the main model is not a fallback', async () => {
+            mockFetch
+                .mockResolvedValueOnce(errorResponse(500, 'Internal Server Error'))
+                .mockResolvedValueOnce(oneSlice(1));
+
+            const audio = await ttsService.generateSpeech('Hello', 'kore');
+
+            expect(modelsTried()).toEqual([MAIN_MODEL, MAIN_MODEL]);
+            expect(audio.model).toBe(MAIN_MODEL);
+            expect(audio.usedFallbackModel).toBe(false);
+        });
+
+        test('throws the last error once every attempt failed', async () => {
+            mockFetch
+                .mockResolvedValueOnce(errorResponse(500, 'first'))
+                .mockResolvedValueOnce(errorResponse(500, 'second'))
+                .mockResolvedValueOnce(errorResponse(429, { error: { code: 'resource_exhausted', message: 'quota' } }));
+
+            const failure = await ttsService.generateSpeech('Hello', 'kore').catch(err => err);
+
+            expect(mockFetch).toHaveBeenCalledTimes(3);
+            expect(failure.message).toBe('Gemini TTS HTTP 429: quota');
+            expect(failure.status).toBe(429);
+        });
+
+        test.each([
+            ['is empty', ''],
+            ['is the main model', MAIN_MODEL],
+        ])('makes two attempts when the fallback model %s', async (_label, fallbackModel) => {
+            mockConfig.tts.geminiFallbackModel = fallbackModel;
+            mockFetch.mockImplementation(async () => errorResponse(500, 'down'));
+
+            await expect(ttsService.generateSpeech('Hello', 'kore')).rejects.toThrow('Gemini TTS HTTP 500');
+
+            expect(modelsTried()).toEqual([MAIN_MODEL, MAIN_MODEL]);
+        });
+
+        test('retries a stream that closed with no audio', async () => {
+            mockFetch
+                .mockResolvedValueOnce(okResponse(sse('[DONE]')))
+                .mockResolvedValueOnce(oneSlice(1));
+
+            const audio = await ttsService.generateSpeech('Hello', 'kore');
+
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(audio.kind).toBe('buffer');
+        });
+
+        test('retries an error event that arrived before any audio', async () => {
+            const onChunk = jest.fn();
+            mockFetch
+                .mockResolvedValueOnce(okResponse(sse({ error: { message: 'model overloaded' } })))
+                .mockResolvedValueOnce(oneSlice(1));
+
+            await ttsService.generateSpeech('Hello', 'kore', { onChunk });
+
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(onChunk).toHaveBeenCalledTimes(1);
+        });
+
+        test('does not retry once a slice was forwarded', async () => {
+            const onChunk = jest.fn();
+            mockFetch.mockResolvedValue(okResponse(sse(audioEvent(pcmOf(1, 2))), sse({ error: { message: 'stream broke' } })));
+
+            await expect(ttsService.generateSpeech('Hello', 'kore', { onChunk })).rejects.toThrow('stream broke');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            expect(onChunk).toHaveBeenCalledTimes(1);
+        });
+
+        test('does not retry after a slice even when the caller passed no onChunk', async () => {
+            mockFetch.mockResolvedValue(okResponse(sse(audioEvent(pcmOf(1, 2))), sse({ error: { message: 'stream broke' } })));
+
+            await expect(ttsService.generateSpeech('Hello', 'kore')).rejects.toThrow('stream broke');
+
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
     });
 
-    test('should include english_normalization option', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
+    describe('blocked text', () => {
+        test.each([
+            ['the prohibited_content code', { error: { code: 'prohibited_content', message: 'The text was refused.' } }],
+            ['an "Input blocked" message', { error: { code: 'invalid_request', message: 'Input blocked by the safety filter.' } }],
+            ['an "input was blocked" message', { error: { message: 'The input was blocked.' } }],
+        ])('throws TtsBlockedError on HTTP 400 with %s, without a retry', async (_label, payload) => {
+            mockFetch.mockImplementation(async () => errorResponse(400, payload));
 
-      await ttsService.generateSpeech('Test', 'Voice', {
-        englishNormalization: true
-      });
+            const failure = await ttsService.generateSpeech('Hello', 'kore').catch(err => err);
 
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            english_normalization: true
-          })
-        })
-      );
+            expect(failure).toBeInstanceOf(ttsService.TtsBlockedError);
+            expect(failure.name).toBe('TtsBlockedError');
+            expect(failure.message).toContain(payload.error.message);
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        test('recognises a refusal in a body that is not JSON', async () => {
+            mockFetch.mockImplementation(async () => errorResponse(400, 'Input blocked'));
+
+            await expect(ttsService.generateSpeech('Hello', 'kore')).rejects.toBeInstanceOf(ttsService.TtsBlockedError);
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        test('does not retry a refusal carried inside the stream', async () => {
+            mockFetch.mockImplementation(async () => okResponse(sse({ error: { code: 'prohibited_content', message: 'refused' } })));
+
+            await expect(ttsService.generateSpeech('Hello', 'kore')).rejects.toBeInstanceOf(ttsService.TtsBlockedError);
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        test('logs a refusal at info, not as a provider error', async () => {
+            mockFetch.mockImplementation(async () => errorResponse(400, { error: { code: 'prohibited_content', message: 'refused' } }));
+
+            await ttsService.generateSpeech('Hello', 'kore').catch(() => {});
+
+            expect(mockLogger.info).toHaveBeenCalledWith(expect.objectContaining({ logKey: 'GEMINI_TTS_BLOCKED' }), expect.any(String));
+            expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.objectContaining({ logKey: 'GEMINI_TTS_ERROR' }), expect.any(String));
+        });
+
+        test('an ordinary HTTP 400 is retried like any other failure', async () => {
+            mockFetch.mockImplementation(async () => errorResponse(400, { error: { code: 'invalid_request', message: 'Unknown voice' } }));
+
+            const failure = await ttsService.generateSpeech('Hello', 'kore').catch(err => err);
+
+            expect(failure).not.toBeInstanceOf(ttsService.TtsBlockedError);
+            expect(failure.status).toBe(400);
+            expect(mockFetch).toHaveBeenCalledTimes(3);
+        });
     });
 
-    test('should default english_normalization to false', async () => {
-      mockAxios.mockResolvedValue({
-        data: {
-          status: 'completed',
-          outputs: ['https://audio.url']
-        }
-      });
+    describe('abort', () => {
+        test('rejects with AbortError when the signal fires during the request, and stops', async () => {
+            mockFetch.mockImplementation(hangingFetch);
+            const controller = new AbortController();
 
-      await ttsService.generateSpeech('Test', 'Voice');
+            const pending = ttsService.generateSpeech('Hello', 'kore', { signal: controller.signal });
+            controller.abort();
 
-      expect(mockAxios).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            english_normalization: false
-          })
-        })
-      );
-    });
-  });
+            await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
 
-  describe('getAvailableVoices', () => {
-    test('should return hardcoded voice list on first call', async () => {
-      const voices = await ttsService.getAvailableVoices();
+        test('passes the abort on to the request', async () => {
+            mockFetch.mockImplementation(hangingFetch);
+            const controller = new AbortController();
 
-      expect(voices).toHaveLength(2);
-      expect(voices[0].id).toBe('Voice_1');
-      expect(mockWavespeedVoices.getAllVoices).toHaveBeenCalled();
-    });
+            const pending = ttsService.generateSpeech('Hello', 'kore', { signal: controller.signal });
+            const requestSignal = mockFetch.mock.calls[0][1].signal;
+            expect(requestSignal.aborted).toBe(false);
+            controller.abort();
 
-    test('should return cached voice list on subsequent calls', async () => {
-      await ttsService.getAvailableVoices();
-      mockWavespeedVoices.getAllVoices.mockClear();
+            await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+            expect(requestSignal.aborted).toBe(true);
+        });
 
-      await ttsService.getAvailableVoices();
+        test('rejects with AbortError when the signal fires in the middle of the stream', async () => {
+            const controller = new AbortController();
+            const onChunk = jest.fn();
+            mockFetch.mockImplementation(async (_url, { signal }) => ({
+                ok: true,
+                status: 200,
+                text: async () => '',
+                body: (async function* () {
+                    yield Buffer.from(sse(audioEvent(pcmOf(1, 2))));
+                    await hangingFetch(null, { signal });
+                })(),
+            }));
 
-      expect(mockWavespeedVoices.getAllVoices).not.toHaveBeenCalled();
-    });
+            const pending = ttsService.generateSpeech('Hello', 'kore', { signal: controller.signal, onChunk });
+            await new Promise(resolve => setImmediate(resolve));
+            expect(onChunk).toHaveBeenCalledTimes(1);
+            controller.abort();
 
-    test('should attempt to fetch from schema API with forceRefresh', async () => {
-      mockAxios.get.mockResolvedValue({
-        data: {
-          input_schema: {
-            properties: {
-              voice_id: {
-                'x-enum': ['Voice_1', 'Voice_2', 'Voice_3']
-              }
-            }
-          }
-        }
-      });
+            await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
 
-      await ttsService.getAvailableVoices(true);
+        test('rejects with AbortError for a signal that had already fired', async () => {
+            mockFetch.mockImplementation(hangingFetch);
+            const controller = new AbortController();
+            controller.abort();
 
-      expect(mockAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('model_schema'),
-        expect.any(Object)
-      );
-    });
-
-    test('should fallback to hardcoded list if schema fetch fails', async () => {
-      mockAxios.get.mockRejectedValue(new Error('Network error'));
-
-      const voices = await ttsService.getAvailableVoices(true);
-
-      expect(voices).toHaveLength(2);
-      expect(mockLogger.warn).toHaveBeenCalled();
+            await expect(ttsService.generateSpeech('Hello', 'kore', { signal: controller.signal }))
+                .rejects.toMatchObject({ name: 'AbortError', message: 'Speech generation was aborted' });
+            expect(mockFetch.mock.calls.length).toBeLessThanOrEqual(1);
+        });
     });
 
-    test('should map schema voice IDs to voice objects', async () => {
-      mockAxios.get.mockResolvedValue({
-        data: {
-          input_schema: {
-            properties: {
-              voice_id: {
-                'x-enum': ['Voice_1']
-              }
-            }
-          }
-        }
-      });
+    describe('timeouts', () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
 
-      const voices = await ttsService.getAvailableVoices(true);
+        test('gives up on a request with no answer after 4 s and moves to the next attempt', async () => {
+            mockFetch
+                .mockImplementationOnce(hangingFetch)
+                .mockImplementationOnce(async () => oneSlice(1));
 
-      expect(voices[0]).toHaveProperty('id');
-      expect(voices[0]).toHaveProperty('name');
-      expect(voices[0]).toHaveProperty('language');
+            const pending = ttsService.generateSpeech('Hello', 'kore');
+            await jest.advanceTimersByTimeAsync(3999);
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+            await jest.advanceTimersByTimeAsync(1);
+
+            const audio = await pending;
+            expect(mockFetch).toHaveBeenCalledTimes(2);
+            expect(audio.usedFallbackModel).toBe(false);
+        });
+
+        test('reports a timeout, not an abort, when every attempt stays silent', async () => {
+            mockFetch.mockImplementation(hangingFetch);
+
+            const failure = ttsService.generateSpeech('Hello', 'kore').catch(err => err);
+            await jest.advanceTimersByTimeAsync(12000);
+
+            const err = await failure;
+            expect(err.name).not.toBe('AbortError');
+            expect(err.message).toBe('Gemini TTS request timed out (no audio before the first-chunk timeout)');
+            expect(modelsTried()).toEqual([MAIN_MODEL, MAIN_MODEL, FALLBACK_MODEL]);
+        });
+
+        test('fails a clip whose stream goes silent for 4 s after a slice, with no retry', async () => {
+            const onChunk = jest.fn();
+            mockFetch.mockImplementation(async (_url, { signal }) => ({
+                ok: true,
+                status: 200,
+                text: async () => '',
+                body: (async function* () {
+                    yield Buffer.from(sse(audioEvent(pcmOf(1, 2))));
+                    await hangingFetch(null, { signal });
+                })(),
+            }));
+
+            const failure = ttsService.generateSpeech('Hello', 'kore', { onChunk }).catch(err => err);
+            await jest.advanceTimersByTimeAsync(3999);
+            expect(onChunk).toHaveBeenCalledTimes(1);
+            await jest.advanceTimersByTimeAsync(1);
+
+            expect((await failure).message).toBe('Gemini TTS request timed out (the stream went silent)');
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        test('each network chunk restarts the silence timer', async () => {
+            let release;
+            mockFetch.mockImplementation(async () => ({
+                ok: true,
+                status: 200,
+                text: async () => '',
+                body: (async function* () {
+                    yield Buffer.from(sse(audioEvent(pcmOf(1))));
+                    await new Promise(resolve => { release = resolve; });
+                    yield Buffer.from(sse(audioEvent(pcmOf(2))));
+                })(),
+            }));
+
+            const pending = ttsService.generateSpeech('Hello', 'kore');
+            // 3 s to the second chunk: past 4 s since the request began, within 4 s of the first chunk.
+            await jest.advanceTimersByTimeAsync(3000);
+            release();
+            await jest.advanceTimersByTimeAsync(3000);
+
+            const audio = await pending;
+            expect(samplesOf(audio.data.subarray(44))).toEqual([1, 2]);
+        });
     });
 
-    test('should create voice objects for unknown voices from schema', async () => {
-      mockWavespeedVoices.getAllVoices.mockReturnValue([
-        { id: 'Voice_1', name: 'Voice 1', language: 'English', type: 'Pre-trained' }
-      ]);
+    describe('getAvailableVoices', () => {
+        test('returns the catalog voices, each with the ID the commands match on', async () => {
+            const { getVoiceCatalog } = await import('../../src/components/tts/voiceResolver.js');
 
-      mockAxios.get.mockResolvedValue({
-        data: {
-          input_schema: {
-            properties: {
-              voice_id: {
-                'x-enum': ['New_Voice']
-              }
-            }
-          }
-        }
-      });
+            const voices = await ttsService.getAvailableVoices();
 
-      const voices = await ttsService.getAvailableVoices(true);
+            expect(voices).toBe(getVoiceCatalog());
+            expect(voices.length).toBeGreaterThan(0);
+            expect(voices.every(voice => typeof voice.id === 'string' && voice.id === voice.id.toLowerCase())).toBe(true);
+            expect(voices.map(voice => voice.id)).toEqual(expect.arrayContaining(['puck', 'kore', 'en-us-storyteller-11']));
+            expect(voices.find(voice => voice.id === 'puck')).toMatchObject({ name: 'Puck', language: expect.any(String) });
+        });
 
-      const newVoice = voices.find(v => v.id === 'New_Voice');
-      expect(newVoice).toBeDefined();
-      expect(newVoice.name).toBe('New Voice');
-      expect(newVoice.language).toBe('Unknown');
+        test('lists every ID once', async () => {
+            const ids = (await ttsService.getAvailableVoices()).map(voice => voice.id);
+
+            expect(new Set(ids).size).toBe(ids.length);
+        });
+
+        test('makes no request', async () => {
+            await ttsService.getAvailableVoices();
+
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
     });
-
-    test('should handle schema response missing voice_id field', async () => {
-      mockAxios.get.mockResolvedValue({
-        data: {
-          input_schema: {
-            properties: {}
-          }
-        }
-      });
-
-      await ttsService.getAvailableVoices(true);
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        expect.stringContaining('missing expected')
-      );
-    });
-  });
-
-  describe('getVoicesGroupedByLanguage', () => {
-    test('should return voices grouped by language', () => {
-      const grouped = ttsService.getVoicesGroupedByLanguage();
-
-      expect(grouped).toHaveProperty('English');
-      expect(grouped).toHaveProperty('Spanish');
-      expect(grouped.English).toHaveLength(1);
-      expect(grouped.Spanish).toHaveLength(1);
-    });
-
-    test('should delegate to wavespeedVoices module', () => {
-      ttsService.getVoicesGroupedByLanguage();
-
-      expect(mockWavespeedVoices.getVoicesByLanguage).toHaveBeenCalled();
-    });
-  });
 });

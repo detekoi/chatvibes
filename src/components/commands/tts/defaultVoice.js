@@ -1,10 +1,10 @@
 // src/components/commands/tts/defaultvoice.js
-import { setTtsState, getTtsState } from '../../tts/ttsState.js';
+import { setTtsStateFields, getTtsState } from '../../tts/ttsState.js';
 import { getAvailableVoices } from '../../tts/ttsService.js';
 import { DOC_LINKS } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
-import config from '../../../config/index.js'; // To get the system default voice
+import { getDefaultVoiceId } from '../../tts/voiceResolver.js';
 
 export default {
     name: 'defaultvoice',
@@ -17,7 +17,7 @@ export default {
 
         if (args.length === 0) {
             const currentChannelConfig = await getTtsState(channelNameNoHash);
-            const currentDefaultVoice = currentChannelConfig.voiceId || config.tts.defaultVoiceId;
+            const currentDefaultVoice = currentChannelConfig.voiceId || getDefaultVoiceId();
             enqueueMessage(channel, context.t('cmd.defaultvoice.current', { value: currentDefaultVoice }), { replyToId });
             return;
         }
@@ -25,8 +25,10 @@ export default {
         const requestedVoiceIdOrAction = args.join(' ').toLowerCase(); // Join args and lowercase for action matching e.g. "reset"
 
         if (requestedVoiceIdOrAction === 'reset' || requestedVoiceIdOrAction === 'systemdefault') {
-            const systemDefaultVoice = config.tts.defaultVoiceId || 'Friendly_Person'; // Fallback if not in config
-            const success = await setTtsState(channelNameNoHash, 'voiceId', systemDefaultVoice);
+            const systemDefaultVoice = getDefaultVoiceId();
+            // The manner and the language that came with a mapped MiniMax voice belong
+            // to that voice, so one request writes all three.
+            const success = await setTtsStateFields(channelNameNoHash, { voiceId: systemDefaultVoice, voiceStyle: '', voiceLanguage: '' });
             if (success) {
                 enqueueMessage(channel, context.t('cmd.defaultvoice.reset', { value: systemDefaultVoice }), { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default TTS voice reset to system default '${systemDefaultVoice}'.`);
@@ -57,7 +59,7 @@ export default {
 
         const validVoiceIdToStore = matchedVoice.id; // Use the correctly cased ID
 
-        const success = await setTtsState(channelNameNoHash, 'voiceId', validVoiceIdToStore);
+        const success = await setTtsStateFields(channelNameNoHash, { voiceId: validVoiceIdToStore, voiceStyle: '', voiceLanguage: '' });
         if (success) {
             enqueueMessage(channel, context.t('cmd.defaultvoice.set', { value: validVoiceIdToStore }), { replyToId });
             logger.info(`[${channelNameNoHash}] Channel default TTS voice set to '${validVoiceIdToStore}'.`);
