@@ -480,16 +480,16 @@
     "reason": "Low-pitched, calm, authoritative General American adult female matching mature boss delivery."
   },
   "English_Debator": {
-    "voice": "en-us-tutor-3",
+    "voice": "en-us-arlo",
     "languageCode": "en-US",
     "style": "",
     "needsStyleRender": false,
     "confidence": "high",
     "alternates": [
-      "en-us-techagent-9",
-      "algieba"
+      "en-us-tutor-3",
+      "en-us-techagent-9"
     ],
-    "reason": "Articulate, assertive US male voice with identical pitch and measured debating cadence."
+    "reason": "Chosen by the owner by ear on 2026-11-14."
   },
   "whisper_man": {
     "voice": "algieba",
@@ -1068,16 +1068,16 @@
     "reason": "Deep, steady, clear General American male matching pitch (89Hz vs 92Hz) and explanatory delivery."
   },
   "English_intellect_female_1": {
-    "voice": "en-us-csagent-14",
-    "languageCode": "en-US",
+    "voice": "en-gb-advisor-4",
+    "languageCode": "en-GB",
     "style": "",
     "needsStyleRender": false,
     "confidence": "high",
     "alternates": [
-      "en-us-advisor-10",
-      "gacrux"
+      "en-us-csagent-14",
+      "en-us-advisor-10"
     ],
-    "reason": "Clear, articulate, poised US female voice matching pitch and intellectual delivery."
+    "reason": "Chosen by the owner by ear on 2026-11-14."
   },
   "English_energetic_male_1": {
     "voice": "en-us-commercial-12",
@@ -1200,16 +1200,16 @@
     "reason": "Slow, very calm, soothing General American adult female matching exact 195Hz pitch and relaxed energy."
   },
   "moss_audio_6dc281eb-713c-11f0-a447-9613c873494c": {
-    "voice": "en-us-advisor-10",
+    "voice": "en-us-concierge-11",
     "languageCode": "en-US",
     "style": "",
     "needsStyleRender": false,
     "confidence": "high",
     "alternates": [
-      "sulafat",
-      "en-us-assistant-12"
+      "en-us-advisor-10",
+      "sulafat"
     ],
-    "reason": "Calm, steady, clear US female voice matching pitch and composed delivery."
+    "reason": "Chosen by the owner by ear on 2026-11-14."
   },
   "moss_audio_c12a59b9-7115-11f0-a447-9613c873494c": {
     "voice": "en-us-training-7",
