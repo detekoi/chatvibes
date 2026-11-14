@@ -9,7 +9,7 @@ import { getTranslator } from '../../src/i18n/index.js';
 describe('!tts defaultvoice', () => {
     let enqueueMessage;
     let getTtsState;
-    let setTtsState;
+    let setTtsStateFields;
     let getAvailableVoices;
     let defaultVoice;
 
@@ -27,7 +27,7 @@ describe('!tts defaultvoice', () => {
         jest.resetModules();
         enqueueMessage = jest.fn();
         getTtsState = jest.fn().mockResolvedValue({});
-        setTtsState = jest.fn().mockResolvedValue(true);
+        setTtsStateFields = jest.fn().mockResolvedValue(true);
         // The shape ttsService returns: catalog objects, matched on `id`.
         getAvailableVoices = jest.fn().mockResolvedValue([
             { id: 'puck', name: 'Puck' },
@@ -39,7 +39,7 @@ describe('!tts defaultvoice', () => {
             default: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() },
         }));
         jest.unstable_mockModule('../../src/lib/chatSender.js', () => ({ enqueueMessage }));
-        jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({ getTtsState, setTtsState }));
+        jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({ getTtsState, setTtsStateFields }));
         jest.unstable_mockModule('../../src/components/tts/ttsService.js', () => ({ getAvailableVoices }));
         jest.unstable_mockModule('../../src/components/tts/voiceResolver.js', () => ({ getDefaultVoiceId: () => 'puck' }));
 
@@ -56,7 +56,7 @@ describe('!tts defaultvoice', () => {
         await defaultVoice.execute(context([]));
 
         expect(reply()).toMatch(/default TTS voice for this channel is: kore\./);
-        expect(setTtsState).not.toHaveBeenCalled();
+        expect(setTtsStateFields).not.toHaveBeenCalled();
     });
 
     it('shows the system default when the channel stores no voice', async () => {
@@ -68,54 +68,51 @@ describe('!tts defaultvoice', () => {
     it('stores the catalog ID for a voice typed in any letter case, and clears voiceStyle and voiceLanguage', async () => {
         await defaultVoice.execute(context(['EN-GB-Storyteller-3']));
 
-        expect(setTtsState.mock.calls).toEqual([
-            ['testchannel', 'voiceId', 'en-gb-storyteller-3'],
-            ['testchannel', 'voiceStyle', ''],
-            ['testchannel', 'voiceLanguage', ''],
+        // One request, so that a failure cannot leave the new voice with the old manner.
+        expect(setTtsStateFields.mock.calls).toEqual([
+            ['testchannel', { voiceId: 'en-gb-storyteller-3', voiceStyle: '', voiceLanguage: '' }],
         ]);
         expect(reply()).toBe("The channel's default TTS voice has been set to: en-gb-storyteller-3.");
     });
 
     it('does not match a display name, which repeats across languages', async () => {
         await defaultVoice.execute(context(['Kore2']));
-        expect(setTtsState).not.toHaveBeenCalled();
+        expect(setTtsStateFields).not.toHaveBeenCalled();
         expect(reply()).toMatch(/^Invalid voice ID 'Kore2'\./);
     });
 
     it('refuses a MiniMax voice ID, which is not in the catalog', async () => {
         await defaultVoice.execute(context(['Friendly_Person']));
 
-        expect(setTtsState).not.toHaveBeenCalled();
+        expect(setTtsStateFields).not.toHaveBeenCalled();
         expect(reply()).toMatch(/^Invalid voice ID 'Friendly_Person'\./);
     });
 
     it.each(['reset', 'systemdefault', 'RESET'])('"%s" stores the system default and clears voiceStyle and voiceLanguage', async word => {
         await defaultVoice.execute(context([word]));
 
-        expect(setTtsState.mock.calls).toEqual([
-            ['testchannel', 'voiceId', 'puck'],
-            ['testchannel', 'voiceStyle', ''],
-            ['testchannel', 'voiceLanguage', ''],
+        expect(setTtsStateFields.mock.calls).toEqual([
+            ['testchannel', { voiceId: 'puck', voiceStyle: '', voiceLanguage: '' }],
         ]);
         expect(reply()).toBe("The channel's default TTS voice has been reset to the system default: puck.");
         expect(getAvailableVoices).not.toHaveBeenCalled();
     });
 
-    it('keeps voiceStyle and voiceLanguage when the voice was not saved', async () => {
-        setTtsState.mockResolvedValue(false);
+    it('reports a failure when the voice was not saved', async () => {
+        setTtsStateFields.mockResolvedValue(false);
 
         await defaultVoice.execute(context(['kore']));
 
-        expect(setTtsState).toHaveBeenCalledTimes(1);
+        expect(setTtsStateFields).toHaveBeenCalledTimes(1);
         expect(reply()).toBe("Could not set the channel's default TTS voice to kore at this time.");
     });
 
     it('reports a failed reset without touching voiceStyle or voiceLanguage', async () => {
-        setTtsState.mockResolvedValue(false);
+        setTtsStateFields.mockResolvedValue(false);
 
         await defaultVoice.execute(context(['reset']));
 
-        expect(setTtsState).toHaveBeenCalledTimes(1);
+        expect(setTtsStateFields).toHaveBeenCalledTimes(1);
         expect(reply()).toBe("Could not reset the channel's default TTS voice at this time.");
     });
 
@@ -124,7 +121,7 @@ describe('!tts defaultvoice', () => {
 
         await defaultVoice.execute(context(['kore']));
 
-        expect(setTtsState).not.toHaveBeenCalled();
+        expect(setTtsStateFields).not.toHaveBeenCalled();
         expect(reply()).toMatch(/Could not retrieve the list of available voices/);
     });
 });

@@ -25,6 +25,7 @@ export default createTtsSettingCommand({
     resetSetting: async (context) => resetChannelDefaultSpeed(context.channel.substring(1)),
     setSetting: async (context, val) => setChannelDefaultSpeed(context.channel.substring(1), val),
     // A step word (slow, very-fast, low, high) or a number. The number is what is stored.
+    multiWord: true,
     parseFn: (str) => stepByWord(SPEED_STEPS, str)?.value ?? parseFloat(str),
     validateFn: (val) => !isNaN(val) && val >= TTS_SPEED_MIN && val <= TTS_SPEED_MAX,
     hintKey: 'cmd.hint.speedSteps',

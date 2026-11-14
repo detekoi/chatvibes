@@ -26,6 +26,7 @@ import logger from '../../../lib/logger.js';
  * @param {string} [options.resetKey] Overrides the shared "value reset" message.
  * @param {object} [options.messageParams] Extra parameters for this command's messages.
  * @param {Function} [options.resetValue] Value shown by the reset message, if it names one.
+ * @param {boolean} [options.multiWord] Pass every argument to parseFn as one string.
  */
 export function createTtsSettingCommand({
     name,
@@ -50,7 +51,8 @@ export function createTtsSettingCommand({
     showChannelDefaultWhenUnset = false,
     logSet,
     logReset,
-    resetAliases = ['reset']
+    resetAliases = ['reset'],
+    multiWord = false
 }) {
     const computedResetAliases = resetAliases.map(a => a.toLowerCase());
     // Spelled out rather than built by concatenation so the keys are greppable —
@@ -93,7 +95,9 @@ export function createTtsSettingCommand({
                 return;
             }
 
-            const actionOrValue = args[0].toLowerCase();
+            // A value can be two words (`!tts speed very fast`), so a command that
+            // sets multiWord gets every argument. The others keep the first one.
+            const actionOrValue = (multiWord ? args.join(' ').trim() : args[0]).toLowerCase();
 
             if (computedResetAliases.includes(actionOrValue)) {
                 const success = await resetSetting(context);

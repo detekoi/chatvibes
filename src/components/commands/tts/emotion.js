@@ -1,7 +1,6 @@
 import { createTtsSettingCommand } from './createTtsSettingCommand.js';
 import {
-    setGlobalUserPreference,
-    clearGlobalUserPreference,
+    updateGlobalUserPreferences,
     getGlobalUserPreferences
 } from '../../tts/ttsState.js';
 import { VALID_EMOTIONS } from '../../tts/ttsConstants.js';
@@ -16,13 +15,11 @@ export default createTtsSettingCommand({
         const prefs = await getGlobalUserPreferences(context.user['user-id']);
         return prefs.emotion;
     },
-    resetSetting: async (context) => clearGlobalUserPreference(context.user['user-id'], 'emotion'),
-    // A custom style replaces the emotion preset, so choosing an emotion removes the style.
-    setSetting: async (context, val) => {
-        const saved = await setGlobalUserPreference(context.user['user-id'], 'emotion', val, context.user.username);
-        if (saved) await clearGlobalUserPreference(context.user['user-id'], 'style');
-        return saved;
-    },
+    // A custom style replaces the emotion preset, so the two are one choice: a new
+    // emotion removes the style, and a reset removes both. One request does each.
+    resetSetting: async (context) => updateGlobalUserPreferences(context.user['user-id'], { clear: ['emotion', 'style'] }),
+    setSetting: async (context, val) => updateGlobalUserPreferences(
+        context.user['user-id'], { set: { emotion: val }, clear: ['style'] }, context.user.username),
     validateFn: (val) => VALID_EMOTIONS.includes(val),
     hintKey: 'cmd.hint.emotions',
     hintParams: { list: VALID_EMOTIONS.join(', ') },

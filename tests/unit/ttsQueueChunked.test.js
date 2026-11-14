@@ -153,6 +153,43 @@ describe('ttsQueue chunked delivery', () => {
         expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledWith(TEST_CHANNEL, clip('aabb'), { exclude: second.recipients });
     });
 
+    test('does not send the slices of a prefetch that failed', async () => {
+        let resolveFirst;
+        let resolveSecond;
+        mockTtsService.generateSpeech
+            .mockImplementationOnce(() => new Promise(r => { resolveFirst = r; }))
+            // The prefetch of the third clip starts before the request for the second
+            // one. One slice lands, then the stream fails. The provider does not
+            // retry after a slice.
+            .mockImplementationOnce(async (text, voiceId, options) => {
+                options.onChunk(Buffer.from('aa', 'hex'));
+                throw new Error('Gemini TTS request timed out (the stream went silent)');
+            })
+            .mockImplementationOnce(() => new Promise(r => { resolveSecond = r; }));
+
+        await enqueue('one');
+        await enqueue('two');
+        await enqueue('three');
+        await flush();
+
+        resolveFirst(clip('01'));
+        await flush();
+        await flush();
+        // The second clip is at the front, and the prefetch of the third one failed.
+        expect(mockTtsService.generateSpeech).toHaveBeenCalledTimes(3);
+        expect(streams).toHaveLength(2);
+
+        resolveSecond(clip('02'));
+        await flush();
+        await flush();
+
+        // The half of the third clip is not audio that a player may start, so no
+        // stream opens for it and nothing is sent.
+        expect(streams).toHaveLength(2);
+        expect(mockWebServer.sendAudioToChannel).toHaveBeenCalledTimes(2);
+        expect(mockTtsService.generateSpeech).toHaveBeenCalledTimes(3);
+    });
+
     test('opens a stream on every participant of a shared session', async () => {
         const allowList = await import('../../src/lib/allowList.js');
         allowList.addAllowedChannel('partner', '67890');

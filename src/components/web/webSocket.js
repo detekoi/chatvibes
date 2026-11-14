@@ -350,8 +350,8 @@ function replayHeldClips(channelName, ws) {
  * Buffers go out as raw binary frames, which is the whole point of the exercise —
  * it keeps the audio on the socket that is already open to the right Cloud Run
  * instance, with no CDN fetch and no instance-affinity problem. Clients that have
- * not announced binary support (an OBS source running a cached older player) fall
- * back to the URL flow so their audio keeps working, and get nudged to refresh.
+ * not announced binary support (an OBS source running a cached older player) get
+ * nothing, because the provider has no URL output, and get nudged to refresh.
  *
  * A clip that reaches no player (none connected, or only one that has not said
  * hello yet) is held and replayed when one says hello; see holdClip. A stop drops

@@ -1,5 +1,5 @@
 // src/components/commands/tts/defaultvoice.js
-import { setTtsState, getTtsState } from '../../tts/ttsState.js';
+import { setTtsStateFields, getTtsState } from '../../tts/ttsState.js';
 import { getAvailableVoices } from '../../tts/ttsService.js';
 import { DOC_LINKS } from '../../tts/ttsConstants.js';
 import { enqueueMessage } from '../../../lib/chatSender.js';
@@ -26,11 +26,10 @@ export default {
 
         if (requestedVoiceIdOrAction === 'reset' || requestedVoiceIdOrAction === 'systemdefault') {
             const systemDefaultVoice = getDefaultVoiceId();
-            const success = await setTtsState(channelNameNoHash, 'voiceId', systemDefaultVoice);
+            // The manner and the language that came with a mapped MiniMax voice belong
+            // to that voice, so one request writes all three.
+            const success = await setTtsStateFields(channelNameNoHash, { voiceId: systemDefaultVoice, voiceStyle: '', voiceLanguage: '' });
             if (success) {
-                // The manner and the language that came with a mapped MiniMax voice belong to that voice.
-                await setTtsState(channelNameNoHash, 'voiceStyle', '');
-            await setTtsState(channelNameNoHash, 'voiceLanguage', '');
                 enqueueMessage(channel, context.t('cmd.defaultvoice.reset', { value: systemDefaultVoice }), { replyToId });
                 logger.info(`[${channelNameNoHash}] Channel default TTS voice reset to system default '${systemDefaultVoice}'.`);
             } else {
@@ -60,10 +59,8 @@ export default {
 
         const validVoiceIdToStore = matchedVoice.id; // Use the correctly cased ID
 
-        const success = await setTtsState(channelNameNoHash, 'voiceId', validVoiceIdToStore);
+        const success = await setTtsStateFields(channelNameNoHash, { voiceId: validVoiceIdToStore, voiceStyle: '', voiceLanguage: '' });
         if (success) {
-            await setTtsState(channelNameNoHash, 'voiceStyle', '');
-            await setTtsState(channelNameNoHash, 'voiceLanguage', '');
             enqueueMessage(channel, context.t('cmd.defaultvoice.set', { value: validVoiceIdToStore }), { replyToId });
             logger.info(`[${channelNameNoHash}] Channel default TTS voice set to '${validVoiceIdToStore}'.`);
         } else {

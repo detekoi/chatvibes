@@ -36,6 +36,7 @@ describe('TTS Command Handlers', () => {
     mockTtsState = {
       setGlobalUserPreference: jest.fn(),
       clearGlobalUserPreference: jest.fn(),
+      updateGlobalUserPreferences: jest.fn(),
       getGlobalUserPreferences: jest.fn()
     };
 
@@ -366,7 +367,7 @@ describe('TTS Command Handlers', () => {
     });
 
     test('should reset voice preference with "reset" keyword', async () => {
-      mockTtsState.clearGlobalUserPreference.mockResolvedValue(true);
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(true);
 
       const context = {
         channel: '#testchannel',
@@ -378,12 +379,10 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
-        '999',
-        'voiceId'
-      );
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'voiceStyle');
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'voiceLanguage');
+      // One request removes the voice with the manner and the language that came with it.
+      expect(mockTtsState.updateGlobalUserPreferences.mock.calls).toEqual([
+        ['999', { clear: ['voiceId', 'voiceStyle', 'voiceLanguage'] }]
+      ]);
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         expect.stringContaining('reset'),
@@ -392,7 +391,7 @@ describe('TTS Command Handlers', () => {
     });
 
     test('should reset voice preference with "default" keyword', async () => {
-      mockTtsState.clearGlobalUserPreference.mockResolvedValue(true);
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(true);
 
       const context = {
         channel: '#testchannel',
@@ -404,14 +403,14 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
+      expect(mockTtsState.updateGlobalUserPreferences).toHaveBeenCalledWith(
         '999',
-        'voiceId'
+        { clear: ['voiceId', 'voiceStyle', 'voiceLanguage'] }
       );
     });
 
     test('should reset voice preference with "auto" keyword', async () => {
-      mockTtsState.clearGlobalUserPreference.mockResolvedValue(true);
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(true);
 
       const context = {
         channel: '#testchannel',
@@ -423,9 +422,9 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith(
+      expect(mockTtsState.updateGlobalUserPreferences).toHaveBeenCalledWith(
         '999',
-        'voiceId'
+        { clear: ['voiceId', 'voiceStyle', 'voiceLanguage'] }
       );
     });
 
@@ -435,7 +434,7 @@ describe('TTS Command Handlers', () => {
         { id: 'en-gb-storyteller-3', name: 'Kore' }
       ]);
 
-      mockTtsState.setGlobalUserPreference.mockResolvedValue(true);
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(true);
 
       const context = {
         channel: '#testchannel',
@@ -447,15 +446,11 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith(
-        '999',
-        'voiceId',
-        'kore',
-        'testuser'
-      );
-      // The manner and the language that came with a mapped MiniMax voice belong to the old voice.
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'voiceStyle');
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'voiceLanguage');
+      // The manner and the language that came with a mapped MiniMax voice belong to the
+      // old voice. One request writes the voice and removes them.
+      expect(mockTtsState.updateGlobalUserPreferences.mock.calls).toEqual([
+        ['999', { set: { voiceId: 'kore' }, clear: ['voiceStyle', 'voiceLanguage'] }, 'testuser']
+      ]);
       expect(mockChatSender.enqueueMessage).toHaveBeenCalledWith(
         '#testchannel',
         'Your TTS voice has been set to: kore.',
@@ -468,7 +463,7 @@ describe('TTS Command Handlers', () => {
         { id: 'Voice With Spaces', name: 'Voice With Spaces' }
       ]);
 
-      mockTtsState.setGlobalUserPreference.mockResolvedValue(true);
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(true);
 
       const context = {
         channel: '#testchannel',
@@ -480,10 +475,9 @@ describe('TTS Command Handlers', () => {
 
       await voiceCommand.default.execute(context);
 
-      expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith(
+      expect(mockTtsState.updateGlobalUserPreferences).toHaveBeenCalledWith(
         '999',
-        'voiceId',
-        'Voice With Spaces',
+        { set: { voiceId: 'Voice With Spaces' }, clear: ['voiceStyle', 'voiceLanguage'] },
         'testuser'
       );
     });
@@ -516,7 +510,7 @@ describe('TTS Command Handlers', () => {
         { id: 'kore', name: 'Kore' }
       ]);
 
-      mockTtsState.setGlobalUserPreference.mockResolvedValue(false);
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(false);
 
       const context = {
         channel: '#testchannel',
@@ -533,11 +527,11 @@ describe('TTS Command Handlers', () => {
         expect.stringContaining('Could not set'),
         { replyToId: '123' }
       );
-      expect(mockTtsState.clearGlobalUserPreference).not.toHaveBeenCalled();
+      expect(mockTtsState.updateGlobalUserPreferences).toHaveBeenCalledTimes(1);
     });
 
     test('should handle reset failure', async () => {
-      mockTtsState.clearGlobalUserPreference.mockResolvedValue(false);
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(false);
 
       const context = {
         channel: '#testchannel',

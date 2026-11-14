@@ -266,6 +266,14 @@ function connectWebSocket() {
             clearInterval(keepaliveTimer);
             keepaliveTimer = null;
         }
+        // No audioEnd can arrive for a clip that was open on this socket. Left open,
+        // it holds the queue forever, and the next binary frame (a held clip that the
+        // server replays as one WAV file) would be read as its raw PCM.
+        if (openClip) {
+            const clip = openClip;
+            openClip = null;
+            finishClip(clip, true);
+        }
         // 1008 is a policy rejection (channel not allowed, bad token). Retrying
         // cannot change the answer, so stop rather than hammer the server until
         // the attempt cap runs out.

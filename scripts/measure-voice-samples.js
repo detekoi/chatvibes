@@ -10,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { measure } from './lib/audioMeasure.js';
-import { WAVESPEED_VOICE_IDS } from '../src/components/tts/wavespeedVoices.js';
+import { WAVESPEED_VOICE_IDS } from './minimax-voice-ids.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const MINIMAX_DIR = path.resolve(HERE, '../../chatvibes-web-ui/public/assets/voices');

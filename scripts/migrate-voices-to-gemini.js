@@ -13,6 +13,10 @@
 // The old value is kept beside the new one as legacyVoiceId (and legacyVoiceVolumes).
 // Speed, pitch and emotion are not touched: the bot converts them when it reads them.
 //
+// A second run skips every document that the first run changed, because its voiceId is
+// then a Gemini ID. A later edit of the map does not reach those documents. The script
+// does not map legacyVoiceId again: the owner can have chosen a different voice since.
+//
 // Usage:  node scripts/migrate-voices-to-gemini.js            dry run, prints every change
 //         node scripts/migrate-voices-to-gemini.js --apply    writes the changes
 //         Uses Application Default Credentials. Run validate-voice-map.js first.
@@ -61,7 +65,7 @@ function voiceUpdate(voiceId, where) {
     if (!row) { noteUnknown(voiceId, where); return null; }
     const update = { voiceId: row.voice, legacyVoiceId: voiceId };
     // The manner that the mapping adds for this voice. Deleted when there is none, so
-    // that a manner from an earlier run cannot stay behind.
+    // that no manner stays beside a voice that does not have one.
     update.voiceStyle = row.style ? row.style : FieldValue.delete();
     update.voiceLanguage = keptLanguage(row) ?? FieldValue.delete();
     return update;
@@ -86,16 +90,20 @@ async function migrateChannels() {
             notes.push(`voiceId ${data.voiceId} -> ${voice.voiceId}${describe(data.voiceId)}`);
         }
 
-        // Per-voice volumes are keyed by voice ID. Two old voices can map to one new
-        // voice: the first one in the document wins, and the old map is kept whole.
+        // Per-voice volumes are keyed by voice ID. A volume that is already stored under
+        // a Gemini ID wins, as it does when the bot reads the map. Two old voices can
+        // map to one new voice: the first one in the document wins. The old map is kept whole.
         const volumes = data.voiceVolumes;
         if (volumes && typeof volumes === 'object' && Object.keys(volumes).some(id => rowFor(id))) {
             const next = {};
             for (const [id, volume] of Object.entries(volumes)) {
-                const target = rowFor(id)?.voice ?? id;
-                if (!(target in next)) next[target] = volume;
-                if (rowFor(id)) stats.volumeKeys++;
-                else noteUnknown(id, `voiceVolumes of channel ${doc.id}`);
+                if (!rowFor(id)) next[id] = volume;
+            }
+            for (const [id, volume] of Object.entries(volumes)) {
+                const row = rowFor(id);
+                if (!row) { noteUnknown(id, `voiceVolumes of channel ${doc.id}`); continue; }
+                if (!(row.voice in next)) next[row.voice] = volume;
+                stats.volumeKeys++;
             }
             update.voiceVolumes = next;
             update.legacyVoiceVolumes = volumes;
@@ -107,8 +115,8 @@ async function migrateChannels() {
             if (!row) { noteUnknown(prefs?.voiceId, `userPreferences.${userId} of channel ${doc.id}`); continue; }
             update[`userPreferences.${userId}.voiceId`] = row.voice;
             update[`userPreferences.${userId}.legacyVoiceId`] = prefs.voiceId;
-            if (row.style) update[`userPreferences.${userId}.voiceStyle`] = row.style;
-            if (keptLanguage(row)) update[`userPreferences.${userId}.voiceLanguage`] = keptLanguage(row);
+            update[`userPreferences.${userId}.voiceStyle`] = row.style ? row.style : FieldValue.delete();
+            update[`userPreferences.${userId}.voiceLanguage`] = keptLanguage(row) ?? FieldValue.delete();
             stats.legacyViewers++;
             notes.push(`userPreferences.${userId}.voiceId ${prefs.voiceId} -> ${row.voice}`);
         }

@@ -300,11 +300,12 @@ function startPrefetch(channelName) {
 
         const controller = new AbortController();
         if (event.timing) event.timing.prefetchStartMs = Date.now();
-        event.clip = createClip();
+        const clip = createClip();
+        event.clip = clip;
         const promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
             ...speechOptions(event.voiceConfig),
             signal: controller.signal,
-            onChunk: event.clip.push,
+            onChunk: clip.push,
         }).then(audio => {
             // The provider round trip ends here, not when processQueue gets round
             // to awaiting it — for a clip queued behind a long one the two can be
@@ -314,6 +315,10 @@ function startPrefetch(channelName) {
         }).catch(err => {
             // Swallow abort errors; log others as warnings.
             // processQueue will handle the null result gracefully.
+            // The slices that arrived before the failure are not a clip. Without
+            // this, processQueue sends them to the players and then discards them.
+            // A later prefetch of the same item has its own clip, which stays.
+            if (event.clip === clip) event.clip = null;
             if (err.name !== 'AbortError' && err.name !== 'CanceledError') {
                 logger.warn({ err, channel: channelName, text: event.text.substring(0, 30) }, 'Prefetch generation failed');
             }

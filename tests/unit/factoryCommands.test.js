@@ -31,7 +31,8 @@ describe('Factory-based TTS Command Handlers', () => {
       resetChannelDefaultSpeed: jest.fn(),
       getGlobalUserPreferences: jest.fn(),
       setGlobalUserPreference: jest.fn(),
-      clearGlobalUserPreference: jest.fn()
+      clearGlobalUserPreference: jest.fn(),
+      updateGlobalUserPreferences: jest.fn()
     };
 
     jest.unstable_mockModule('../../src/lib/logger.js', () => ({
@@ -244,6 +245,27 @@ describe('Factory-based TTS Command Handlers', () => {
       expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith('999', 'pitch', value, 'testuser');
     });
 
+    test.each([
+      [['very', 'fast'], 2],
+      [['Very', 'Slow'], 0.5]
+    ])('!tts speed %p stores %p', async (words, value) => {
+      mockTtsState.setGlobalUserPreference.mockResolvedValue(true);
+      const speed = await import('../../src/components/commands/tts/speed.js');
+
+      await speed.default.execute(userContext(words));
+
+      expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith('999', 'speed', value, 'testuser');
+    });
+
+    test('!tts pitch very low stores -12', async () => {
+      mockTtsState.setGlobalUserPreference.mockResolvedValue(true);
+      const pitch = await import('../../src/components/commands/tts/pitch.js');
+
+      await pitch.default.execute(userContext(['very', 'low']));
+
+      expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith('999', 'pitch', -12, 'testuser');
+    });
+
     test('!tts pitch still takes a number', async () => {
       mockTtsState.setGlobalUserPreference.mockResolvedValue(true);
       const pitch = await import('../../src/components/commands/tts/pitch.js');
@@ -286,41 +308,48 @@ describe('Factory-based TTS Command Handlers', () => {
       t: getTranslator('en')
     });
 
-    test('!tts emotion clears the viewer\'s style once the emotion is saved', async () => {
-      mockTtsState.setGlobalUserPreference.mockResolvedValue(true);
+    test('!tts emotion saves the emotion and removes the viewer\'s style in one request', async () => {
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(true);
       const emotion = await import('../../src/components/commands/tts/emotion.js');
 
       await emotion.default.execute(context(['happy']));
 
-      expect(mockTtsState.setGlobalUserPreference).toHaveBeenCalledWith('999', 'emotion', 'happy', 'testuser');
-      expect(mockTtsState.clearGlobalUserPreference).toHaveBeenCalledWith('999', 'style');
+      expect(mockTtsState.updateGlobalUserPreferences.mock.calls).toEqual([
+        ['999', { set: { emotion: 'happy' }, clear: ['style'] }, 'testuser']
+      ]);
     });
 
-    test('!tts emotion keeps the style when the emotion was not saved', async () => {
-      mockTtsState.setGlobalUserPreference.mockResolvedValue(false);
+    // The reply says that the channel default now applies. A style that stayed would still replace it.
+    test.each(['reset', 'auto'])('!tts emotion %s removes the emotion and the style in one request', async (word) => {
+      mockTtsState.updateGlobalUserPreferences.mockResolvedValue(true);
       const emotion = await import('../../src/components/commands/tts/emotion.js');
 
-      await emotion.default.execute(context(['happy']));
+      await emotion.default.execute(context([word]));
 
-      expect(mockTtsState.clearGlobalUserPreference).not.toHaveBeenCalled();
+      expect(mockTtsState.updateGlobalUserPreferences.mock.calls).toEqual([
+        ['999', { clear: ['emotion', 'style'] }]
+      ]);
     });
 
-    test('!tts defaultemotion clears the channel\'s style once the emotion is saved', async () => {
+    // setChannelDefaultEmotion and resetChannelDefaultEmotion remove the style
+    // themselves (see ttsState.test.js), so the command makes one call.
+    test('!tts defaultemotion makes one write', async () => {
       mockTtsState.setChannelDefaultEmotion.mockResolvedValue(true);
       const defaultEmotion = await import('../../src/components/commands/tts/defaultEmotion.js');
 
       await defaultEmotion.default.execute(context(['calm']));
 
       expect(mockTtsState.setChannelDefaultEmotion).toHaveBeenCalledWith('testchannel', 'calm');
-      expect(mockTtsState.setTtsState).toHaveBeenCalledWith('testchannel', 'style', '');
+      expect(mockTtsState.setTtsState).not.toHaveBeenCalled();
     });
 
-    test('!tts defaultemotion keeps the style when the emotion was not saved', async () => {
-      mockTtsState.setChannelDefaultEmotion.mockResolvedValue(false);
+    test('!tts defaultemotion reset makes one write', async () => {
+      mockTtsState.resetChannelDefaultEmotion.mockResolvedValue(true);
       const defaultEmotion = await import('../../src/components/commands/tts/defaultEmotion.js');
 
-      await defaultEmotion.default.execute(context(['calm']));
+      await defaultEmotion.default.execute(context(['reset']));
 
+      expect(mockTtsState.resetChannelDefaultEmotion).toHaveBeenCalledWith('testchannel');
       expect(mockTtsState.setTtsState).not.toHaveBeenCalled();
     });
   });

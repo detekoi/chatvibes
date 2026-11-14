@@ -19,14 +19,6 @@
     "surprise": "surprised",
     "shocked": "surprised"
   },
-  "LEGACY_SAFE_EMOTIONS": [
-    "happy",
-    "sad",
-    "angry",
-    "fearful",
-    "disgusted",
-    "surprised"
-  ],
   "PITCH": {
     "MIN": -12,
     "MAX": 12,
@@ -372,33 +364,6 @@
     "Nynorsk",
     "Tamil",
     "Afrikaans"
-  ],
-  "LEGACY_SAFE_LANGUAGE_BOOSTS": [
-    "auto",
-    "Chinese",
-    "Chinese,Yue",
-    "English",
-    "Arabic",
-    "Russian",
-    "Spanish",
-    "French",
-    "Portuguese",
-    "German",
-    "Turkish",
-    "Dutch",
-    "Ukrainian",
-    "Vietnamese",
-    "Indonesian",
-    "Japanese",
-    "Italian",
-    "Korean",
-    "Thai",
-    "Polish",
-    "Romanian",
-    "Greek",
-    "Czech",
-    "Finnish",
-    "Hindi"
   ],
   "PRONUNCIATION_LIMITS": {
     "MAX_CUSTOM_ENTRIES": 100,

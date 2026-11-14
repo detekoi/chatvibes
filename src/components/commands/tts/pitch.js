@@ -23,6 +23,7 @@ export default createTtsSettingCommand({
     resetSetting: async (context) => clearGlobalUserPreference(context.user['user-id'], 'pitch'),
     setSetting: async (context, val) => setGlobalUserPreference(context.user['user-id'], 'pitch', val, context.user.username),
     // A step word (slow, very-fast, low, high) or a number. The number is what is stored.
+    multiWord: true,
     parseFn: (str) => stepByWord(PITCH_STEPS, str)?.value ?? parseInt(str, 10),
     validateFn: (val) => !isNaN(val) && val >= TTS_PITCH_MIN && val <= TTS_PITCH_MAX,
     hintKey: 'cmd.hint.pitchSteps',

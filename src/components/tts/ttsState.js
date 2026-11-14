@@ -245,18 +245,31 @@ export async function getChannelTtsConfig(channelName) {
 }
 
 export async function setTtsState(channelName, key, value) {
+    return setTtsStateFields(channelName, { [key]: value });
+}
+
+/**
+ * Write several fields of a channel's config in one request. Use it for fields that
+ * belong together (a voice and the manner that came with it, an emotion and the
+ * style), so that a failure cannot leave one written and the other not.
+ * @param {string} channelName
+ * @param {object} fields
+ * @returns {Promise<boolean>}
+ */
+export async function setTtsStateFields(channelName, fields) {
     const channelId = channelIdForWrite(channelName);
     if (!channelId) return false;
     const docRef = db.collection(TTS_CONFIG_COLLECTION).doc(channelId);
     try {
-        await docRef.set({ [key]: value, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-        logger.info(`[${channelName}] TTS state updated: ${key} = ${value}`);
+        await docRef.set({ ...fields, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+        const summary = Object.entries(fields).map(([key, value]) => `${key} = ${value}`).join(', ');
+        logger.info(`[${channelName}] TTS state updated: ${summary}`);
         // Update cache immediately (Firestore listener will also update, but this is faster)
         const currentConfig = channelConfigsCache.get(channelId) || { ...DEFAULT_TTS_SETTINGS };
-        channelConfigsCache.set(channelId, { ...currentConfig, [key]: value });
+        channelConfigsCache.set(channelId, { ...currentConfig, ...fields });
         return true;
     } catch (error) {
-        logger.error({ err: error, channel: channelName, key, value }, 'Failed to set TTS state in Firestore.');
+        logger.error({ err: error, channel: channelName, fields }, 'Failed to set TTS state in Firestore.');
         return false;
     }
 }
@@ -351,6 +364,48 @@ export async function clearGlobalUserPreference(userId, key) {
             return true;
         }
         logger.error({ err: error, userId, key }, `Failed to clear user preference '${key}'.`);
+        return false;
+    }
+}
+
+/**
+ * Set some of a viewer's preferences and remove others in one request. Use it for
+ * fields that belong together, so that a failure cannot leave one written and the
+ * other not.
+ * @param {string} userId
+ * @param {object} changes
+ * @param {object} [changes.set] Fields to write
+ * @param {string[]} [changes.clear] Fields to remove
+ * @param {string} [username] - Stored alongside as a display label only
+ * @returns {Promise<boolean>}
+ */
+export async function updateGlobalUserPreferences(userId, { set = {}, clear = [] } = {}, username) {
+    if (!db) db = new Firestore();
+    if (!userId) {
+        logger.error({ user: username, set: Object.keys(set), clear }, 'Refusing to change a user preference without a user ID.');
+        return false;
+    }
+    const docRef = db.collection(USER_PREFS_COLLECTION).doc(userId);
+    const writeData = { ...set, updatedAt: FieldValue.serverTimestamp() };
+    for (const key of clear) writeData[key] = FieldValue.delete();
+    const hasValues = Object.keys(set).length > 0;
+    try {
+        if (hasValues) {
+            if (username) writeData.username = username.toLowerCase();
+            await docRef.set(writeData, { merge: true });
+        } else {
+            // Only removals: update() does not create a document that is not there.
+            await docRef.update(writeData);
+        }
+        logger.info({ userId, set, clear }, 'Global user preferences updated.');
+        globalUserPrefsCache.delete(userId);
+        return true;
+    } catch (error) {
+        if (!hasValues && error.code === 5) {
+            logger.debug(`No preferences to clear for user ${userId}.`);
+            return true;
+        }
+        logger.error({ err: error, userId, set: Object.keys(set), clear }, 'Failed to change user preferences in Firestore.');
         return false;
     }
 }
@@ -667,17 +722,19 @@ export async function resetChannelDefaultSpeed(channelName) {
 }
 
 // --- Functions for Channel-wide Default Emotion ---
+// A custom style replaces the emotion preset, so both writes remove the style. The two
+// fields go out in one request: an emotion saved beside a style that stayed is not heard.
 export async function setChannelDefaultEmotion(channelName, emotion) {
     if (!VALID_EMOTIONS.includes(emotion.toLowerCase())) {
         logger.warn(`[${channelName}] Attempt to set invalid default emotion: ${emotion}.`);
         return false;
     }
-    return setTtsState(channelName, 'emotion', emotion.toLowerCase());
+    return setTtsStateFields(channelName, { emotion: emotion.toLowerCase(), style: '' });
 }
 
 export async function resetChannelDefaultEmotion(channelName) {
     const systemDefaultEmotion = DEFAULT_TTS_SETTINGS.emotion || 'auto';
-    return setTtsState(channelName, 'emotion', systemDefaultEmotion);
+    return setTtsStateFields(channelName, { emotion: systemDefaultEmotion, style: '' });
 }
 
 // --- Functions for Channel-wide Default Language ---
