@@ -828,16 +828,17 @@
     "reason": "Deep, resonant US male voice matching the low pitch and steady richness."
   },
   "English_StressedLady": {
-    "voice": "erinome",
+    "voice": "achernar",
     "languageCode": "en-US",
-    "style": "tense, hurried manner",
-    "needsStyleRender": true,
+    "style": "",
+    "needsStyleRender": false,
     "confidence": "high",
     "alternates": [
+      "erinome",
       "gacrux",
       "en-us-advisor-11"
     ],
-    "reason": "Chosen by the owner by ear on 2026-11-14."
+    "reason": "Chosen by the owner on 2026-11-14 for the one viewer who used this voice."
   },
   "English_AssertiveQueen": {
     "voice": "en-us-commercial-14",
