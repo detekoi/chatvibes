@@ -194,18 +194,6 @@ describe('WebSocket audio delivery', () => {
         ws.close();
     });
 
-    // The Gemini provider never returns a URL, but sendAudioToChannel still takes one.
-    test('sends a URL payload as JSON, to current and outdated players alike', async () => {
-        const { ws, messages } = await connect();
-
-        webSocketModule.sendAudioToChannel(CHANNEL, { kind: 'url', url: 'https://cdn.example/a.mp3' });
-        await new Promise(resolve => setTimeout(resolve, 50));
-
-        const parsed = messages.filter(m => !m.isBinary).map(m => JSON.parse(m.data.toString()));
-        expect(parsed).toContainEqual({ type: 'playAudio', url: 'https://cdn.example/a.mp3' });
-        ws.close();
-    });
-
     test('sends the stop sentinel as JSON', async () => {
         const { ws, messages } = await connect();
 
@@ -462,16 +450,6 @@ describe('WebSocket audio delivery', () => {
             expect(binaryFrames(second.messages)).toHaveLength(0);
             first.ws.close();
             second.ws.close();
-        });
-
-        test('replays a held URL clip as JSON', async () => {
-            webSocketModule.sendAudioToChannel(CHANNEL, { kind: 'url', url: 'https://cdn.example/a.mp3' });
-
-            const { ws, messages } = await connect();
-
-            const parsed = messages.filter(m => !m.isBinary).map(m => JSON.parse(m.data.toString()));
-            expect(parsed).toContainEqual({ type: 'playAudio', url: 'https://cdn.example/a.mp3' });
-            ws.close();
         });
 
         test('keeps a held buffer for the next player when one without binary support says hello', async () => {

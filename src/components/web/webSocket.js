@@ -251,7 +251,7 @@ export function openClipStream(channelName, clipId, { sampleRate = 24000 } = {})
 function describePayload(payload) {
     if (payload === STOP_CURRENT_AUDIO) return 'STOP_CURRENT_AUDIO';
     if (payload?.kind === 'buffer') return `${payload.data.length} bytes (${payload.mime})`;
-    return String(payload?.url ?? payload).substring(0, 80);
+    return String(payload).substring(0, 80);
 }
 
 /** True if this client has not said hello yet but may still be about to. */
@@ -306,9 +306,6 @@ function replayHeldClips(channelName, ws) {
             expired++;
         } else if (ws.readyState !== WebSocket.OPEN) {
             remaining.push(clip);
-        } else if (payload.kind === 'url') {
-            ws.send(JSON.stringify({ type: 'playAudio', url: payload.url }));
-            replayed++;
         } else if (ws.supportsBinaryAudio) {
             ws.send(payload.data);
             replayed++;
@@ -337,13 +334,13 @@ function replayHeldClips(channelName, ws) {
 /**
  * Send audio or a control command to all connected clients for a channel.
  *
- * `payload` is either the 'STOP_CURRENT_AUDIO' sentinel or a discriminated audio
- * object from generateSpeech: `{kind:'buffer', data, mime}` or `{kind:'url', url}`.
+ * `payload` is either the 'STOP_CURRENT_AUDIO' sentinel or the audio object from
+ * generateSpeech: `{kind:'buffer', data, mime}`.
  * `options.exclude` is a Set of sockets to skip — the clients that already received
  * this clip slice by slice through openClipStream; the stop sentinel ignores it.
  *
  * @param {string} channelName
- * @param {'STOP_CURRENT_AUDIO' | {kind: 'buffer', data: Buffer, mime: string} | {kind: 'url', url: string}} payload
+ * @param {'STOP_CURRENT_AUDIO' | {kind: 'buffer', data: Buffer, mime: string}} payload
  * @param {object} [options]
  * @param {Set<WebSocket>} [options.exclude]
  *
@@ -374,11 +371,7 @@ export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
         return;
     }
 
-    const jsonMessage = isStop
-        ? JSON.stringify({ type: 'stopAudio' })
-        : payload.kind === 'url'
-            ? JSON.stringify({ type: 'playAudio', url: payload.url })
-            : null;
+    const jsonMessage = isStop ? JSON.stringify({ type: 'stopAudio' }) : null;
 
     logger.debug(
         `Sending to ${clients.size} client(s) for channel ${resolved}: ${describePayload(payload)}`
