@@ -45,6 +45,12 @@
     Latin term never matched inside Japanese text — and since Japanese has no spaces, that is
     how the language is written, meaning a Japanese-scoped entry would have fired only when a
     viewer happened to add spaces around it. `それkwskで` now expands; `xkwsk` still does not.
+  - The terms of a spaced script share one pair of lookarounds for each run of neighboring
+    terms in the sorted order. The matches do not change, because each pair tests the same
+    position for every term in its run. Do not put a pair on each term again. A character
+    outside Latin-1, for example an emoji, makes V8 compile a second form of the regex. With
+    one pair for each term, that form compiled the Unicode classes again for each term. With
+    179 terms, the first such message took 6 seconds, and each later one took 6 ms.
   - **Rules run on the gaps between URLs; the URLs are copied through untouched.** They used
     to be swapped for a sentinel-wrapped index and the whole string rewritten in one pass,
     which put that index in band with the text being matched — a rule whose key was a digit
@@ -70,6 +76,20 @@
     go" out of `lfg`; loading only the Spanish list would send that through untouched.
   - `languageBoost: 'auto'` (the default) uses the English list; language cannot be detected per
     message.
+  - The English list also matches each single-word term with one space inside it, for example
+    `bi tch`. The filter matches whole words, so a viewer can split a term to get it past the
+    filter. The speech model then reads the two halves as one word.
+    `scripts/generate-profanity-splits.js` writes these forms to `profanitySplits.json`. Only
+    terms of four or more letters get splits, because a shorter term splits into fragments of
+    normal chat, for example `a ss`.
+  - When both halves are real words in `/usr/share/dict/words`, the script drops the split. For
+    example, `who re` is in "who re-entered", and `s hit` is in "let's hit". A lone `s`, `t`,
+    `d` or `m` on the left counts as a word, because chat writes them after an apostrophe.
+    The script keeps a short list of rare word pairs, for example `nig ger`. The dropped
+    splits are in the file too, so that you can read them in the diff.
+  - If you change the English list, run `node scripts/generate-profanity-splits.js` again.
+    The bot and the tests read only the JSON file, so neither one needs the word list.
+    When the file does not agree with the list, `tests/unit/profanitySplits.test.js` fails.
   - Slurs map to the literal word `"slur"` rather than a milder insult — a softened slur still
     lands as the thing it was. English only so far.
   - For scripts written without spaces (Han, Kana, Thai, Lao, Khmer, Myanmar) the `\p{L}`
