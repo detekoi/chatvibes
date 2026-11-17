@@ -14,6 +14,8 @@ import {
 const ttsConfig = JSON.parse(readFileSync('src/components/tts/tts-config.json', 'utf8'));
 const lists = JSON.parse(readFileSync('src/lib/profanity/profanityLists.json', 'utf8'));
 
+const splits = JSON.parse(readFileSync('src/lib/profanity/profanitySplits.json', 'utf8'));
+
 const languages = Object.keys(lists).filter(k => !k.startsWith('_'));
 const VALID_CONFIDENCE = ['high', 'medium', 'low'];
 
@@ -93,7 +95,9 @@ describe('profanityLists.json', () => {
         test('compiles to a usable rule set', () => {
             const rules = getProfanityRules(language);
             expect(rules).not.toBeNull();
-            expect(rules.size).toBe(entries.length);
+            // English also carries the split forms of its terms ("bi tch").
+            const splitCount = Object.keys(splits[language]?.splits || {}).length;
+            expect(rules.size).toBe(entries.length + splitCount);
         });
 
         test('each term is actually replaced', () => {

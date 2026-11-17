@@ -227,6 +227,17 @@ describe('scripts written without spaces between words', () => {
         expect(applyRewrites('操作系统', mixed)).toBe('操作系统');
         expect(applyRewrites('你在操什么', mixed)).toBe('你在哎呀什么');
     });
+
+    it('shares one pair of lookarounds across the spaced-script terms', () => {
+        // One pair per term made V8 compile the Unicode classes once per term
+        // for the first message with a character outside Latin-1, such as an
+        // emoji: 6 seconds with 179 terms. The count is the guard, not a timer.
+        const lookbehinds = rules => rules.re.source.split('(?<!').length - 1;
+        expect(lookbehinds(getProfanityRules('English'))).toBe(1);
+        const mixed = getProfanityRules(['Chinese', 'English']);
+        expect(lookbehinds(mixed)).toBeLessThan(mixed.size / 4);
+        expect(applyRewrites('what the fuck 😀', mixed)).toBe('what the freak 😀');
+    });
 });
 
 describe('list hygiene', () => {

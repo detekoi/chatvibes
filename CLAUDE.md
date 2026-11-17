@@ -103,6 +103,10 @@ preferences. Details: `docs/channel-config.md`.
 - Gemini spells most acronyms as letters, so the dictionary stays. The laugh acronyms (`lol`,
   `lmao`, `rofl`) are left out on purpose: the model turns them into a real laugh.
 - A disabled sound tag is removed in `ttsQueue.enqueue`, before the profanity filter.
+- If you change the English profanity list, run `node scripts/generate-profanity-splits.js`.
+  It writes the split forms such as `bi tch`, and a test fails on a file that is out of date.
+- The replace engine shares one pair of lookarounds across neighboring terms. Do not put a
+  pair on each term, because the first message with an emoji then took 6 seconds.
 
 **i18n** — `docs/i18n.md`
 - Everything the bot says resolves at the channel locale, never per viewer. Commands use

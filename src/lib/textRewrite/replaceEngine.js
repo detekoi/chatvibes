@@ -105,22 +105,32 @@ export function compileRules(entries, { caseSensitive = false } = {}) {
 
     if (map.size === 0) return null;
 
-    // Lookarounds are applied per alternative rather than around the whole
-    // group, because they are wrong for scripts that do not put spaces between
-    // words: in "你在操什么" the character before "操" is itself a letter, so a
-    // \p{L} lookbehind rejects a match that should have been found. Those terms
-    // are matched bare and validated against word segmentation instead.
+    // Lookarounds are not applied around the whole group, because they are
+    // wrong for scripts that do not put spaces between words: in "你在操什么"
+    // the character before "操" is itself a letter, so a \p{L} lookbehind
+    // rejects a match that should have been found. Those terms are matched bare
+    // and validated against word segmentation instead.
+    //
+    // The spaced-script terms share one pair of lookarounds per run of
+    // neighbours in the sorted order: B(?:x|y)A, not BxA|ByA. Both lookarounds
+    // test the same position for every term in a run, so the matches are the
+    // same, and keeping the runs in order keeps the longest-first precedence.
+    // One pair per term made V8 compile the Unicode classes once per term when a
+    // message first held a character outside Latin-1, such as an emoji. With 179
+    // terms that first message took 6 seconds.
     let needsSegmentation = false;
-    const alternation = [...map.keys()]
-        .sort((a, b) => b.length - a.length)
-        .map(key => {
-            const literal = escapeLiteral(key);
-            if (!CONTINUOUS_SCRIPT.test(key)) {
-                return `${BOUNDARY_BEFORE}${literal}${BOUNDARY_AFTER}`;
-            }
-            needsSegmentation = true;
-            return literal;
-        })
+    const runs = [];
+    for (const key of [...map.keys()].sort((a, b) => b.length - a.length)) {
+        const bounded = !CONTINUOUS_SCRIPT.test(key);
+        if (!bounded) needsSegmentation = true;
+        const last = runs.at(-1);
+        if (last && last.bounded === bounded) last.literals.push(escapeLiteral(key));
+        else runs.push({ bounded, literals: [escapeLiteral(key)] });
+    }
+    const alternation = runs
+        .map(({ bounded, literals }) => (bounded
+            ? `${BOUNDARY_BEFORE}(?:${literals.join('|')})${BOUNDARY_AFTER}`
+            : literals.join('|')))
         .join('|');
 
     const flags = caseSensitive ? 'gu' : 'giu';
