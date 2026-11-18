@@ -485,6 +485,36 @@ export function sendAudioToChannel(channelName, payload, { exclude } = {}) {
     }
 }
 
+/**
+ * Tell a channel's players to drop clips, because a moderator removed the chat
+ * messages they were made from. Sent as `{ type: 'dropClip', clipIds }` to every
+ * open socket. A player drops a clip that waits in its queue and stops one that
+ * plays now. A player that does not know the message ignores it.
+ *
+ * @param {string} channelName
+ * @param {string[]} clipIds
+ * @returns {number} The number of sockets that were sent the message.
+ */
+export function dropClips(channelName, clipIds) {
+    const ids = [...new Set((clipIds || []).filter(id => typeof id === 'string' && id))];
+    if (ids.length === 0) return 0;
+    const resolved = resolveToChannelName(channelName);
+    const clients = channelClients.get(resolved);
+    if (!clients || clients.size === 0) return 0;
+    const frame = JSON.stringify({ type: 'dropClip', clipIds: ids });
+    let sent = 0;
+    for (const ws of clients) {
+        if (ws.readyState !== WebSocket.OPEN) continue;
+        try {
+            ws.send(frame);
+            sent++;
+        } catch (err) {
+            logger.warn({ err, channel: resolved }, 'Failed to send dropClip');
+        }
+    }
+    return sent;
+}
+
 // ---------------------------------------------------------------------------
 // Initialisation
 // ---------------------------------------------------------------------------

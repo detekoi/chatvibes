@@ -73,6 +73,8 @@ open must refresh to show the card. The player sets the card text with `textCont
 
 ## The player
 
+The server sends `{ type: 'dropClip', clipIds }` when a moderator removes the chat message of a clip. The player marks a waiting clip as discarded and stops a clip that plays now. A whole clip in one frame has an ID only through its `clipMeta`. See `docs/chat-behavior.md`.
+
 `src/components/web/public/tts-player.js` plays PCM slices with Web Audio. It makes an
 `AudioBuffer` from each slice and schedules it directly after the slice before it, on one
 `AudioContext`. If the stream falls behind, the next slice starts 30 ms from the current

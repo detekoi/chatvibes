@@ -276,6 +276,8 @@ function connectWebSocket() {
                 } else {
                     console.warn('Player: audioEnd for a clip that is not open:', data.clipId);
                 }
+            } else if (data.type === 'dropClip') {
+                dropClips(data.clipIds);
             } else if (data.type === 'stopAudio') {
                 console.log('TTS WebSocket received stopAudio command');
                 stopAllAudio();
@@ -584,6 +586,39 @@ function stopCurrentAudio() {
     // else will, since onended never fires for audio that was paused rather than
     // finished, so without this the queue sat idle until the next message arrived.
     playNextInQueue();
+}
+
+// A moderator removed the chat messages these clips were made from. A clip that
+// waits in the queue is dropped, and one that plays now is stopped. A whole clip
+// (an object URL) has an ID only when a card came with it; one without a card
+// cannot be named, and it plays.
+function dropClips(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    const drop = new Set(ids.filter(id => typeof id === 'string'));
+    const idOf = entry => {
+        if (isClip(entry)) return entry.id;
+        const meta = entry ? urlMeta.get(entry) : null;
+        return meta ? meta.clipId : null;
+    };
+    if (pendingMeta && drop.has(pendingMeta.clipId)) pendingMeta = null;
+    for (let i = audioQueue.length - 1; i >= 0; i--) {
+        const entry = audioQueue[i];
+        if (!drop.has(idOf(entry))) continue;
+        if (isClip(entry)) {
+            // Marked, not taken out: an open clip still gets its audioEnd, and
+            // playNextInQueue skips a discarded clip.
+            entry.discard = true;
+            entry.chunks = [];
+        } else {
+            audioQueue.splice(i, 1);
+            releaseAudioUrl(entry);
+        }
+    }
+    const playing = currentClip || (audioElementActive ? currentObjectUrl : null);
+    if (playing && drop.has(idOf(playing))) {
+        console.log('TTS Player: a moderator removed the message of the clip being played');
+        stopCurrentAudio();
+    }
 }
 
 function stopAllAudio() { // For !tts clear or full stop

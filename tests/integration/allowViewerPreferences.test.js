@@ -66,6 +66,7 @@ describe('allowViewerPreferences Feature', () => {
       hasActiveClients: jest.fn(() => true),
       openClipStream: jest.fn(() => null),
       sendClipMeta: jest.fn(() => new Set()),
+      dropClips: jest.fn(() => 0),
       STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
     }));
 

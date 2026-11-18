@@ -189,7 +189,7 @@ A moderator sets the guidance with `!tts spotlight <text|off>`. The bare command
 
 - There is no pace cap. The model decides how many messages to pick. A channel that wants fewer picks uses the guidance.
 - There is no fairness between viewers. A viewer who writes good messages can have many picks.
-- No code removes a queued clip when a moderator deletes the chat message. This is true for every mode. It needs new EventSub subscriptions and a queue lookup by message ID. In spotlight mode a deleted message can still be read, because a candidate waits for the window and the router call.
+- A deleted message or a timeout does not remove a candidate from the buffer or from the router context. If the router picks it, `ttsQueue.enqueue` drops the clip, because it remembers the removal for 2 minutes. The pick log can still list it. See `docs/chat-behavior.md`.
 - A held clip replays with no card.
 
 ## Related change in the same branch

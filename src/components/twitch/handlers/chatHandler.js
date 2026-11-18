@@ -19,6 +19,7 @@ import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
 import { containsBannedWord } from '../../../lib/bannedWords.js';
 import { isTtsSubCommand } from '../../commands/tts/subcommandNames.js';
 import { offerSpotlightCandidate } from '../../../lib/spotlight/spotlightBuffer.js';
+import { currentTiming } from '../../../lib/ttsTiming.js';
 
 /**
  * Handle channel.chat.message events
@@ -26,6 +27,10 @@ import { offerSpotlightCandidate } from '../../../lib/spotlight/spotlightBuffer.
  * "Highlight My Message" highlights
  */
 export async function handleChatMessage(event, channelName) {
+    // When the message reached the bot. It goes with the speech, so that a timeout
+    // that comes later removes it (ttsQueue.removeChatClips), even after a
+    // spotlight wait or a Pub/Sub hop, where the timing context is gone.
+    const chatAtMs = currentTiming()?.receivedMs ?? Date.now();
     const username = (event.chatter_user_login || event.chatter_user_name || 'Someone').toLowerCase();
     const messageText = event.message?.text || '';
     const bits = event.cheer?.bits || 0;
@@ -188,6 +193,7 @@ export async function handleChatMessage(event, channelName) {
             emoteMode,
             channelEmoteMode,
             readFullUrls: ttsConfig.readFullUrls,
+            chatAtMs,
         });
     }
 
@@ -225,7 +231,7 @@ export async function handleChatMessage(event, channelName) {
         const text = isSpotlight
             ? getTranslator(locale)('announce.spotlight', { user: displayName, message: processedMessage })
             : processedMessage;
-        const eventData = { text, user: username, userId, type, messageId: event.message_id };
+        const eventData = { text, user: username, userId, type, messageId: event.message_id, chatAtMs };
         // The card the browser source can show while the clip plays: the viewer's
         // own words, not the formatted speech. ttsQueue.enqueue filters and cuts it.
         if (isSpotlight) eventData.display = { kind: 'spotlight', user: displayName, text: cleanMessage };

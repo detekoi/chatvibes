@@ -10,13 +10,13 @@ import {
     getGlobalUserPreferences,
     getChannelUserPreferences
 } from './ttsState.js';
-import { sendAudioToChannel, hasActiveClients, openClipStream, sendClipMeta, STOP_CURRENT_AUDIO } from '../web/server.js';
+import { sendAudioToChannel, hasActiveClients, openClipStream, sendClipMeta, dropClips, STOP_CURRENT_AUDIO } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
 import { stripDisabledSoundTags } from '../../lib/textRewrite/soundTags.js';
 import { resolveToChannelName, getChannelIdFromName, getChannelNameFromId } from '../../lib/allowList.js';
-import { snapshotTiming, elapsed } from '../../lib/ttsTiming.js';
+import { snapshotTiming, currentTiming, elapsed } from '../../lib/ttsTiming.js';
 import { isGloballyOptedOut } from '../../lib/globalOptOut.js';
 import { resolveVoice } from './voiceResolver.js';
 import { buildStyle } from './styleBuilder.js';
@@ -38,6 +38,23 @@ const PREFETCH_AHEAD = 2; // Number of queued items to prefetch concurrently
 const DISPLAY_KINDS = new Set(['spotlight']);
 const DISPLAY_TEXT_MAX = 200;
 const DISPLAY_USER_MAX = 50;
+// A moderator (or a moderation bot) removes chat: deletes one message, or times
+// out or bans a viewer. The clips made from those messages are removed from the queue
+// and from the player (removeChatClips). The player keeps its own queue, so the
+// clips sent to it in the last SENT_CLIP_TTL_MS are remembered by message.
+const SENT_CLIP_MAX = 50;
+const SENT_CLIP_TTL_MS = 10 * 60 * 1000;
+// A removal is also remembered for a short time, because a message can still be
+// on its way to enqueue (emote descriptions, the Pub/Sub hop).
+const REMOVAL_MEMORY_MS = 2 * 60 * 1000;
+// Twitch does not keep two webhooks in order. A spam filter (Sery Bot, for example)
+// bans in the same second, so the ban can arrive before the message it answers. A
+// timeout or ban therefore also covers messages that reach the bot up to this long
+// after it. A viewer cannot post during a timeout, so only a message right after a
+// 1-second purge is lost.
+const REMOVAL_GRACE_MS = 5000;
+const removedMessageIds = new Map(); // message ID -> expiresAt
+const channelRemovals = new Map(); // channel name -> [{ userId?, all?, atMs, expiresAt }]
 
 /**
  * Get the queue for a channel, creating it on first use.
@@ -62,6 +79,8 @@ export function getOrCreateChannelQueue(channelName) {
             currentUserSpeaking: null, // Tracks who/what triggered the current/last speech (display)
             currentUserIdSpeaking: null, // Account ID of that speaker; `!tts stop` ownership checks this
             prefetchResults: new Map(), // event -> { promise: Promise<url>, controller: AbortController }
+            currentEvent: null, // The item being generated, until processQueue is done with it
+            sentClips: [], // Chat clips sent to the player: { clipId, targets, messageId, userId, platform, chatAtMs, sentAt }
         });
     }
     return channelQueues.get(channelName);
@@ -86,6 +105,16 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         logger.debug(logData, `[SharedChat:${sharedSessionInfo.sessionId}] TTS_ENQUEUE_CALLED for user: ${user}, type: ${type}, text: "${text.substring(0, 30)}..." in shared session`);
     } else {
         logger.debug(logData, `TTS_ENQUEUE_CALLED for user: ${user}, type: ${type}, text: "${text.substring(0, 30)}..."`);
+    }
+
+    // The time the chat message reached the bot. A timeout or a clear removes only
+    // the messages that came before it.
+    const chatAtMs = eventData.messageId
+        ? (eventData.chatAtMs ?? currentTiming()?.receivedMs ?? Date.now())
+        : null;
+    if (eventData.messageId && isRemovedChat(channelName, { ...eventData, chatAtMs })) {
+        logger.debug({ channelName, userId: eventData.userId, type }, 'A moderator removed this chat message; not speaking it');
+        return;
     }
 
     const ttsStatus = await getTtsState(channelName);
@@ -215,6 +244,9 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
         type, text: finalText, user, userId, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing,
         // Only when present: Firestore rejects an undefined field when the queue is persisted.
         ...(display ? { display } : {}),
+        // The chat message the clip was made from. removeChatClips looks clips up by it.
+        ...(eventData.messageId ? { messageId: String(eventData.messageId), chatAtMs } : {}),
+        ...(eventData.platform ? { platform: eventData.platform } : {}),
     });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${finalText.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
@@ -505,6 +537,7 @@ export async function processQueue(channelName) {
     cq.currentSpeech = null;
     cq.currentUserSpeaking = event.user || 'event_tts'; // Set user for the current item
     cq.currentUserIdSpeaking = event.userId || null;
+    cq.currentEvent = event;
 
     // Start prefetching upcoming items while we process the current one
     startPrefetch(channelName);
@@ -635,6 +668,7 @@ export async function processQueue(channelName) {
             }
 
             logTiming(channelName, event, audio, wasPrefetched, !!streamedComplete);
+            rememberSentClip(cq, event, wholeClipId, targets);
         } else {
             // No audio — issue in generateSpeech, prefetch failure, or aborted
             if (delivery) delivery.end({ discard: true });
@@ -657,6 +691,7 @@ export async function processQueue(channelName) {
         if (cq.currentSpeechController) {
             cq.currentSpeechController = null;
         }
+        if (cq.currentEvent === event) cq.currentEvent = null;
 
         // If the speech is null at this point (generation failed, was aborted, or never set),
         // then the currentUserSpeaking for *this specific event* should also be cleared,
@@ -720,6 +755,139 @@ export async function stopCurrentSpeech(channelName) {
     }
 
     return stoppedSomethingSignificant;
+}
+
+/**
+ * Remember a clip made from a chat message after it went to the player, so that a
+ * moderator who removes the message can still take it out of the player's queue.
+ */
+function rememberSentClip(cq, event, clipId, targets) {
+    if (!event.messageId) return;
+    const now = Date.now();
+    cq.sentClips = cq.sentClips.filter(c => now - c.sentAt < SENT_CLIP_TTL_MS);
+    cq.sentClips.push({
+        clipId,
+        targets: [...targets],
+        messageId: event.messageId,
+        userId: event.userId ?? null,
+        platform: event.platform ?? null,
+        chatAtMs: event.chatAtMs ?? null,
+        sentAt: now,
+    });
+    if (cq.sentClips.length > SENT_CLIP_MAX) cq.sentClips.splice(0, cq.sentClips.length - SENT_CLIP_MAX);
+}
+
+/**
+ * @typedef {object} ChatRemoval What a moderator removed from Twitch chat.
+ * @property {string} [messageId] One message (channel.chat.message_delete).
+ * @property {string} [userId] Every earlier message of one viewer: a timeout or a ban
+ *   (channel.chat.clear_user_messages).
+ * @property {number} atMs When the removal reached the bot.
+ */
+
+/**
+ * True when the removal covers the clip. Only a clip made from a Twitch chat
+ * message can match: an announcement, a reward and a YouTube message have no
+ * Twitch chat message to remove. A timeout covers the messages that reached the
+ * bot before it, and for REMOVAL_GRACE_MS after it, so that a viewer whose timeout
+ * ended is read again.
+ */
+function removalCovers(removal, clip) {
+    if (!clip?.messageId || clip.platform === 'youtube') return false;
+    if (removal.messageId) return clip.messageId === String(removal.messageId);
+    if (clip.chatAtMs != null && clip.chatAtMs > removal.atMs + REMOVAL_GRACE_MS) return false;
+    return removal.userId != null && clip.userId != null && String(clip.userId) === String(removal.userId);
+}
+
+function pruneRemovals(now) {
+    for (const [id, expiresAt] of removedMessageIds) {
+        if (expiresAt <= now) removedMessageIds.delete(id);
+    }
+    for (const [name, list] of channelRemovals) {
+        const live = list.filter(r => r.expiresAt > now);
+        if (live.length) channelRemovals.set(name, live);
+        else channelRemovals.delete(name);
+    }
+}
+
+/** True when a moderator already removed the chat message this item was made from. */
+function isRemovedChat(channelName, item) {
+    const now = Date.now();
+    pruneRemovals(now);
+    if (removedMessageIds.has(String(item.messageId))) return item.platform !== 'youtube';
+    const list = channelRemovals.get(resolveToChannelName(channelName)) || [];
+    return list.some(removal => removalCovers(removal, item));
+}
+
+/**
+ * Remove the clips made from chat messages that a moderator removed. Three places
+ * hold them:
+ *
+ * - the queue: the item is taken out, and its prefetch is stopped;
+ * - the clip being generated: its generation is stopped, and the player drops the
+ *   slices it already has (audioEnd with discard);
+ * - the player, which keeps a queue of its own: it is told to drop the clip
+ *   (dropClip), or to stop it if it plays now.
+ *
+ * The removal is also remembered for REMOVAL_MEMORY_MS, so that a message still on
+ * its way to enqueue is not spoken. A message ID is unique, so a deleted message is
+ * looked for in every queue on this instance: in shared chat it can sit in the queue
+ * of another channel of the session.
+ *
+ * @param {string} channelName The channel where the moderator acted.
+ * @param {ChatRemoval} removal
+ * @returns {{queued: number, generating: boolean, sent: number}} What was removed.
+ */
+export function removeChatClips(channelName, removal) {
+    const name = resolveToChannelName(channelName);
+    const now = Date.now();
+    const atMs = removal.atMs ?? now;
+    const entry = { ...removal, atMs, expiresAt: now + REMOVAL_MEMORY_MS };
+    pruneRemovals(now);
+    if (removal.messageId) {
+        removedMessageIds.set(String(removal.messageId), entry.expiresAt);
+    } else {
+        channelRemovals.set(name, [...(channelRemovals.get(name) || []), entry]);
+    }
+
+    const result = { queued: 0, generating: false, sent: 0 };
+    const queues = removal.messageId
+        ? [...channelQueues.values()]
+        : [channelQueues.get(name)].filter(Boolean);
+
+    for (const cq of queues) {
+        const removed = cq.queue.filter(item => removalCovers(entry, item));
+        if (removed.length) {
+            cq.queue = cq.queue.filter(item => !removed.includes(item));
+            for (const item of removed) {
+                const prefetched = cq.prefetchResults.get(item);
+                if (!prefetched) continue;
+                prefetched.controller.abort();
+                cq.prefetchResults.delete(item);
+            }
+            result.queued += removed.length;
+        }
+
+        // processQueue sees the abort, ends the delivery with discard, and moves on.
+        if (cq.currentEvent && cq.currentSpeechController && removalCovers(entry, cq.currentEvent)) {
+            cq.currentSpeechController.abort();
+            result.generating = true;
+        }
+
+        const dropped = cq.sentClips.filter(clip => removalCovers(entry, clip));
+        if (dropped.length) {
+            cq.sentClips = cq.sentClips.filter(clip => !dropped.includes(clip));
+            const byTarget = new Map();
+            for (const clip of dropped) {
+                for (const target of clip.targets) {
+                    byTarget.set(target, [...(byTarget.get(target) || []), clip.clipId]);
+                }
+            }
+            for (const [target, clipIds] of byTarget) dropClips(target, clipIds);
+            result.sent += dropped.length;
+        }
+    }
+    return result;
 }
 
 export async function pauseQueue(channelName) {
