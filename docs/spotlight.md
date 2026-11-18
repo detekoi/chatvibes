@@ -100,7 +100,7 @@ The flex attempt has the same timeouts as each synthesis attempt: 4 seconds to t
 
 On 2026-11-18 a test made 5 streamed calls on each tier with `gemini-3.8-flash-lite-tts`. Four flex calls gave the first audio in 0.3 to 0.7 seconds, the same as the standard tier. One flex call gave the first audio after 11 seconds. This is the reason for the short timeout and the standard-tier second attempt.
 
-The API reported `service_tier: flex` for each flex call. The Gemini page about flex gives a price of half the standard price, but its model list does not name the speech models. Read the bill to make sure that the speech calls get the flex price.
+The API reported `service_tier: flex` for each flex call. The Gemini pricing page lists a flex price for `gemini-3.8-flash-lite-tts` that is half the standard price. Through December 31, 2026 the flex price is $0.25 for 1M text input tokens and $3.00 for 1M audio output tokens. That is $0.00075 for 10 seconds of audio, and the standard price is $0.0015. Both prices double on January 1, 2027.
 
 The `GEMINI_TTS_OK` and `GEMINI_TTS_ERROR` log lines have a `tier` field. The `TTS_TIMING` line has a `serviceTier` field. Use them to measure how often the flex attempt answers.
 
