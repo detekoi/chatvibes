@@ -246,6 +246,60 @@ export function openClipStream(channelName, clipId, { sampleRate = 24000 } = {})
 }
 
 /**
+ * Tell the players of a channel what the next clip is, so the browser source can
+ * show a card while it plays (the spotlight card). Sent as
+ * `{ type: 'clipMeta', clipId, kind, user, text, label, lang }`, only to open
+ * sockets that announced the `clipMeta` feature, and only to the sockets that are
+ * about to get this clip's first frame:
+ *
+ * - `streamOnly: true` selects the sockets openClipStream will select (they take
+ *   PCM slices). Call it in the same synchronous block, directly before
+ *   openClipStream, so the two selections cannot differ.
+ * - Otherwise it selects the sockets sendAudioToChannel will send the whole clip to:
+ *   binary-capable and not in `exclude`. Call it directly before that send, with
+ *   the same `exclude` plus the sockets that already got this meta.
+ *
+ * The meta is not held or replayed: a held clip replays without a card. Each call
+ * returns the sockets it reached, so the caller can keep a socket from getting the
+ * same meta twice.
+ *
+ * @param {string} channelName
+ * @param {string} clipId
+ * @param {{kind: string, user: string, text: string, label?: string, lang?: string}} display
+ * @param {{exclude?: Set<WebSocket>, streamOnly?: boolean}} [options]
+ * @returns {Set<WebSocket>} The sockets that were sent the meta.
+ */
+export function sendClipMeta(channelName, clipId, display, { exclude, streamOnly = false } = {}) {
+    const sent = new Set();
+    if (!display || !clipId) return sent;
+    const resolved = resolveToChannelName(channelName);
+    const clients = channelClients.get(resolved);
+    if (!clients || clients.size === 0) return sent;
+
+    const frame = JSON.stringify({
+        type: 'clipMeta',
+        clipId,
+        kind: display.kind,
+        user: display.user,
+        text: display.text,
+        label: display.label || '',
+        lang: display.lang || '',
+    });
+    for (const ws of clients) {
+        if (ws.readyState !== WebSocket.OPEN || !ws.supportsClipMeta) continue;
+        if (streamOnly ? !ws.supportsChunkedAudio : !ws.supportsBinaryAudio) continue;
+        if (exclude && exclude.has(ws)) continue;
+        try {
+            ws.send(frame);
+            sent.add(ws);
+        } catch (err) {
+            logger.warn({ err, channel: resolved, clipId }, 'Failed to send clip meta');
+        }
+    }
+    return sent;
+}
+
+/**
  * Describe an audio payload for logging without dumping a whole buffer.
  */
 function describePayload(payload) {
@@ -559,6 +613,7 @@ export function initializeWebSocketServer(httpServer, { onClientConnect, onChann
         // than the binary-audio change never send a hello, so absence is the signal.
         ws.supportsBinaryAudio = false;
         ws.supportsChunkedAudio = false;
+        ws.supportsClipMeta = false;
         ws.helloReceived = false;
         ws.connectedAt = Date.now();
 
@@ -604,6 +659,8 @@ export function initializeWebSocketServer(httpServer, { onClientConnect, onChann
                     // Gemini migration announces 'chunkedAudio' (MP3 slices) and not
                     // 'pcmAudio': it gets each clip whole, as one WAV frame.
                     ws.supportsChunkedAudio = ws.supportsBinaryAudio && features.includes('pcmAudio');
+                    // The player can show a card for a clip (see sendClipMeta).
+                    ws.supportsClipMeta = features.includes('clipMeta');
                     ws.helloReceived = true;
                     logger.debug(
                         { channel: channelName, features },

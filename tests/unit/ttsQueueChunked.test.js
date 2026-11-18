@@ -34,6 +34,7 @@ describe('ttsQueue chunked delivery', () => {
                 streams.push(stream);
                 return stream;
             }),
+            sendClipMeta: jest.fn(() => new Set()),
             STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
         };
         const mockTtsState = {

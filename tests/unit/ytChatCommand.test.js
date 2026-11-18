@@ -236,6 +236,7 @@ describe('YouTube chat: !tts command', () => {
                 type: 'spotlight',
                 messageId: 'yt-msg-1',
                 platform: 'youtube',
+                display: { kind: 'spotlight', user: 'Viewer', text: 'that was a clean dodge' },
             }));
         });
 

@@ -221,10 +221,15 @@ export async function handleChatMessage(event, channelName) {
             locale,
         });
         if (!processedMessage) return false;
-        const text = type === 'spotlight'
+        const isSpotlight = type === 'spotlight';
+        const text = isSpotlight
             ? getTranslator(locale)('announce.spotlight', { user: displayName, message: processedMessage })
             : processedMessage;
-        await dispatchTtsEvent(channelName, { text, user: username, userId, type, messageId: event.message_id }, sharedSessionInfo);
+        const eventData = { text, user: username, userId, type, messageId: event.message_id };
+        // The card the browser source can show while the clip plays: the viewer's
+        // own words, not the formatted speech. ttsQueue.enqueue filters and cuts it.
+        if (isSpotlight) eventData.display = { kind: 'spotlight', user: displayName, text: cleanMessage };
+        await dispatchTtsEvent(channelName, eventData, sharedSessionInfo);
         logger.debug({ channel: channelName, user: username, type, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
         return true;
     };

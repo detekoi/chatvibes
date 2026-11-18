@@ -102,7 +102,16 @@ describe('handleChatMessage: spotlight mode', () => {
             user: 'viewer',
             userId: '1',
             messageId: 'msg-1',
+            display: { kind: 'spotlight', user: 'ViewerName', text: 'that boss should pay rent' },
         })]);
+    });
+
+    it('puts the clean message on the card, not the formatted speech', async () => {
+        formatTtsText.mockResolvedValue('that boss should pay rent (laughing face emote)');
+        await handleChatMessage(chat('that boss should pay rent LUL'), 'testchannel');
+        await offered()[0].speak({ reason: 'r' });
+        expect(spoken()[0].text).toContain('(laughing face emote)');
+        expect(spoken()[0].display).toEqual({ kind: 'spotlight', user: 'ViewerName', text: 'that boss should pay rent LUL' });
     });
 
     it('says the prefix in the channel language', async () => {
@@ -187,6 +196,7 @@ describe('handleChatMessage: spotlight mode', () => {
         }), 'testchannel');
         expect(offered()).toEqual([]);
         expect(spoken()).toEqual([expect.objectContaining({ type: 'cheer_tts', text: 'great stream' })]);
+        expect(spoken()[0]).not.toHaveProperty('display');
     });
 
     it('treats a highlighted message as an ordinary candidate', async () => {

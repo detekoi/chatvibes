@@ -484,6 +484,8 @@ export async function handleYouTubeChatMessage(channelId, msg) {
                             type: 'spotlight',
                             messageId: msg.id || null,
                             platform: 'youtube',
+                            // The card for the browser source: the viewer's own words.
+                            display: { kind: 'spotlight', user: username, text: messageText },
                         });
                     },
                 });

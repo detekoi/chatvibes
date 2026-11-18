@@ -61,6 +61,7 @@ describe('ttsQueue TTS_TIMING log', () => {
             sendAudioToChannel: jest.fn(),
             hasActiveClients: jest.fn().mockReturnValue(true),
             openClipStream: jest.fn().mockReturnValue(null),
+            sendClipMeta: jest.fn(() => new Set()),
             STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
         };
         const mockTtsState = {
