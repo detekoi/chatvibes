@@ -32,6 +32,8 @@ import { resolveChannelLocale, languageNameForLocale } from '../../i18n/index.js
 import { runWithTiming } from '../ttsTiming.js';
 import { pickNotable } from './spotlightRouter.js';
 import { recordPick } from './spotlightLog.js';
+import { isTwitchUserIgnored, isYouTubeUserIgnored } from '../ignoreList.js';
+import { containsBannedWord } from '../bannedWords.js';
 
 // An idle channel keeps its context this long, then its entry is deleted.
 const IDLE_MS = 5 * 60 * 1000;
@@ -79,6 +81,18 @@ function armIdle(entry) {
         }
     }, IDLE_MS);
     entry.idleTimer.unref?.();
+}
+
+/**
+ * True when the fresh config now blocks a candidate: its author went on the ignore
+ * list, or its text holds a banned word, after it was buffered. A moderator who
+ * reacts to a message expects it not to be read a few seconds later.
+ */
+function isBlockedNow(ttsConfig, candidate) {
+    const ignored = candidate.platform === 'youtube'
+        ? isYouTubeUserIgnored(ttsConfig, candidate.userId)
+        : isTwitchUserIgnored(ttsConfig, candidate.userId);
+    return ignored || containsBannedWord(candidate.text, ttsConfig.bannedWords);
 }
 
 function remember(entry, batch) {
@@ -180,7 +194,7 @@ async function flush(broadcasterId) {
     }
 
     const { maxBatch } = config.spotlight;
-    const batch = entry.pending.splice(0, maxBatch);
+    let batch = entry.pending.splice(0, maxBatch);
     entry.inFlight = true;
     try {
         // Read again at flush time: the mode or the engine may have changed during the window.
@@ -190,6 +204,14 @@ async function flush(broadcasterId) {
             entry.pending.length = 0;
             return;
         }
+        // Checked once, here, before the call: a blocked candidate costs nothing and
+        // never reaches the model or the context.
+        const before = batch.length;
+        batch = batch.filter(c => !isBlockedNow(ttsConfig, c));
+        if (batch.length < before) {
+            logger.debug({ broadcasterId, dropped: before - batch.length }, 'Spotlight candidates dropped: ignored viewer or banned word');
+        }
+        if (!batch.length) return;
         const context = entry.context.slice();
         const picks = await pickNotable({
             candidates: batch.map((c, i) => ({ id: `m${i + 1}`, user: c.user, text: c.text })),

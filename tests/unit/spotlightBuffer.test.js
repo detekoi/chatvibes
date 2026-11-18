@@ -241,6 +241,55 @@ describe('spotlightBuffer', () => {
         expect(spoken).toEqual([]);
     });
 
+    describe('a moderator acts during the window', () => {
+        it('drops a candidate whose Twitch author went on the ignore list, before the call', async () => {
+            buffer.offerSpotlightCandidate(candidate('keep me'));
+            buffer.offerSpotlightCandidate(candidate('drop me'));
+            getTtsState.mockResolvedValue({ ...baseConfig, ignoredUserIds: { 'twitch:u-drop me': { label: 'x' } } });
+            await jest.advanceTimersByTimeAsync(6000);
+            expect(sentBatch().candidates.map(c => c.text)).toEqual(['keep me']);
+        });
+
+        it('drops a YouTube candidate whose channel went on the ignore list', async () => {
+            buffer.offerSpotlightCandidate(candidate('yt one', { platform: 'youtube', userId: 'UCbad' }));
+            buffer.offerSpotlightCandidate(candidate('tw one', { userId: 'UCbad' }));
+            getTtsState.mockResolvedValue({ ...baseConfig, ignoredUserIds: { 'youtube:UCbad': { label: 'x' } } });
+            await jest.advanceTimersByTimeAsync(6000);
+            // The same ID on the other platform is a different account.
+            expect(sentBatch().candidates.map(c => c.text)).toEqual(['tw one']);
+        });
+
+        it('drops a candidate with a banned word added after it arrived', async () => {
+            buffer.offerSpotlightCandidate(candidate('a spoiler here'));
+            buffer.offerSpotlightCandidate(candidate('fine message'));
+            getTtsState.mockResolvedValue({ ...baseConfig, bannedWords: ['Spoiler'] });
+            await jest.advanceTimersByTimeAsync(6000);
+            expect(sentBatch().candidates.map(c => c.text)).toEqual(['fine message']);
+            expect(sentBatch().candidates[0].id).toBe('m1');
+        });
+
+        it('makes no call when every candidate is blocked, and keeps them out of the context', async () => {
+            buffer.offerSpotlightCandidate(candidate('a spoiler here'));
+            getTtsState.mockResolvedValue({ ...baseConfig, bannedWords: ['spoiler'] });
+            await jest.advanceTimersByTimeAsync(6000);
+            expect(pickNotable).not.toHaveBeenCalled();
+
+            getTtsState.mockResolvedValue({ ...baseConfig });
+            buffer.offerSpotlightCandidate(candidate('next one'));
+            await jest.advanceTimersByTimeAsync(6000);
+            expect(sentBatch().context).toEqual([]);
+        });
+
+        it('speaks the right message when an earlier one was dropped', async () => {
+            pickNotable.mockResolvedValue([{ id: 'm1', reason: 'r' }]);
+            buffer.offerSpotlightCandidate(candidate('a spoiler here'));
+            buffer.offerSpotlightCandidate(candidate('fine message'));
+            getTtsState.mockResolvedValue({ ...baseConfig, bannedWords: ['spoiler'] });
+            await jest.advanceTimersByTimeAsync(6000);
+            expect(spoken.map(s => s.text)).toEqual(['fine message']);
+        });
+    });
+
     it('speaks nothing when the router fails', async () => {
         pickNotable.mockResolvedValue(null);
         buffer.offerSpotlightCandidate(candidate('hello'));
