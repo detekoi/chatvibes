@@ -177,6 +177,9 @@ preferences. Details: `docs/channel-config.md`.
 - There is one provider. On a failure the bot tries the main model a second time, then the
   fallback model one time. It does not try again after a refusal (`TtsBlockedError`) or after
   a slice reached a player.
+- Only a spotlight clip uses the flex tier for synthesis, and only on its first attempt
+  (`serviceTier` in `generateSpeech`). Do not send other clips on flex: a flex answer can
+  take more than 10 seconds.
 - Every request sends `store: false`. Do not remove it: the API keeps interactions by default.
 - A setting reaches the model only through `styleBuilder.buildStyle`. Do not add words to the
   style in other places, because long style text makes the voice drift.
