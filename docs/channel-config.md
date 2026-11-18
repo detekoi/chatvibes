@@ -3,7 +3,7 @@
 Design notes for the fields of `ttsChannelConfigs` whose behavior is not obvious from the
 code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`).
 
-- Mode (`all`, `command`, `bits_points_only` or `highlighted_only`). **The default for a channel that never chose one
+- Mode (`all`, `command`, `bits_points_only`, `highlighted_only` or `spotlight`). **The default for a channel that never chose one
   is `command`**, and the dashboard writes `mode: 'command'` at first sign-in when the field is
   unset so the bot and the dashboard agree. Before 2026-08-31 the bot's in-memory default was
   `all` while the dashboard displayed an unset mode as `command`; the channels that had lived with
@@ -61,10 +61,18 @@ code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`
   branch, because `say.js` enqueues its own speech and returns `'tts'` before the setting is consulted,
   so `!tts <text>` keeps working with it off. A cheer whose text starts with `!` is still read, as
   cheers are exempt from every other gate. The setting means nothing in `command`,
-  `bits_points_only` and `highlighted_only`, which never read these, so the dashboard shows the switch off and locked there
+  `bits_points_only`, `highlighted_only` and `spotlight`, which never read these, so the dashboard shows the switch off and locked there
   (the mirror of the cheer switch, which locks *on* in `bits_points_only`). The YouTube client applies
   the same test at its `all` fallthrough, after `!tts` has been recognised. `!tts readcommands on|off`
   flips it from chat. `chatHandlerCommandMessages.test.js` and `ytChatCommandMessages.test.js` pin it.
+- Spotlight mode (`spotlight`). A model picks the few chat messages that TTS reads, and the bot
+  says "Chat spotlight from {user}:" before each one. Two fields belong to it. `spotlightGuidance`
+  is free text for the model, 300 characters at most (`SPOTLIGHT.GUIDANCE_MAX` in `tts-config.json`).
+  It is unset by default, an empty string clears it, and `!tts spotlight <text|off>` sets it
+  (moderators only). It is a preference. It cannot make the model pick a kind of message that the
+  rules reject. `spotlightCard` (default `false`, dashboard only) shows a card in the browser source
+  while a pick plays. In this mode `readCommandMessages` has no effect, because a message that
+  starts with `!` is never a candidate. See `docs/spotlight.md`.
 - **Muted rewards (`mutedRewardIds`).** Redemption announcements are all-or-nothing under
   `speakRedemptionEvents`; this map carves out the rewards that stay silent, typically soundboards,
   which play their own audio. It is an **exclusion** list keyed by Twitch's reward ID (a rename
