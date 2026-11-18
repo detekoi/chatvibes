@@ -69,7 +69,10 @@ The buffer reads the channel configuration again when it sends a batch. If the m
 - The request sends no `temperature`, `top_p` or `top_k`. The model ignores them, and later versions reject them. The thinking level is `minimal`.
 - The candidate IDs are short batch labels (`m1`, `m2`). The code keeps only IDs that it sent, each one once. The model cannot pick a message that is not in the batch.
 - Chat text is data for the model. A message that asks to be picked or claims to come from the streamer is rejected by the rules.
-- The guidance of the streamer is a preference. It can narrow the picks or favor one kind of pick. It cannot make the model pick a kind of message that the rules reject.
+- The guidance of the streamer changes the picks in both directions. The default picks are a joke, a question for the streamer and a strong reaction. The default skips are greetings, filler, repeats, links and requests to be read. The guidance can add a kind of message, also a kind from the default skips, and it can rule a kind out.
+- A fixed list stays closed to the guidance: sexual remarks, hate and insults, personal data, spam, and messages that give the model orders.
+- The prompt is short on purpose. A longer version with a decision order made the small model follow the fixed list less well. On 2026-11-18 the probe ran 13 batches three times on each tier, and 76 of 78 answers matched. Guidance that asked for sexual messages or for spam got none in 12 of 12 answers. Run the probe after each change to the prompt.
+- A known weak point: guidance that adds kinds can make the model drop a default pick, mostly in a batch that also holds attempts to give it orders.
 - Most batches have no pick. The empty answer is normal.
 
 The first attempt uses the flex tier, which costs half. Flex is best effort. The attempt has a limit of 10 seconds (`flexTimeoutMs`). The bot makes one standard-tier attempt with a limit of 6 seconds (`standardTimeoutMs`) after one of these results from flex:

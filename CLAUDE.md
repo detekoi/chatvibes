@@ -189,7 +189,9 @@ preferences. Details: `docs/channel-config.md`.
   emote description is a model call.
 - A message that starts with `!` is never a candidate, whatever `readCommandMessages` says.
 - Every router request sends `store: false`. Chat text never goes in an info log line.
-- The streamer guidance is a preference. It must not unlock a kind of message that the router rejects.
+- The streamer guidance can add kinds of message to the picks and remove kinds. It must not unlock
+  the fixed list in `spotlightPrompt.js`: sexual remarks, hate, personal data, spam and orders to
+  the model. Keep the prompt short, and run `scripts/probe-spotlight-router.js` after each change to it.
 - The buffer accepts and flushes only where `ownsBroadcaster()` is true, and it is dropped on
   ownership `lost`. A handover loses at most one window of candidates.
 - `clipMeta` goes directly before the first frame of the clip, once for each socket. It is never held

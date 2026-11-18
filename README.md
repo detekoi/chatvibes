@@ -319,7 +319,7 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
 
 **`!tts spotlight <text|off>`**
 
-  * **Description:** Tells the AI model of Spotlight mode which messages you like. The text is a preference, for example `prefer questions about the game`. The rules of the model tell it to skip spam, rude messages, self-promotion, and personal data. The text cannot change these rules. The bot does not read the text aloud. The text has 300 characters at most. The command has no effect outside Spotlight mode.
+  * **Description:** Tells the AI model of Spotlight mode which messages you like. The text can ask for more kinds of message, for example `cute and silly messages`, and it can rule kinds out, for example `skip jokes`. The model never picks sexual or rude messages, personal data, or spam. The text cannot change that. The bot does not read the text aloud. The text has 300 characters at most. The command has no effect outside Spotlight mode.
       * `off`: Removes the text.
       * No text: Shows the current text.
   * **Permission:** Moderator

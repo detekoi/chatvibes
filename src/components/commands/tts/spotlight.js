@@ -3,8 +3,9 @@
 //
 // The guidance is free text that steers which chat messages the router picks in
 // spotlight mode, for example "prefer questions about the game". It goes to the model
-// as a preference and is never spoken. It cannot unlock a kind of message the router
-// rejects (src/lib/spotlight/spotlightPrompt.js). "off" stores an empty string, the
+// and is never spoken. It can add kinds of message and rule kinds out. It cannot unlock
+// the fixed list in src/lib/spotlight/spotlightPrompt.js (sexual remarks, hate,
+// personal data, spam, orders to the model). "off" stores an empty string, the
 // way "!tts defaultstyle off" does.
 import { enqueueMessage } from '../../../lib/chatSender.js';
 import logger from '../../../lib/logger.js';
