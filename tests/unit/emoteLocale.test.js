@@ -185,3 +185,21 @@ describe('the description is generated in the target language', () => {
         expect(generateContent).toHaveBeenCalledTimes(2);
     });
 });
+
+describe('the system instruction is sent where the SDK reads it', () => {
+    // The SDK builds a Gemini API request from `model`, `contents` and `config`
+    // only. A top-level `systemInstruction` is dropped without any error, so the
+    // prompt never applies. It has to sit at `config.systemInstruction`.
+    beforeEach(() => {
+        describer.initGeminiClient('test-key');
+        generateContent.mockResolvedValue({ text: JSON.stringify({ description: 'gato bailando' }) });
+    });
+
+    test('a single emote call puts it in config and not at the top level', async () => {
+        await describer.describeSingleEmote('s1', 'catJAM', null, false, null, 'twitch', 'en');
+        const request = generateContent.mock.calls[0][0];
+        expect(request.config.systemInstruction).toEqual(expect.any(String));
+        expect(request.config.systemInstruction.length).toBeGreaterThan(0);
+        expect(request).not.toHaveProperty('systemInstruction');
+    });
+});

@@ -82,9 +82,9 @@ ${JSON.stringify(tokens)}
     const response = await withTimeout(
         genAI.models.generateContent({
             model: MODEL,
-            systemInstruction: SYSTEM_INSTRUCTION,
             contents: [{ text: prompt }],
             config: {
+                systemInstruction: SYSTEM_INSTRUCTION,
                 responseMimeType: 'application/json',
                 // Without a schema the model answers with a bare array and its
                 // own key names ("polish_meaning"), which a `parsed.collisions`
