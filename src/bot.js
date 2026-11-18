@@ -30,6 +30,7 @@ import { initializePubSub, subscribeTtsEvents, closePubSub } from './lib/pubsub.
 // Channel ownership: each channel is served by the instance holding its browser source
 import { isOwnershipEnabled, notePlayer, startChannelOwnership, stopChannelOwnership } from './lib/channelOwnership.js';
 import { wireChannelHandover, handOffRemainingQueues } from './lib/channelHandover.js';
+import { wireSpotlightOwnership } from './lib/spotlight/spotlightBuffer.js';
 import { getChannelIdFromName } from './lib/allowList.js';
 import { getChannelsWithClients } from './components/web/server.js';
 import { handleForwardedNotification } from './components/twitch/eventsub.js';
@@ -336,6 +337,8 @@ async function main() {
         // connect claims its channel, and the handover listener must already be
         // there to open the channel's inbox.
         wireChannelHandover({ onNotification: handleForwardedNotification });
+        // A channel's spotlight buffer is only whole on its owner; drop it when the channel goes.
+        wireSpotlightOwnership();
         const notePlayerFor = (channelName, present) =>
             notePlayer(getChannelIdFromName(channelName), channelName, present);
 

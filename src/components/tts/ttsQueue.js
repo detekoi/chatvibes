@@ -382,6 +382,9 @@ function logTiming(channelName, event, audio, wasPrefetched, chunked) {
         style: buildStyle(event.voiceConfig) || null,
         // Twitch -> our webhook (network + any Twitch-side delay)
         twitchToWebhookMs: elapsed(t, 'originMs', 'receivedMs'),
+        // Spotlight picks only: chat message to the router's decision. The record of
+        // a pick starts at the decision, so this wait is outside totalMs.
+        spotlightWaitMs: t.spotlightWaitMs ?? null,
         // Firestore dedup claim before any handling starts
         claimMs: elapsed(t, 'receivedMs', 'claimedMs'),
         // Handler work between receipt and the start of enqueue: config reads,

@@ -15,8 +15,10 @@
 //
 // Usage:  node scripts/probe-spotlight-router.js [--runs N] [--tier flex|standard|both]
 //         [--timeout ms] [--gap ms] [--only name,name] [--no-store] [--api-revision 2026-05-20]
-//         [--raw] [--env path]
+//         [--raw] [--env path] [--module]
 //         --runs is the number of calls per tier (default 10). The batches repeat in order.
+//         --module calls pickNotable from src/lib/spotlight/spotlightRouter.js instead, once per
+//         batch (default: injection and spanish), and prints its picks and its SPOTLIGHT_ROUTE line.
 //         --no-store leaves store out of the body, to tell if store: false causes a rejection.
 //         --raw prints the first full response of each tier.
 //         Needs GEMINI_API_KEY. If it is not set, the key is read from --env, then from
@@ -50,9 +52,12 @@ const ONLY = flag('only', '')?.split(',').filter(Boolean);
 const SEND_STORE = !has('no-store');
 const API_REVISION = flag('api-revision', '');
 const RAW = has('raw');
+const MODULE = has('module');
 const ENV_FILE = flag('env', process.env.SPOTLIGHT_PROBE_ENV || '/Users/henry/Dev/tts-twitch/.env');
 
-if (!process.env.GEMINI_API_KEY && fs.existsSync(ENV_FILE)) dotenv.config({ path: ENV_FILE, quiet: true });
+// --module loads the bot's config, which needs more of the .env file than the key.
+// Variables already set in the environment win.
+if ((MODULE || !process.env.GEMINI_API_KEY) && fs.existsSync(ENV_FILE)) dotenv.config({ path: ENV_FILE, quiet: true });
 const KEY = process.env.GEMINI_API_KEY;
 const URL_ = 'https://generativelanguage.googleapis.com/v1beta/interactions';
 const MODEL = process.env.SPOTLIGHT_GEMINI_MODEL || 'gemini-3.5-flash-lite';
@@ -247,8 +252,32 @@ function summary(tiers) {
     console.log(`(c) field names: ${bad ? `a 400 says: ${bad.error}` : `accepted; ${parsed.length}/${all200.length} answers parse as the schema`}; tier reported as body.service_tier: ${all200.some(r => r.servedTier) ? 'yes' : 'no'}`);
 }
 
+// The real router module, end to end: config, fetch, fallback, id cleaning and the log line.
+async function runModule() {
+    const { pickNotable } = await import('../src/lib/spotlight/spotlightRouter.js');
+    const names = ONLY?.length ? ONLY : ['injection', 'spanish'];
+    for (const batch of loadBatchesNamed(names)) {
+        console.log(`\n--- ${batch.name} (guidance: ${batch.guidance ?? 'none'}) ---`);
+        const picks = await pickNotable({
+            candidates: batch.candidates.map(({ id, user, text }) => ({ id, user, text })),
+            context: batch.context,
+            guidance: batch.guidance,
+            language: batch.language,
+            channel: `probe-${batch.name}`,
+        });
+        console.log(`picks: ${JSON.stringify(picks)}`);
+        if (picks) console.log(`expected ${JSON.stringify(batch.expect.pick)}: ${JSON.stringify(score(batch, picks))}`);
+    }
+}
+
+function loadBatchesNamed(names) {
+    const all = loadBatches();
+    return names.map(n => all.find(b => b.name === n)).filter(Boolean);
+}
+
 async function main() {
     if (!KEY) throw new Error(`GEMINI_API_KEY is missing (looked in the environment and ${ENV_FILE})`);
+    if (MODULE) return runModule();
     const tiers = TIER === 'both' ? ['flex', 'standard'] : [TIER];
     if (!tiers.every(t => t === 'flex' || t === 'standard')) throw new Error(`--tier must be flex, standard or both, not ${TIER}`);
     const batches = loadBatches();
