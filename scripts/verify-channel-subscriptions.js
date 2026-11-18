@@ -3,7 +3,7 @@
 // scripts/verify-channel-subscriptions.js
 // Verifies that all active managed channels have required EventSub subscriptions
 
-import { getEventSubSubscriptions } from '../src/components/twitch/twitchSubs.js';
+import { getEventSubSubscriptions, CHAT_REMOVAL_SUBSCRIPTION_TYPES } from '../src/components/twitch/twitchSubs.js';
 import { getActiveManagedChannels } from '../src/components/twitch/channelManager.js';
 import { getUsersByLogin } from '../src/components/twitch/helixClient.js';
 import { initializeHelixClient } from '../src/components/twitch/helixClient.js';
@@ -21,7 +21,9 @@ const REQUIRED_SUBSCRIPTION_TYPES = [
     'channel.cheer',
     'channel.raid',
     'channel.channel_points_custom_reward_redemption.add',
-    'channel.channel_points_custom_reward_redemption.update'
+    'channel.channel_points_custom_reward_redemption.update',
+    // A deleted message, a timeout or a ban removes the speech made from it.
+    ...CHAT_REMOVAL_SUBSCRIPTION_TYPES
 ];
 
 /**

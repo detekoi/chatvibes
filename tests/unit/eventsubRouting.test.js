@@ -49,6 +49,11 @@ jest.unstable_mockModule('../../src/components/twitch/handlers/notificationHandl
     SUB_GIFT_TYPE: 'x.sub_gift',
     COMMUNITY_SUB_GIFT_TYPE: 'x.community_sub_gift',
 }));
+const mockHandleChatRemoval = jest.fn();
+jest.unstable_mockModule('../../src/components/twitch/handlers/moderationHandler.js', () => ({
+    CHAT_REMOVAL_TYPES: ['channel.chat.message_delete', 'channel.chat.clear_user_messages'],
+    handleChatRemoval: mockHandleChatRemoval,
+}));
 jest.unstable_mockModule('../../src/components/twitch/handlers/sharedChatHandler.js', () => ({
     onBegin: jest.fn(), onUpdate: jest.fn(), onEnd: jest.fn(),
 }));
@@ -209,4 +214,43 @@ test('the channel is looked up by login, not by a display name that differs from
     await deliver(follow);
 
     expect(mockHandleNotification).toHaveBeenCalledWith('channel.follow', follow.event, 'parfaitfair', expect.any(Object));
+});
+
+describe('chat removal (a deleted message, a timeout or a ban)', () => {
+    const removal = (type, extra = {}) => ({
+        subscription: { type },
+        event: { broadcaster_user_id: '111', broadcaster_user_login: 'parfaitfair', ...extra },
+    });
+
+    test.each([
+        ['channel.chat.message_delete', { message_id: 'm1', target_user_id: 'u1' }],
+        ['channel.chat.clear_user_messages', { target_user_id: 'u1' }],
+    ])('routes %s to the removal handler', async (type, extra) => {
+        mockOwnership.ownsBroadcaster.mockReturnValue(true);
+        await deliver(removal(type, extra));
+        expect(mockHandleChatRemoval).toHaveBeenCalledWith(type, expect.objectContaining(extra), 'parfaitfair');
+        expect(mockHandleNotification).not.toHaveBeenCalled();
+    });
+
+    test('acts with the engine off, because the removal reads no TTS config', async () => {
+        const { getTtsState } = await import('../../src/components/tts/ttsState.js');
+        getTtsState.mockResolvedValueOnce({ engineEnabled: false });
+        mockOwnership.ownsBroadcaster.mockReturnValue(true);
+        await deliver(removal('channel.chat.message_delete', { message_id: 'm1' }));
+        expect(mockHandleChatRemoval).toHaveBeenCalledTimes(1);
+        expect(getTtsState).not.toHaveBeenCalled();
+    });
+
+    test('is forwarded to the owner, which holds the queue and the player', async () => {
+        mockOwnership.getLeaseOwner.mockResolvedValue({ ownerId: 'other', hasPlayer: true });
+        await deliver(removal('channel.chat.clear_user_messages', { target_user_id: 'u1' }));
+        expect(mockHandleChatRemoval).not.toHaveBeenCalled();
+        expect(mockForwardToInbox).toHaveBeenCalledWith('111', expect.objectContaining({ targetOwner: 'other' }));
+    });
+
+    test('is ignored for an inactive channel', async () => {
+        mockIsChannelActive.mockReturnValue(false);
+        await deliver(removal('channel.chat.message_delete', { message_id: 'm1' }));
+        expect(mockHandleChatRemoval).not.toHaveBeenCalled();
+    });
 });

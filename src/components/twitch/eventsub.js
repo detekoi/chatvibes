@@ -19,6 +19,7 @@ import { handleChatMessage } from './handlers/chatHandler.js';
 import { handleChannelPointsRedemption, handleRedemptionAnnouncement } from './handlers/redemptionHandler.js';
 import { handleNotification, WATCH_STREAK_TYPE, SUB_GIFT_TYPE, COMMUNITY_SUB_GIFT_TYPE } from './handlers/notificationHandler.js';
 import * as sharedChatHandler from './handlers/sharedChatHandler.js';
+import { CHAT_REMOVAL_TYPES, handleChatRemoval } from './handlers/moderationHandler.js';
 
 // Firestore for cross-instance EventSub deduplication
 const firestore = new Firestore();
@@ -345,6 +346,17 @@ async function processNotification(notification) {
             await handleChatMessage(event, channelName);
         } catch (error) {
             logger.error({ err: error, channelName }, 'Error handling chat message event');
+        }
+        return;
+    }
+
+    // Route: a moderator removed chat. Before any TTS config read: the removal
+    // applies whatever the mode is, and with the engine off.
+    if (CHAT_REMOVAL_TYPES.includes(type)) {
+        try {
+            handleChatRemoval(type, event, channelName);
+        } catch (error) {
+            logger.error({ err: error, channelName, type }, 'Error handling chat removal event');
         }
         return;
     }

@@ -523,6 +523,16 @@ export async function subscribeChannelChatNotification(broadcasterUserId) {
     return subscribeChatEventType(broadcasterUserId, 'channel.chat.notification');
 }
 
+/**
+ * The chat removal types: a deleted message, and a timeout or ban.
+ * They use the same condition and scopes as channel.chat.message. The bot removes
+ * the speech made from the removed messages (handlers/moderationHandler.js).
+ */
+export const CHAT_REMOVAL_SUBSCRIPTION_TYPES = Object.freeze([
+    'channel.chat.message_delete',
+    'channel.chat.clear_user_messages',
+]);
+
 const activeSubscriptionRequests = new Map(); // broadcasterUserId -> Promise
 
 /**
@@ -568,7 +578,8 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
         channelPointsAdd = hasBroadcasterAuth,    // channel points add (requires channel:read:redemptions)
         channelPointsUpdate = hasBroadcasterAuth, // channel points update (requires channel:read:redemptions)
         chatMessage = true,                 // channel.chat.message (requires bot user scopes, not broadcaster)
-        chatNotification = true             // channel.chat.notification (same scopes as chatMessage)
+        chatNotification = true,            // channel.chat.notification (same scopes as chatMessage)
+        chatRemoval = true                  // CHAT_REMOVAL_SUBSCRIPTION_TYPES (same scopes as chatMessage)
     } = options;
 
     const results = {
@@ -656,6 +667,17 @@ export async function subscribeChannelToTtsEvents(broadcasterUserId, options = {
             results.successful.push('channel.channel_points_custom_reward_redemption.update');
         } else {
             results.failed.push({ type: 'channel.channel_points_custom_reward_redemption.update', error: result.error, status: result.status });
+        }
+    }
+
+    if (chatRemoval) {
+        for (const type of CHAT_REMOVAL_SUBSCRIPTION_TYPES) {
+            const result = await subscribeChatEventType(broadcasterUserId, type);
+            if (result.success) {
+                results.successful.push(type);
+            } else {
+                results.failed.push({ type, error: result.error, status: result.status });
+            }
         }
     }
 

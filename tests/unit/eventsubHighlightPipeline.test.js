@@ -67,6 +67,11 @@ jest.unstable_mockModule('../../src/components/twitch/handlers/notificationHandl
     SUB_GIFT_TYPE: 'x.sub_gift',
     COMMUNITY_SUB_GIFT_TYPE: 'x.community_sub_gift',
 }));
+const mockHandleChatRemoval = jest.fn();
+jest.unstable_mockModule('../../src/components/twitch/handlers/moderationHandler.js', () => ({
+    CHAT_REMOVAL_TYPES: ['channel.chat.message_delete', 'channel.chat.clear_user_messages'],
+    handleChatRemoval: mockHandleChatRemoval,
+}));
 jest.unstable_mockModule('../../src/components/twitch/handlers/sharedChatHandler.js', () => ({
     onBegin: jest.fn(), onUpdate: jest.fn(), onEnd: jest.fn(),
 }));
