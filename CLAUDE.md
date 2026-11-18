@@ -95,6 +95,9 @@ preferences. Details: `docs/channel-config.md`.
   names stay silent (`commands/tts/subcommandNames.js`, kept separate to avoid an import cycle).
   YouTube role checks use badges only, never the display name.
 - A cheer starting with `!tts` goes to the cheer branch, not `say.js`.
+- A deleted message, a timeout or a ban removes the clips made from chat messages, also from the
+  player's own queue (`dropClip`). Chat speech must carry `messageId` and `chatAtMs` to enqueue,
+  or it cannot be removed. A removal covers messages up to 5 s after it, because a ban can arrive first.
 
 **Text rewriting** — `docs/pronunciation-and-profanity.md`
 - The profanity filter runs in `ttsQueue.enqueue`, not `formatTtsText`: the viewer's language is
