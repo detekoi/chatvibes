@@ -37,6 +37,7 @@ jest.unstable_mockModule('../../src/lib/channelOwnership.js', () => ({
     isOwnershipEnabled: () => false,
     ownsBroadcaster: () => true,
     getLeaseOwner: jest.fn().mockResolvedValue(null),
+    onOwnershipChange: jest.fn(() => () => {}),
 }));
 jest.unstable_mockModule('../../src/lib/channelInbox.js', () => ({ forwardToInbox: jest.fn() }));
 jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({

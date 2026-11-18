@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS-køen er nå GJENOPPTATT.",
   "cmd.queue.invalidAction": "Ugyldig handling. Bruk pause eller resume.",
   "cmd.queue.cleared": "TTS-køen har blitt TØMT.",
-  "cmd.mode.current": "Gjeldende TTS-modus er: {mode}. Bruk '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Ugyldig modus. Bruk 'all', 'command', 'bits' eller 'highlight'.",
+  "cmd.mode.current": "Gjeldende TTS-modus er {mode}. For å endre den, bruk '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Det er ikke en TTS-modus. Bruk 'all', 'command', 'bits', 'highlight' eller 'spotlight'.",
   "cmd.mode.set": "TTS-modus satt til: {mode}.",
   "cmd.mode.failed": "Kunne ikke sette TTS-modus.",
   "cmd.profanity.effect.on": "banneord dempes før de leses opp",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "må være tekst",
   "cmd.pronounce.reason.empty": "kan ikke være tom",
   "cmd.pronounce.reason.tooLong": "må være {max} tegn eller færre",
-  "cmd.pronounce.reason.containsLink": "kan ikke inneholde en lenke"
+  "cmd.pronounce.reason.containsLink": "kan ikke inneholde en lenke",
+  "announce.spotlight": "Chat-spotlight fra {user}: {message}",
+  "overlay.spotlight.label": "Chat-spotlight",
+  "cmd.spotlight.current": "Spotlight-veiledningen er: {value}. For å endre den, bruk {usage}.",
+  "cmd.spotlight.none": "Denne kanalen har ingen spotlight-veiledning. For å legge til veiledning, bruk {usage}.",
+  "cmd.spotlight.set": "Botten lagret spotlight-veiledningen: {value}. Veiledningen gjelder bare i spotlight-modus.",
+  "cmd.spotlight.off": "Botten fjernet spotlight-veiledningen.",
+  "cmd.spotlight.tooLong": "Den veiledningen er for lang. Bruk {max} tegn eller færre.",
+  "cmd.spotlight.failed": "Botten lagret ikke endringen i spotlight-veiledningen. Prøv igjen om et øyeblikk."
 }

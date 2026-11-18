@@ -128,6 +128,21 @@ export function resolveChannelLocale(channelConfig) {
     return localeFromLanguageBoost(channelConfig?.languageBoost) ?? DEFAULT_LOCALE;
 }
 
+// BCP-47 -> a language name for a model prompt: the English name and the
+// endonym, because the English name alone can be ambiguous ("Chinese,Yue").
+const LANGUAGE_NAMES = new Map(
+    Object.entries(LANGUAGE_BOOSTS).map(([name, v]) => [v.bcp47, v.endonym && v.endonym !== name ? `${name} (${v.endonym})` : name])
+);
+
+/**
+ * The name of a locale's language, for telling a model which language to write in.
+ * @param {string} locale BCP-47 tag, as resolveChannelLocale returns it.
+ * @returns {string|null} For example 'Spanish (Español)', or null for an unknown tag.
+ */
+export function languageNameForLocale(locale) {
+    return LANGUAGE_NAMES.get(locale) ?? null;
+}
+
 /** Twitch `broadcaster_language` -> languageBoost, or null when there is no target. */
 export function languageBoostFromTwitch(broadcasterLanguage) {
     if (!broadcasterLanguage) return null;

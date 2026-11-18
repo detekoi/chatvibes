@@ -19,9 +19,13 @@
 //   inboxReceivedMs   when the owning instance picked it up (inbox route only)
 //   firstChunkSentMs  when the first audio slice went out to a chunked player
 //                     (set by ttsQueue on the queue item's copy, not in the context)
+//   spotlightWaitMs   spotlight picks only: how long the message waited in the
+//                     spotlight buffer and the router call (a duration, not a mark)
 // Labels:
 //   source            'eventsub' | 'youtube'
-//   route             'local' | 'pubsub' | 'inbox'
+//   route             'local' | 'pubsub' | 'inbox' | 'spotlight'. A spotlight pick
+//                     starts a new record at the router's decision (spotlightBuffer.js);
+//                     the Pub/Sub hop relabels it 'pubsub'.
 //
 // A message that arrives outside any context (a queue restored from Firestore,
 // a test that calls enqueue directly) simply carries no record and logs nothing.

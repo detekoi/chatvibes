@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS-wagtou is nou HERVAT.",
   "cmd.queue.invalidAction": "Ongeldige aksie. Gebruik pause of resume.",
   "cmd.queue.cleared": "TTS-wagtou is SKOONGEMAAK.",
-  "cmd.mode.current": "Huidige TTS-modus is: {mode}. Gebruik '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Ongeldige modus. Gebruik 'all', 'command', 'bits', of 'highlight'.",
+  "cmd.mode.current": "Die huidige TTS-modus is {mode}. Om dit te verander, gebruik '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Dit is nie 'n TTS-modus nie. Gebruik 'all', 'command', 'bits', 'highlight' of 'spotlight'.",
   "cmd.mode.set": "TTS-modus gestel op: {mode}.",
   "cmd.mode.failed": "Kon nie TTS-modus stel nie.",
   "cmd.profanity.effect.on": "vloekwoorde word versag voor hulle uitgespreek word",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "moet teks wees",
   "cmd.pronounce.reason.empty": "kan nie leeg wees nie",
   "cmd.pronounce.reason.tooLong": "moet {max} karakters of minder wees",
-  "cmd.pronounce.reason.containsLink": "kan nie 'n skakel bevat nie"
+  "cmd.pronounce.reason.containsLink": "kan nie 'n skakel bevat nie",
+  "announce.spotlight": "Kletskollig van {user}: {message}",
+  "overlay.spotlight.label": "Kletskollig",
+  "cmd.spotlight.current": "Die kollig-riglyn is: {value}. Om dit te verander, gebruik {usage}.",
+  "cmd.spotlight.none": "Hierdie kanaal het geen kollig-riglyn nie. Om 'n riglyn by te voeg, gebruik {usage}.",
+  "cmd.spotlight.set": "Die bot het die kollig-riglyn gestoor: {value}. Die riglyn geld slegs in spotlight-modus.",
+  "cmd.spotlight.off": "Die bot het die kollig-riglyn verwyder.",
+  "cmd.spotlight.tooLong": "Daardie riglyn is te lank. Gebruik {max} karakters of minder.",
+  "cmd.spotlight.failed": "Die bot het nie die verandering aan die kollig-riglyn gestoor nie. Probeer oor 'n oomblik weer."
 }

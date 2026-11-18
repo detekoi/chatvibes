@@ -56,6 +56,7 @@ describe('ttsQueue module', () => {
       sendAudioToChannel: jest.fn(),
       hasActiveClients: jest.fn().mockReturnValue(true),
       openClipStream: jest.fn().mockReturnValue(null),
+      sendClipMeta: jest.fn(() => new Set()),
       STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO'
     };
 
@@ -491,7 +492,7 @@ describe('ttsQueue module', () => {
     });
 
     // Every type the handlers emit for the viewer's own words.
-    test.each(['chat', 'command', 'cheer_tts', 'highlight', 'command_say'])('drops %s speech from an opted-out viewer', async (type) => {
+    test.each(['chat', 'command', 'cheer_tts', 'highlight', 'command_say', 'spotlight'])('drops %s speech from an opted-out viewer', async (type) => {
       mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
 
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type });

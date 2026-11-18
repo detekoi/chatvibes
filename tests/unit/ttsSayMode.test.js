@@ -62,6 +62,14 @@ describe('!tts say: TTS mode', () => {
         expect(dispatchTtsEvent).toHaveBeenCalledTimes(1);
     });
 
+    // Spotlight mode picks from plain chat; "!tts <text>" works there as in command mode.
+    it('speaks in spotlight mode', async () => {
+        getTtsState.mockResolvedValue({ ...baseConfig, mode: 'spotlight' });
+        await say.execute(context());
+        expect(dispatchTtsEvent).toHaveBeenCalledTimes(1);
+        expect(dispatchTtsEvent.mock.calls[0][1]).toMatchObject({ text: 'hello there', user: 'viewer' });
+    });
+
     it('stays silent in bits_points_only mode, without a chat reply', async () => {
         getTtsState.mockResolvedValue({ ...baseConfig, mode: 'bits_points_only' });
         await say.execute(context());

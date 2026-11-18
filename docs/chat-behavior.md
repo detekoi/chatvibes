@@ -30,3 +30,9 @@ Design notes for `chatHandler.js` and `src/components/youtube/ytChatClient.js`.
   the channel name as the broadcaster, which is sound for an authenticated Twitch login but
   not for a YouTube display name, which the viewer picks — so `toRoleTags` never passes one. Note that YouTube's `all` mode does not apply `ttsPermissionLevel` at all; that
   predates this and was left alone.
+- Spotlight mode (`mode: 'spotlight'`) sends chat to a model that picks the few messages to read.
+  A candidate must pass the gates of `all` mode: engine on, viewer not ignored or opted out, no
+  banned word, and `ttsPermissionLevel` allows the viewer. A message that starts with `!` is never
+  a candidate, whatever `readCommandMessages` says. Spotlight mode never reads a command back. `!tts <text>` and cheers keep their own paths. On YouTube the
+  permission level uses badges, as for `!tts`. YouTube `all` mode does not apply it. Nothing is
+  formatted until the model picks the message. See `docs/spotlight.md`.

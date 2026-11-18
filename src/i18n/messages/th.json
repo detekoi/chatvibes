@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "คิว TTS ถูก RESUMED แล้ว",
   "cmd.queue.invalidAction": "คำสั่งไม่ถูกต้อง กรุณาใช้ pause หรือ resume",
   "cmd.queue.cleared": "คิว TTS ถูก CLEARED แล้ว",
-  "cmd.mode.current": "โหมด TTS ปัจจุบันคือ: {mode} ใช้ '!tts mode <all|command|bits|highlight>'",
-  "cmd.mode.invalid": "โหมดไม่ถูกต้อง ใช้ 'all', 'command', 'bits' หรือ 'highlight'",
+  "cmd.mode.current": "โหมด TTS ปัจจุบันคือ {mode} หากต้องการเปลี่ยน ให้ใช้ '!tts mode <all|command|bits|highlight|spotlight>'",
+  "cmd.mode.invalid": "นั่นไม่ใช่โหมด TTS ใช้ 'all', 'command', 'bits', 'highlight' หรือ 'spotlight'",
   "cmd.mode.set": "ตั้งค่าโหมด TTS เป็น: {mode} แล้ว",
   "cmd.mode.failed": "ไม่สามารถตั้งค่าโหมด TTS ได้",
   "cmd.profanity.effect.on": "คำหยาบจะถูกลดทอนความรุนแรงลงก่อนอ่านออกเสียง",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "ต้องเป็นข้อความ",
   "cmd.pronounce.reason.empty": "ต้องไม่เว้นว่าง",
   "cmd.pronounce.reason.tooLong": "ต้องไม่เกิน {max} ตัวอักษร",
-  "cmd.pronounce.reason.containsLink": "ต้องไม่มีลิงก์"
+  "cmd.pronounce.reason.containsLink": "ต้องไม่มีลิงก์",
+  "announce.spotlight": "แชทเด่นจาก {user}: {message}",
+  "overlay.spotlight.label": "แชทเด่น",
+  "cmd.spotlight.current": "คำแนะนำสปอตไลท์คือ: {value} หากต้องการเปลี่ยน ให้ใช้ {usage}",
+  "cmd.spotlight.none": "ช่องนี้ยังไม่มีคำแนะนำสปอตไลท์ หากต้องการเพิ่มคำแนะนำ ให้ใช้ {usage}",
+  "cmd.spotlight.set": "บอทบันทึกคำแนะนำสปอตไลท์แล้ว: {value} คำแนะนำนี้ใช้ในโหมด spotlight เท่านั้น",
+  "cmd.spotlight.off": "บอทลบคำแนะนำสปอตไลท์แล้ว",
+  "cmd.spotlight.tooLong": "คำแนะนำนั้นยาวเกินไป ใช้ไม่เกิน {max} ตัวอักษร",
+  "cmd.spotlight.failed": "บอทไม่ได้บันทึกการเปลี่ยนแปลงคำแนะนำสปอตไลท์ ลองใหม่อีกครั้งในอีกสักครู่"
 }

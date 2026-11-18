@@ -82,6 +82,7 @@ Approved streamers can add or remove WildcatTTS and configure streaming software
    * By default, WildcatTTS operates in **command** mode, where it reads only `!tts <message>`. You can use the `!tts mode` and `!tts permission` commands, or the dashboard, to change this behavior.
    * You can trigger TTS with commands such as `!tts <your message>` or `!tts say <your message>`.
    * In **Bits/Points Only** mode, the bot reads only cheer messages that meet the minimum Bit amount, and Channel Point redemptions.
+   * In Spotlight mode, a small AI model reads your chat and picks the few messages that are worth reading aloud. Before each pick, the bot says "Chat spotlight from" and the name of the viewer. See `!tts mode` below.
    * In **Channel Points to TTS** mode, viewers redeem a custom Channel Point reward to read a message.
    * Read the [WildcatTTS documentation](https://docs.wildcat.chat/wildcatttsdocs.html) for detailed trigger and voice setup.
    * The repository for the WildcatTTS web UI is located at [chatvibes-web-ui](https://github.com/detekoi/chatvibes-web-ui).
@@ -296,13 +297,14 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
   * **Permission:** Moderator
   * **Usage:** `!tts off`
 
-**`!tts mode [all|command|bits_points_only|highlighted_only]`**
+**`!tts mode [all|command|bits_points_only|highlighted_only|spotlight]`**
 
   * **Description:** Changes the TTS mode.
       * `all`: Reads all chat messages (based on `!tts permission` setting) and enabled events.
       * `command`: Reads only explicit `!tts` commands and enabled events. Ignores regular chat. **(Default)**
       * `bits_points_only`: Reads only Bits cheers and Channel Point redemptions. Ignores regular chat and commands.
       * `highlighted_only`: Reads only chat messages that a viewer sends with the Twitch "Highlight My Message" channel-point reward. `!tts permission` does not apply to these messages, because the viewer paid for them. Ignores other chat and `!tts <message>`. Cheers (per the cheer settings), the configured TTS reward, redemption announcements, and events work as in `command` mode. YouTube has no highlighted messages, so on YouTube this mode works like `bits_points_only`.
+      * `spotlight`: A small AI model reads your chat in short batches and picks the few messages that are worth reading aloud. The bot reads only those messages. Before each one, it says "Chat spotlight from" and the name of the viewer. Messages must pass the same rules as in `all` mode, including `!tts permission`, the ignore list and banned words. The bot never offers a message that starts with `!` to the model. `!tts <message>`, cheers, the configured TTS reward, redemption announcements, and events work as in `command` mode. Spotlight mode needs your OBS browser source to be open. See `!tts spotlight` for how to guide the picks.
   * **Permission:** Moderator
   * **Usage:**
       * `!tts mode all`
@@ -312,11 +314,24 @@ All TTS commands start with `!tts` (for example, `!tts status`). You can also re
       * `!tts mode points` (alias for `bits_points_only`)
       * `!tts mode highlighted_only`
       * `!tts mode highlight` (aliases: `highlights`, `highlighted`)
+      * `!tts mode spotlight`
       * `!tts mode` (shows current mode)
+
+**`!tts spotlight <text|off>`**
+
+  * **Description:** Tells the AI model of Spotlight mode which messages you like. The text is a preference, for example `prefer questions about the game`. The rules of the model tell it to skip spam, rude messages, self-promotion, and personal data. The text cannot change these rules. The bot does not read the text aloud. The text has 300 characters at most. The command has no effect outside Spotlight mode.
+      * `off`: Removes the text.
+      * No text: Shows the current text.
+  * **Permission:** Moderator
+  * **Usage:**
+      * `!tts spotlight prefer questions about the game`
+      * `!tts spotlight off`
+      * `!tts spotlight` (shows the current text)
+  * Dashboard: The dashboard has the same text box. It also has a switch that shows a card in the OBS browser source while the bot reads a pick. The card has the name of the viewer and the message. Refresh an OBS browser source that was already open before you turn the card on. The dashboard also lists the latest picks, with the reason for each one.
 
 **`!tts permission [everyone|all|mods]`**
 
-  * **Description:** Filters who can trigger TTS when the bot is in `all` mode.
+  * **Description:** Filters who can trigger TTS when the bot is in `all` or `spotlight` mode.
       * `everyone` or `all`: Reads chat messages from any user. **(Default)**
       * `mods`: Reads chat messages from moderators and the broadcaster only.
   * **Permission:** Moderator

@@ -1,5 +1,5 @@
 // tests/unit/modeCommand.test.js
-// !tts mode <all|command|bits|highlight>: the chat switch for the TTS mode.
+// !tts mode <all|command|bits|highlight|spotlight>: the chat switch for the TTS mode.
 
 import { jest } from '@jest/globals';
 import { getTranslator } from '../../src/i18n/index.js';
@@ -39,6 +39,7 @@ describe('!tts mode', () => {
         await mode.execute(context([]));
         expect(reply()).toMatch(/command/);
         expect(reply()).toMatch(/highlight/);
+        expect(reply()).toMatch(/spotlight/);
         expect(setTtsState).not.toHaveBeenCalled();
     });
 
@@ -53,14 +54,15 @@ describe('!tts mode', () => {
         expect(setTtsState).toHaveBeenCalledWith('testchannel', 'mode', 'bits_points_only');
     });
 
-    it.each(['all', 'command'])('accepts "%s" as is', async (arg) => {
+    it.each(['all', 'command', 'spotlight', 'Spotlight'])('accepts "%s" as is', async (arg) => {
         await mode.execute(context([arg]));
-        expect(setTtsState).toHaveBeenCalledWith('testchannel', 'mode', arg);
+        expect(setTtsState).toHaveBeenCalledWith('testchannel', 'mode', arg.toLowerCase());
     });
 
     it('rejects anything else without writing', async () => {
         await mode.execute(context(['bogus']));
         expect(setTtsState).not.toHaveBeenCalled();
         expect(reply()).toMatch(/highlight/);
+        expect(reply()).toMatch(/spotlight/);
     });
 });

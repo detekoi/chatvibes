@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS опашката вече е ВЪЗОБНОВЕНА.",
   "cmd.queue.invalidAction": "Невалидно действие. Използвай pause или resume.",
   "cmd.queue.cleared": "TTS опашката беше ИЗЧИСТЕНА.",
-  "cmd.mode.current": "Текущият TTS режим е: {mode}. Използвай '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Невалиден режим. Използвай 'all', 'command', 'bits' или 'highlight'.",
+  "cmd.mode.current": "Текущият TTS режим е {mode}. За да го промените, използвайте '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Това не е TTS режим. Използвайте 'all', 'command', 'bits', 'highlight' или 'spotlight'.",
   "cmd.mode.set": "TTS режимът е зададен на: {mode}.",
   "cmd.mode.failed": "TTS режимът не можа да бъде зададен.",
   "cmd.profanity.effect.on": "ругатните се смекчават, преди да бъдат изговорени",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "трябва да е текст",
   "cmd.pronounce.reason.empty": "не може да е празно",
   "cmd.pronounce.reason.tooLong": "трябва да е {max} {max, plural, one {символ} other {символа}} или по-малко",
-  "cmd.pronounce.reason.containsLink": "не може да съдържа линк"
+  "cmd.pronounce.reason.containsLink": "не може да съдържа линк",
+  "announce.spotlight": "Акцент от чата от {user}: {message}",
+  "overlay.spotlight.label": "Акцент от чата",
+  "cmd.spotlight.current": "Насоките за акцент са: {value}. За да ги промените, използвайте {usage}.",
+  "cmd.spotlight.none": "Този канал няма насоки за акцент. За да добавите насоки, използвайте {usage}.",
+  "cmd.spotlight.set": "Ботът запази насоките за акцент: {value}. Насоките важат само в режим spotlight.",
+  "cmd.spotlight.off": "Ботът премахна насоките за акцент.",
+  "cmd.spotlight.tooLong": "Тези насоки са твърде дълги. Използвайте {max} знака или по-малко.",
+  "cmd.spotlight.failed": "Ботът не запази промяната в насоките за акцент. Опитайте отново след миг."
 }

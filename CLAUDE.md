@@ -41,6 +41,8 @@ YouTube chat arrives from `yt-chat-proxy` via `src/components/youtube/ytChatClie
 - `src/components/commands/` — `commandProcessor.js`, `handlers/tts.js` (dispatch map), one file
   per `!tts` subcommand under `tts/`
 - `src/lib/textRewrite/`, `src/lib/profanity/` — pronunciation dictionary, profanity filter
+- `src/lib/spotlight/`: spotlight mode, `spotlightBuffer.js` (batches), `spotlightRouter.js` (the model call),
+  `spotlightPrompt.js` (the rules for the model), `spotlightLog.js` (the pick log)
 - `src/i18n/` — catalogs, `locales.json`, the ICU-subset formatter, the validator
 - `src/lib/ignoreList.js`, `src/lib/rewardMuteList.js`, `src/lib/allowList.js` — each owns a
   Firestore format; never read those fields directly
@@ -53,10 +55,12 @@ YouTube chat arrives from `yt-chat-proxy` via `src/components/youtube/ytChatClie
 | Field | Default | Note |
 |---|---|---|
 | `engineEnabled` | on | Suppresses speech, never commands |
-| `mode` | `command` | `all`, `command`, `bits_points_only`, `highlighted_only` (reads only Twitch "Highlight My Message" chat. Cheers keep `readCheerMessages`) |
+| `mode` | `command` | `all`, `command`, `bits_points_only`, `highlighted_only` (reads only Twitch "Highlight My Message" chat. Cheers keep `readCheerMessages`), `spotlight` (a model picks the few chat messages worth reading) |
 | `botRespondsInChat` | `true` | `false` = listen only, configure from the dashboard |
 | `readCheerMessages`, `bitsMinimumAmount` | `true`, 1 | Cheers skip `ttsPermissionLevel`; forced on in `bits_points_only` |
 | `readCommandMessages` | `true` | `all` mode only: read other bots' `!commands`. Never affects `!tts` or cheers |
+| `spotlightGuidance` | unset | Free text for the router (the model that picks the messages), at most `SPOTLIGHT.GUIDANCE_MAX` (300) characters. A preference only. An empty string clears it |
+| `spotlightCard` | `false` | Shows a card in the browser source while a pick plays. Dashboard only |
 | `speakRedemptionEvents`, `mutedRewardIds` | — | Exclusion map keyed by reward ID; title is display only |
 | `announceUnfulfilledRedemptions` | `true` | Read as `!== false`. In this mode every `.update` is suppressed |
 | `ignoredUserIds` | — | Map of `"<platform>:<accountId>"` to a provenance record |
@@ -74,10 +78,10 @@ preferences. Details: `docs/channel-config.md`.
 
 ## Chat commands
 
-`!tts` + `status`, `on|off`, `mode all|command|bits|highlight`, `voices`, `voice <id>`, `emotion <e>` (old name: writes the style words of the emotion),
+`!tts` + `status`, `on|off`, `mode all|command|bits|highlight|spotlight`, `voices`, `voice <id>`, `emotion <e>` (old name: writes the style words of the emotion),
 `style <text|off>`, `speed <number|word>`, `pitch <number|word>`, `lang <l>`,
 `pause|resume`, `stop` (own message; mods any), `clear`, `ignore [add] <user>`, `ignore del [user]`,
-`<text>` (speak it). Mod only: `defaultlanguage <l>`, `defaultstyle <text|off>`, `tags off|on <tag|all>`,
+`<text>` (speak it). Mod only: `defaultlanguage <l>`, `defaultstyle <text|off>`, `spotlight <text|off>`, `tags off|on <tag|all>`,
 `pronounce <word> = <say>` and
 `pronounce list|remove|off|test|defaults`, `redeems mute|unmute <title>` and `redeems list|all`,
 `readcommands on|off`, `profanity block|allow|status`.
@@ -176,6 +180,21 @@ preferences. Details: `docs/channel-config.md`.
 - Every request sends `store: false`. Do not remove it: the API keeps interactions by default.
 - A setting reaches the model only through `styleBuilder.buildStyle`. Do not add words to the
   style in other places, because long style text makes the voice drift.
+
+**Spotlight**: `docs/spotlight.md`
+- Spotlight candidates are never formatted before a pick. `speak()` runs only for a pick, because an
+  emote description is a model call.
+- A message that starts with `!` is never a candidate, whatever `readCommandMessages` says.
+- Every router request sends `store: false`. Chat text never goes in an info log line.
+- The streamer guidance is a preference. It must not unlock a kind of message that the router rejects.
+- The buffer accepts and flushes only where `ownsBroadcaster()` is true, and it is dropped on
+  ownership `lost`. A handover loses at most one window of candidates.
+- `clipMeta` goes directly before the first frame of the clip, once for each socket. It is never held
+  or replayed.
+- The player sets card text only with `textContent`. Chat is not trusted.
+- The format of `ttsSpotlightLog` is mirrored by hand in `chatvibes-web-ui`
+  (`functions/src/services/spotlight.ts`). Change both together.
+- In `@google/genai` calls, `systemInstruction` must sit inside `config`. The SDK drops a top-level one.
 
 **Voices** — `docs/channel-config.md`
 - Voice IDs come from `gemini-voices.json` (`scripts/sync-gemini-voices.js`). Do not type them

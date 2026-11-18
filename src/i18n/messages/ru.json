@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Очередь TTS ВОЗОБНОВЛЕНА.",
   "cmd.queue.invalidAction": "Недопустимое действие. Используй pause или resume.",
   "cmd.queue.cleared": "Очередь TTS ОЧИЩЕНА.",
-  "cmd.mode.current": "Текущий режим TTS: {mode}. Используй '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Недопустимый режим. Используй 'all', 'command', 'bits' или 'highlight'.",
+  "cmd.mode.current": "Текущий режим TTS: {mode}. Чтобы изменить его, используйте '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Это не режим TTS. Используйте 'all', 'command', 'bits', 'highlight' или 'spotlight'.",
   "cmd.mode.set": "Режим TTS установлен на: {mode}.",
   "cmd.mode.failed": "Не удалось изменить режим TTS.",
   "cmd.profanity.effect.on": "нецензурные слова смягчаются перед озвучкой",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "должно быть текстом",
   "cmd.pronounce.reason.empty": "не может быть пустым",
   "cmd.pronounce.reason.tooLong": "должно содержать не более {max, plural, one {# символа} few {# символов} many {# символов} other {# символа}}",
-  "cmd.pronounce.reason.containsLink": "не может содержать ссылки"
+  "cmd.pronounce.reason.containsLink": "не может содержать ссылки",
+  "announce.spotlight": "В центре внимания чата от {user}: {message}",
+  "overlay.spotlight.label": "В центре внимания чата",
+  "cmd.spotlight.current": "Подсказка для Spotlight: {value}. Чтобы изменить её, используйте {usage}.",
+  "cmd.spotlight.none": "У этого канала нет подсказки для Spotlight. Чтобы добавить её, используйте {usage}.",
+  "cmd.spotlight.set": "Бот сохранил подсказку для Spotlight: {value}. Подсказка действует только в режиме spotlight.",
+  "cmd.spotlight.off": "Бот удалил подсказку для Spotlight.",
+  "cmd.spotlight.tooLong": "Эта подсказка слишком длинная. Используйте не более {max} символов.",
+  "cmd.spotlight.failed": "Бот не сохранил изменение подсказки для Spotlight. Попробуйте ещё раз через мгновение."
 }

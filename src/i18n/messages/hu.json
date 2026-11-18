@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "A TTS várólista újra AKTÍV.",
   "cmd.queue.invalidAction": "Érvénytelen művelet. Használd a pause vagy resume opciót.",
   "cmd.queue.cleared": "A TTS várólista KIÜRÍTVE.",
-  "cmd.mode.current": "A jelenlegi TTS mód: {mode}. Használat: '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Érvénytelen mód. Használd a következőket: 'all', 'command', 'bits' vagy 'highlight'.",
+  "cmd.mode.current": "A jelenlegi TTS-mód: {mode}. A módosításhoz használd a '!tts mode <all|command|bits|highlight|spotlight>' parancsot.",
+  "cmd.mode.invalid": "Ez nem TTS-mód. Használd az 'all', 'command', 'bits', 'highlight' vagy 'spotlight' értéket.",
   "cmd.mode.set": "TTS mód beállítva: {mode}.",
   "cmd.mode.failed": "Nem sikerült beállítani a TTS módot.",
   "cmd.profanity.effect.on": "a káromkodások tompítva lesznek kimondás előtt",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "csak szöveg lehet",
   "cmd.pronounce.reason.empty": "nem lehet üres",
   "cmd.pronounce.reason.tooLong": "legfeljebb {max} karakter lehet",
-  "cmd.pronounce.reason.containsLink": "nem tartalmazhat linket"
+  "cmd.pronounce.reason.containsLink": "nem tartalmazhat linket",
+  "announce.spotlight": "Chat-kiemelés tőle: {user}: {message}",
+  "overlay.spotlight.label": "Chat-kiemelés",
+  "cmd.spotlight.current": "A kiemelési útmutató: {value}. A módosításhoz használd ezt: {usage}.",
+  "cmd.spotlight.none": "Ehhez a csatornához nincs kiemelési útmutató. Útmutató hozzáadásához használd ezt: {usage}.",
+  "cmd.spotlight.set": "A bot elmentette a kiemelési útmutatót: {value}. Az útmutató csak spotlight módban érvényes.",
+  "cmd.spotlight.off": "A bot eltávolította a kiemelési útmutatót.",
+  "cmd.spotlight.tooLong": "Ez az útmutató túl hosszú. Legfeljebb {max} karaktert használj.",
+  "cmd.spotlight.failed": "A bot nem mentette a kiemelési útmutató módosítását. Próbáld újra egy pillanat múlva."
 }

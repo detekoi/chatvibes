@@ -51,6 +51,20 @@ migration. That player labels the frame as MP3, but Chromium reads the WAV heade
 plays it. An OBS source that was open during the cutover continues to work without a
 refresh. It only loses the early start.
 
+## The clip card
+
+A player that announces the hello feature `clipMeta` can show a card for a clip. The server sends
+`{ type: 'clipMeta', clipId, kind, user, text, label, lang }` directly before the first frame of
+the clip. On the PCM path it comes before `audioStart`. On the WAV path it comes before the WAV
+frame. Each socket gets it once. `sendClipMeta` in `webSocket.js` selects the sockets, and
+`processQueue` calls it. The bot sends it only when the clip has `display` data and the channel has
+`spotlightCard` on.
+
+The bot does not hold or replay this message. A held clip replays with no card. A player that does
+not announce `clipMeta` gets no message, so old players keep working. An OBS source that is already
+open must refresh to show the card. The player sets the card text with `textContent`. See
+`docs/spotlight.md` for the card text and the layout.
+
 ## The player
 
 `src/components/web/public/tts-player.js` plays PCM slices with Web Audio. It makes an

@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTSキューを【再開】したよ！",
   "cmd.queue.invalidAction": "無効な操作です。pause または resume を使用してください。",
   "cmd.queue.cleared": "TTSキューを【クリア】したよ！",
-  "cmd.mode.current": "現在のTTSモード: {mode}。使用コマンド: '!tts mode <all|command|bits|highlight>'",
-  "cmd.mode.invalid": "無効なモードです。'all'、'command'、'bits'、'highlight' のいずれかを指定してください。",
+  "cmd.mode.current": "現在のTTSモードは {mode} です。変更するには '!tts mode <all|command|bits|highlight|spotlight>' を使用してください。",
+  "cmd.mode.invalid": "それはTTSモードではありません。'all'、'command'、'bits'、'highlight'、または 'spotlight' を使用してください。",
   "cmd.mode.set": "TTSモードを「{mode}」に設定したよ！",
   "cmd.mode.failed": "TTSモードを設定できませんでした。",
   "cmd.profanity.effect.on": "不適切な言葉をマイルドに変換して読み上げ",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "テキストである必要があります",
   "cmd.pronounce.reason.empty": "空にすることはできません",
   "cmd.pronounce.reason.tooLong": "{max}文字以内である必要があります",
-  "cmd.pronounce.reason.containsLink": "リンクを含めることはできません"
+  "cmd.pronounce.reason.containsLink": "リンクを含めることはできません",
+  "announce.spotlight": "{user}からのチャットスポットライト：{message}",
+  "overlay.spotlight.label": "チャットスポットライト",
+  "cmd.spotlight.current": "スポットライトの指針は {value} です。変更するには {usage} を使用してください。",
+  "cmd.spotlight.none": "このチャンネルにはスポットライトの指針がありません。指針を追加するには {usage} を使用してください。",
+  "cmd.spotlight.set": "ボットがスポットライトの指針を保存しました：{value}。この指針は spotlight モードでのみ適用されます。",
+  "cmd.spotlight.off": "ボットがスポットライトの指針を削除しました。",
+  "cmd.spotlight.tooLong": "指針が長すぎます。{max}文字以内で入力してください。",
+  "cmd.spotlight.failed": "ボットはスポットライトの指針の変更を保存できませんでした。少し待ってからもう一度お試しください。"
 }

@@ -365,6 +365,90 @@ describe('WebSocket audio delivery', () => {
         });
     });
 
+    // The card a browser source shows while a clip plays (spotlight mode). The queue
+    // calls sendClipMeta directly before the clip's first frame on each path, with the
+    // same selection as the send that follows.
+    describe('clip meta', () => {
+        const CARD_PLAYER = [...CURRENT_PLAYER, 'clipMeta'];
+        const meta = { kind: 'spotlight', user: 'ViewerName', text: 'hello there', label: 'Chat spotlight', lang: 'en' };
+        const metaFrames = messages => jsonFrames(messages).filter(m => m.type === 'clipMeta');
+
+        // What processQueue does: meta, stream, then meta and the whole clip for the rest.
+        function deliver(clipId = 'clip-1', { whole = bufferPayload(), slices = [Buffer.from([1, 0])] } = {}) {
+            const streamMeta = webSocketModule.sendClipMeta(CHANNEL, clipId, meta, { streamOnly: true });
+            const stream = webSocketModule.openClipStream(CHANNEL, clipId);
+            slices.forEach(s => stream?.chunk(s));
+            stream?.end();
+            const exclude = stream?.recipients || new Set();
+            webSocketModule.sendClipMeta(CHANNEL, clipId, meta, { exclude: new Set([...exclude, ...streamMeta]) });
+            webSocketModule.sendAudioToChannel(CHANNEL, whole, stream ? { exclude } : undefined);
+        }
+
+        test('precedes audioStart, with the same clipId, on a PCM player', async () => {
+            const { ws, messages } = await connect({ features: CARD_PLAYER });
+            deliver('clip-7');
+            await settle();
+
+            expect(wireOrder(messages)).toEqual(['clipMeta', 'audioStart', 'slice', 'audioEnd']);
+            expect(jsonFrames(messages)[0]).toEqual({ type: 'clipMeta', clipId: 'clip-7', ...meta });
+            expect(jsonFrames(messages)[1].clipId).toBe('clip-7');
+            ws.close();
+        });
+
+        test('precedes the WAV frame on a player without PCM, and each socket gets it once', async () => {
+            const pcm = await connect({ features: CARD_PLAYER });
+            const wavOnly = await connect({ features: ['binaryAudio', 'clipMeta'] });
+            deliver('clip-8');
+            await settle();
+
+            expect(wireOrder(wavOnly.messages)).toEqual(['clipMeta', 'slice']);
+            expect(metaFrames(wavOnly.messages)).toEqual([{ type: 'clipMeta', clipId: 'clip-8', ...meta }]);
+            expect(metaFrames(pcm.messages)).toHaveLength(1);
+            expect(wireOrder(pcm.messages)).toEqual(['clipMeta', 'audioStart', 'slice', 'audioEnd']);
+            pcm.ws.close();
+            wavOnly.ws.close();
+        });
+
+        test('is not sent to a player that did not announce clipMeta', async () => {
+            const { ws, messages } = await connect({ features: CURRENT_PLAYER });
+            deliver();
+            await settle();
+
+            expect(metaFrames(messages)).toEqual([]);
+            expect(wireOrder(messages)).toEqual(['audioStart', 'slice', 'audioEnd']);
+            ws.close();
+        });
+
+        test('is not sent to a player that has not said hello', async () => {
+            const { ws, messages } = await connect({ announceBinary: false });
+            expect(webSocketModule.sendClipMeta(CHANNEL, 'clip-1', meta).size).toBe(0);
+            await settle();
+            expect(metaFrames(messages)).toEqual([]);
+            ws.close();
+        });
+
+        test('sends nothing without card data', async () => {
+            const { ws, messages } = await connect({ features: CARD_PLAYER });
+            expect(webSocketModule.sendClipMeta(CHANNEL, 'clip-1', null).size).toBe(0);
+            await settle();
+            expect(metaFrames(messages)).toEqual([]);
+            ws.close();
+        });
+
+        test('is not held or replayed with a held clip', async () => {
+            // No player yet: the meta reaches nobody, the clip is held.
+            expect(webSocketModule.sendClipMeta(CHANNEL, 'clip-1', meta).size).toBe(0);
+            const payload = bufferPayload();
+            webSocketModule.sendAudioToChannel(CHANNEL, payload);
+
+            const { ws, messages } = await connect({ features: CARD_PLAYER });
+
+            expect(audioFrames(messages)).toEqual([payload.data]);
+            expect(metaFrames(messages)).toEqual([]);
+            ws.close();
+        });
+    });
+
     describe('outdated-player chat notice', () => {
         test('nudges the channel when a buffer cannot be delivered', async () => {
             const { ws } = await connect({ announceBinary: false });

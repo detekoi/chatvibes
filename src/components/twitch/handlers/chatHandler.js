@@ -13,11 +13,12 @@ import { getSharedSessionInfo } from '../eventUtils.js';
 import { isGeminiAvailable } from '../../../lib/emotes/index.js';
 import { formatTtsText } from '../../../lib/formatTtsText.js';
 import { getPronunciationRules } from '../../../lib/textRewrite/pronunciation.js';
-import { resolveChannelLocale } from '../../../i18n/index.js';
+import { resolveChannelLocale, getTranslator } from '../../../i18n/index.js';
 import { storeFragments } from '../redemptionFragmentCache.js';
 import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
 import { containsBannedWord } from '../../../lib/bannedWords.js';
 import { isTtsSubCommand } from '../../commands/tts/subcommandNames.js';
+import { offerSpotlightCandidate } from '../../../lib/spotlight/spotlightBuffer.js';
 
 /**
  * Handle channel.chat.message events
@@ -205,7 +206,12 @@ export async function handleChatMessage(event, channelName) {
     const isCommandShaped = cleanMessage.trimStart().startsWith('!');
     const skipCommandMessage = ttsConfig.readCommandMessages === false && isCommandShaped;
 
-    // Format the message and dispatch it as speech of the given type.
+    // The name a spotlight clip says. Announcements name a viewer by display name.
+    const displayName = event.chatter_user_name || event.chatter_user_login || username;
+
+    // Format the message and dispatch it as speech of the given type. Resolves
+    // true when something was dispatched. A spotlight pick is said with a prefix
+    // that names the viewer, in the channel's language.
     const speak = async (type) => {
         const processedMessage = await formatTtsText(cleanMessage, ttsFragments, {
             emoteMode,
@@ -214,9 +220,18 @@ export async function handleChatMessage(event, channelName) {
             pronunciationRules: getPronunciationRules(ttsConfig),
             locale,
         });
-        if (!processedMessage) return;
-        await dispatchTtsEvent(channelName, { text: processedMessage, user: username, userId, type, messageId: event.message_id }, sharedSessionInfo);
+        if (!processedMessage) return false;
+        const isSpotlight = type === 'spotlight';
+        const text = isSpotlight
+            ? getTranslator(locale)('announce.spotlight', { user: displayName, message: processedMessage })
+            : processedMessage;
+        const eventData = { text, user: username, userId, type, messageId: event.message_id };
+        // The card the browser source can show while the clip plays: the viewer's
+        // own words, not the formatted speech. ttsQueue.enqueue filters and cuts it.
+        if (isSpotlight) eventData.display = { kind: 'spotlight', user: displayName, text: cleanMessage };
+        await dispatchTtsEvent(channelName, eventData, sharedSessionInfo);
         logger.debug({ channel: channelName, user: username, type, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
+        return true;
     };
 
     // A. If a command was just run, decide if we should READ the command text aloud
@@ -233,7 +248,9 @@ export async function handleChatMessage(event, channelName) {
             logger.info({ channel: channelName, mode: ttsConfig.mode }, 'Skipping command in bits_points_only mode');
             return;
         } else {
-            // Command mode or tts command - command handler already enqueued if needed
+            // Command, spotlight or highlighted_only mode, or a !tts command: the
+            // command handler already enqueued speech if there was any. Spotlight
+            // mode never sends a command to the router.
             logger.debug({ channel: channelName, command: processedCommandName, mode: ttsConfig.mode }, 'Command processed, not reading command text aloud');
         }
     }
@@ -268,6 +285,36 @@ export async function handleChatMessage(event, channelName) {
             } else {
                 logger.debug({ channel: channelName, mode: ttsConfig.mode }, 'Skipping non-highlighted chat in highlighted_only mode');
             }
+        }
+        // Spotlight mode: the message becomes a candidate, and the router decides
+        // later whether it is read. Same gates as all mode, except that a message
+        // starting with "!" is never a candidate, whatever readCommandMessages
+        // says. Nothing is formatted here: speak() runs only for a pick. A
+        // highlighted message is an ordinary candidate in this mode.
+        else if (ttsConfig.mode === 'spotlight') {
+            if (isCommandShaped) {
+                logger.debug({ channel: channelName, user: username }, 'Skipping chat in spotlight mode - starts with !');
+                return;
+            }
+            const requiredPermission = mapPermissionLevel(ttsConfig.ttsPermissionLevel);
+            if (requiredPermission === null) {
+                logger.debug({ channel: channelName, user: username, ttsPermissionLevel: ttsConfig.ttsPermissionLevel }, 'Skipping chat - unrecognized ttsPermissionLevel');
+                return;
+            }
+            if (!hasPermission(requiredPermission, tags, channelName)) {
+                logger.debug({ channel: channelName, user: username, requiredPermission }, 'Skipping chat - insufficient permission');
+                return;
+            }
+            offerSpotlightCandidate({
+                broadcasterId: event.broadcaster_user_id,
+                channelName,
+                id: event.message_id || null,
+                user: displayName,
+                userId: userId || null,
+                text: cleanMessage,
+                platform: 'twitch',
+                speak: () => speak('spotlight'),
+            });
         }
         // Handle regular chat messages (no bits)
         else if (ttsConfig.mode === 'all') {

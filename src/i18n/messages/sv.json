@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS-kön är nu ÅTERUPPTAGEN.",
   "cmd.queue.invalidAction": "Ogiltig åtgärd. Använd pause eller resume.",
   "cmd.queue.cleared": "TTS-kön har TÖMTS.",
-  "cmd.mode.current": "Nuvarande TTS-läge är: {mode}. Använd '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Ogiltigt läge. Använd 'all', 'command', 'bits' eller 'highlight'.",
+  "cmd.mode.current": "Nuvarande TTS-läge är {mode}. Använd '!tts mode <all|command|bits|highlight|spotlight>' för att ändra det.",
+  "cmd.mode.invalid": "Det är inte ett TTS-läge. Använd 'all', 'command', 'bits', 'highlight' eller 'spotlight'.",
   "cmd.mode.set": "TTS-läge ändrat till: {mode}.",
   "cmd.mode.failed": "Kunde inte ändra TTS-läge.",
   "cmd.profanity.effect.on": "svordomar dämpas innan de läses upp",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "måste vara text",
   "cmd.pronounce.reason.empty": "får inte vara tom",
   "cmd.pronounce.reason.tooLong": "måste vara {max} tecken eller färre",
-  "cmd.pronounce.reason.containsLink": "får inte innehålla en länk"
+  "cmd.pronounce.reason.containsLink": "får inte innehålla en länk",
+  "announce.spotlight": "Chatt-spotlight från {user}: {message}",
+  "overlay.spotlight.label": "Chatt-spotlight",
+  "cmd.spotlight.current": "Spotlight-riktlinjen är: {value}. Använd {usage} för att ändra den.",
+  "cmd.spotlight.none": "Den här kanalen har ingen spotlight-riktlinje. Använd {usage} för att lägga till en.",
+  "cmd.spotlight.set": "Botten sparade spotlight-riktlinjen: {value}. Riktlinjen gäller bara i spotlight-läge.",
+  "cmd.spotlight.off": "Botten tog bort spotlight-riktlinjen.",
+  "cmd.spotlight.tooLong": "Den riktlinjen är för lång. Använd {max} tecken eller färre.",
+  "cmd.spotlight.failed": "Botten sparade inte ändringen av spotlight-riktlinjen. Försök igen om en stund."
 }

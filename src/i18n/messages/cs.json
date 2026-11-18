@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS fronta byla OBNOVENA.",
   "cmd.queue.invalidAction": "Neplatná akce. Použij pause nebo resume.",
   "cmd.queue.cleared": "TTS fronta byla VYMAZÁNA.",
-  "cmd.mode.current": "Aktuální režim TTS je: {mode}. Použij '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Neplatný režim. Použij 'all', 'command', 'bits' nebo 'highlight'.",
+  "cmd.mode.current": "Aktuální režim TTS je {mode}. Pro změnu použijte '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Toto není režim TTS. Použijte 'all', 'command', 'bits', 'highlight' nebo 'spotlight'.",
   "cmd.mode.set": "Režim TTS nastaven na: {mode}.",
   "cmd.mode.failed": "Nepodařilo se nastavit režim TTS.",
   "cmd.profanity.effect.on": "sprostá slova jsou před vyslovením zjemněna",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "musí být text",
   "cmd.pronounce.reason.empty": "nesmí být prázdná",
   "cmd.pronounce.reason.tooLong": "{max, plural, one {musí mít nejvýše {max} znak} few {musí mít nejvýše {max} znaky} many {musí mít nejvýše {max} znaků} other {musí mít nejvýše {max} znaků}}",
-  "cmd.pronounce.reason.containsLink": "nesmí obsahovat odkaz"
+  "cmd.pronounce.reason.containsLink": "nesmí obsahovat odkaz",
+  "announce.spotlight": "Výběr z chatu od {user}: {message}",
+  "overlay.spotlight.label": "Výběr z chatu",
+  "cmd.spotlight.current": "Pokyny pro výběr jsou: {value}. Pro změnu použijte {usage}.",
+  "cmd.spotlight.none": "Tento kanál nemá žádné pokyny pro výběr. Pro přidání použijte {usage}.",
+  "cmd.spotlight.set": "Bot uložil pokyny pro výběr: {value}. Pokyny platí pouze v režimu spotlight.",
+  "cmd.spotlight.off": "Bot odstranil pokyny pro výběr.",
+  "cmd.spotlight.tooLong": "Tyto pokyny jsou příliš dlouhé. Použijte nejvýše {max} znaků.",
+  "cmd.spotlight.failed": "Bot neuložil změnu pokynů pro výběr. Zkuste to za chvíli znovu."
 }

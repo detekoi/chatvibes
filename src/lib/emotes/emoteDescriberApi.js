@@ -6,7 +6,7 @@ import { withTimeout } from '../timeUtils.js';
 import config from '../../config/index.js';
 import logger from '../logger.js';
 import { getCachedDescription, cacheDescription } from './emoteCache.js';
-import { DEFAULT_LOCALE, LANGUAGE_BOOSTS } from '../../i18n/index.js';
+import { DEFAULT_LOCALE, languageNameForLocale } from '../../i18n/index.js';
 import { fetchEmoteImage, fetchAnimatedEmoteFrames } from './emoteImageFetcher.js';
 
 const { geminiModel, timeoutMs, animatedTimeoutMs } = config.emote;
@@ -21,15 +21,6 @@ Rules:
 - Do not output the emote's raw alphanumeric string verbatim (e.g. do not say "parfai14Parfait" or "LUL"). You may use meaningful English words embedded in the name (e.g. "parfait dessert" from "parfai14Parfait" is fine), but do not begin your reply with the full emote token itself.
 - When describing pride flags, always name the specific flag rather than generic terms. Examples: "rainbow Pride flag", "bisexual Pride flag", "transgender Pride flag", "lesbian Pride flag", "pansexual Pride flag", "nonbinary Pride flag", "asexual Pride flag". These are important cultural identifiers and accurate naming is essential for accessibility.`;
 
-// BCP-47 -> the language's own name, for the prompt. Sourced from the same
-// table the rest of the bot uses rather than a second hand-written list.
-// The English name paired with the endonym. The name alone is the provider's
-// enum value, so Cantonese reads as "Chinese,Yue" — the endonym removes the
-// ambiguity without needing a second hand-maintained list of names.
-const LANGUAGE_NAMES = new Map(
-    Object.entries(LANGUAGE_BOOSTS).map(([name, v]) => [v.bcp47, `${name} (${v.endonym})`])
-);
-
 /**
  * The clause that tells the model which language to answer in.
  *
@@ -39,7 +30,7 @@ const LANGUAGE_NAMES = new Map(
  */
 function languageClause(locale) {
     if (!locale || locale === DEFAULT_LOCALE) return '';
-    const name = LANGUAGE_NAMES.get(locale);
+    const name = languageNameForLocale(locale);
     if (!name) return '';
     return ` Reply in ${name}, not English.`;
 }

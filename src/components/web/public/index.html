@@ -1,11 +1,116 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TTS Audio Player</title>
-    <style>body { background-color: transparent; margin: 0; overflow: hidden; }</style>
+    <!-- The card fonts of the Wildcat design system. Without the network the card
+         falls back to system-ui and still works. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Public+Sans:wght@400;500&display=swap">
+    <style>
+        /* Copied from wildcat-design-system/design-system.css, section 1, dark theme
+           values (an OBS source cannot load that file at runtime):
+             --wc-font-name, --wc-font-body       Archivo / Public Sans
+             --wc-surface-1  oklch(0.214 0.005 300)   card background
+             --wc-text-1     oklch(0.940 0.004 300)   name and message (14.7:1 on surface-1)
+             --wc-accent     oklch(0.665 0.105 300)   label (5.5:1 on surface-1)
+             --wc-accent-dim oklch(0.430 0.062 300)   offset shadow
+             --wc-border     oklch(0.324 0.008 300)   outline
+             --wc-radius-card 2px, --wc-gutter 24px
+             --wc-icon-message-square                 label icon
+             The hard offset shadow is the one of .wc-btn--ghost.
+           The card is the dark theme on purpose: the stream behind it is unknown, so
+           the card brings its own near-opaque background and never relies on it. */
+        :root {
+            --wc-font-name: 'Archivo', system-ui, sans-serif;
+            --wc-font-body: 'Public Sans', system-ui, sans-serif;
+            --wc-surface-1: oklch(0.214 0.005 300);
+            --wc-text-1: oklch(0.940 0.004 300);
+            --wc-accent: oklch(0.665 0.105 300);
+            --wc-accent-dim: oklch(0.430 0.062 300);
+            --wc-border: oklch(0.324 0.008 300);
+            --wc-radius-card: 2px;
+            --wc-gutter: 24px;
+            --wc-icon-message-square: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z'/></svg>");
+        }
+
+        /* The page itself stays fully transparent: OBS composites it over the stream. */
+        html, body { background: transparent; margin: 0; overflow: hidden; }
+
+        .clip-card {
+            position: fixed;
+            inset-inline-start: var(--wc-gutter);
+            inset-block-end: var(--wc-gutter);
+            box-sizing: border-box;
+            inline-size: max-content;
+            max-inline-size: min(560px, calc(100vw - 2 * var(--wc-gutter)));
+            padding: 14px 20px 16px;
+            background: color-mix(in oklab, var(--wc-surface-1) 96%, transparent);
+            border: 1px solid var(--wc-border);
+            border-radius: var(--wc-radius-card);
+            box-shadow: 6px 6px 0 var(--wc-accent-dim);
+            color: var(--wc-text-1);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 160ms ease-out, transform 160ms ease-out;
+            pointer-events: none;
+        }
+        .clip-card[hidden] { display: none; }
+        .clip-card.is-visible { opacity: 1; transform: none; transition-duration: 200ms; }
+
+        .clip-card__label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 0 6px;
+            font: 600 15px/1.2 var(--wc-font-name);
+            letter-spacing: 0.01em;
+            color: var(--wc-accent);
+        }
+        .clip-card__label::before {
+            content: '';
+            flex: none;
+            inline-size: 16px;
+            block-size: 16px;
+            background: currentColor;
+            -webkit-mask: var(--wc-icon-message-square) center / contain no-repeat;
+            mask: var(--wc-icon-message-square) center / contain no-repeat;
+        }
+        .clip-card__user {
+            margin: 0 0 4px;
+            font: 700 22px/1.2 var(--wc-font-name);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .clip-card__text {
+            margin: 0;
+            font: 400 21px/1.4 var(--wc-font-body);
+            overflow-wrap: anywhere;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 4;
+            line-clamp: 4;
+            overflow: hidden;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .clip-card, .clip-card.is-visible { transition: none; transform: none; }
+        }
+    </style>
 </head>
 <body>
     <audio id="ttsAudioPlayer"></audio>
+    <!-- The card repeats what the audio says, for the stream only. aria-hidden keeps
+         a screen reader in a normal browser from reading it a second time; it has
+         no focusable element. -->
+    <div id="clipCard" class="clip-card" aria-hidden="true" hidden>
+        <p id="clipCardLabel" class="clip-card__label" dir="auto"></p>
+        <p id="clipCardUser" class="clip-card__user" dir="auto"></p>
+        <p id="clipCardText" class="clip-card__text" dir="auto"></p>
+    </div>
     <script src="tts-player.js"></script>
 </body>
 </html>

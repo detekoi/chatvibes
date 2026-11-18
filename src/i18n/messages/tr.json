@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS sırası DEVAM ETTİRİLİYOR.",
   "cmd.queue.invalidAction": "Geçersiz işlem. 'pause' veya 'resume' kullanın.",
   "cmd.queue.cleared": "TTS sırası TEMİZLENDİ.",
-  "cmd.mode.current": "Geçerli TTS modu: {mode}. '!tts mode <all|command|bits|highlight>' komutunu kullan.",
-  "cmd.mode.invalid": "Geçersiz mod. 'all', 'command', 'bits' veya 'highlight' kullan.",
+  "cmd.mode.current": "Mevcut TTS modu {mode}. Değiştirmek için '!tts mode <all|command|bits|highlight|spotlight>' kullanın.",
+  "cmd.mode.invalid": "Bu bir TTS modu değil. 'all', 'command', 'bits', 'highlight' veya 'spotlight' kullanın.",
   "cmd.mode.set": "TTS modu şu şekilde ayarlandı: {mode}.",
   "cmd.mode.failed": "TTS modu ayarlanamadı.",
   "cmd.profanity.effect.on": "küfürler okunmadan önce yumuşatılır",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "metin olmalıdır",
   "cmd.pronounce.reason.empty": "boş olamaz",
   "cmd.pronounce.reason.tooLong": "en fazla {max} karakter olmalıdır",
-  "cmd.pronounce.reason.containsLink": "link içeremez"
+  "cmd.pronounce.reason.containsLink": "link içeremez",
+  "announce.spotlight": "{user} kullanıcısından sohbet öne çıkanı: {message}",
+  "overlay.spotlight.label": "Sohbet öne çıkanı",
+  "cmd.spotlight.current": "Spotlight yönergesi: {value}. Değiştirmek için {usage} kullanın.",
+  "cmd.spotlight.none": "Bu kanalda spotlight yönergesi yok. Yönerge eklemek için {usage} kullanın.",
+  "cmd.spotlight.set": "Bot spotlight yönergesini kaydetti: {value}. Yönerge yalnızca spotlight modunda geçerlidir.",
+  "cmd.spotlight.off": "Bot spotlight yönergesini kaldırdı.",
+  "cmd.spotlight.tooLong": "Bu yönerge çok uzun. En fazla {max} karakter kullanın.",
+  "cmd.spotlight.failed": "Bot spotlight yönergesindeki değişikliği kaydetmedi. Birazdan tekrar deneyin."
 }

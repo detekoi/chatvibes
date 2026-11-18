@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS 隊列現已 RESUMED。",
   "cmd.queue.invalidAction": "無效嘅操作。請使用 pause 或 resume。",
   "cmd.queue.cleared": "TTS 隊列已經 CLEARED。",
-  "cmd.mode.current": "目前嘅 TTS 模式係：{mode}。請使用 '!tts mode <all|command|bits|highlight>'。",
-  "cmd.mode.invalid": "無效嘅模式。請使用 'all'、'command'、'bits' 或 'highlight'。",
+  "cmd.mode.current": "目前嘅 TTS 模式係 {mode}。要更改，請使用 '!tts mode <all|command|bits|highlight|spotlight>'。",
+  "cmd.mode.invalid": "呢個唔係 TTS 模式。請使用 'all'、'command'、'bits'、'highlight' 或者 'spotlight'。",
   "cmd.mode.set": "TTS 模式已設定為：{mode}。",
   "cmd.mode.failed": "無法設定 TTS 模式。",
   "cmd.profanity.effect.on": "粗口喺讀出嚟之前會先被過濾弱化",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "一定要係文字",
   "cmd.pronounce.reason.empty": "唔可以留空",
   "cmd.pronounce.reason.tooLong": "最多只可以有 {max} 個字",
-  "cmd.pronounce.reason.containsLink": "唔可以包含連結"
+  "cmd.pronounce.reason.containsLink": "唔可以包含連結",
+  "announce.spotlight": "{user} 嘅聊天室焦點：{message}",
+  "overlay.spotlight.label": "聊天室焦點",
+  "cmd.spotlight.current": "焦點指引係：{value}。要更改，請使用 {usage}。",
+  "cmd.spotlight.none": "呢個頻道冇焦點指引。要加入指引，請使用 {usage}。",
+  "cmd.spotlight.set": "機械人已經儲存焦點指引：{value}。指引只會喺 spotlight 模式生效。",
+  "cmd.spotlight.off": "機械人已經移除焦點指引。",
+  "cmd.spotlight.tooLong": "指引太長。請使用 {max} 個字元或以下。",
+  "cmd.spotlight.failed": "機械人未有儲存焦點指引嘅更改。請稍後再試。"
 }

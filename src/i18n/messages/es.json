@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "La cola de TTS se ha REANUDADO.",
   "cmd.queue.invalidAction": "Acción no válida. Usa pause o resume.",
   "cmd.queue.cleared": "La cola de TTS se ha VACIADO.",
-  "cmd.mode.current": "El modo actual de TTS es: {mode}. Usa '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Modo no válido. Usa 'all', 'command', 'bits' o 'highlight'.",
+  "cmd.mode.current": "El modo de TTS actual es {mode}. Para cambiarlo, usa '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Eso no es un modo de TTS. Usa 'all', 'command', 'bits', 'highlight' o 'spotlight'.",
   "cmd.mode.set": "Modo de TTS configurado en: {mode}.",
   "cmd.mode.failed": "No se pudo configurar el modo de TTS.",
   "cmd.profanity.effect.on": "las malas palabras se suavizan antes de pronunciarse",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "debe ser texto",
   "cmd.pronounce.reason.empty": "no puede estar vacía",
   "cmd.pronounce.reason.tooLong": "debe tener {max} caracteres o menos",
-  "cmd.pronounce.reason.containsLink": "no puede contener un enlace"
+  "cmd.pronounce.reason.containsLink": "no puede contener un enlace",
+  "announce.spotlight": "Chat destacado de {user}: {message}",
+  "overlay.spotlight.label": "Chat destacado",
+  "cmd.spotlight.current": "La guía de destacados es: {value}. Para cambiarla, usa {usage}.",
+  "cmd.spotlight.none": "Este canal no tiene guía de destacados. Para añadir una guía, usa {usage}.",
+  "cmd.spotlight.set": "El bot guardó la guía de destacados: {value}. La guía solo se aplica en el modo spotlight.",
+  "cmd.spotlight.off": "El bot eliminó la guía de destacados.",
+  "cmd.spotlight.tooLong": "Esa guía es demasiado larga. Usa {max} caracteres o menos.",
+  "cmd.spotlight.failed": "El bot no guardó el cambio en la guía de destacados. Inténtalo de nuevo en un momento."
 }

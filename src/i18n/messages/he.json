@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "תור ה-TTS חודש כעת.",
   "cmd.queue.invalidAction": "פעולה לא תקינה. יש להשתמש ב-pause או resume.",
   "cmd.queue.cleared": "תור ה-TTS נוקה.",
-  "cmd.mode.current": "מצב ה-TTS הנוכחי הוא: {mode}. יש להשתמש ב-'!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "מצב לא תקין. יש להשתמש ב-'all', 'command', 'bits' או 'highlight'.",
+  "cmd.mode.current": "מצב ה-TTS הנוכחי הוא {mode}. כדי לשנות אותו, השתמשו ב-'!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "זה לא מצב TTS. השתמשו ב-'all', 'command', 'bits', 'highlight' או 'spotlight'.",
   "cmd.mode.set": "מצב ה-TTS הוגדר ל: {mode}.",
   "cmd.mode.failed": "לא ניתן להגדיר את מצב ה-TTS.",
   "cmd.profanity.effect.on": "קללות מעודנות לפני שהן מוקראות",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "חייבת להיות טקסט",
   "cmd.pronounce.reason.empty": "לא יכולה להיות ריקה",
   "cmd.pronounce.reason.tooLong": "חייבת להיות {max} תווים לכל היותר",
-  "cmd.pronounce.reason.containsLink": "לא יכולה להכיל קישור"
+  "cmd.pronounce.reason.containsLink": "לא יכולה להכיל קישור",
+  "announce.spotlight": "זרקור צ׳אט מאת {user}: {message}",
+  "overlay.spotlight.label": "זרקור צ׳אט",
+  "cmd.spotlight.current": "הנחיית הזרקור היא: {value}. כדי לשנות אותה, השתמשו ב-{usage}.",
+  "cmd.spotlight.none": "לערוץ הזה אין הנחיית זרקור. כדי להוסיף הנחיה, השתמשו ב-{usage}.",
+  "cmd.spotlight.set": "הבוט שמר את הנחיית הזרקור: {value}. ההנחיה חלה רק במצב spotlight.",
+  "cmd.spotlight.off": "הבוט הסיר את הנחיית הזרקור.",
+  "cmd.spotlight.tooLong": "הנחיה זו ארוכה מדי. השתמשו ב-{max} תווים או פחות.",
+  "cmd.spotlight.failed": "הבוט לא שמר את השינוי בהנחיית הזרקור. נסו שוב בעוד רגע."
 }

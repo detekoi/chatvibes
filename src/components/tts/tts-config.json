@@ -24,6 +24,9 @@
     "MAX": 12,
     "DEFAULT": 0
   },
+  "SPOTLIGHT": {
+    "GUIDANCE_MAX": 300
+  },
   "SPEED": {
     "MIN": 0.5,
     "MAX": 2.0,

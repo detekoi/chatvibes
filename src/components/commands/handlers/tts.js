@@ -36,6 +36,7 @@ import readCommands from '../tts/readCommands.js';
 import style from '../tts/style.js';
 import defaultStyle from '../tts/defaultStyle.js';
 import tags from '../tts/tags.js';
+import spotlight from '../tts/spotlight.js';
 import { hasPermission } from '../commandProcessor.js'; // Import the centralized function
 // Create subcommands object. Exported so tests can check it against
 // tts/subcommandNames.js, which the YouTube path consults (see that file).
@@ -89,6 +90,7 @@ export const ttsSubCommands = {
     reward: redeems,
     readcommands: readCommands,
     chatcommands: readCommands,
+    spotlight,
 };
 
 export default {

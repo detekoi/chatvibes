@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Чергу TTS ВІДНОВЛЕНО.",
   "cmd.queue.invalidAction": "Некоректна дія. Використовуйте pause або resume.",
   "cmd.queue.cleared": "Чергу TTS ОЧИЩЕНО.",
-  "cmd.mode.current": "Поточний режим TTS: {mode}. Використовуйте '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Некоректний режим. Використовуйте 'all', 'command', 'bits' або 'highlight'.",
+  "cmd.mode.current": "Поточний режим TTS: {mode}. Щоб змінити його, використайте '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Це не режим TTS. Використайте 'all', 'command', 'bits', 'highlight' або 'spotlight'.",
   "cmd.mode.set": "Режим TTS встановлено на: {mode}.",
   "cmd.mode.failed": "Не вдалося встановити режим TTS.",
   "cmd.profanity.effect.on": "лайливі слова пом'якшуються перед озвученням",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "має бути текстом",
   "cmd.pronounce.reason.empty": "не може бути порожньою",
   "cmd.pronounce.reason.tooLong": "має містити не більше {max} символів",
-  "cmd.pronounce.reason.containsLink": "не може містити посилання"
+  "cmd.pronounce.reason.containsLink": "не може містити посилання",
+  "announce.spotlight": "У центрі уваги чату від {user}: {message}",
+  "overlay.spotlight.label": "У центрі уваги чату",
+  "cmd.spotlight.current": "Підказка для Spotlight: {value}. Щоб змінити її, використайте {usage}.",
+  "cmd.spotlight.none": "У цього каналу немає підказки для Spotlight. Щоб додати її, використайте {usage}.",
+  "cmd.spotlight.set": "Бот зберіг підказку для Spotlight: {value}. Підказка діє лише в режимі spotlight.",
+  "cmd.spotlight.off": "Бот видалив підказку для Spotlight.",
+  "cmd.spotlight.tooLong": "Ця підказка задовга. Використайте не більше {max} символів.",
+  "cmd.spotlight.failed": "Бот не зберіг зміну підказки для Spotlight. Спробуйте ще раз за мить."
 }

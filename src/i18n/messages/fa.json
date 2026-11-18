@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "صف TTS اکنون RESUMED شد.",
   "cmd.queue.invalidAction": "عملیات نامعتبر است. از pause یا resume استفاده کنید.",
   "cmd.queue.cleared": "صف TTS به طور کامل پاک شد.",
-  "cmd.mode.current": "حالت فعلی TTS روی {mode} است. از '!tts mode <all|command|bits|highlight>' استفاده کنید.",
-  "cmd.mode.invalid": "حالت نامعتبر است. از 'all'، 'command'، 'bits' یا 'highlight' استفاده کنید.",
+  "cmd.mode.current": "حالت فعلی TTS برابر {mode} است. برای تغییر آن از '!tts mode <all|command|bits|highlight|spotlight>' استفاده کنید.",
+  "cmd.mode.invalid": "این یک حالت TTS نیست. از 'all'، 'command'، 'bits'، 'highlight' یا 'spotlight' استفاده کنید.",
   "cmd.mode.set": "حالت TTS روی {mode} تنظیم شد.",
   "cmd.mode.failed": "تنظیم حالت TTS ممکن نشد.",
   "cmd.profanity.effect.on": "کلمات رکیک قبل از خوانده شدن تلطیف می‌شوند",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "باید متن باشد",
   "cmd.pronounce.reason.empty": "نمی‌تواند خالی باشد",
   "cmd.pronounce.reason.tooLong": "باید {max} کاراکتر یا کمتر باشد",
-  "cmd.pronounce.reason.containsLink": "نمی‌تواند حاوی لینک باشد"
+  "cmd.pronounce.reason.containsLink": "نمی‌تواند حاوی لینک باشد",
+  "announce.spotlight": "برگزیده گفتگو از {user}: {message}",
+  "overlay.spotlight.label": "برگزیده گفتگو",
+  "cmd.spotlight.current": "راهنمای برگزیده این است: {value}. برای تغییر آن از {usage} استفاده کنید.",
+  "cmd.spotlight.none": "این کانال راهنمای برگزیده ندارد. برای افزودن راهنما از {usage} استفاده کنید.",
+  "cmd.spotlight.set": "ربات راهنمای برگزیده را ذخیره کرد: {value}. این راهنما فقط در حالت spotlight اعمال می‌شود.",
+  "cmd.spotlight.off": "ربات راهنمای برگزیده را حذف کرد.",
+  "cmd.spotlight.tooLong": "این راهنما بیش از حد طولانی است. از {max} نویسه یا کمتر استفاده کنید.",
+  "cmd.spotlight.failed": "ربات تغییر در راهنمای برگزیده را ذخیره نکرد. لحظه‌ای دیگر دوباره تلاش کنید."
 }

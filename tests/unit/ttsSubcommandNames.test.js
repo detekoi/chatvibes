@@ -20,6 +20,7 @@ describe('TTS_SUBCOMMAND_NAMES', () => {
 
     it('is case-insensitive and tolerates a missing name', () => {
         expect(isTtsSubCommand('STATUS')).toBe(true);
+        expect(isTtsSubCommand('spotlight')).toBe(true);
         expect(isTtsSubCommand('hello')).toBe(false);
         expect(isTtsSubCommand(undefined)).toBe(false);
     });

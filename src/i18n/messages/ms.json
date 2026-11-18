@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Giliran TTS kini DISAMBUNG SEMULA.",
   "cmd.queue.invalidAction": "Tindakan tidak sah. Gunakan pause atau resume.",
   "cmd.queue.cleared": "Giliran TTS telah DIKOSONGKAN.",
-  "cmd.mode.current": "Mod TTS semasa ialah: {mode}. Gunakan '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Mod tidak sah. Gunakan 'all', 'command', 'bits', atau 'highlight'.",
+  "cmd.mode.current": "Mod TTS semasa ialah {mode}. Untuk menukarnya, gunakan '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Itu bukan mod TTS. Gunakan 'all', 'command', 'bits', 'highlight' atau 'spotlight'.",
   "cmd.mode.set": "Mod TTS ditetapkan kepada: {mode}.",
   "cmd.mode.failed": "Tidak dapat menetapkan mod TTS.",
   "cmd.profanity.effect.on": "kata-kata kesat dilembutkan sebelum disebut",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "mestilah teks",
   "cmd.pronounce.reason.empty": "tidak boleh kosong",
   "cmd.pronounce.reason.tooLong": "mestilah {max} aksara atau kurang",
-  "cmd.pronounce.reason.containsLink": "tidak boleh mengandungi pautan"
+  "cmd.pronounce.reason.containsLink": "tidak boleh mengandungi pautan",
+  "announce.spotlight": "Sorotan sembang daripada {user}: {message}",
+  "overlay.spotlight.label": "Sorotan sembang",
+  "cmd.spotlight.current": "Panduan sorotan ialah: {value}. Untuk menukarnya, gunakan {usage}.",
+  "cmd.spotlight.none": "Saluran ini tiada panduan sorotan. Untuk menambah panduan, gunakan {usage}.",
+  "cmd.spotlight.set": "Bot telah menyimpan panduan sorotan: {value}. Panduan ini hanya terpakai dalam mod spotlight.",
+  "cmd.spotlight.off": "Bot telah membuang panduan sorotan.",
+  "cmd.spotlight.tooLong": "Panduan itu terlalu panjang. Gunakan {max} aksara atau kurang.",
+  "cmd.spotlight.failed": "Bot tidak menyimpan perubahan pada panduan sorotan. Cuba lagi sebentar lagi."
 }

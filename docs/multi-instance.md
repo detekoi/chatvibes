@@ -100,6 +100,12 @@ clip went to whichever instance won its Pub/Sub claim, so both played a random s
   and chat fragments waiting for their redemption. Recent YouTube chatters are unaffected: every
   instance sees every YouTube message. (Shared-chat sessions would be lost too, but nothing
   subscribes to `channel.shared_chat.*` today, so `sharedChatManager` is never populated.)
+- The spotlight buffer is lost on a handover. The candidates of spotlight mode wait in
+  memory on the owner (`spotlightBuffer.js`). The buffer acts only where `ownsBroadcaster()` is true,
+  and the bot drops it when the instance loses the channel. The queue handoff does not carry it. A
+  handover loses at most one window of candidates. With no browser source
+  on any instance, nobody owns the channel and spotlight mode does nothing. YouTube candidates are
+  keyed to the bound Twitch channel and accepted only on its owner. See `docs/spotlight.md`.
 - **A webhook forwarded just as its owner lets go** waits in the inbox for the next owner and is
   dropped if that takes longer than the age limits above.
 - **YouTube chat is unchanged.** The proxy broadcasts to every instance and `dispatchYouTubeTtsEvent`

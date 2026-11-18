@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS red čekanja je sada NASTAVLJEN.",
   "cmd.queue.invalidAction": "Nevažeća radnja. Koristi pause ili resume.",
   "cmd.queue.cleared": "TTS red čekanja je OČIŠĆEN.",
-  "cmd.mode.current": "Trenutni TTS način rada je: {mode}. Koristi '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Nevažeći način rada. Koristi 'all', 'command', 'bits' ili 'highlight'.",
+  "cmd.mode.current": "Trenutni TTS način rada je {mode}. Za promjenu upotrijebite '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "To nije TTS način rada. Upotrijebite 'all', 'command', 'bits', 'highlight' ili 'spotlight'.",
   "cmd.mode.set": "TTS način rada postavljen na: {mode}.",
   "cmd.mode.failed": "Nije uspjelo postavljanje TTS načina rada.",
   "cmd.profanity.effect.on": "psovke se ublažavaju prije izgovaranja",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "mora biti tekst",
   "cmd.pronounce.reason.empty": "ne može biti prazan",
   "cmd.pronounce.reason.tooLong": "mora imati najviše {max, plural, one {# znak} few {# znaka} other {# znakova}}",
-  "cmd.pronounce.reason.containsLink": "ne može sadržavati poveznicu"
+  "cmd.pronounce.reason.containsLink": "ne može sadržavati poveznicu",
+  "announce.spotlight": "Istaknuto iz chata od {user}: {message}",
+  "overlay.spotlight.label": "Istaknuto iz chata",
+  "cmd.spotlight.current": "Smjernica za isticanje je: {value}. Za promjenu upotrijebite {usage}.",
+  "cmd.spotlight.none": "Ovaj kanal nema smjernicu za isticanje. Za dodavanje smjernice upotrijebite {usage}.",
+  "cmd.spotlight.set": "Bot je spremio smjernicu za isticanje: {value}. Smjernica vrijedi samo u načinu spotlight.",
+  "cmd.spotlight.off": "Bot je uklonio smjernicu za isticanje.",
+  "cmd.spotlight.tooLong": "Ta je smjernica preduga. Upotrijebite {max} znakova ili manje.",
+  "cmd.spotlight.failed": "Bot nije spremio promjenu smjernice za isticanje. Pokušajte ponovno za trenutak."
 }

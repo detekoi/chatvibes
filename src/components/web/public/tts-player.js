@@ -58,6 +58,81 @@ function isClip(entry) {
     return entry !== null && typeof entry === 'object' && Array.isArray(entry.chunks);
 }
 
+// ---------------------------------------------------------------------------
+// The clip card (spotlight)
+//
+// For some clips the server sends a `clipMeta` message right before the clip's
+// first frame: before `audioStart` on the PCM path, before the binary WAV frame
+// otherwise. The card shows while THAT clip plays and goes away when it ends, is
+// dropped or is stopped. A clip without meta never shows a card. The text is chat
+// that the bot did not write, so it is only ever set with textContent.
+// ---------------------------------------------------------------------------
+const card = document.getElementById('clipCard');
+const cardLabel = document.getElementById('clipCardLabel');
+const cardUser = document.getElementById('clipCardUser');
+const cardText = document.getElementById('clipCardText');
+const reducedMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+// A meta waits for its clip only briefly: it is sent directly before the clip.
+const PENDING_META_TTL_MS = 5000;
+const CARD_EXIT_MS = 160;
+let pendingMeta = null;
+// The queue entry (a clip object or an object URL) whose card is up.
+let cardOwner = null;
+let cardHideTimer = null;
+// Object URL of a whole clip -> its meta.
+const urlMeta = new Map();
+
+function receiveClipMeta(data) {
+    if (!data || typeof data.clipId !== 'string' || typeof data.text !== 'string' || !data.text) return;
+    pendingMeta = {
+        clipId: data.clipId,
+        kind: String(data.kind || ''),
+        user: typeof data.user === 'string' ? data.user : '',
+        text: data.text,
+        label: typeof data.label === 'string' ? data.label : '',
+        lang: typeof data.lang === 'string' && /^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/.test(data.lang) ? data.lang : '',
+        expiresAt: Date.now() + PENDING_META_TTL_MS,
+    };
+}
+
+// The pending meta, if it is for this clip ID (or for any clip when id is null)
+// and not stale. Taking it clears it, so it can never attach to a later clip.
+function takePendingMeta(clipId) {
+    const meta = pendingMeta;
+    pendingMeta = null;
+    if (!meta || meta.expiresAt < Date.now()) return null;
+    if (clipId !== null && meta.clipId !== clipId) return null;
+    return meta;
+}
+
+function showCard(owner, meta) {
+    if (!card || !meta) return;
+    clearTimeout(cardHideTimer);
+    cardOwner = owner;
+    cardLabel.textContent = meta.label || '';
+    if (meta.lang) cardLabel.lang = meta.lang;
+    else cardLabel.removeAttribute('lang');
+    cardUser.textContent = meta.user;
+    cardText.textContent = meta.text;
+    card.hidden = false;
+    // Start the entrance from the hidden state, so the transition runs.
+    void card.offsetWidth;
+    card.classList.add('is-visible');
+}
+
+// Hide the card if it belongs to `owner`, or whatever card is up when owner is omitted.
+function hideCard(owner) {
+    if (!card || cardOwner === null) return;
+    if (owner !== undefined && owner !== cardOwner) return;
+    cardOwner = null;
+    card.classList.remove('is-visible');
+    clearTimeout(cardHideTimer);
+    const after = reducedMotion && reducedMotion.matches ? 0 : CARD_EXIT_MS;
+    cardHideTimer = setTimeout(() => {
+        if (cardOwner === null) card.hidden = true;
+    }, after);
+}
+
 // Object URLs this player created from inline audio frames. Tracked so they can be
 // revoked after playback — an OBS source runs for the length of a stream, and every
 // un-revoked clip stays in memory until the page is reloaded. Also serves as proof
@@ -66,6 +141,7 @@ const ownObjectUrls = new Set();
 let currentObjectUrl = null;
 
 function releaseAudioUrl(url) {
+    if (url) urlMeta.delete(url);
     if (url && ownObjectUrls.has(url)) {
         URL.revokeObjectURL(url);
         ownObjectUrls.delete(url);
@@ -129,6 +205,8 @@ function connectWebSocket() {
         try {
             const features = ['binaryAudio'];
             if (supportsPcmAudio) features.push('pcmAudio');
+            // 'clipMeta' means a clip can come with a card to show while it plays.
+            if (card) features.push('clipMeta');
             ws.send(JSON.stringify({ type: 'hello', features }));
         } catch (e) {
             console.warn('TTS WebSocket: error sending hello', e);
@@ -164,6 +242,9 @@ function connectWebSocket() {
             const blob = event.data instanceof Blob ? event.data : new Blob([event.data], { type: 'audio/wav' });
             const objectUrl = URL.createObjectURL(blob);
             ownObjectUrls.add(objectUrl);
+            // A meta sent for a whole clip comes directly before its frame.
+            const meta = takePendingMeta(null);
+            if (meta) urlMeta.set(objectUrl, meta);
             audioQueue.push(objectUrl);
             playNextInQueue();
             return;
@@ -181,9 +262,13 @@ function connectWebSocket() {
                     finishClip(openClip, true);
                 }
                 openClip = newClip(data.clipId, data.sampleRate);
+                openClip.meta = takePendingMeta(data.clipId);
                 audioQueue.push(openClip);
                 playNextInQueue();
+            } else if (data.type === 'clipMeta') {
+                receiveClipMeta(data);
             } else if (data.type === 'audioEnd') {
+                if (data.discard && pendingMeta && pendingMeta.clipId === data.clipId) pendingMeta = null;
                 if (openClip && openClip.id === data.clipId) {
                     const clip = openClip;
                     openClip = null;
@@ -299,11 +384,15 @@ function startPlayback(src, label) {
     audioElementActive = true;
     audioPlayer.src = src;
     audioPlayer.play()
-        .then(() => console.log('Player: Playback started for:', label))
+        .then(() => {
+            console.log('Player: Playback started for:', label);
+            if (audioElementActive && currentObjectUrl === src) showCard(src, urlMeta.get(src));
+        })
         .catch(e => {
             console.error('Player: Error playing audio:', label, e);
             if (!audioElementActive) return; // stopped or replaced while play() was pending
             audioElementActive = false;
+            hideCard(src);
             releaseAudioUrl(currentObjectUrl);
             currentObjectUrl = null;
             isPlaying = false;
@@ -336,6 +425,7 @@ function finishClip(clip, discard) {
     const settle = () => {
         clip.ended = true;
         if (discard) {
+            hideCard(clip);
             clip.discard = true;
             clip.chunks = [];
             if (clip === currentClip) {
@@ -356,6 +446,7 @@ function playClipPcm(clip) {
     const ctx = getAudioContext();
     if (ctx.state === 'running') {
         console.log('Player: Playback started for: clip', clip.id);
+        showCard(clip, clip.meta);
         pumpPcm(clip);
         return;
     }
@@ -365,6 +456,7 @@ function playClipPcm(clip) {
     const giveUp = setTimeout(() => {
         if (clip !== currentClip || ctx.state === 'running') return;
         console.warn('Player: audio is blocked until the page gets a click; skipping clip', clip.id);
+        hideCard(clip);
         clip.discard = true;
         clip.chunks = [];
         currentClip = null;
@@ -375,6 +467,7 @@ function playClipPcm(clip) {
         if (clip !== currentClip || clip.discard) return;
         clearTimeout(giveUp);
         console.log('Player: Playback started for: clip', clip.id);
+        showCard(clip, clip.meta);
         pumpPcm(clip);
     }).catch(() => {});
 }
@@ -428,6 +521,7 @@ function schedulePcm(clip, ctx, arrayBuffer) {
 function finishPcmClip(clip) {
     if (clip !== currentClip) return;
     console.log('TTS Player: Clip finished playing.', clip.id);
+    hideCard(clip);
     currentClip = null;
     isPlaying = false;
     playNextInQueue();
@@ -448,6 +542,7 @@ audioPlayer.onended = () => {
     if (!audioElementActive) return;
     audioElementActive = false;
     console.log('TTS Player: Audio finished playing.');
+    hideCard(currentObjectUrl);
     // Release here rather than only on the next clip, so the last message of a quiet
     // period does not sit in memory until somebody speaks again.
     releaseAudioUrl(currentObjectUrl);
@@ -461,6 +556,7 @@ audioPlayer.onerror = (e) => {
     if (!audioElementActive) return;
     audioElementActive = false;
     console.error('TTS Player: <audio> element error:', e);
+    hideCard(currentObjectUrl);
     releaseAudioUrl(currentObjectUrl);
     currentObjectUrl = null;
     isPlaying = false;
@@ -469,6 +565,7 @@ audioPlayer.onerror = (e) => {
 
 function stopCurrentAudio() {
     console.log('TTS Player: Stopping current audio.');
+    hideCard();
     // Slices still arriving for a stopped clip are dropped on receipt.
     if (currentClip) currentClip.discard = true;
     stopPcmSources(currentClip);
@@ -491,6 +588,8 @@ function stopCurrentAudio() {
 
 function stopAllAudio() { // For !tts clear or full stop
     console.log('TTS Player: Stopping all audio and clearing queue.');
+    hideCard();
+    pendingMeta = null;
     if (currentClip) currentClip.discard = true;
     stopPcmSources(currentClip);
     currentClip = null;

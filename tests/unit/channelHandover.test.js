@@ -46,6 +46,7 @@ jest.unstable_mockModule('../../src/components/web/server.js', () => ({
     sendAudioToChannel: jest.fn(),
     hasActiveClients: () => false,
     openClipStream: () => null,
+    sendClipMeta: () => new Set(),
     STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO',
 }));
 jest.unstable_mockModule('../../src/components/tts/ttsState.js', () => ({

@@ -161,7 +161,7 @@ describe('the code and the catalog agree on which keys exist', () => {
     // catalog. Collecting only strings already known to be declared made the
     // "key exists" assertion below tautological — it could never find a missing
     // one, which is the half of this pair that catches a typo.
-    const KEY_SHAPED = /'((?:announce|cmd|emoji|emote|player)\.[a-zA-Z0-9._]+)'/g;
+    const KEY_SHAPED = /'((?:announce|cmd|emoji|emote|overlay|player)\.[a-zA-Z0-9._]+)'/g;
     const referenced = new Map();
     for (const file of walk('src')) {
         for (const match of readFileSync(file, 'utf8').matchAll(KEY_SHAPED)) {

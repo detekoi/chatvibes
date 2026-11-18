@@ -10,7 +10,7 @@ import {
     getGlobalUserPreferences,
     getChannelUserPreferences
 } from './ttsState.js';
-import { sendAudioToChannel, hasActiveClients, openClipStream, STOP_CURRENT_AUDIO } from '../web/server.js';
+import { sendAudioToChannel, hasActiveClients, openClipStream, sendClipMeta, STOP_CURRENT_AUDIO } from '../web/server.js';
 import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is imported
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
@@ -20,7 +20,7 @@ import { snapshotTiming, elapsed } from '../../lib/ttsTiming.js';
 import { isGloballyOptedOut } from '../../lib/globalOptOut.js';
 import { resolveVoice } from './voiceResolver.js';
 import { buildStyle } from './styleBuilder.js';
-import { localeFromLanguageBoost } from '../../i18n/index.js';
+import { localeFromLanguageBoost, getTranslator, resolveChannelLocale } from '../../i18n/index.js';
 
 let db;
 const TTS_QUEUE_PERSISTENCE_COLLECTION = 'ttsQueuePersistence';
@@ -33,6 +33,11 @@ const MAX_QUEUE_LENGTH = 50;
 // it (and refunds it) in redemptionHandler.js, before it gets here.
 const SPOKEN_WHEN_OPTED_OUT = new Set(['event', 'reward']);
 const PREFETCH_AHEAD = 2; // Number of queued items to prefetch concurrently
+// The card a browser source shows for a clip (spotlightCard). Its text is cut to
+// these lengths in code points, so a long message cannot cover the stream.
+const DISPLAY_KINDS = new Set(['spotlight']);
+const DISPLAY_TEXT_MAX = 200;
+const DISPLAY_USER_MAX = 50;
 
 /**
  * Get the queue for a channel, creating it on first use.
@@ -179,23 +184,21 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     // filter sees the text as it will be spoken.
     const taggedText = stripDisabledSoundTags(speechText, ttsStatus.disabledSoundTags);
     let finalText = taggedText;
-    if (ttsStatus.profanityFilterEnabled) {
-        // English is always in the set, whatever the channel's language. The
-        // pronunciation dictionary is English-only and runs for every channel,
-        // so "lfg" becomes "let's fucking go" even on a Spanish one. Loading
-        // only the Spanish list would send that straight through untouched.
-        const rules = getProfanityRules([
-            ttsStatus.languageBoost,
-            finalVoiceOptions.languageBoost,
-            'English',
-        ]);
-        if (rules) {
-            finalText = applyRewrites(taggedText, rules);
-            if (finalText !== taggedText) {
-                logger.debug(`[${channelName}] Profanity filter applied to message from ${user || 'event'}.`);
-            }
+    // English is always in the set, whatever the channel's language. The
+    // pronunciation dictionary is English-only and runs for every channel,
+    // so "lfg" becomes "let's fucking go" even on a Spanish one. Loading
+    // only the Spanish list would send that straight through untouched.
+    const profanityRules = ttsStatus.profanityFilterEnabled
+        ? getProfanityRules([ttsStatus.languageBoost, finalVoiceOptions.languageBoost, 'English'])
+        : null;
+    if (profanityRules) {
+        finalText = applyRewrites(taggedText, profanityRules);
+        if (finalText !== taggedText) {
+            logger.debug(`[${channelName}] Profanity filter applied to message from ${user || 'event'}.`);
         }
     }
+    // The text shown on the card gets the same filters as the speech.
+    const display = cleanDisplay(eventData.display, ttsStatus.disabledSoundTags, profanityRules);
 
     // A message that was only a disabled sound tag has nothing left to say.
     if (!finalText || !finalText.trim()) {
@@ -208,9 +211,43 @@ export async function enqueue(channelName, eventData, sharedSessionInfo = null) 
     const timingSnapshot = snapshotTiming();
     const timing = timingSnapshot ? { ...timingSnapshot, enqueueStartMs, enqueuedMs: Date.now() } : null;
 
-    cq.queue.push({ type, text: finalText, user, userId, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing });
+    cq.queue.push({
+        type, text: finalText, user, userId, voiceConfig: finalVoiceOptions, timestamp: new Date(), sharedSessionInfo, timing,
+        // Only when present: Firestore rejects an undefined field when the queue is persisted.
+        ...(display ? { display } : {}),
+    });
     logger.debug(`[${channelName}] Enqueued TTS for ${user || 'event'}: "${finalText.substring(0, 20)}..." Queue size: ${cq.queue.length}`);
     processQueue(channelName);
+}
+
+/** The first `max` code points of a string, with an ellipsis when it was longer. */
+function cutCodePoints(text, max) {
+    const points = Array.from(text);
+    return points.length > max ? `${points.slice(0, max - 1).join('').trimEnd()}…` : text;
+}
+
+/**
+ * The card data of a queue item, made safe to show: the same sound-tag and
+ * profanity rules as the speech, whitespace collapsed, and cut to length. Null when
+ * there is no card, an unknown kind, or no text left after the filters; the clip is
+ * still spoken then.
+ * @param {{kind?: string, user?: string, text?: string}|undefined} display
+ * @param {string[]|undefined} disabledSoundTags
+ * @param {object|null} profanityRules
+ * @returns {{kind: string, user: string, text: string}|null}
+ */
+function cleanDisplay(display, disabledSoundTags, profanityRules) {
+    if (!display || typeof display !== 'object' || !DISPLAY_KINDS.has(display.kind)) return null;
+    let text = stripDisabledSoundTags(String(display.text ?? ''), disabledSoundTags);
+    if (profanityRules) text = applyRewrites(text, profanityRules);
+    text = text.replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    const user = String(display.user ?? '').replace(/\s+/g, ' ').trim();
+    return {
+        kind: display.kind,
+        user: cutCodePoints(user, DISPLAY_USER_MAX),
+        text: cutCodePoints(text, DISPLAY_TEXT_MAX),
+    };
 }
 
 /**
@@ -254,13 +291,16 @@ function createClip() {
  * order. `end()` must be called exactly once, on success or failure: the player
  * holds the clip open until it arrives.
  */
-function beginChunkedDelivery(targets, event) {
+function beginChunkedDelivery(targets, event, meta = null) {
     const clip = event.clip;
     if (!clip) return null;
 
     const clipId = randomUUID();
     const streams = new Map();
     for (const target of targets) {
+        // The card data goes out directly before audioStart, to the same sockets
+        // (sendClipMeta with streamOnly selects as openClipStream does).
+        if (meta) sendClipMeta(target, clipId, meta, { streamOnly: true });
         const stream = openClipStream(target, clipId);
         if (stream) streams.set(target, stream);
     }
@@ -283,6 +323,20 @@ function beginChunkedDelivery(targets, event) {
             for (const stream of streams.values()) stream.end(opts);
         },
     };
+}
+
+/**
+ * The card data to send with a clip, or null. Only an item that carries `display`
+ * and a channel with spotlightCard on gets one. The label is resolved here, in the
+ * channel's language, because the player has no catalogs. The config read is the
+ * cached one that enqueue uses.
+ */
+async function clipMetaFor(channelName, event) {
+    if (!event.display) return null;
+    const ttsConfig = await getTtsState(channelName);
+    if (ttsConfig.spotlightCard !== true) return null;
+    const locale = resolveChannelLocale(ttsConfig);
+    return { ...event.display, label: getTranslator(locale)('overlay.spotlight.label'), lang: locale };
 }
 
 /**
@@ -382,6 +436,9 @@ function logTiming(channelName, event, audio, wasPrefetched, chunked) {
         style: buildStyle(event.voiceConfig) || null,
         // Twitch -> our webhook (network + any Twitch-side delay)
         twitchToWebhookMs: elapsed(t, 'originMs', 'receivedMs'),
+        // Spotlight picks only: chat message to the router's decision. The record of
+        // a pick starts at the decision, so this wait is outside totalMs.
+        spotlightWaitMs: t.spotlightWaitMs ?? null,
         // Firestore dedup claim before any handling starts
         claimMs: elapsed(t, 'receivedMs', 'claimedMs'),
         // Handler work between receipt and the start of enqueue: config reads,
@@ -486,9 +543,16 @@ export async function processQueue(channelName) {
             });
         }
 
+        // Read when the clip is delivered, never at prefetch: a card shows only
+        // while its own clip plays.
+        const meta = await clipMetaFor(channelName, event).catch(err => {
+            logger.warn({ err, channel: channelName }, 'Could not build the clip card; the clip plays without it');
+            return null;
+        });
+
         // Players that can start on a partial clip get the slices as they land —
         // the ones a prefetch already collected go out right now.
-        delivery = beginChunkedDelivery(targets, event);
+        delivery = beginChunkedDelivery(targets, event, meta);
 
         audio = await promise;
 
@@ -512,8 +576,17 @@ export async function processQueue(channelName) {
             // audio as one WAV file to every other player.
             const streamedComplete = delivery && audio.kind === 'buffer';
             if (delivery) delivery.end({ discard: !streamedComplete });
+            const wholeClipId = delivery?.clipId ?? randomUUID();
             const sendWhole = target => {
                 const exclude = streamedComplete ? delivery.recipientsFor(target) : null;
+                if (meta) {
+                    // Directly before the WAV frame, to the sockets that get it. A socket
+                    // that took the slices is excluded, and so is one that was sent this
+                    // meta before a stream that was then discarded: each socket gets the
+                    // meta once.
+                    const metaExclude = new Set([...(exclude || []), ...(delivery?.recipientsFor(target) || [])]);
+                    sendClipMeta(target, wholeClipId, meta, { exclude: metaExclude });
+                }
                 if (exclude) sendAudioToChannel(target, audio, { exclude });
                 else sendAudioToChannel(target, audio);
             };

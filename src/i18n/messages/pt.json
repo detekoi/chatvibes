@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "A fila do TTS foi RETOMADA.",
   "cmd.queue.invalidAction": "Ação inválida. Use pause ou resume.",
   "cmd.queue.cleared": "A fila do TTS foi LIMPA.",
-  "cmd.mode.current": "O modo atual do TTS é: {mode}. Use '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Modo inválido. Use 'all', 'command', 'bits' ou 'highlight'.",
+  "cmd.mode.current": "O modo de TTS atual é {mode}. Para alterá-lo, use '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Isso não é um modo de TTS. Use 'all', 'command', 'bits', 'highlight' ou 'spotlight'.",
   "cmd.mode.set": "Modo do TTS definido para: {mode}.",
   "cmd.mode.failed": "Não foi possível definir o modo do TTS.",
   "cmd.profanity.effect.on": "palavrões são suavizados antes de serem falados",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "deve ser texto",
   "cmd.pronounce.reason.empty": "não pode estar vazio",
   "cmd.pronounce.reason.tooLong": "deve ter {max} caracteres ou menos",
-  "cmd.pronounce.reason.containsLink": "não pode conter um link"
+  "cmd.pronounce.reason.containsLink": "não pode conter um link",
+  "announce.spotlight": "Chat em destaque de {user}: {message}",
+  "overlay.spotlight.label": "Chat em destaque",
+  "cmd.spotlight.current": "A orientação do destaque é: {value}. Para alterá-la, use {usage}.",
+  "cmd.spotlight.none": "Este canal não tem orientação de destaque. Para adicionar uma orientação, use {usage}.",
+  "cmd.spotlight.set": "O bot salvou a orientação do destaque: {value}. A orientação se aplica apenas no modo spotlight.",
+  "cmd.spotlight.off": "O bot removeu a orientação do destaque.",
+  "cmd.spotlight.tooLong": "Essa orientação é muito longa. Use {max} caracteres ou menos.",
+  "cmd.spotlight.failed": "O bot não salvou a alteração na orientação do destaque. Tente novamente em instantes."
 }
