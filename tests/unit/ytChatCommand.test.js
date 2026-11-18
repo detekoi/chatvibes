@@ -16,6 +16,7 @@ describe('YouTube chat: !tts command', () => {
     let handleYouTubeChatMessage;
     let dispatchYouTubeTtsEvent;
     let getTtsState;
+    let offerSpotlightCandidate;
 
     const baseConfig = {
         engineEnabled: true,
@@ -52,6 +53,8 @@ describe('YouTube chat: !tts command', () => {
             onYouTubeConfigChange: jest.fn(),
         }));
         jest.unstable_mockModule('../../src/lib/ttsDispatch.js', () => ({ dispatchYouTubeTtsEvent }));
+        offerSpotlightCandidate = jest.fn().mockReturnValue(true);
+        jest.unstable_mockModule('../../src/lib/spotlight/spotlightBuffer.js', () => ({ offerSpotlightCandidate }));
         jest.unstable_mockModule('../../src/lib/emotes/index.js', () => ({
             isGeminiAvailable: () => false,
             describeEmoteFromUrl: jest.fn(),
@@ -202,5 +205,63 @@ describe('YouTube chat: !tts command', () => {
         await handleYouTubeChatMessage('chan-1', message('!tts hello', { eventType: 'superchat', amount: '$5.00' }));
         expect(spoken()).toHaveLength(1);
         expect(spoken()[0].type).toBe('cheer_tts');
+    });
+
+    // Spotlight mode: plain chat goes to the buffer of the bound Twitch channel;
+    // "!tts <text>" works as in command mode; Super Chats are unchanged.
+    describe('spotlight mode', () => {
+        beforeEach(() => getTtsState.mockResolvedValue({ ...baseConfig, mode: 'spotlight' }));
+        const offered = () => offerSpotlightCandidate.mock.calls.map(c => c[0]);
+
+        it('speaks "!tts <text>" as in command mode', async () => {
+            await handleYouTubeChatMessage('chan-1', message('!tts hello there'));
+            expect(spoken()).toEqual([expect.objectContaining({ text: 'hello there', type: 'command_say' })]);
+            expect(offered()).toEqual([]);
+        });
+
+        it('offers plain chat to the buffer keyed by the Twitch channel, and speaks nothing yet', async () => {
+            await handleYouTubeChatMessage('chan-1', message('that was a clean dodge'));
+            expect(spoken()).toEqual([]);
+            expect(offered()).toEqual([expect.objectContaining({
+                broadcasterId: 'chan-1', id: 'yt-msg-1', user: 'Viewer', userId: 'UCviewer',
+                text: 'that was a clean dodge', platform: 'youtube',
+            })]);
+        });
+
+        it('speaks a pick through the YouTube claim, with the prefix', async () => {
+            await handleYouTubeChatMessage('chan-1', message('that was a clean dodge'));
+            await expect(offered()[0].speak({ reason: 'r' })).resolves.toBe(true);
+            expect(dispatchYouTubeTtsEvent).toHaveBeenCalledWith('chan-1', expect.objectContaining({
+                text: 'Chat spotlight from Viewer: that was a clean dodge',
+                type: 'spotlight',
+                messageId: 'yt-msg-1',
+                platform: 'youtube',
+            }));
+        });
+
+        it('never offers a message that starts with "!"', async () => {
+            await handleYouTubeChatMessage('chan-1', message('!lurk'));
+            expect(offered()).toEqual([]);
+        });
+
+        it('applies ttsPermissionLevel by badge', async () => {
+            getTtsState.mockResolvedValue({ ...baseConfig, mode: 'spotlight', ttsPermissionLevel: 'mods' });
+            await handleYouTubeChatMessage('chan-1', message('hello there'));
+            expect(offered()).toEqual([]);
+            await handleYouTubeChatMessage('chan-1', message('hello there', { tags: { badges: 'moderator/1' } }));
+            expect(offered()).toHaveLength(1);
+        });
+
+        it('stays silent for a subcommand such as "!tts spotlight"', async () => {
+            await handleYouTubeChatMessage('chan-1', message('!tts spotlight prefer jokes'));
+            expect(spoken()).toEqual([]);
+            expect(offered()).toEqual([]);
+        });
+
+        it('reads a Super Chat directly', async () => {
+            await handleYouTubeChatMessage('chan-1', message('great stream', { eventType: 'superchat', amount: '$5.00' }));
+            expect(offered()).toEqual([]);
+            expect(spoken()[0].type).toBe('cheer_tts');
+        });
     });
 });

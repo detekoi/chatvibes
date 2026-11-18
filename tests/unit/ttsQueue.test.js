@@ -491,7 +491,7 @@ describe('ttsQueue module', () => {
     });
 
     // Every type the handlers emit for the viewer's own words.
-    test.each(['chat', 'command', 'cheer_tts', 'highlight', 'command_say'])('drops %s speech from an opted-out viewer', async (type) => {
+    test.each(['chat', 'command', 'cheer_tts', 'highlight', 'command_say', 'spotlight'])('drops %s speech from an opted-out viewer', async (type) => {
       mockTtsState.getGlobalUserPreferences.mockResolvedValue(optedOut);
 
       await ttsQueue.enqueue(TEST_CHANNEL, { text: 'hello', user: TEST_USER, userId: '12345', type });

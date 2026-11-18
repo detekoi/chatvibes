@@ -16,6 +16,7 @@ import { hasPermissionLevel, mapPermissionLevel } from '../../lib/permissions.js
 import { parseTtsCommandText, stripCommandPrefixFromFragments } from '../../lib/ttsCommandText.js';
 import { isTtsSubCommand } from '../commands/tts/subcommandNames.js';
 import { runWithTiming } from '../../lib/ttsTiming.js';
+import { offerSpotlightCandidate } from '../../lib/spotlight/spotlightBuffer.js';
 
 const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://ytchat.wildcat.chat/ws';
 
@@ -381,6 +382,22 @@ export async function handleYouTubeChatMessage(channelId, msg) {
     let announcementPrefix = '';
     let speaksMessage = true;
 
+    // Resolve emote mode from channel config.
+    // YouTube does not currently support per-user emote mode overrides (unlike Twitch).
+    const emoteMode = ttsConfig.emoteMode || 'describe';
+
+    // Shared pipeline: emotes → URLs → Unicode emoji → pronunciations.
+    // Only the emote step differs from Twitch, so it is injected rather than
+    // the whole pipeline being duplicated here.
+    const format = () => formatTtsText(textToSpeak, fragmentsToSpeak, {
+        emoteMode,
+        channelEmoteMode: emoteMode,
+        readFullUrls: ttsConfig.readFullUrls,
+        pronunciationRules: getPronunciationRules(ttsConfig),
+        locale,
+        emoteProcessor: processYouTubeEmotes,
+    });
+
     switch (eventType) {
         case 'superchat':
             // Super Chats always read if YouTube is enabled (per user request)
@@ -431,6 +448,48 @@ export async function handleYouTubeChatMessage(channelId, msg) {
             // Regular chat — follow TTS mode rules
             ttsType = 'chat';
 
+            // Spotlight mode: the message becomes a candidate for the bound
+            // Twitch channel, and the router decides later whether it is read.
+            // Every instance gets every YouTube message; the buffer accepts it
+            // only on the instance that owns the channel. The same gates as a
+            // Twitch candidate apply: no "!" prefix, and ttsPermissionLevel.
+            // Nothing is formatted unless the message is picked.
+            if (ttsConfig.mode === 'spotlight') {
+                if (messageText.trimStart().startsWith('!')) {
+                    logger.debug({ channelId, username }, 'YouTube Chat: Skipping chat in spotlight mode - starts with !');
+                    return;
+                }
+                const requiredPermission = mapPermissionLevel(ttsConfig.ttsPermissionLevel);
+                if (requiredPermission === null
+                    || (requiredPermission !== 'everyone' && !hasPermissionLevel(requiredPermission, toRoleTags(msg.tags), channelId))) {
+                    logger.debug({ channelId, username, ttsPermissionLevel: ttsConfig.ttsPermissionLevel },
+                        'YouTube Chat: Skipping chat in spotlight mode - insufficient ttsPermissionLevel');
+                    return;
+                }
+                offerSpotlightCandidate({
+                    broadcasterId: channelId,
+                    channelName: channelId,
+                    id: msg.id || null,
+                    user: username,
+                    userId: msg.channelId || null,
+                    text: messageText,
+                    platform: 'youtube',
+                    speak: async () => {
+                        const processed = await format();
+                        if (!processed || !processed.trim()) return false;
+                        return dispatchYouTubeTtsEvent(channelId, {
+                            text: t('announce.spotlight', { user: username, message: processed }),
+                            user: username,
+                            userId: msg.channelId || null,
+                            type: 'spotlight',
+                            messageId: msg.id || null,
+                            platform: 'youtube',
+                        });
+                    },
+                });
+                return;
+            }
+
             // Check TTS mode (same logic as Twitch)
             if (ttsConfig.mode === 'command') {
                 // In command mode, only "!tts <text>" triggers TTS, handled above
@@ -451,23 +510,9 @@ export async function handleYouTubeChatMessage(channelId, msg) {
             break;
     }
 
-    // Resolve emote mode from channel config.
-    // YouTube does not currently support per-user emote mode overrides (unlike Twitch).
-    const emoteMode = ttsConfig.emoteMode || 'describe';
-
     logger.debug({ channelId, emoteMode, hasEmoteFragments: !!msg.emoteFragments }, 'YouTube Chat: Emote mode resolved');
 
-    // Shared pipeline: emotes → URLs → Unicode emoji → pronunciations.
-    // Only the emote step differs from Twitch, so it is injected rather than
-    // the whole pipeline being duplicated here.
-    const processedText = speaksMessage ? await formatTtsText(textToSpeak, fragmentsToSpeak, {
-        emoteMode,
-        channelEmoteMode: emoteMode,
-        readFullUrls: ttsConfig.readFullUrls,
-        pronunciationRules: getPronunciationRules(ttsConfig),
-        locale,
-        emoteProcessor: processYouTubeEmotes,
-    }) : '';
+    const processedText = speaksMessage ? await format() : '';
 
     // Checked here rather than straight after formatTtsText, because a Super
     // Sticker and a membership with no attached note both arrive with an empty

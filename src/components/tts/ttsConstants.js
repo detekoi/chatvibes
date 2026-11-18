@@ -53,6 +53,13 @@ export const DEFAULT_TTS_SETTINGS = {
     // Channel point rewards whose redemptions are not announced, keyed by
     // Twitch reward ID. See src/lib/rewardMuteList.js.
     mutedRewardIds: {},
+    // Spotlight mode (mode: 'spotlight'): a model reads chat in batches and picks the
+    // few messages worth reading aloud (src/lib/spotlight/). spotlightGuidance is
+    // unset by default: free text from the streamer that steers the picks, at most
+    // SPOTLIGHT.GUIDANCE_MAX characters, cleared by writing ''. It is a preference
+    // and cannot unlock a kind of message the router rejects.
+    // spotlightCard shows the spotlight card in the browser source. Dashboard only.
+    spotlightCard: false,
     // It's good practice to initialize userPreferences in default settings
     // userPreferences: {}, // Will be handled by ttsState.js if it needs to be part of base default
 };
@@ -67,6 +74,9 @@ export const TTS_PITCH_DEFAULT = ttsConfig.PITCH.DEFAULT;
 export const TTS_SPEED_MIN = ttsConfig.SPEED.MIN;
 export const TTS_SPEED_MAX = ttsConfig.SPEED.MAX;
 export const TTS_SPEED_DEFAULT = ttsConfig.SPEED.DEFAULT;
+
+// The longest spotlight guidance a channel can store, after trimming.
+export const SPOTLIGHT_GUIDANCE_MAX = ttsConfig.SPOTLIGHT.GUIDANCE_MAX;
 
 // The languages a channel or viewer can choose (40). The value gives the speech model a
 // hint, sets the default announcement language and selects the profanity list.

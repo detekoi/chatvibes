@@ -60,6 +60,7 @@ export const TTS_SUBCOMMAND_NAMES = new Set([
     'reward',
     'readcommands',
     'chatcommands',
+    'spotlight',
 ]);
 
 /**

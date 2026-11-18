@@ -14,6 +14,7 @@ describe('YouTube chat: formatting only what is spoken', () => {
     let dispatchYouTubeTtsEvent;
     let getTtsState;
     let describeEmoteFromUrl;
+    let offerSpotlightCandidate;
 
     const baseConfig = {
         engineEnabled: true,
@@ -55,6 +56,8 @@ describe('YouTube chat: formatting only what is spoken', () => {
             onYouTubeConfigChange: jest.fn(),
         }));
         jest.unstable_mockModule('../../src/lib/ttsDispatch.js', () => ({ dispatchYouTubeTtsEvent }));
+        offerSpotlightCandidate = jest.fn().mockReturnValue(true);
+        jest.unstable_mockModule('../../src/lib/spotlight/spotlightBuffer.js', () => ({ offerSpotlightCandidate }));
         jest.unstable_mockModule('../../src/lib/emotes/index.js', () => ({
             isGeminiAvailable: () => true,
             describeEmoteFromUrl,
@@ -86,6 +89,20 @@ describe('YouTube chat: formatting only what is spoken', () => {
         expect(describeEmoteFromUrl).toHaveBeenCalled();
         expect(spoken()).toHaveLength(1);
         expect(spoken()[0].type).toBe('chat');
+    });
+
+    it('does not describe the emotes of a spotlight candidate until it is picked', async () => {
+        getTtsState.mockResolvedValue({ ...baseConfig, mode: 'spotlight' });
+        await handleYouTubeChatMessage('chan-1', withEmote());
+        expect(offerSpotlightCandidate).toHaveBeenCalledTimes(1);
+        expect(describeEmoteFromUrl).not.toHaveBeenCalled();
+        expect(spoken()).toEqual([]);
+
+        await offerSpotlightCandidate.mock.calls[0][0].speak({ reason: 'r' });
+        expect(describeEmoteFromUrl).toHaveBeenCalled();
+        expect(spoken()).toHaveLength(1);
+        expect(spoken()[0]).toMatchObject({ type: 'spotlight' });
+        expect(spoken()[0].text).toMatch(/a waving hand/);
     });
 
     it('still describes the message of a Super Chat in command mode', async () => {
