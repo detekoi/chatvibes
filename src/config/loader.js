@@ -95,11 +95,21 @@ function loadConfig() {
             jwtSecret: process.env.JWT_SECRET || process.env.JWT_SECRET_KEY, // Support both env var names
         },
         emote: {
-            geminiModel: process.env.EMOTE_GEMINI_MODEL || 'gemini-flash-lite-latest',
+            geminiModel: process.env.EMOTE_GEMINI_MODEL || 'gemini-3.5-flash-lite',
             cdnUrl: 'https://static-cdn.jtvnw.net/emoticons/v2',
             maxGifFrames: 3,       // Number of evenly-spaced frames to sample from animated GIFs
             timeoutMs: 8000,       // Gemini timeout for static emotes
             animatedTimeoutMs: 12000, // Gemini timeout for animated (multi-image) emotes
+        },
+        spotlight: {
+            geminiModel: process.env.SPOTLIGHT_GEMINI_MODEL || 'gemini-3.5-flash-lite',
+            flexTimeoutMs: 10000,      // wait for the flex tier before falling back
+            standardTimeoutMs: 6000,   // the one standard-tier attempt after that
+            windowMs: 6000,            // batch window from the first candidate
+            maxBatch: 20,              // flush early at this many candidates
+            maxBuffered: 60,           // drop the oldest beyond this
+            maxAgeMs: 45000,           // a pick older than this is stale
+            contextSize: 15,           // recent messages sent as context
         },
     };
 

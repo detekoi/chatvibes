@@ -288,9 +288,8 @@ async function callModel(prompt, extra = '') {
             const response = await withTimeout(
                 genAI.models.generateContent({
                     model: MODEL,
-                    systemInstruction: SYSTEM_INSTRUCTION,
                     contents: [{ text: extra ? `${prompt}\n\n${extra}` : prompt }],
-                    config: { responseMimeType: 'application/json' },
+                    config: { systemInstruction: SYSTEM_INSTRUCTION, responseMimeType: 'application/json' },
                 }),
                 TIMEOUT_MS,
                 'Gemini timeout',

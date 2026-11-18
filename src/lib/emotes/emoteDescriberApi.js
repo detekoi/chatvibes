@@ -153,9 +153,9 @@ export async function describeSingleEmote(emoteId, emoteName, ownerName = null, 
         const response = await withTimeout(
             genAI.models.generateContent({
                 model: geminiModel,
-                systemInstruction: SYSTEM_INSTRUCTION,
                 contents,
                 config: {
+                    systemInstruction: SYSTEM_INSTRUCTION,
                     responseMimeType: 'application/json',
                     responseJsonSchema: {
                         type: 'object',
@@ -273,9 +273,9 @@ export async function describeBatchEmotes(emoteEntries, platform = 'twitch', loc
             const response = await withTimeout(
                 genAI.models.generateContent({
                     model: geminiModel,
-                    systemInstruction: SYSTEM_INSTRUCTION,
                     contents: contentParts,
                     config: {
+                        systemInstruction: SYSTEM_INSTRUCTION,
                         responseMimeType: 'application/json',
                         responseJsonSchema: {
                             type: 'object',
@@ -368,9 +368,9 @@ export async function describeEmoteFromUrl(imageUrl, cacheKey, emoteName, platfo
         const result = await withTimeout(
             genAI.models.generateContent({
                 model: geminiModel,
-                systemInstruction: SYSTEM_INSTRUCTION,
                 contents: [imagePart, { text: prompt }],
                 config: {
+                    systemInstruction: SYSTEM_INSTRUCTION,
                     responseMimeType: 'application/json',
                     responseJsonSchema: {
                         type: 'object',

@@ -36,9 +36,9 @@ export async function pickRewardWithGemini(query, rewards) {
         const response = await withTimeout(
             genAI.models.generateContent({
                 model: config.emote.geminiModel,
-                systemInstruction: SYSTEM_INSTRUCTION,
                 contents: [{ text: JSON.stringify(payload) }],
                 config: {
+                    systemInstruction: SYSTEM_INSTRUCTION,
                     responseMimeType: 'application/json',
                     responseJsonSchema: {
                         type: 'object',
