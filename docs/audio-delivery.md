@@ -27,6 +27,12 @@ between slices. On a failure the bot tries the main model (`GEMINI_TTS_MODEL`) a
 time. Then it tries `GEMINI_TTS_FALLBACK_MODEL` one time. The fallback model uses the same
 API, voices and style format, so no mapping is necessary. There is no second provider.
 
+A spotlight clip sends its first attempt on the flex tier (`service_tier: "flex"`), which
+costs half. The clip already waited for the router, so a slow answer does less harm. The
+4 second timeout to the first slice also applies to the flex attempt. If flex does not
+answer in that time, the second attempt uses the standard tier. No other clip uses flex.
+See `docs/spotlight.md`.
+
 Two cases stop the retries:
 
 - The content filter refused the text (`TtsBlockedError`). A refusal is an HTTP 400 with

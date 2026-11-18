@@ -149,7 +149,7 @@ function isBlocked(code, message) {
  * One request to one model. Rejects with TtsBlockedError for a refusal, with an
  * AbortError when the caller's signal fired, and with a plain Error for anything else.
  */
-async function attemptGeneration(model, text, voice, { style, language, volume, signal, onSlice }) {
+async function attemptGeneration(model, text, voice, { style, language, volume, signal, onSlice, serviceTier }) {
     const content = { type: 'text', text };
     if (style) content.annotations = [{ type: 'speech_metadata', style }];
     const speech = { voice };
@@ -181,6 +181,8 @@ async function attemptGeneration(model, text, voice, { style, language, volume, 
                 stream: true,
                 // Interactions are stored for weeks unless this is off. Chat text is not ours to keep there.
                 store: false,
+                // Only a clip that can wait asks for the cheaper tier. No field means standard.
+                ...(serviceTier ? { service_tier: serviceTier } : {}),
             }),
             signal: controller.signal,
         });
@@ -223,38 +225,44 @@ async function attemptGeneration(model, text, voice, { style, language, volume, 
  * @param {string} [options.language] A BCP-47 hint for short or ambiguous text
  * @param {number} [options.volume] Gain applied to the samples, 1 = unchanged
  * @param {AbortSignal} [options.signal]
+ * @param {'flex'} [options.serviceTier] 'flex' sends the first attempt on the flex tier,
+ *   which costs half and can be slow. It is for a clip that already waited (a spotlight
+ *   pick). The later attempts use the standard tier, so a slow flex answer costs one
+ *   first-chunk timeout at most.
  * @param {(slice: Buffer) => void} [options.onChunk] Called with each PCM slice (whole
  *   16-bit samples, volume applied), in order, as the provider renders it. After a
  *   slice has gone out the request is not retried, so slices never repeat.
  * @returns {Promise<{kind: 'buffer', data: Buffer, mime: 'audio/wav', sampleRate: number,
- *   audioSeconds: number, model: string, usedFallbackModel: boolean}>}
+ *   audioSeconds: number, model: string, serviceTier: string, usedFallbackModel: boolean}>}
  *   `data` is the whole clip as a WAV file.
  */
 export async function generateSpeech(text, voiceId, options = {}) {
     if (!config.tts.geminiApiKey) throw new Error('GEMINI_API_KEY is missing');
 
     const { voice } = resolveVoice(voiceId);
-    const { style, language, volume = 1, signal, onChunk } = options;
+    const { style, language, volume = 1, signal, onChunk, serviceTier } = options;
     const primary = config.tts.geminiModel;
     const fallback = config.tts.geminiFallbackModel;
     // The main model twice, then the larger model once. It shares the API, the voices
     // and the style format, so it covers an outage of one model with no mapping.
-    const attempts = [primary, primary, ...(fallback && fallback !== primary ? [fallback] : [])];
+    // With serviceTier 'flex' the first of those attempts goes to the flex tier.
+    const attempts = [primary, primary, ...(fallback && fallback !== primary ? [fallback] : [])]
+        .map((model, i) => ({ model, tier: i === 0 && serviceTier === 'flex' ? 'flex' : null }));
 
     const startTime = Date.now();
     let slicesSent = 0;
     let lastError = null;
 
     for (let i = 0; i < attempts.length; i++) {
-        const model = attempts[i];
+        const { model, tier } = attempts[i];
         try {
             const { pcm, sampleRate, usage } = await attemptGeneration(model, text, voice, {
-                style, language, volume, signal,
+                style, language, volume, signal, serviceTier: tier,
                 onSlice: slice => { slicesSent++; onChunk?.(slice); },
             });
             const audioSeconds = +(pcm.length / 2 / sampleRate).toFixed(2);
             logger.info({
-                logKey: 'GEMINI_TTS_OK', model, voice, attempt: i + 1, bytes: pcm.length, audioSeconds,
+                logKey: 'GEMINI_TTS_OK', model, voice, tier: tier || 'standard', attempt: i + 1, bytes: pcm.length, audioSeconds,
                 durationMs: Date.now() - startTime, inputTokens: usage?.total_input_tokens,
             }, 'TTS audio generated successfully via Gemini');
             return {
@@ -264,6 +272,7 @@ export async function generateSpeech(text, voiceId, options = {}) {
                 sampleRate,
                 audioSeconds,
                 model,
+                serviceTier: tier || 'standard',
                 usedFallbackModel: model !== primary,
             };
         } catch (err) {
@@ -276,7 +285,7 @@ export async function generateSpeech(text, voiceId, options = {}) {
             const blocked = err instanceof TtsBlockedError;
             logger[blocked ? 'info' : 'warn']({
                 logKey: blocked ? 'GEMINI_TTS_BLOCKED' : 'GEMINI_TTS_ERROR',
-                model, voice, attempt: i + 1, status: err.status, durationMs: Date.now() - startTime,
+                model, voice, tier: tier || 'standard', attempt: i + 1, status: err.status, durationMs: Date.now() - startTime,
             }, err.message);
             // A refusal stays a refusal. And once a slice reached a player, a second
             // request would repeat the start of the clip.

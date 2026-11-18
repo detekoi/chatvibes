@@ -206,6 +206,24 @@ describe('ttsQueue clip card', () => {
             ]);
         });
 
+        it('asks for the flex tier for a spotlight clip, also when it is prefetched', async () => {
+            await ttsQueue.pauseQueue(TEST_CHANNEL);
+            await enqueue('one');
+            await enqueue('two');
+            await ttsQueue.resumeQueue(TEST_CHANNEL);
+            await flush();
+            expect(mockTtsService.generateSpeech).toHaveBeenCalledTimes(2);
+            for (const call of mockTtsService.generateSpeech.mock.calls) {
+                expect(call[2]).toMatchObject({ serviceTier: 'flex' });
+            }
+        });
+
+        it('does not ask for the flex tier for a clip of another type', async () => {
+            await enqueue('hello there', { type: 'chat' });
+            await flush();
+            expect(mockTtsService.generateSpeech.mock.calls[0][2]).not.toHaveProperty('serviceTier');
+        });
+
         it('sends no WAV card when synthesis fails; the stream ends with discard', async () => {
             mockTtsService.generateSpeech.mockRejectedValue(new Error('provider down'));
             await enqueue('x', { display: display('hello') });

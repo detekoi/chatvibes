@@ -92,6 +92,18 @@ On 2026-11-17 the first probe made 18 calls in one off-peak window. Flex had a m
 
 This is one window at one time of day. Flex is best effort, so the numbers do not describe peak hours. Use the `SPOTLIGHT_ROUTE` log (see Operations) to measure the real flex share.
 
+## Synthesis of a pick
+
+The speech of a pick also starts on the flex tier. `ttsQueue.js` passes `serviceTier: 'flex'` to `generateSpeech` for a clip of type `spotlight`, and for no other type. Only the first of the three synthesis attempts uses flex. The second attempt uses the main model on the standard tier, and the third uses the fallback model on the standard tier.
+
+The flex attempt has the same timeouts as each synthesis attempt: 4 seconds to the first slice. A slow flex answer therefore adds 4 seconds at most to a pick.
+
+On 2026-11-18 a test made 5 streamed calls on each tier with `gemini-3.8-flash-lite-tts`. Four flex calls gave the first audio in 0.3 to 0.7 seconds, the same as the standard tier. One flex call gave the first audio after 11 seconds. This is the reason for the short timeout and the standard-tier second attempt.
+
+The API reported `service_tier: flex` for each flex call. The Gemini page about flex gives a price of half the standard price, but its model list does not name the speech models. Read the bill to make sure that the speech calls get the flex price.
+
+The `GEMINI_TTS_OK` and `GEMINI_TTS_ERROR` log lines have a `tier` field. The `TTS_TIMING` line has a `serviceTier` field. Use them to measure how often the flex attempt answers.
+
 ## Several instances
 
 The buffer is state that only the owner of a channel has whole. See `docs/multi-instance.md`.

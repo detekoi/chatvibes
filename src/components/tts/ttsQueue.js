@@ -255,8 +255,11 @@ function cleanDisplay(display, disabledSoundTags, profanityRules) {
  * the item in their own terms (emotion, speed, pitch), because an item can be persisted
  * and adopted by another instance, and the style is built from them only here.
  */
-function speechOptions(voiceConfig) {
+function speechOptions(voiceConfig, type) {
     return {
+        // A spotlight pick already waited for the router, so its first synthesis
+        // attempt uses the flex tier, at half the price. No other clip does.
+        ...(type === 'spotlight' ? { serviceTier: 'flex' } : {}),
         style: buildStyle(voiceConfig),
         language: localeFromLanguageBoost(voiceConfig.languageBoost) ?? (voiceConfig.voiceLanguage || undefined),
         volume: voiceConfig.volume,
@@ -358,7 +361,7 @@ function startPrefetch(channelName) {
         const clip = createClip();
         event.clip = clip;
         const promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
-            ...speechOptions(event.voiceConfig),
+            ...speechOptions(event.voiceConfig, event.type),
             signal: controller.signal,
             onChunk: clip.push,
         }).then(audio => {
@@ -431,6 +434,8 @@ function logTiming(channelName, event, audio, wasPrefetched, chunked) {
         provider: 'gemini',
         model: audio.model ?? null,
         usedFallbackModel: audio.usedFallbackModel ?? null,
+        // 'flex' for a spotlight clip whose first attempt answered, else 'standard'.
+        serviceTier: audio.serviceTier ?? null,
         // The provider bills by the length of the audio, so this is the cost figure
         audioSeconds: audio.audioSeconds ?? null,
         style: buildStyle(event.voiceConfig) || null,
@@ -537,7 +542,7 @@ export async function processQueue(channelName) {
             cq.currentSpeechController = controller;
             event.clip = createClip();
             promise = generateSpeech(event.text, event.voiceConfig.voiceId, {
-                ...speechOptions(event.voiceConfig),
+                ...speechOptions(event.voiceConfig, event.type),
                 signal: controller.signal,
                 onChunk: event.clip.push,
             });

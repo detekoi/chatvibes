@@ -142,6 +142,7 @@ describe('ttsService generateSpeech', () => {
                 sampleRate: 24000,
                 audioSeconds: 0.5,
                 model: MAIN_MODEL,
+                serviceTier: 'standard',
                 usedFallbackModel: false,
             });
             expect(audio.data.subarray(44)).toEqual(pcm);
@@ -199,6 +200,39 @@ describe('ttsService generateSpeech', () => {
             expect(modelsTried()).toEqual([MAIN_MODEL, MAIN_MODEL, FALLBACK_MODEL]);
             expect(audio.model).toBe(FALLBACK_MODEL);
             expect(audio.usedFallbackModel).toBe(true);
+        });
+
+        test('with serviceTier flex, only the first attempt asks for the flex tier', async () => {
+            mockFetch
+                .mockResolvedValueOnce(errorResponse(503, { error: { message: 'at capacity' } }))
+                .mockResolvedValueOnce(errorResponse(500, 'Internal Server Error'))
+                .mockResolvedValueOnce(oneSlice(1));
+
+            const audio = await ttsService.generateSpeech('Hello', 'kore', { serviceTier: 'flex' });
+
+            expect(modelsTried()).toEqual([MAIN_MODEL, MAIN_MODEL, FALLBACK_MODEL]);
+            expect(requestBody(0).service_tier).toBe('flex');
+            expect(requestBody(1)).not.toHaveProperty('service_tier');
+            expect(requestBody(2)).not.toHaveProperty('service_tier');
+            expect(audio.serviceTier).toBe('standard');
+        });
+
+        test('a flex answer on the first attempt reports the flex tier and still sends store false', async () => {
+            mockFetch.mockResolvedValueOnce(oneSlice(1));
+
+            const audio = await ttsService.generateSpeech('Hello', 'kore', { serviceTier: 'flex' });
+
+            expect(requestBody(0)).toMatchObject({ service_tier: 'flex', store: false, stream: true });
+            expect(audio.serviceTier).toBe('flex');
+        });
+
+        test('without serviceTier the result reports the standard tier', async () => {
+            mockFetch.mockResolvedValueOnce(oneSlice(1));
+
+            const audio = await ttsService.generateSpeech('Hello', 'kore');
+
+            expect(requestBody(0)).not.toHaveProperty('service_tier');
+            expect(audio.serviceTier).toBe('standard');
         });
 
         test('a second attempt on the main model is not a fallback', async () => {
