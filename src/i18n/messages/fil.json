@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Ang TTS queue ay NAKA-RESUME na ngayon.",
   "cmd.queue.invalidAction": "Hindi wastong aksyon. Gamitin ang pause o resume.",
   "cmd.queue.cleared": "Ang TTS queue ay NA-CLEAR na.",
-  "cmd.mode.current": "Ang kasalukuyang TTS mode ay: {mode}. Gamitin ang '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Hindi wastong mode. Gamitin ang 'all', 'command', 'bits', o 'highlight'.",
+  "cmd.mode.current": "Ang kasalukuyang TTS mode ay {mode}. Para baguhin ito, gamitin ang '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Hindi iyan TTS mode. Gamitin ang 'all', 'command', 'bits', 'highlight' o 'spotlight'.",
   "cmd.mode.set": "Naitakda ang TTS mode sa: {mode}.",
   "cmd.mode.failed": "Hindi maitakda ang TTS mode.",
   "cmd.profanity.effect.on": "pinapalambot ang mga mura bago sabihin",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "dapat ay text",
   "cmd.pronounce.reason.empty": "hindi puwedeng blangko",
   "cmd.pronounce.reason.tooLong": "dapat ay {max} character o mas kaunti",
-  "cmd.pronounce.reason.containsLink": "hindi puwedeng maglaman ng link"
+  "cmd.pronounce.reason.containsLink": "hindi puwedeng maglaman ng link",
+  "announce.spotlight": "Tampok sa chat mula kay {user}: {message}",
+  "overlay.spotlight.label": "Tampok sa chat",
+  "cmd.spotlight.current": "Ang gabay sa spotlight ay: {value}. Para baguhin ito, gamitin ang {usage}.",
+  "cmd.spotlight.none": "Walang gabay sa spotlight ang channel na ito. Para magdagdag ng gabay, gamitin ang {usage}.",
+  "cmd.spotlight.set": "Na-save ng bot ang gabay sa spotlight: {value}. Nalalapat lang ang gabay sa spotlight mode.",
+  "cmd.spotlight.off": "Inalis ng bot ang gabay sa spotlight.",
+  "cmd.spotlight.tooLong": "Masyadong mahaba ang gabay na iyan. Gumamit ng {max} character o mas kaunti.",
+  "cmd.spotlight.failed": "Hindi na-save ng bot ang pagbabago sa gabay sa spotlight. Subukan ulit maya-maya."
 }

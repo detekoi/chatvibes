@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "تم استئناف قائمة انتظار TTS الآن.",
   "cmd.queue.invalidAction": "إجراء غير صالح. استخدم pause أو resume.",
   "cmd.queue.cleared": "تم مسح قائمة انتظار TTS بالكامل.",
-  "cmd.mode.current": "وضع TTS الحالي هو: {mode}. استخدم '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "وضع غير صالح. استخدم 'all' أو 'command' أو 'bits' أو 'highlight'.",
+  "cmd.mode.current": "وضع TTS الحالي هو {mode}. لتغييره، استخدم '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "هذا ليس وضع TTS. استخدم 'all' أو 'command' أو 'bits' أو 'highlight' أو 'spotlight'.",
   "cmd.mode.set": "تم ضبط وضع TTS على: {mode}.",
   "cmd.mode.failed": "تعذر ضبط وضع TTS.",
   "cmd.profanity.effect.on": "تلطيف الكلمات البذيئة قبل نطقها",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "يجب أن يكون نصاً",
   "cmd.pronounce.reason.empty": "لا يمكن أن يكون فارغاً",
   "cmd.pronounce.reason.tooLong": "يجب أن يكون {max} حرفاً أو أقل",
-  "cmd.pronounce.reason.containsLink": "لا يمكن أن يحتوي على رابط"
+  "cmd.pronounce.reason.containsLink": "لا يمكن أن يحتوي على رابط",
+  "announce.spotlight": "أضواء الدردشة من {user}: {message}",
+  "overlay.spotlight.label": "أضواء الدردشة",
+  "cmd.spotlight.current": "إرشادات الأضواء هي: {value}. لتغييرها، استخدم {usage}.",
+  "cmd.spotlight.none": "لا توجد إرشادات للأضواء في هذه القناة. لإضافة إرشادات، استخدم {usage}.",
+  "cmd.spotlight.set": "حفظ البوت إرشادات الأضواء: {value}. تنطبق الإرشادات في وضع spotlight فقط.",
+  "cmd.spotlight.off": "أزال البوت إرشادات الأضواء.",
+  "cmd.spotlight.tooLong": "هذه الإرشادات طويلة جداً. استخدم {max} حرفاً أو أقل.",
+  "cmd.spotlight.failed": "لم يحفظ البوت التغيير في إرشادات الأضواء. حاول مرة أخرى بعد لحظة."
 }

@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "La coda del TTS è stata RIPRESA.",
   "cmd.queue.invalidAction": "Azione non valida. Usa pause o resume.",
   "cmd.queue.cleared": "La coda del TTS è stata SVUOTATA.",
-  "cmd.mode.current": "La modalità TTS attuale è: {mode}. Usa '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Modalità non valida. Usa 'all', 'command', 'bits' o 'highlight'.",
+  "cmd.mode.current": "La modalità TTS attuale è {mode}. Per cambiarla, usa '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Non è una modalità TTS. Usa 'all', 'command', 'bits', 'highlight' o 'spotlight'.",
   "cmd.mode.set": "Modalità TTS impostata su: {mode}.",
   "cmd.mode.failed": "Impossibile impostare la modalità TTS.",
   "cmd.profanity.effect.on": "le parolacce vengono attenuate prima di essere pronunciate",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "deve essere un testo",
   "cmd.pronounce.reason.empty": "non può essere vuota",
   "cmd.pronounce.reason.tooLong": "deve avere al massimo {max} caratteri",
-  "cmd.pronounce.reason.containsLink": "non può contenere un link"
+  "cmd.pronounce.reason.containsLink": "non può contenere un link",
+  "announce.spotlight": "Chat in evidenza da {user}: {message}",
+  "overlay.spotlight.label": "Chat in evidenza",
+  "cmd.spotlight.current": "La guida per Spotlight è: {value}. Per cambiarla, usa {usage}.",
+  "cmd.spotlight.none": "Questo canale non ha una guida per Spotlight. Per aggiungerne una, usa {usage}.",
+  "cmd.spotlight.set": "Il bot ha salvato la guida per Spotlight: {value}. La guida si applica solo in modalità spotlight.",
+  "cmd.spotlight.off": "Il bot ha rimosso la guida per Spotlight.",
+  "cmd.spotlight.tooLong": "Questa guida è troppo lunga. Usa {max} caratteri o meno.",
+  "cmd.spotlight.failed": "Il bot non ha salvato la modifica alla guida per Spotlight. Riprova tra un momento."
 }

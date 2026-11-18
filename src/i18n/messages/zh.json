@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS队列现已恢复。",
   "cmd.queue.invalidAction": "无效操作。请使用 pause 或 resume。",
   "cmd.queue.cleared": "TTS队列已被清空。",
-  "cmd.mode.current": "当前TTS模式为：{mode}。请使用 '!tts mode <all|command|bits|highlight>'。",
-  "cmd.mode.invalid": "无效模式。请使用 'all'、'command'、'bits' 或 'highlight'。",
+  "cmd.mode.current": "当前的 TTS 模式为 {mode}。要更改它，请使用 '!tts mode <all|command|bits|highlight|spotlight>'。",
+  "cmd.mode.invalid": "这不是一个 TTS 模式。请使用 'all'、'command'、'bits'、'highlight' 或 'spotlight'。",
   "cmd.mode.set": "TTS模式已设置为：{mode}。",
   "cmd.mode.failed": "无法设置TTS模式。",
   "cmd.profanity.effect.on": "脏话在朗读前会被弱化处理",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "必须为文本",
   "cmd.pronounce.reason.empty": "不能为空",
   "cmd.pronounce.reason.tooLong": "不能超过 {max} 个字符",
-  "cmd.pronounce.reason.containsLink": "不能包含链接"
+  "cmd.pronounce.reason.containsLink": "不能包含链接",
+  "announce.spotlight": "来自 {user} 的聊天精选：{message}",
+  "overlay.spotlight.label": "聊天精选",
+  "cmd.spotlight.current": "精选指引为：{value}。要更改它，请使用 {usage}。",
+  "cmd.spotlight.none": "此频道没有精选指引。要添加指引，请使用 {usage}。",
+  "cmd.spotlight.set": "机器人已保存精选指引：{value}。该指引仅在 spotlight 模式下生效。",
+  "cmd.spotlight.off": "机器人已移除精选指引。",
+  "cmd.spotlight.tooLong": "该指引过长。请使用 {max} 个字符或更少。",
+  "cmd.spotlight.failed": "机器人未能保存对精选指引的更改。请稍后再试。"
 }

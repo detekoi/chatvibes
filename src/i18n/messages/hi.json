@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS कतार अब RESUMED है।",
   "cmd.queue.invalidAction": "अमान्य कार्रवाई। pause या resume का उपयोग करें।",
   "cmd.queue.cleared": "TTS कतार CLEARED कर दी गई है।",
-  "cmd.mode.current": "वर्तमान TTS मोड है: {mode}। '!tts mode <all|command|bits|highlight>' का उपयोग करें।",
-  "cmd.mode.invalid": "अमान्य मोड। 'all', 'command', 'bits', या 'highlight' का उपयोग करें।",
+  "cmd.mode.current": "वर्तमान TTS मोड {mode} है। इसे बदलने के लिए, '!tts mode <all|command|bits|highlight|spotlight>' का उपयोग करें।",
+  "cmd.mode.invalid": "यह TTS मोड नहीं है। 'all', 'command', 'bits', 'highlight' या 'spotlight' का उपयोग करें।",
   "cmd.mode.set": "TTS मोड {mode} पर सेट किया गया।",
   "cmd.mode.failed": "TTS मोड सेट नहीं किया जा सका।",
   "cmd.profanity.effect.on": "अपशब्द बोले जाने से पहले हल्के कर दिए जाते हैं",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "टेक्स्ट होना चाहिए",
   "cmd.pronounce.reason.empty": "खाली नहीं हो सकता",
   "cmd.pronounce.reason.tooLong": "{max} या उससे कम अक्षरों का होना चाहिए",
-  "cmd.pronounce.reason.containsLink": "में कोई लिंक शामिल नहीं हो सकता"
+  "cmd.pronounce.reason.containsLink": "में कोई लिंक शामिल नहीं हो सकता",
+  "announce.spotlight": "{user} की ओर से चैट स्पॉटलाइट: {message}",
+  "overlay.spotlight.label": "चैट स्पॉटलाइट",
+  "cmd.spotlight.current": "स्पॉटलाइट मार्गदर्शन है: {value}। इसे बदलने के लिए, {usage} का उपयोग करें।",
+  "cmd.spotlight.none": "इस चैनल में कोई स्पॉटलाइट मार्गदर्शन नहीं है। मार्गदर्शन जोड़ने के लिए, {usage} का उपयोग करें।",
+  "cmd.spotlight.set": "बॉट ने स्पॉटलाइट मार्गदर्शन सहेज लिया: {value}। यह मार्गदर्शन केवल spotlight मोड में लागू होता है।",
+  "cmd.spotlight.off": "बॉट ने स्पॉटलाइट मार्गदर्शन हटा दिया।",
+  "cmd.spotlight.tooLong": "यह मार्गदर्शन बहुत लंबा है। {max} या उससे कम अक्षरों का उपयोग करें।",
+  "cmd.spotlight.failed": "बॉट ने स्पॉटलाइट मार्गदर्शन में बदलाव सहेजा नहीं। कुछ क्षण में फिर प्रयास करें।"
 }

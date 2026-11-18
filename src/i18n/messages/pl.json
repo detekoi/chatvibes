@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Kolejka TTS została WZNOWIONA.",
   "cmd.queue.invalidAction": "Nieprawidłowa akcja. Użyj pause lub resume.",
   "cmd.queue.cleared": "Kolejka TTS została WYCZYSZCZONA.",
-  "cmd.mode.current": "Aktualny tryb TTS to: {mode}. Użyj '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Nieprawidłowy tryb. Użyj 'all', 'command', 'bits' lub 'highlight'.",
+  "cmd.mode.current": "Aktualny tryb TTS to {mode}. Aby go zmienić, użyj '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "To nie jest tryb TTS. Użyj 'all', 'command', 'bits', 'highlight' lub 'spotlight'.",
   "cmd.mode.set": "Tryb TTS ustawiony na: {mode}.",
   "cmd.mode.failed": "Nie udało się ustawić trybu TTS.",
   "cmd.profanity.effect.on": "wulgaryzmy są łagodzone przed przeczytaniem",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "musi być tekstem",
   "cmd.pronounce.reason.empty": "nie może być pusta",
   "cmd.pronounce.reason.tooLong": "może mieć maksymalnie {max, plural, one{# znak} few{# znaki} many{# znaków} other{# znaku}}",
-  "cmd.pronounce.reason.containsLink": "nie może zawierać linku"
+  "cmd.pronounce.reason.containsLink": "nie może zawierać linku",
+  "announce.spotlight": "Wyróżnienie z czatu od {user}: {message}",
+  "overlay.spotlight.label": "Wyróżnienie z czatu",
+  "cmd.spotlight.current": "Wskazówki dla wyróżnień to: {value}. Aby je zmienić, użyj {usage}.",
+  "cmd.spotlight.none": "Ten kanał nie ma wskazówek dla wyróżnień. Aby je dodać, użyj {usage}.",
+  "cmd.spotlight.set": "Bot zapisał wskazówki dla wyróżnień: {value}. Wskazówki działają tylko w trybie spotlight.",
+  "cmd.spotlight.off": "Bot usunął wskazówki dla wyróżnień.",
+  "cmd.spotlight.tooLong": "Te wskazówki są za długie. Użyj maksymalnie {max} znaków.",
+  "cmd.spotlight.failed": "Bot nie zapisał zmiany we wskazówkach dla wyróżnień. Spróbuj ponownie za chwilę."
 }

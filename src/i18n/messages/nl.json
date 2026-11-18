@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS-wachtrij is nu HERVAT.",
   "cmd.queue.invalidAction": "Ongeldige actie. Gebruik pause of resume.",
   "cmd.queue.cleared": "TTS-wachtrij is GEWIST.",
-  "cmd.mode.current": "Huidige TTS-modus is: {mode}. Gebruik '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Ongeldige modus. Gebruik 'all', 'command', 'bits' of 'highlight'.",
+  "cmd.mode.current": "De huidige TTS-modus is {mode}. Gebruik '!tts mode <all|command|bits|highlight|spotlight>' om dit te wijzigen.",
+  "cmd.mode.invalid": "Dat is geen TTS-modus. Gebruik 'all', 'command', 'bits', 'highlight' of 'spotlight'.",
   "cmd.mode.set": "TTS-modus ingesteld op: {mode}.",
   "cmd.mode.failed": "Kon TTS-modus niet instellen.",
   "cmd.profanity.effect.on": "scheldwoorden worden verzacht voordat ze worden uitgesproken",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "moet tekst zijn",
   "cmd.pronounce.reason.empty": "mag niet leeg zijn",
   "cmd.pronounce.reason.tooLong": "moet {max} tekens of minder zijn",
-  "cmd.pronounce.reason.containsLink": "mag geen link bevatten"
+  "cmd.pronounce.reason.containsLink": "mag geen link bevatten",
+  "announce.spotlight": "Chat-spotlight van {user}: {message}",
+  "overlay.spotlight.label": "Chat-spotlight",
+  "cmd.spotlight.current": "De spotlight-richtlijn is: {value}. Gebruik {usage} om dit te wijzigen.",
+  "cmd.spotlight.none": "Dit kanaal heeft geen spotlight-richtlijn. Gebruik {usage} om een richtlijn toe te voegen.",
+  "cmd.spotlight.set": "De bot heeft de spotlight-richtlijn opgeslagen: {value}. De richtlijn geldt alleen in de spotlight-modus.",
+  "cmd.spotlight.off": "De bot heeft de spotlight-richtlijn verwijderd.",
+  "cmd.spotlight.tooLong": "Die richtlijn is te lang. Gebruik {max} tekens of minder.",
+  "cmd.spotlight.failed": "De bot heeft de wijziging in de spotlight-richtlijn niet opgeslagen. Probeer het zo meteen opnieuw."
 }

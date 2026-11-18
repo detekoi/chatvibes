@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Coada TTS a fost RELUATĂ.",
   "cmd.queue.invalidAction": "Acțiune nevalidă. Folosește pause sau resume.",
   "cmd.queue.cleared": "Coada TTS a fost GOLITĂ.",
-  "cmd.mode.current": "Modul TTS curent este: {mode}. Folosește '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Mod nevalid. Folosește 'all', 'command', 'bits' sau 'highlight'.",
+  "cmd.mode.current": "Modul TTS curent este {mode}. Pentru a-l schimba, folosește '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Acesta nu este un mod TTS. Folosește 'all', 'command', 'bits', 'highlight' sau 'spotlight'.",
   "cmd.mode.set": "Modul TTS a fost setat la: {mode}.",
   "cmd.mode.failed": "Nu s-a putut seta modul TTS.",
   "cmd.profanity.effect.on": "înjurăturile sunt atenuate înainte de a fi rostite",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "trebuie să fie text",
   "cmd.pronounce.reason.empty": "nu poate fi goală",
   "cmd.pronounce.reason.tooLong": "trebuie să aibă cel mult {max, plural, one{# caracter} few{# caractere} other{# de caractere}}",
-  "cmd.pronounce.reason.containsLink": "nu poate conține un link"
+  "cmd.pronounce.reason.containsLink": "nu poate conține un link",
+  "announce.spotlight": "Moment de chat de la {user}: {message}",
+  "overlay.spotlight.label": "Moment de chat",
+  "cmd.spotlight.current": "Îndrumarea pentru spotlight este: {value}. Pentru a o schimba, folosește {usage}.",
+  "cmd.spotlight.none": "Acest canal nu are nicio îndrumare pentru spotlight. Pentru a adăuga una, folosește {usage}.",
+  "cmd.spotlight.set": "Botul a salvat îndrumarea pentru spotlight: {value}. Îndrumarea se aplică doar în modul spotlight.",
+  "cmd.spotlight.off": "Botul a eliminat îndrumarea pentru spotlight.",
+  "cmd.spotlight.tooLong": "Această îndrumare este prea lungă. Folosește {max} caractere sau mai puține.",
+  "cmd.spotlight.failed": "Botul nu a salvat modificarea îndrumării pentru spotlight. Încearcă din nou într-un moment."
 }

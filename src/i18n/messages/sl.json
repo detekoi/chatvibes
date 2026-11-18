@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS čakalna vrsta je zdaj NADALJEVANA.",
   "cmd.queue.invalidAction": "Neveljavno dejanje. Uporabi pause ali resume.",
   "cmd.queue.cleared": "TTS čakalna vrsta je POČIŠČENA.",
-  "cmd.mode.current": "Trenutni TTS način je: {mode}. Uporabi '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Neveljaven način. Uporabi 'all', 'command', 'bits' ali 'highlight'.",
+  "cmd.mode.current": "Trenutni način TTS je {mode}. Če ga želite spremeniti, uporabite '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "To ni način TTS. Uporabite 'all', 'command', 'bits', 'highlight' ali 'spotlight'.",
   "cmd.mode.set": "TTS način nastavljen na: {mode}.",
   "cmd.mode.failed": "TTS načina ni bilo mogoče nastaviti.",
   "cmd.profanity.effect.on": "kletvice so pred izgovorjavo ublažene",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "mora biti besedilo",
   "cmd.pronounce.reason.empty": "ne sme biti prazna",
   "cmd.pronounce.reason.tooLong": "mora imeti {max, plural, one {# znak} two {# znaka} few {# znake} other {# znakov}} ali manj",
-  "cmd.pronounce.reason.containsLink": "ne sme vsebovati povezave"
+  "cmd.pronounce.reason.containsLink": "ne sme vsebovati povezave",
+  "announce.spotlight": "Poudarek klepeta od {user}: {message}",
+  "overlay.spotlight.label": "Poudarek klepeta",
+  "cmd.spotlight.current": "Smernica za poudarek je: {value}. Če jo želite spremeniti, uporabite {usage}.",
+  "cmd.spotlight.none": "Ta kanal nima smernice za poudarek. Če jo želite dodati, uporabite {usage}.",
+  "cmd.spotlight.set": "Bot je shranil smernico za poudarek: {value}. Smernica velja samo v načinu spotlight.",
+  "cmd.spotlight.off": "Bot je odstranil smernico za poudarek.",
+  "cmd.spotlight.tooLong": "Ta smernica je predolga. Uporabite največ {max} znakov.",
+  "cmd.spotlight.failed": "Bot ni shranil spremembe smernice za poudarek. Poskusite znova čez trenutek."
 }

@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS-Warteschlange wird jetzt FORTGESETZT.",
   "cmd.queue.invalidAction": "Ungültige Aktion. Nutze pause oder resume.",
   "cmd.queue.cleared": "TTS-Warteschlange wurde GELEERT.",
-  "cmd.mode.current": "Aktueller TTS-Modus ist: {mode}. Nutze '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Ungültiger Modus. Nutze 'all', 'command', 'bits' oder 'highlight'.",
+  "cmd.mode.current": "Der aktuelle TTS-Modus ist {mode}. Zum Ändern verwende '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Das ist kein TTS-Modus. Verwende 'all', 'command', 'bits', 'highlight' oder 'spotlight'.",
   "cmd.mode.set": "TTS-Modus gesetzt auf: {mode}.",
   "cmd.mode.failed": "TTS-Modus konnte nicht gesetzt werden.",
   "cmd.profanity.effect.on": "Schimpfwörter werden vor der Sprachausgabe entschärft",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "muss Text sein",
   "cmd.pronounce.reason.empty": "darf nicht leer sein",
   "cmd.pronounce.reason.tooLong": "darf maximal {max} Zeichen lang sein",
-  "cmd.pronounce.reason.containsLink": "darf keinen Link enthalten"
+  "cmd.pronounce.reason.containsLink": "darf keinen Link enthalten",
+  "announce.spotlight": "Chat-Spotlight von {user}: {message}",
+  "overlay.spotlight.label": "Chat-Spotlight",
+  "cmd.spotlight.current": "Die Spotlight-Vorgabe lautet: {value}. Zum Ändern verwende {usage}.",
+  "cmd.spotlight.none": "Dieser Kanal hat keine Spotlight-Vorgabe. Um eine hinzuzufügen, verwende {usage}.",
+  "cmd.spotlight.set": "Der Bot hat die Spotlight-Vorgabe gespeichert: {value}. Die Vorgabe gilt nur im spotlight-Modus.",
+  "cmd.spotlight.off": "Der Bot hat die Spotlight-Vorgabe entfernt.",
+  "cmd.spotlight.tooLong": "Diese Vorgabe ist zu lang. Verwende höchstens {max} Zeichen.",
+  "cmd.spotlight.failed": "Der Bot hat die Änderung an der Spotlight-Vorgabe nicht gespeichert. Versuche es gleich noch einmal."
 }

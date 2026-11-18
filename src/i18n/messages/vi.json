@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Hàng đợi TTS hiện đã TIẾP TỤC.",
   "cmd.queue.invalidAction": "Hành động không hợp lệ. Hãy dùng pause hoặc resume.",
   "cmd.queue.cleared": "Hàng đợi TTS đã được XÓA SẠCH.",
-  "cmd.mode.current": "Chế độ TTS hiện tại là: {mode}. Hãy dùng '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Chế độ không hợp lệ. Hãy dùng 'all', 'command', 'bits', hoặc 'highlight'.",
+  "cmd.mode.current": "Chế độ TTS hiện tại là {mode}. Để thay đổi, hãy dùng '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Đó không phải là chế độ TTS. Hãy dùng 'all', 'command', 'bits', 'highlight' hoặc 'spotlight'.",
   "cmd.mode.set": "Chế độ TTS đã được đặt thành: {mode}.",
   "cmd.mode.failed": "Không thể đặt chế độ TTS.",
   "cmd.profanity.effect.on": "từ ngữ tục tĩu sẽ được giảm nhẹ trước khi đọc",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "phải là văn bản",
   "cmd.pronounce.reason.empty": "không được để trống",
   "cmd.pronounce.reason.tooLong": "phải từ {max} ký tự trở xuống",
-  "cmd.pronounce.reason.containsLink": "không được chứa liên kết"
+  "cmd.pronounce.reason.containsLink": "không được chứa liên kết",
+  "announce.spotlight": "Tiêu điểm trò chuyện từ {user}: {message}",
+  "overlay.spotlight.label": "Tiêu điểm trò chuyện",
+  "cmd.spotlight.current": "Hướng dẫn tiêu điểm là: {value}. Để thay đổi, hãy dùng {usage}.",
+  "cmd.spotlight.none": "Kênh này chưa có hướng dẫn tiêu điểm. Để thêm hướng dẫn, hãy dùng {usage}.",
+  "cmd.spotlight.set": "Bot đã lưu hướng dẫn tiêu điểm: {value}. Hướng dẫn chỉ áp dụng trong chế độ spotlight.",
+  "cmd.spotlight.off": "Bot đã xóa hướng dẫn tiêu điểm.",
+  "cmd.spotlight.tooLong": "Hướng dẫn đó quá dài. Hãy dùng tối đa {max} ký tự.",
+  "cmd.spotlight.failed": "Bot chưa lưu thay đổi đối với hướng dẫn tiêu điểm. Hãy thử lại sau giây lát."
 }

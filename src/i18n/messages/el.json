@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Η ουρά TTS ΣΥΝΕΧΙΖΕΤΑΙ.",
   "cmd.queue.invalidAction": "Μη έγκυρη ενέργεια. Χρησιμοποίησε pause ή resume.",
   "cmd.queue.cleared": "Η ουρά TTS ΚΑΘΑΡΙΣΤΗΚΕ.",
-  "cmd.mode.current": "Η τρέχουσα λειτουργία TTS είναι: {mode}. Χρησιμοποίησε '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Μη έγκυρη λειτουργία. Χρησιμοποίησε 'all', 'command', 'bits' ή 'highlight'.",
+  "cmd.mode.current": "Η τρέχουσα λειτουργία TTS είναι {mode}. Για να την αλλάξετε, χρησιμοποιήστε '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Αυτή δεν είναι λειτουργία TTS. Χρησιμοποιήστε 'all', 'command', 'bits', 'highlight' ή 'spotlight'.",
   "cmd.mode.set": "Η λειτουργία TTS ορίστηκε σε: {mode}.",
   "cmd.mode.failed": "Δεν ήταν δυνατός ο ορισμός της λειτουργίας TTS.",
   "cmd.profanity.effect.on": "οι βρισιές μετριάζονται πριν εκφωνηθούν",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "πρέπει να είναι κείμενο",
   "cmd.pronounce.reason.empty": "δεν μπορεί να είναι κενή",
   "cmd.pronounce.reason.tooLong": "πρέπει να είναι {max, plural, one {{max} χαρακτήρας} other {{max} χαρακτήρες}} ή λιγότερο",
-  "cmd.pronounce.reason.containsLink": "δεν μπορεί να περιέχει σύνδεσμο"
+  "cmd.pronounce.reason.containsLink": "δεν μπορεί να περιέχει σύνδεσμο",
+  "announce.spotlight": "Επιλογή συνομιλίας από {user}: {message}",
+  "overlay.spotlight.label": "Επιλογή συνομιλίας",
+  "cmd.spotlight.current": "Οι οδηγίες επιλογής είναι: {value}. Για να τις αλλάξετε, χρησιμοποιήστε {usage}.",
+  "cmd.spotlight.none": "Αυτό το κανάλι δεν έχει οδηγίες επιλογής. Για να προσθέσετε οδηγίες, χρησιμοποιήστε {usage}.",
+  "cmd.spotlight.set": "Το bot αποθήκευσε τις οδηγίες επιλογής: {value}. Οι οδηγίες ισχύουν μόνο στη λειτουργία spotlight.",
+  "cmd.spotlight.off": "Το bot αφαίρεσε τις οδηγίες επιλογής.",
+  "cmd.spotlight.tooLong": "Αυτές οι οδηγίες είναι πολύ μεγάλες. Χρησιμοποιήστε {max} χαρακτήρες ή λιγότερους.",
+  "cmd.spotlight.failed": "Το bot δεν αποθήκευσε την αλλαγή στις οδηγίες επιλογής. Δοκιμάστε ξανά σε λίγο."
 }

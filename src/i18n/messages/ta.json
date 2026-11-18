@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "TTS வரிசை இப்போது RESUMED.",
   "cmd.queue.invalidAction": "செல்லுபடியாகாத செயல்பாடு. pause அல்லது resume ஐப் பயன்படுத்தவும்.",
   "cmd.queue.cleared": "TTS வரிசை CLEARED செய்யப்பட்டது.",
-  "cmd.mode.current": "தற்போதைய TTS பயன்முறை: {mode}. '!tts mode <all|command|bits|highlight>' ஐப் பயன்படுத்தவும்.",
-  "cmd.mode.invalid": "செல்லுபடியாகாத பயன்முறை. 'all', 'command', 'bits', அல்லது 'highlight' ஐப் பயன்படுத்தவும்.",
+  "cmd.mode.current": "தற்போதைய TTS பயன்முறை {mode} ஆகும். இதை மாற்ற, '!tts mode <all|command|bits|highlight|spotlight>' ஐப் பயன்படுத்தவும்.",
+  "cmd.mode.invalid": "இது TTS பயன்முறை அல்ல. 'all', 'command', 'bits', 'highlight' அல்லது 'spotlight' ஐப் பயன்படுத்தவும்.",
   "cmd.mode.set": "TTS பயன்முறை {mode} என அமைக்கப்பட்டது.",
   "cmd.mode.failed": "TTS பயன்முறையை அமைக்க முடியவில்லை.",
   "cmd.profanity.effect.on": "கெட்ட வார்த்தைகள் பேசப்படுவதற்கு முன் மென்மையாக்கப்படும்",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "உரையாக இருக்க வேண்டும்",
   "cmd.pronounce.reason.empty": "காலியாக இருக்கக்கூடாது",
   "cmd.pronounce.reason.tooLong": "{max} எழுத்துகள் அல்லது அதற்கும் குறைவாக இருக்க வேண்டும்",
-  "cmd.pronounce.reason.containsLink": "லிங்க் கொண்டிருக்கக்கூடாது"
+  "cmd.pronounce.reason.containsLink": "லிங்க் கொண்டிருக்கக்கூடாது",
+  "announce.spotlight": "{user} வழங்கிய அரட்டை சிறப்பு: {message}",
+  "overlay.spotlight.label": "அரட்டை சிறப்பு",
+  "cmd.spotlight.current": "சிறப்பு வழிகாட்டுதல்: {value}. இதை மாற்ற, {usage} ஐப் பயன்படுத்தவும்.",
+  "cmd.spotlight.none": "இந்தச் சேனலில் சிறப்பு வழிகாட்டுதல் இல்லை. வழிகாட்டுதலைச் சேர்க்க, {usage} ஐப் பயன்படுத்தவும்.",
+  "cmd.spotlight.set": "பாட் சிறப்பு வழிகாட்டுதலைச் சேமித்தது: {value}. இந்த வழிகாட்டுதல் spotlight பயன்முறையில் மட்டுமே பொருந்தும்.",
+  "cmd.spotlight.off": "பாட் சிறப்பு வழிகாட்டுதலை நீக்கியது.",
+  "cmd.spotlight.tooLong": "இந்த வழிகாட்டுதல் மிகவும் நீளமானது. {max} எழுத்துகள் அல்லது அதற்கும் குறைவாகப் பயன்படுத்தவும்.",
+  "cmd.spotlight.failed": "சிறப்பு வழிகாட்டுதலில் செய்த மாற்றத்தை பாட் சேமிக்கவில்லை. சிறிது நேரம் கழித்து மீண்டும் முயற்சிக்கவும்."
 }

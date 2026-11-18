@@ -73,8 +73,8 @@
   "cmd.queue.resumed": "Antrean TTS sekarang DILANJUTKAN.",
   "cmd.queue.invalidAction": "Aksi tidak valid. Gunakan pause atau resume.",
   "cmd.queue.cleared": "Antrean TTS telah DIKOSONGKAN.",
-  "cmd.mode.current": "Mode TTS saat ini: {mode}. Gunakan '!tts mode <all|command|bits|highlight>'.",
-  "cmd.mode.invalid": "Mode tidak valid. Gunakan 'all', 'command', 'bits', atau 'highlight'.",
+  "cmd.mode.current": "Mode TTS saat ini adalah {mode}. Untuk mengubahnya, gunakan '!tts mode <all|command|bits|highlight|spotlight>'.",
+  "cmd.mode.invalid": "Itu bukan mode TTS. Gunakan 'all', 'command', 'bits', 'highlight' atau 'spotlight'.",
   "cmd.mode.set": "Mode TTS diatur ke: {mode}.",
   "cmd.mode.failed": "Gagal mengatur mode TTS.",
   "cmd.profanity.effect.on": "kata-kata kasar diperhalus sebelum diucapkan",
@@ -244,5 +244,13 @@
   "cmd.pronounce.reason.mustBeText": "harus berupa teks",
   "cmd.pronounce.reason.empty": "tidak boleh kosong",
   "cmd.pronounce.reason.tooLong": "harus {max} karakter atau kurang",
-  "cmd.pronounce.reason.containsLink": "tidak boleh berisi tautan"
+  "cmd.pronounce.reason.containsLink": "tidak boleh berisi tautan",
+  "announce.spotlight": "Sorotan chat dari {user}: {message}",
+  "overlay.spotlight.label": "Sorotan chat",
+  "cmd.spotlight.current": "Panduan sorotan adalah: {value}. Untuk mengubahnya, gunakan {usage}.",
+  "cmd.spotlight.none": "Channel ini tidak memiliki panduan sorotan. Untuk menambahkan panduan, gunakan {usage}.",
+  "cmd.spotlight.set": "Bot menyimpan panduan sorotan: {value}. Panduan hanya berlaku dalam mode spotlight.",
+  "cmd.spotlight.off": "Bot menghapus panduan sorotan.",
+  "cmd.spotlight.tooLong": "Panduan itu terlalu panjang. Gunakan {max} karakter atau kurang.",
+  "cmd.spotlight.failed": "Bot tidak menyimpan perubahan pada panduan sorotan. Coba lagi sebentar lagi."
 }
