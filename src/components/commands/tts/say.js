@@ -95,7 +95,9 @@ export default {
             text: finalText,
             user: user.username,
             userId: user['user-id'],
-            type: 'command_say'
+            type: 'command_say',
+            // The chat message, so that a moderator who deletes it removes the clip.
+            ...(user.id ? { messageId: user.id, chatAtMs: eventData.chatAtMs } : {}),
         });
         // No confirmation message to chat for !tts, the speech itself is the confirmation.
     },

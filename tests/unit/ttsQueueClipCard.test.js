@@ -49,6 +49,7 @@ describe('ttsQueue clip card', () => {
                 calls.push({ fn: 'meta', channel, clipId, meta, opts });
                 return new Set(opts.streamOnly ? ['pcm-socket'] : ['wav-socket']);
             }),
+            dropClips: jest.fn(() => 0),
             STOP_CURRENT_AUDIO: 'STOP_CURRENT_AUDIO',
         };
         mockTtsState = {
