@@ -126,12 +126,14 @@ If `spotlightCard` is on, the browser source shows a card with the name of the v
 The card has its own message on the player WebSocket:
 
 ```json
-{ "type": "clipMeta", "clipId": "...", "kind": "spotlight", "user": "...", "text": "...", "label": "...", "lang": "..." }
+{ "type": "clipMeta", "clipId": "...", "kind": "spotlight", "user": "...", "text": "...", "label": "...", "lang": "...", "parts": [] }
 ```
+
+If the message has no emote, it has no `parts`.
 
 - A player says that it can show cards with the hello feature `clipMeta`. A player that does not say it gets nothing, and an old player keeps working with no card.
 - The server sends the message directly before the first frame of the clip to each socket, once for each socket. On the PCM path it comes before `audioStart`. On the WAV path it comes before the WAV frame. `sendClipMeta` in `webSocket.js` selects the sockets, and `processQueue` calls it.
-- A queue item holds `display { kind, user, text }`. `ttsQueue.enqueue` applies the disabled sound tags and the profanity filter to `display.text`. It also cuts the text to 200 code points and the name to 50. A text that is empty after that gives no card, and the clip is still spoken.
+- A queue item holds `display { kind, user, text, parts? }`. See "Emotes on the card" below for `parts`. `ttsQueue.enqueue` applies the disabled sound tags and the profanity filter to `display.text`. It also cuts the text to 200 code points and the name to 50. A text that is empty after that gives no card, and the clip is still spoken.
 - The text on the card is the clean message of the viewer, not the formatted speech. It does not have the prefix.
 - The label comes from the server (`overlay.spotlight.label`) in the channel locale, because the player has no catalogs. `lang` is that locale.
 - The bot does not hold or replay the message. A clip that the bot holds for 30 seconds (see `docs/audio-delivery.md`) replays with no card.
@@ -139,7 +141,19 @@ The card has its own message on the player WebSocket:
 
 The player (`tts-player.js`) keeps the message for 5 seconds and attaches it to the next clip that matches. It shows the card when the clip starts to play. It hides the card when the clip ends, when the bot discards the clip, and when a stop arrives.
 
-The player sets all text with `textContent`. The text is chat, and the bot did not write it. Do not use `innerHTML`.
+The player sets all text with `textContent` or as text nodes. The text is chat, and the bot did not write it. Do not use `innerHTML`.
+
+### Emotes on the card
+
+A card shows emotes as images, as the chat overlay in `wildcat-home` does. `src/components/tts/cardParts.js` holds the code on the server.
+
+- `display.parts` is the message as a list of parts in order. A text part is `{ type: 'text', text }`. An emote part is `{ type: 'emote', name, src }`. A card without an emote has no `parts`.
+- For Twitch, `chatHandler.js` makes the parts from the EventSub fragments. The image URL is `https://static-cdn.jtvnw.net/emoticons/v2/<id>/default/dark/2.0`. For an animated emote, the `default` format gives the animated image.
+- For YouTube, `ytChatClient.js` makes the parts from the `emoteFragments` of `yt-chat-proxy`. The name is the shortcut, for example `:wave:`, or else the label. The message text of YouTube has a space where each custom emote was, so the card needs the parts.
+- `ttsQueue.enqueue` applies the sound tags and the profanity filter to each text part and to each emote name. An emote counts as the length of its name in the 200 code point limit. `text` is then made from the parts, with each emote as its name. A player that is older than this change shows `text`.
+- `src` must be an HTTPS URL on a host in `EMOTE_HOSTS`. The server checks it, and the player checks it again. The two lists must stay the same. An emote that fails the check becomes its name as text.
+- The player starts to load each image on arrival of the card message, before the clip plays. If an image does not load, the player shows the name of the emote.
+- BTTV, FFZ and 7TV emotes are not on the card. The bot does not know them, and they show as their names.
 
 `index.html` loads two fonts from Google Fonts (Archivo and Public Sans). If the network is not available, the card uses system fonts. The card is marked `aria-hidden`, because it repeats what the audio says.
 

@@ -15,6 +15,7 @@ import { DEFAULT_TTS_SETTINGS } from './ttsConstants.js'; // Ensure this is impo
 import { getProfanityRules } from '../../lib/profanity/index.js';
 import { applyRewrites } from '../../lib/textRewrite/replaceEngine.js';
 import { stripDisabledSoundTags } from '../../lib/textRewrite/soundTags.js';
+import { cleanCardParts } from './cardParts.js';
 import { resolveToChannelName, getChannelIdFromName, getChannelNameFromId } from '../../lib/allowList.js';
 import { snapshotTiming, currentTiming, elapsed } from '../../lib/ttsTiming.js';
 import { isGloballyOptedOut } from '../../lib/globalOptOut.js';
@@ -262,24 +263,33 @@ function cutCodePoints(text, max) {
  * The card data of a queue item, made safe to show: the same sound-tag and
  * profanity rules as the speech, whitespace collapsed, and cut to length. Null when
  * there is no card, an unknown kind, or no text left after the filters; the clip is
- * still spoken then.
- * @param {{kind?: string, user?: string, text?: string}|undefined} display
+ * still spoken then. A card with emotes keeps them as `parts` (see cardParts.js).
+ * @param {{kind?: string, user?: string, text?: string, parts?: Array<object>}|undefined} display
  * @param {string[]|undefined} disabledSoundTags
  * @param {object|null} profanityRules
- * @returns {{kind: string, user: string, text: string}|null}
+ * @returns {{kind: string, user: string, text: string, parts?: Array<object>}|null}
  */
 function cleanDisplay(display, disabledSoundTags, profanityRules) {
     if (!display || typeof display !== 'object' || !DISPLAY_KINDS.has(display.kind)) return null;
-    let text = stripDisabledSoundTags(String(display.text ?? ''), disabledSoundTags);
-    if (profanityRules) text = applyRewrites(text, profanityRules);
-    text = text.replace(/\s+/g, ' ').trim();
-    if (!text) return null;
-    const user = String(display.user ?? '').replace(/\s+/g, ' ').trim();
-    return {
-        kind: display.kind,
-        user: cutCodePoints(user, DISPLAY_USER_MAX),
-        text: cutCodePoints(text, DISPLAY_TEXT_MAX),
+    const cleanText = (raw) => {
+        const text = stripDisabledSoundTags(raw, disabledSoundTags);
+        return profanityRules ? applyRewrites(text, profanityRules) : text;
     };
+    const user = cutCodePoints(String(display.user ?? '').replace(/\s+/g, ' ').trim(), DISPLAY_USER_MAX);
+    // A message with emotes: the text is made from the parts, so the two agree.
+    const withEmotes = cleanCardParts(display.parts, cleanText, DISPLAY_TEXT_MAX);
+    if (withEmotes) {
+        if (!withEmotes.text.trim()) return null;
+        return {
+            kind: display.kind,
+            user,
+            text: withEmotes.text,
+            ...(withEmotes.parts ? { parts: withEmotes.parts } : {}),
+        };
+    }
+    const text = cleanText(String(display.text ?? '')).replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    return { kind: display.kind, user, text: cutCodePoints(text, DISPLAY_TEXT_MAX) };
 }
 
 /**

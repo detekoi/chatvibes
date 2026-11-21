@@ -119,6 +119,31 @@ describe('ttsQueue clip card', () => {
             expect(item().display.text).toBe('two lines here');
         });
 
+        it('keeps the emotes of a card as parts and makes the text from them', async () => {
+            const src = 'https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0';
+            channelConfig.profanityFilterEnabled = true;
+            await enqueue('x', { display: { ...display('ignored'), parts: [
+                { type: 'text', text: 'what the fuck ' },
+                { type: 'emote', name: 'Kappa', src },
+            ] } });
+            const card = item().display;
+            expect(card.parts).toHaveLength(2);
+            expect(card.parts[0].text).not.toMatch(/fuck/);
+            expect(card.parts[1]).toEqual({ type: 'emote', name: 'Kappa', src });
+            expect(card.text).toBe(`${card.parts[0].text}Kappa`);
+        });
+
+        it('keeps a card with only an emote', async () => {
+            const src = 'https://yt3.ggpht.com/abc=w24-h24';
+            await enqueue('x', { display: { ...display(' '), parts: [{ type: 'emote', name: ':wave:', src }] } });
+            expect(item().display).toEqual({ kind: 'spotlight', user: 'ViewerName', text: ':wave:', parts: [{ type: 'emote', name: ':wave:', src }] });
+        });
+
+        it('sends no parts when no part is an emote', async () => {
+            await enqueue('x', { display: { ...display('hello'), parts: [{ type: 'emote', name: 'Bad', src: 'https://example.com/x' }] } });
+            expect(item().display).toEqual(display('hello'));
+        });
+
         it('drops a card with no text left but still queues the clip', async () => {
             channelConfig.disabledSoundTags = ['moan'];
             await enqueue('Chat spotlight from ViewerName: <moan>', { display: display('<moan>') });

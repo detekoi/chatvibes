@@ -17,6 +17,7 @@ import { parseTtsCommandText, stripCommandPrefixFromFragments } from '../../lib/
 import { isTtsSubCommand } from '../commands/tts/subcommandNames.js';
 import { runWithTiming } from '../../lib/ttsTiming.js';
 import { offerSpotlightCandidate } from '../../lib/spotlight/spotlightBuffer.js';
+import { cardPartsFromYouTube } from '../tts/cardParts.js';
 
 const YT_CHAT_PROXY_URL = process.env.YT_CHAT_PROXY_URL || 'wss://ytchat.wildcat.chat/ws';
 
@@ -477,6 +478,7 @@ export async function handleYouTubeChatMessage(channelId, msg) {
                     speak: async () => {
                         const processed = await format();
                         if (!processed || !processed.trim()) return false;
+                        const spotlightParts = cardPartsFromYouTube(msg.emoteFragments);
                         return dispatchYouTubeTtsEvent(channelId, {
                             text: t('announce.spotlight', { user: username, message: processed }),
                             user: username,
@@ -485,7 +487,12 @@ export async function handleYouTubeChatMessage(channelId, msg) {
                             messageId: msg.id || null,
                             platform: 'youtube',
                             // The card for the browser source: the viewer's own words.
-                            display: { kind: 'spotlight', user: username, text: messageText },
+                            // The message text has a space where each custom emote was,
+                            // so the emotes come as parts.
+                            display: {
+                                kind: 'spotlight', user: username, text: messageText,
+                                ...(spotlightParts ? { parts: spotlightParts } : {}),
+                            },
                         });
                     },
                 });

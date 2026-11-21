@@ -248,7 +248,7 @@ export function openClipStream(channelName, clipId, { sampleRate = 24000 } = {})
 /**
  * Tell the players of a channel what the next clip is, so the browser source can
  * show a card while it plays (the spotlight card). Sent as
- * `{ type: 'clipMeta', clipId, kind, user, text, label, lang }`, only to open
+ * `{ type: 'clipMeta', clipId, kind, user, text, label, lang, parts? }`, only to open
  * sockets that announced the `clipMeta` feature, and only to the sockets that are
  * about to get this clip's first frame:
  *
@@ -265,7 +265,7 @@ export function openClipStream(channelName, clipId, { sampleRate = 24000 } = {})
  *
  * @param {string} channelName
  * @param {string} clipId
- * @param {{kind: string, user: string, text: string, label?: string, lang?: string}} display
+ * @param {{kind: string, user: string, text: string, label?: string, lang?: string, parts?: Array<object>}} display
  * @param {{exclude?: Set<WebSocket>, streamOnly?: boolean}} [options]
  * @returns {Set<WebSocket>} The sockets that were sent the meta.
  */
@@ -284,6 +284,8 @@ export function sendClipMeta(channelName, clipId, display, { exclude, streamOnly
         text: display.text,
         label: display.label || '',
         lang: display.lang || '',
+        // Only a message with emotes has parts. An older player ignores them.
+        ...(Array.isArray(display.parts) ? { parts: display.parts } : {}),
     });
     for (const ws of clients) {
         if (ws.readyState !== WebSocket.OPEN || !ws.supportsClipMeta) continue;

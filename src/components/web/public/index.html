@@ -95,6 +95,13 @@
             line-clamp: 4;
             overflow: hidden;
         }
+        /* An emote in the message, sized to the text as in the chat overlay. */
+        .clip-card__emote {
+            block-size: 1.5em;
+            inline-size: auto;
+            vertical-align: middle;
+            margin: 0 2px;
+        }
 
         @media (prefers-reduced-motion: reduce) {
             .clip-card, .clip-card.is-visible { transition: none; transform: none; }
