@@ -114,6 +114,29 @@ describe('handleChatMessage: spotlight mode', () => {
         expect(spoken()[0].display).toEqual({ kind: 'spotlight', user: 'ViewerName', text: 'that boss should pay rent LUL' });
     });
 
+    it('puts the emotes of the message on the card as parts', async () => {
+        const event = chat('that boss should pay rent LUL', {
+            message: {
+                text: 'that boss should pay rent LUL',
+                fragments: [
+                    { type: 'text', text: 'that boss should pay rent ' },
+                    { type: 'emote', text: 'LUL', emote: { id: '425618' } },
+                ],
+            },
+        });
+        await handleChatMessage(event, 'testchannel');
+        await offered()[0].speak({ reason: 'r' });
+        expect(spoken()[0].display).toEqual({
+            kind: 'spotlight',
+            user: 'ViewerName',
+            text: 'that boss should pay rent LUL',
+            parts: [
+                { type: 'text', text: 'that boss should pay rent ' },
+                { type: 'emote', name: 'LUL', src: 'https://static-cdn.jtvnw.net/emoticons/v2/425618/default/dark/2.0' },
+            ],
+        });
+    });
+
     it('says the prefix in the channel language', async () => {
         useConfig({ languageBoost: 'Spanish' });
         await handleChatMessage(chat('hola chat que tal'), 'testchannel');

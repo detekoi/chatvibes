@@ -65,7 +65,9 @@ function isClip(entry) {
 // first frame: before `audioStart` on the PCM path, before the binary WAV frame
 // otherwise. The card shows while THAT clip plays and goes away when it ends, is
 // dropped or is stopped. A clip without meta never shows a card. The text is chat
-// that the bot did not write, so it is only ever set with textContent.
+// that the bot did not write, so it is only ever set with textContent or as a text
+// node. A message with emotes comes as `parts`; an emote is an <img> whose src must
+// be an HTTPS URL on one of EMOTE_HOSTS.
 // ---------------------------------------------------------------------------
 const card = document.getElementById('clipCard');
 const cardLabel = document.getElementById('clipCardLabel');
@@ -82,6 +84,72 @@ let cardHideTimer = null;
 // Object URL of a whole clip -> its meta.
 const urlMeta = new Map();
 
+// The same list as src/components/tts/cardParts.js. Change both together.
+const EMOTE_HOSTS = ['static-cdn.jtvnw.net', 'ggpht.com', 'googleusercontent.com', 'ytimg.com', 'gstatic.com'];
+
+function emoteSrc(src) {
+    if (typeof src !== 'string') return null;
+    let url;
+    try {
+        url = new URL(src);
+    } catch (e) {
+        return null;
+    }
+    if (url.protocol !== 'https:') return null;
+    const host = url.hostname;
+    return EMOTE_HOSTS.some(h => host === h || host.endsWith('.' + h)) ? url.href : null;
+}
+
+// The parts of a card, or null when there is no emote to show. An emote with a bad
+// src becomes its name. Each image starts to load now, so it is ready when the clip
+// starts to play.
+function readCardParts(parts) {
+    if (!Array.isArray(parts)) return null;
+    const out = [];
+    for (const part of parts) {
+        if (!part || typeof part !== 'object') continue;
+        if (part.type === 'text' && typeof part.text === 'string') {
+            out.push({ type: 'text', text: part.text });
+        } else if (part.type === 'emote' && typeof part.name === 'string') {
+            const src = emoteSrc(part.src);
+            if (src) {
+                const preload = new Image();
+                // The same policy as the card image, so the two requests match and
+                // the token in the page URL never goes to the image host.
+                preload.referrerPolicy = 'no-referrer';
+                preload.src = src;
+                out.push({ type: 'emote', name: part.name, src });
+            } else {
+                out.push({ type: 'text', text: part.name });
+            }
+        }
+    }
+    return out.some(p => p.type === 'emote') ? out : null;
+}
+
+function renderCardText(meta) {
+    if (!meta.parts) {
+        cardText.textContent = meta.text;
+        return;
+    }
+    cardText.replaceChildren();
+    for (const part of meta.parts) {
+        if (part.type === 'text') {
+            cardText.appendChild(document.createTextNode(part.text));
+            continue;
+        }
+        const img = document.createElement('img');
+        img.className = 'clip-card__emote';
+        img.alt = part.name;
+        img.decoding = 'async';
+        img.referrerPolicy = 'no-referrer';
+        // An image that does not load shows the emote name, as chat would.
+        img.onerror = () => img.replaceWith(document.createTextNode(part.name));
+        img.src = part.src;
+        cardText.appendChild(img);
+    }
+}
+
 function receiveClipMeta(data) {
     if (!data || typeof data.clipId !== 'string' || typeof data.text !== 'string' || !data.text) return;
     pendingMeta = {
@@ -89,6 +157,7 @@ function receiveClipMeta(data) {
         kind: String(data.kind || ''),
         user: typeof data.user === 'string' ? data.user : '',
         text: data.text,
+        parts: readCardParts(data.parts),
         label: typeof data.label === 'string' ? data.label : '',
         lang: typeof data.lang === 'string' && /^[A-Za-z]{2,3}(-[A-Za-z0-9]{1,8})*$/.test(data.lang) ? data.lang : '',
         expiresAt: Date.now() + PENDING_META_TTL_MS,
@@ -113,7 +182,7 @@ function showCard(owner, meta) {
     if (meta.lang) cardLabel.lang = meta.lang;
     else cardLabel.removeAttribute('lang');
     cardUser.textContent = meta.user;
-    cardText.textContent = meta.text;
+    renderCardText(meta);
     card.hidden = false;
     // Start the entrance from the hidden state, so the transition runs.
     void card.offsetWidth;

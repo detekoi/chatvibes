@@ -3,6 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The page URL holds the overlay token. No request from this page sends it as
+         a referrer: not the fonts, not the emote images. -->
+    <meta name="referrer" content="no-referrer">
     <title>TTS Audio Player</title>
     <!-- The card fonts of the Wildcat design system. Without the network the card
          falls back to system-ui and still works. -->
@@ -94,6 +97,13 @@
             -webkit-line-clamp: 4;
             line-clamp: 4;
             overflow: hidden;
+        }
+        /* An emote in the message, sized to the text as in the chat overlay. */
+        .clip-card__emote {
+            block-size: 1.5em;
+            inline-size: auto;
+            vertical-align: middle;
+            margin: 0 2px;
         }
 
         @media (prefers-reduced-motion: reduce) {

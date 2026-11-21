@@ -199,7 +199,9 @@ preferences. Details: `docs/channel-config.md`.
   ownership `lost`. A handover loses at most one window of candidates.
 - `clipMeta` goes directly before the first frame of the clip, once for each socket. It is never held
   or replayed.
-- The player sets card text only with `textContent`. Chat is not trusted.
+- The player sets card text only with `textContent` or text nodes. Chat is not trusted. An emote
+  is an `<img>` whose `src` is HTTPS on a host in `EMOTE_HOSTS`. The server (`cardParts.js`) and
+  the player (`tts-player.js`) each keep that list and check it. Change both together.
 - The format of `ttsSpotlightLog` is mirrored by hand in `chatvibes-web-ui`
   (`functions/src/services/spotlight.ts`). Change both together.
 - In `@google/genai` calls, `systemInstruction` must sit inside `config`. The SDK drops a top-level one.

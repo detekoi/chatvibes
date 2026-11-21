@@ -19,6 +19,7 @@ import { isTwitchUserIgnored } from '../../../lib/ignoreList.js';
 import { containsBannedWord } from '../../../lib/bannedWords.js';
 import { isTtsSubCommand } from '../../commands/tts/subcommandNames.js';
 import { offerSpotlightCandidate } from '../../../lib/spotlight/spotlightBuffer.js';
+import { cardPartsFromTwitch } from '../../tts/cardParts.js';
 import { currentTiming } from '../../../lib/ttsTiming.js';
 
 /**
@@ -234,7 +235,11 @@ export async function handleChatMessage(event, channelName) {
         const eventData = { text, user: username, userId, type, messageId: event.message_id, chatAtMs };
         // The card the browser source can show while the clip plays: the viewer's
         // own words, not the formatted speech. ttsQueue.enqueue filters and cuts it.
-        if (isSpotlight) eventData.display = { kind: 'spotlight', user: displayName, text: cleanMessage };
+        // A message with emotes also carries them as parts, so the card shows the images.
+        if (isSpotlight) {
+            const parts = cardPartsFromTwitch(ttsFragments);
+            eventData.display = { kind: 'spotlight', user: displayName, text: cleanMessage, ...(parts ? { parts } : {}) };
+        }
         await dispatchTtsEvent(channelName, eventData, sharedSessionInfo);
         logger.debug({ channel: channelName, user: username, type, textPreview: processedMessage.substring(0, 30) }, 'Published chat message for TTS');
         return true;

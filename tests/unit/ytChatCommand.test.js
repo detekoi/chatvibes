@@ -240,6 +240,21 @@ describe('YouTube chat: !tts command', () => {
             }));
         });
 
+        it('puts the custom emotes on the card as parts', async () => {
+            const imageUrl = 'https://yt3.ggpht.com/wave=w24-h24-c-k-nd';
+            await handleYouTubeChatMessage('chan-1', message('nice  ', {
+                emoteFragments: [
+                    { type: 'text', text: 'nice ' },
+                    { type: 'yt_emote', text: ':wave:', label: 'wave', imageUrl },
+                ],
+            }));
+            await offered()[0].speak({ reason: 'r' });
+            expect(spoken()[0].display).toEqual({
+                kind: 'spotlight', user: 'Viewer', text: 'nice',
+                parts: [{ type: 'text', text: 'nice ' }, { type: 'emote', name: ':wave:', src: imageUrl }],
+            });
+        });
+
         it('never offers a message that starts with "!"', async () => {
             await handleYouTubeChatMessage('chan-1', message('!lurk'));
             expect(offered()).toEqual([]);
