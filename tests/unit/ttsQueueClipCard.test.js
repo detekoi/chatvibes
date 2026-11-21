@@ -76,7 +76,7 @@ describe('ttsQueue clip card', () => {
         beforeEach(() => ttsQueue.pauseQueue(TEST_CHANNEL));
 
         it('keeps the card on the queue item', async () => {
-            await enqueue('Chat spotlight from ViewerName: hello there', { display: display('hello there') });
+            await enqueue('ViewerName said: hello there', { display: display('hello there') });
             expect(item().display).toEqual({ kind: 'spotlight', user: 'ViewerName', text: 'hello there' });
         });
 
@@ -189,7 +189,7 @@ describe('ttsQueue clip card', () => {
 
         it('drops a card with no text left but still queues the clip', async () => {
             channelConfig.disabledSoundTags = ['moan'];
-            await enqueue('Chat spotlight from ViewerName: <moan>', { display: display('<moan>') });
+            await enqueue('ViewerName said: <moan>', { display: display('<moan>') });
             expect(item()).toBeDefined();
             expect(item()).not.toHaveProperty('display');
         });
@@ -198,7 +198,7 @@ describe('ttsQueue clip card', () => {
     describe('handoff, persistence and Pub/Sub', () => {
         beforeEach(async () => {
             await ttsQueue.pauseQueue(TEST_CHANNEL);
-            await enqueue('Chat spotlight from ViewerName: hello', { display: display('hello') });
+            await enqueue('ViewerName said: hello', { display: display('hello') });
         });
 
         it('survives takeQueueForHandoff and adoptQueue, also as JSON', async () => {
@@ -223,7 +223,7 @@ describe('ttsQueue clip card', () => {
         const metaCalls = () => calls.filter(c => c.fn === 'meta');
 
         it('sends the card before audioStart with the same clipId, and before the WAV frame for the rest', async () => {
-            await enqueue('Chat spotlight from ViewerName: hello', { display: display('hello') });
+            await enqueue('ViewerName said: hello', { display: display('hello') });
             await flush();
 
             expect(calls.map(c => c.fn)).toEqual(['meta', 'audioStart', 'meta', 'wav']);
@@ -345,7 +345,7 @@ describe('Pub/Sub carries the card', () => {
         await pubsub.initializePubSub();
 
         const eventData = {
-            text: 'Chat spotlight from ViewerName: hello', user: 'viewer', userId: '1', type: 'spotlight',
+            text: 'ViewerName said: hello', user: 'viewer', userId: '1', type: 'spotlight',
             display: { kind: 'spotlight', user: 'ViewerName', text: 'hello' },
         };
         await pubsub.publishTtsEvent(TEST_CHANNEL, eventData);

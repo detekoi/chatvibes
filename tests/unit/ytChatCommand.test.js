@@ -232,7 +232,7 @@ describe('YouTube chat: !tts command', () => {
             await handleYouTubeChatMessage('chan-1', message('that was a clean dodge'));
             await expect(offered()[0].speak({ reason: 'r' })).resolves.toBe(true);
             expect(dispatchYouTubeTtsEvent).toHaveBeenCalledWith('chan-1', expect.objectContaining({
-                text: 'Chat spotlight from Viewer: that was a clean dodge',
+                text: 'Viewer said: that was a clean dodge',
                 type: 'spotlight',
                 messageId: 'yt-msg-1',
                 platform: 'youtube',

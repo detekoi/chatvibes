@@ -5,7 +5,7 @@
 // the spotlight buffer; a message that starts with "!" never does. Nothing is
 // formatted for a candidate: formatTtsText runs only when the buffer calls the
 // speak closure for a pick, which dispatches a 'spotlight' clip with the prefix
-// "Chat spotlight from <display name>: ". Cheers, commands and "!tts <text>"
+// "<display name> said: ". Cheers, commands and "!tts <text>"
 // keep their own paths.
 
 import { jest } from '@jest/globals';
@@ -98,7 +98,7 @@ describe('handleChatMessage: spotlight mode', () => {
         expect(formatTtsText).toHaveBeenCalledTimes(1);
         expect(spoken()).toEqual([expect.objectContaining({
             type: 'spotlight',
-            text: 'Chat spotlight from ViewerName: that boss should pay rent',
+            text: 'ViewerName said: that boss should pay rent',
             user: 'viewer',
             userId: '1',
             messageId: 'msg-1',
