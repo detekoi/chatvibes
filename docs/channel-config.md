@@ -66,7 +66,7 @@ code. The ignore list and i18n have their own files (`ignore-list.md`, `i18n.md`
   the same test at its `all` fallthrough, after `!tts` has been recognised. `!tts readcommands on|off`
   flips it from chat. `chatHandlerCommandMessages.test.js` and `ytChatCommandMessages.test.js` pin it.
 - Spotlight mode (`spotlight`). A model picks the few chat messages that TTS reads, and the bot
-  says "Chat spotlight from {user}:" before each one. Two fields belong to it. `spotlightGuidance`
+  says "{user} said:" before each one. Two fields belong to it. `spotlightGuidance`
   is free text for the model, 300 characters at most (`SPOTLIGHT.GUIDANCE_MAX` in `tts-config.json`).
   It is unset by default, an empty string clears it, and `!tts spotlight <text|off>` sets it
   (moderators only). It is a preference. It cannot make the model pick a kind of message that the

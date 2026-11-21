@@ -8,7 +8,7 @@ In `all` mode a busy chat is noise. In `command` mode good messages go unread. S
 
 The small model is the router. It is a call to `gemini-3.5-flash-lite`, and the environment variable `SPOTLIGHT_GEMINI_MODEL` changes the model. The router returns the IDs of the picks and a short reason for each one.
 
-The bot speaks each pick with the prefix from `announce.spotlight`. In English the text is "Chat spotlight from {user}: {message}". The bot says the prefix in the channel locale. The clip has the type `spotlight`.
+The bot speaks each pick with the prefix from `announce.spotlight`. In English the text is "{user} said: {message}". The prefix is short because the bot says it before every pick. The bot says the prefix in the channel locale. The clip has the type `spotlight`.
 
 The mode is named Spotlight so that it does not collide with `highlighted_only`, which reads the Twitch "Highlight My Message" reward. A highlighted message is an ordinary candidate in spotlight mode.
 
