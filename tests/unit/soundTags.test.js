@@ -82,6 +82,12 @@ describe('stripDisabledSoundTags', () => {
         expect(stripDisabledSoundTags('hello (laugh) world', ['laugh'])).toBe('hello world');
     });
 
+    test('keeps the outer spaces with trim off, and still collapses the inner ones', () => {
+        expect(stripDisabledSoundTags('<moan> nice play ', ['moan'], { trim: false })).toBe(' nice play ');
+        expect(stripDisabledSoundTags(' <moan> ', ['moan'], { trim: false })).toBe(' ');
+        expect(stripDisabledSoundTags('<moan> nice play ', ['moan'])).toBe('nice play');
+    });
+
     test('removes every spelling of the tag, in any letter case', () => {
         expect(stripDisabledSoundTags('a <LAUGHING> b (Laughs) c <laughter> d', ['laugh'])).toBe('a b c d');
     });

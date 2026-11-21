@@ -133,6 +133,49 @@ describe('ttsQueue clip card', () => {
             expect(card.text).toBe(`${card.parts[0].text}Kappa`);
         });
 
+        describe('filters on the joined text of the card', () => {
+            const src = 'https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0';
+            const kappa = { type: 'emote', name: 'Kappa', src };
+            const text = t => ({ type: 'text', text: t });
+            const card = parts => enqueue('x', { display: { ...display('ignored'), parts } });
+
+            it('keeps the space before an emote when a sound tag is removed', async () => {
+                channelConfig.disabledSoundTags = ['moan'];
+                await card([text('<moan> nice play '), kappa]);
+                expect(item().display.text).toBe('nice play Kappa');
+            });
+
+            it('keeps the spaces around a removed sound tag between two parts', async () => {
+                channelConfig.disabledSoundTags = ['laugh'];
+                await card([text('hello '), text('@alice'), text(' <laugh> nice '), kappa]);
+                expect(item().display.text).toBe('hello @alice nice Kappa');
+            });
+
+            it('keeps the space between two emotes when a sound tag between them is removed', async () => {
+                channelConfig.disabledSoundTags = ['moan'];
+                await card([kappa, text(' <moan> '), kappa]);
+                expect(item().display.text).toBe('Kappa Kappa');
+            });
+
+            it('filters a split word that crosses a mention and the text after it', async () => {
+                channelConfig.profanityFilterEnabled = true;
+                await card([text('hey '), text('@basta'), text(' rd '), kappa]);
+                expect(item().display.text).not.toMatch(/basta rd/);
+            });
+
+            it('does not join a split word when a sound tag between its halves is removed', async () => {
+                channelConfig.profanityFilterEnabled = true;
+                channelConfig.disabledSoundTags = ['laugh'];
+                await card([text('hey '), text('@basta'), text(' <laugh> rd '), kappa]);
+                expect(item().display.text).not.toMatch(/bastard|basta rd/);
+            });
+
+            it('collapses the double space left by an emote with no name', async () => {
+                await card([text('a '), { type: 'emote', name: '', src }, text(' b '), kappa]);
+                expect(item().display.text).toBe('a b Kappa');
+            });
+        });
+
         it('keeps a card with only an emote', async () => {
             const src = 'https://yt3.ggpht.com/abc=w24-h24';
             await enqueue('x', { display: { ...display(' '), parts: [{ type: 'emote', name: ':wave:', src }] } });

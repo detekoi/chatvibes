@@ -114,6 +114,9 @@ function readCardParts(parts) {
             const src = emoteSrc(part.src);
             if (src) {
                 const preload = new Image();
+                // The same policy as the card image, so the two requests match and
+                // the token in the page URL never goes to the image host.
+                preload.referrerPolicy = 'no-referrer';
                 preload.src = src;
                 out.push({ type: 'emote', name: part.name, src });
             } else {

@@ -46,9 +46,11 @@ function patternFor(disabledTags) {
  * Remove the sound tags that a channel turned off. Text inside a URL is left alone.
  * @param {string} text
  * @param {unknown} disabledTags Canonical tag names, usually `ttsConfig.disabledSoundTags`
+ * @param {{trim?: boolean}} [options] `trim: false` keeps a space at the start and
+ *     the end. The card needs it: its text sits next to emotes.
  * @returns {string}
  */
-export function stripDisabledSoundTags(text, disabledTags) {
+export function stripDisabledSoundTags(text, disabledTags, { trim = true } = {}) {
     if (typeof text !== 'string' || !Array.isArray(disabledTags) || disabledTags.length === 0) return text;
     const pattern = patternFor(disabledTags);
     if (!pattern) return text;
@@ -62,5 +64,7 @@ export function stripDisabledSoundTags(text, disabledTags) {
         last = match.index + match[0].length;
     }
     out += clean(text.slice(last));
-    return out === text ? text : out.replace(/[ \t]{2,}/g, ' ').trim();
+    if (out === text) return text;
+    const collapsed = out.replace(/[ \t]{2,}/g, ' ');
+    return trim ? collapsed.trim() : collapsed;
 }

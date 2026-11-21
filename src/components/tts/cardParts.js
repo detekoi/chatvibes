@@ -92,10 +92,11 @@ function codePointLength(text) {
  * The parts of a card, made safe to show and cut to `max` code points. An emote
  * counts as the length of its name, so the cut matches the one of `text`.
  *
- * `cleanText` is the filter of the card text (sound tags and profanity). It runs on
- * each text part and on each emote name: the player shows the name if the image does
- * not load. An emote with a bad `src` becomes text. Whitespace is collapsed, and
- * adjacent text parts are joined.
+ * `cleanText` is the filter of the card text (sound tags and profanity). It runs once
+ * on the joined text between two emotes, and on each emote name: the player shows the
+ * name if the image does not load. It must keep a space at the start and the end of
+ * its result, or a word and the next emote run together. An emote with a bad `src`
+ * becomes text. Whitespace is collapsed.
  *
  * @param {unknown} parts
  * @param {(text: string) => string} cleanText
@@ -113,24 +114,31 @@ export function cleanCardParts(parts, cleanText, max) {
         if (last && last.type === 'text') last.text += text;
         else clean.push({ type: 'text', text });
     };
+    // First pass: join the text between two emotes into one part. An emote with a
+    // bad src is text here. An emote whose name is empty after the filter is dropped.
     for (const part of parts) {
         if (!part || typeof part !== 'object') continue;
         if (part.type === 'emote') {
+            if (!isEmoteSrc(part.src)) {
+                pushText(String(part.name ?? ''));
+                continue;
+            }
             const name = cleanText(String(part.name ?? '')).replace(/\s+/g, ' ').trim();
             const short = Array.from(name).slice(0, NAME_MAX).join('');
-            if (isEmoteSrc(part.src) && short) clean.push({ type: 'emote', name: short, src: part.src });
-            else pushText(short);
+            if (short) clean.push({ type: 'emote', name: short, src: part.src });
         } else if (part.type === 'text') {
-            pushText(cleanText(String(part.text ?? '')).replace(/\s+/g, ' '));
+            pushText(String(part.text ?? ''));
         }
     }
-    // The filters can leave a double space where two parts meet.
+    // Second pass: filter each joined text once. A split word ("basta rd") can cross
+    // two fragments, for example a mention and the text after it, so the filter must
+    // see the whole text between two emotes, as it sees the whole message for speech.
     for (let i = 0; i < clean.length; i++) {
         const part = clean[i];
         if (part.type !== 'text') continue;
+        part.text = cleanText(part.text).replace(/\s+/g, ' ');
         if (i === 0) part.text = part.text.trimStart();
         if (i === clean.length - 1) part.text = part.text.trimEnd();
-        if (i > 0 && clean[i - 1].type === 'text') part.text = part.text.trimStart();
     }
     const kept = clean.filter(p => p.type === 'emote' || p.text);
     if (!kept.some(p => p.type === 'emote')) return null;

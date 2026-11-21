@@ -272,7 +272,7 @@ function cutCodePoints(text, max) {
 function cleanDisplay(display, disabledSoundTags, profanityRules) {
     if (!display || typeof display !== 'object' || !DISPLAY_KINDS.has(display.kind)) return null;
     const cleanText = (raw) => {
-        const text = stripDisabledSoundTags(raw, disabledSoundTags);
+        const text = stripDisabledSoundTags(raw, disabledSoundTags, { trim: false });
         return profanityRules ? applyRewrites(text, profanityRules) : text;
     };
     const user = cutCodePoints(String(display.user ?? '').replace(/\s+/g, ' ').trim(), DISPLAY_USER_MAX);
